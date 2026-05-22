@@ -1,0 +1,471 @@
+Title: Structure-Guided Diffusion Model for EEG-Based Visual Cognition Reconstruction
+
+URL Source: https://arxiv.org/pdf/2604.22649v1
+
+Published Time: Mon, 27 Apr 2026 01:02:28 GMT
+
+Number of Pages: 20
+
+Markdown Content:
+# STRUCTURE -G UIDED DIFFUSION MODEL FOR EEG-B ASED 
+
+# VISUAL COGNITION RECONSTRUCTION 
+
+A P REPRINT 
+
+Yongxiang Lian ∗
+
+Department of Automation Tsinghua University Haidian District, 100084, Beijing, China 
+
+lianyx20@mails.tsinghua.edu.cn 
+
+Yueyang Cang ∗
+
+Department of Automation Tsinghua University Haidian District, 100084, Beijing, China 
+
+cangyy23@mails.tsinghua.edu.cn 
+
+Pingge Hu 
+
+China Academy of Information and Communications Technology Haidian District, 100084, Beijing, China 
+
+hupingge@caict.ac.cn 
+
+Yuchen He 
+
+Department of Automation Tsinghua University Haidian District, 100084, Beijing, China 
+
+heyuchen25@mails.tsinghua.edu.cn 
+
+Li Shi 
+
+Department of Automation Tsinghua University Haidian District, 100084, Beijing, China 
+
+shilits@mail.tsinghua.edu.cn 
+
+April 27, 2026 
+
+## ABSTRACT 
+
+Objective: Decoding visual information from electroencephalography (EEG) is an important problem in neuroscience and brain–computer interface (BCI) research. Existing methods are largely restricted to natural images and categorical representations, with limited capacity to capture structural features and to differentiate objective perception from subjective cognition. We propose a Structure-Guided Diffusion Model (SGDM) that incorporates explicit structural information for EEG-based visual reconstruction. Approach: SGDM is evaluated on the Kilogram abstract visual object dataset and the THINGS natural image dataset using a two-stage generative mechanism. The framework combines a structurally supervised variational autoencoder with a spatiotemporal EEG encoder aligned to a visual embedding space via contrastive learning. Structural information is integrated into a diffusion model through ControlNet to guide image generation from EEG features. Results: SGDM outperforms existing methods on both abstract and natural image datasets. Reconstructed images achieve higher fidelity in low-level visual features and semantic representations, indicating improved decoding accuracy and strong generalization across diverse visual domains. Spatiotemporal analysis of EEG signals further reveals hierarchical structural encoding patterns, consistent with the neural dynamics of visual cognition. Significance: These findings validate the effectiveness of SGDM in capturing explicit structural geometry and generating images with high fidelity to individual cognitive representations. By enabling decoding of complex visual content from EEG signals, the framework extends neural decoding beyond low-dimensional or categorical outputs. This supports BCIs with increased degrees of freedom for intention decoding and more flexible brain-to-machine communication. 
+
+Keywords Electroencephalography · Diffusion model · Structure guided · Cognition reconstruction 
+
+> ∗
+
+These authors contributed equally to this work and are co-first authors. 
+
+> arXiv:2604.22649v1 [cs.NE] 24 Apr 2026
+
+arXiv Template A P REPRINT 
+
+## 1 Introduction 
+
+Decoding human thoughts from brain activity has long been regarded as one of the central goals of neuroscience He and Chen [2018], Murad and Rahimi [2024], Tong and Pratte [2012]. In recent years, the rapid development of artificial intelligence has made it increasingly feasible to decode neural representations of visual perception and cognition Chen et al. [2024], Scotti et al. [2023], Wang et al. [2025]. Among various neuroimaging techniques, electroencephalography (EEG) offers millisecond-level temporal resolution that captures subtle dynamics of brain activity Luck [2014], Wang et al. [2025]. Due to its non-invasiveness and accessibility, EEG has become a crucial tool for investigating visual perception and cognitive processes Cheng et al. [2025], Zeng et al. [2023]. However, the low signal-to-noise ratio, significant inter-individual variability, and complex associations among hierarchical visual semantics make it challenging to reconstruct images that humans “see” from EEG signals Zeng et al. [2023], Singh et al. [2024]. Furthermore, generating images that reflect subjective cognition introduces additional challenges related to experimental paradigms and generative modeling mechanisms Palazzo et al. [2021], Li et al. [2024]. In recent years, researchers have attempted to extract visually relevant representations from EEG signals using deep learning models Spampinato et al. [2017], Lawhern et al. [2018], aiming to decode perceptual images evoked by visual stimuli. Early studies employed convolutional neural networks (CNNs) and recurrent neural networks (RNNs) to achieve relatively accurate object category recognition Guo et al. [2024], Bashivan et al. [2016], Roy et al. [2019]. Subsequently, the integration of contrastive learning and cross-modal embedding techniques enabled the alignment of EEG signals with visual semantic spaces Radford et al. [2021], Jia et al. [2021]. Combined with the progress in diffusion-based generative models Ho et al. [2020], Rombach et al. [2022], Saharia et al. [2022], these advances have significantly propelled image retrieval and reconstruction from neural signals. In particular, the remarkable reconstruction results achieved using fMRI have provided substantial impetus to the development of this field Takagi and Nishimoto [2023]. Inspired by the hierarchical processing mechanism of the human visual system Felleman and Essen [1991], Kriegeskorte et al. [2008], Yamins and DiCarlo [2016], recent studies have begun to emphasize hierarchical visual representations that go beyond categorical semantics Beliy et al. [2019], Kar et al. [2019]. By incorporating multi-level features into the latent space of diffusion models, these approaches aim to enhance reconstruction fidelity Rombach et al. [2022], Takagi and Nishimoto [2023]. However, decoding low-level visual features from EEG remains particularly challenging Roy et al. [2019], Palazzo et al. [2021]. Existing approaches often align EEG features with high-dimensional CLIP embeddings Radford et al. [2021], Jia et al. [2021] or apply joint training strategies to achieve cross-modal mapping Yang et al. [2022], Li et al. [2024]. Yet, due to the substantial distributional discrepancy between EEG and visual semantic spaces, these methods typically ensure similarity only at a numerical level, leading to unstable training, overfitting, and poor generalization across subjects Palazzo et al. [2021], Spampinato et al. [2017]. Consequently, both structural accuracy and semantic consistency remain limited Shen et al. [2019], Zeng et al. [2023]. In summary, current EEG-based visual decoding approaches suffer from three major limitations Roy et al. [2019], Cheng et al. [2025]: (1) Over-reliance on categorical representations. Existing models are predominantly based on natural image stimuli and heavily depend on categorical discrimination, while overlooking structured representations of visual objects at the cognitive level, resulting in poor generalization under complex cognitive scenarios Singh et al. [2024]; (2) Lack of explicit hierarchical structural information. Most studies focus on low-level visual features such as category, color, and contour, without datasets or modeling frameworks capable of explicitly describing local-to-global structural relationships Zeng et al. [2023]; (3) Difficulty in aligning individual cognitive interpretations. Current experimental paradigms primarily focus on objective "seen" stimuli and often overlook the subjective cognitive processes involved in how individuals decompose and interpret visual structures. This neglect leads to a "semantic gap" between generic neural signals and the fine-grained cognitive representations of specific objects, hindering a deeper understanding of how the brain encodes complex visual hierarchies Li et al. [2024]. To address these challenges, this study proposes a Structure-Guided Diffusion Model (SGDM) for EEG-based visual cognition reconstruction Li et al. [2024], Rombach et al. [2022]. Instead of solely relying on categorical labels, the model leverages detailed human-annotated structural priors to bridge the gap between low-level visual perception and high-level cognitive interpretation Zhang et al. [2023], Huang et al. [2025]. We utilize the Kilogram dataset, which comprises abstract visual objects with subjectively defined local-to-global structures. This allows us to model how the brain represents organized visual entities through the lens of individual cognitive consensus, rather than simple stimulus-response mapping. Based on this foundation, the SGDM framework incorporates three key mechanisms: 1. Structured priors and explicit prediction: A variational autoencoder (VAE) is employed to learn structural encodings of visual objects, enabling generative prediction from EEG latent representations to structural embeddings Rombach et al. [2022], Kar et al. [2019]; 2arXiv Template A P REPRINT 
+
+2. Cross-modal semantic alignment via multi-semantic annotations: To capture the cognitive diversity of visual objects, we fine-tune a CLIP model using abstract images paired with detailed, human-labeled structural descriptions. Contrastive learning is then applied to align EEG features with these cognitively enriched visual embeddings Radford et al. [2021], Jia et al. [2021], Frome et al. [2013], ensuring the model decodes not just a silhouette, but the intended structural meaning; 3. Controllable diffusion generation: Structural predictions are embedded into the ControlNet diffusion process, allowing cognitively generated images to achieve structural controllability while maintaining semantic individuality Zhang et al. [2023], Huang et al. [2025]. Experimental results on the Kilogram and THINGS datasets demonstrate that SGDM significantly outperforms existing methods in structural prediction accuracy, image generation quality, and semantic consistency Li et al. [2024], Takagi and Nishimoto [2023]. Moreover, spatiotemporal feature analysis reveals that the structural encoding patterns learned by the model exhibit strong correspondence with neural mechanisms underlying visual cognition Felleman and Essen [1991], Kar et al. [2019]. Overall, this work introduces a new structured decoding paradigm for EEG-based visual cognition reconstruction and provides fresh insights into the cognitive guidance mechanisms of multimodal generative models. 
+
+## 2 Methods 
+
+In this section, we present the proposed Structure-Guided Diffusion Model (SGDM) (Fig. 1), a unified framework for EEG-based visual cognition reconstruction. Given raw EEG signals as input, SGDM aims to explicitly disentangle structural information and establish cross-modal correlations between EEG–Vision–Text , ultimately generating visual images consistent with individual cognitive representations. SGDM consists of four collaborative modules: (1) a CLIP-based text–image dual encoder to construct a unified semantic space, (2) an EEG semantic encoder to extract and align high-level EEG features, (3) a structure prediction module based on SDXL-turbo VAE for generating visual structure maps, and (4) a dual-constrained diffusion generator for semantic–structural guided image synthesis. 
+
+2.1 Dataset and Preprocessing 2.1.1 Dataset 
+
+The experiments were conducted on two complementary datasets: the Kilogram Abstract Visual Object Dataset and the THINGS Natural Image Dataset. Kilogram Ji et al. [2022] contains over 900 tangrams, each of which was annotated with at least 10 segmentation annotations (See Supplementary data). On the basis of this dataset, we constructed the Cognitive Encoding to establish a mathematical foundation for quantification and to provide supervisory information. We further established quantitative indices of tangram stimuli, including abstraction level and local feature density. Based on these measures, 75 representative tangram figures were selected, and EEG experimentsLian et al. [2025] were conducted with 24 participants with Psychopy toolbox Peirce et al. [2019]. The THINGS dataset Gifford et al. [2022] contains 1,854 natural object categories with 26,000 high-resolution images, serving as a perceptual baseline for generalization and cross-domain evaluation. 
+
+2.1.2 EEG Acquisition and Preprocessing 
+
+The EEG experimental data were obtained from our previous work Lian et al. [2025]. Detailed information regarding vi-sual stimuli, hardware specifications, experimental parameters, preprocessing pipelines, electrode configurations, and ocular artifact removal is provided in the Supplementary Data .The experimental paradigm is illustrated in Fig. 2. Participants sequentially completed a visual cognition EEG acquisition task (Fig. 2(a)) and a Tangram labeling task (Fig. 2(b)). In the EEG acquisition task, each trial began with a fixation cross presented for 500 ms, followed by a 500 ms blank screen. At 0 ms, a visual stimulus was randomly presented for a duration of 1000 ms. Upon stimulus offset, a response prompt appeared, requiring participants to perform a categorical judgment (i.e., whether the object was an animal). To eliminate motor effector bias from the left and right hands, the mapping between the response keys and the "Yes/No" options was randomized for each trial. The trial was terminated upon the participant’s key press. An inter-trial interval (ITI) of 1.5–2.5 s was applied to mitigate expectancy effects. 3arXiv Template A P REPRINT CLIP Image CLIP Text 
+
+> CLIP Finetune
+> CLIP Image EEG Encoder 1
+> Train Semantic Encoder ControlNet IP-Adapter SDXL-turbo Diffusion Unet
+
+TTFFFTTFContrastive Learing Trainable Frozen EEG Encoder 2TVAE(sd) Encoder VAE(sd) Decoder         
+
+> Structure Image
+> FF
+> Annotations
+> EEG series Visual stimulus
+> robot, human, tree bird, bat, kite hat man, mask, plane Text Embedding Image Embedding Image Embedding EEG Embedding EEG Embedding
+> Train structural Encoder
+> Base U-net VAE(sd) Decoder
+> FRefiner Latent Embedding
+> Cognitive encoding
+> Joint Embedding Conv-Transpose Model TCognitive Encoding Predictor T
+> Projecting Latent Embedding
+> 7×7
+> Stage Ⅱ (Semantic) Stage Ⅰ (Structural) Generation
+> Cognitive Generation
+
+Figure 1: Overview of the proposed Structure-Guided Diffusion Model (SGDM) framework. The system consists of four main modules: (1) a CLIP text–image dual encoder Radford et al. [2021] for unified semantic representation learning, (2) an EEG semantic encoder trained to align with the CLIP image space Li et al. [2024], (3) a structure prediction module based on the SDXL-turbo VAE Rombach et al. [2022] for generating spatial priors, and (4) a dual-constrained diffusion generator that integrates semantic and structural conditions via IP-Adapter Huang et al. [2025] and ControlNet Zhang et al. [2023] to synthesize cognitively consistent images. Following the EEG acquisition, a behavioral labeling experiment was conducted. Participants provided detailed English annotations for the stimulus images presented during the previous session. The labeling process consisted of two distinct sub-tasks: global annotation and semantic segmentation. These annotated data represent the participants’ subjective cognitive perception of the Tangram stimuli. EEG preprocessing followed the standardized MNE Gramfort et al. [2013] protocol described in our previous study Lian et al. [2025] (see Supplementary Data for details). Unless otherwise specified, all preprocessing parameters and channel configurations remained consistent with the established protocol Lian et al. [2025], ensuring cross-subject consistency and signal reliability. Time (ms) -1000 
+
+> YES NO
+
+(a) (b)  
+
+> after response -500 01000 whole shape dragonfly
+> segment parts wings
+
+Figure 2: EEG data acquisition and labeling tasks on the Tangram dataset. (a)Experimental paradigm for Tangram EEG data acquisition. (b)Global annotation and semantic segmentation tasks for Tangram images. 4arXiv Template A P REPRINT 
+
+2.1.3 Data Splitting and Leakage Avoidance 
+
+The dataset was partitioned into training, validation, and test sets using an 8 : 1 : 1 ratio. The partitioning was performed at the image level rather than the subject level to ensure that the visual stimuli in the test set were entirely absent from the training set. This image-wise isolation protocol was strictly followed to prevent data leakage, thereby avoiding overestimation of the model’s performance. 
+
+2.1.4 Statistical Analysis 
+
+Group-level differences between reconstruction methods were evaluated using two-tailed paired t-tests unless otherwise specified. p-values were adjusted for multiple comparisons using the Benjamini–Hochberg false discovery rate (FDR) correction. Statistical significance was defined at p < 0.05 . Bootstrapped confidence intervals (1,000 resamples) were computed to estimate inter-subject variability. 
+
+2.2 CLIP Text–Image Encoder 
+
+To establish a consistent cross-modal reference for EEG–vision alignment, we first construct a unified semantic space between natural language and visual stimuli. Specifically, we adopt the CLIP ViT-H/14 architecture Radford et al. [2021] as the foundation for cross-modal representation learning. The pretrained text–image dual encoders provide robust semantic alignment and serve as a semantic baseline for EEG-to-vision mapping. An overview of the dual-encoder architecture is illustrated in Fig. 3. 
+
+2.2.1 Text Encoder 
+
+The text encoder transforms natural-language annotations into normalized semantic embeddings. It consists of a 12-layer Transformer with a hidden dimension of 768 and 12 attention heads. Each input text sequence is tokenized using CLIP’s ByteLevel BPE tokenizer, padded or truncated to a fixed length of 77 tokens, and enriched with <start> 
+
+and <end> symbols. The resulting embeddings are mapped to 768 dimensions and combined with learnable positional encodings, forming an input tensor of shape (B, 77 , 768) . After Transformer encoding, the hidden state corresponding to the <end> token is linearly projected into a 1024-dimensional semantic vector: 
+
+zT = Proj( h<end> )
+
+which is directly comparable to the CLIP image encoder output. The 1024-dimensional embedding design ensures compatibility with the EEG latent space in later alignment modules. 
+
+2.2.2 Image Encoder 
+
+The image encoder follows the ViT-H/14 backbone, consisting of 32 Transformer blocks with a hidden size of 1280. Input images are resized to 224 × 224 , divided into non-overlapping patches, linearly projected, and augmented with positional encodings. After Transformer encoding, the [CLS] token is projected to a 1024-dimensional embedding: 
+
+zI = Proj( hCLS )
+
+Since CLIP is pretrained primarily on natural images and lacks abstraction-awareness, we fine-tune only the last three Transformer layers and the projection head using the InfoNCE contrastive loss: 
+
+LCLIP = − 1
+
+B
+
+X
+
+> i
+
+log exp(sim( z(i) 
+
+> T
+
+, z (i) 
+
+> I
+
+)/τ )
+
+P 
+
+> j
+
+exp(sim( z(i) 
+
+> T
+
+, z (j) 
+
+> I
+
+)/τ )
+
+where τ denotes the temperature parameter controlling similarity distribution sharpness. The resulting 1024-D embeddings define a unified semantic space that serves as the foundation for EEG–vision–text alignment in subsequent modules. 
+
+2.3 EEG–Semantic Alignment with Diffusion Image Embedding 
+
+This module aims to bridge EEG representations and visual semantics in the CLIP latent space, providing high-level priors for downstream image generation. It consists of two cooperative components: (1) an EEG semantic encoder 
+
+that extracts and aligns cognitive representations from EEG signals, and (2) a Prior Diffusion Model that transforms EEG-derived embeddings into CLIP-like latent distributions, ensuring consistency with visual semantic priors. 5arXiv Template A P REPRINT A cute dog A cute dog Hat Human Embedding Position Encoding ByteLevel BPE     
+
+> 12× Transformer
+> FC layer
+> T1 T2 T3 T4 T5 I1 I2 I3 I4 I5 336×336 pixels Image Patching 14×14 patches
+> 16× Transformer
+
+Figure 3: Overview of the CLIP-based text–image dual encoder Radford et al. [2021]. The text branch encodes tokenized descriptions through Transformer layers, while the image branch processes visual patches with a Vision Transformer. Both outputs are projected into a shared 1024-dimensional semantic space. 
+
+2.3.1 EEG Encoder (ATM) 
+
+The EEG encoder follows the architecture of the Adaptive Thinking Mapper (ATM) Li et al. [2024], which is designed to extract semantic representations from EEG signals and align them with the CLIP embedding space. This design is inspired by previous EEG-to-vision alignment work Spampinato et al. [2017]. Given EEG inputs 
+
+E = [ e1, e 2, . . . , e C ]⊤ ∈ RC×T , the encoder maps them into the CLIP semantic space: 
+
+ZE = fEEG (E; θE ) ∈ RB×1024 
+
+The encoder integrates channel-wise attention , temporal–spatial convolution , and an MLP projector with residual blocks and LayerNorm to capture rich temporal–spatial dependencies within EEG signals. The structure of the ATM encoder is illustrated in Fig. 4. … …FPz FP1 O2  
+
+> Embedding Layer
+> …
+> Channel-wise Attention Layer Temporal Spatial Conv Module MLP Projectior
+> Input Embedding CNN & Norm ELU N× Temporal Spatial Aggregation Flatten
+> Linear Projection GELU Linear Projection Add & LayNorm
+
+Figure 4: Architecture of the Adaptive Thinking Mapper (ATM) EEG encoder Li et al. [2024]. Raw EEG signals from multiple channels are first embedded through an embedding layer, followed by a channel-wise attention mechanism to model inter-channel dependencies. The temporal–spatial convolution module aggregates local and global EEG dynamics, and the MLP projector with residual and normalization layers maps the extracted features into the 1024-dimensional CLIP semantic space. 
+
+(1) Channel-wise Attention. Temporal embeddings are first computed via 1D convolution and positional encoding: 
+
+Hc = Conv1D( ec) + Pt
+
+Attention weights are then obtained through a self-attention operation: 
+
+eH = softmax 
+
+ (HWQ)( HWK )⊤
+
+√dk
+
+
+
+(HWV ), H′ = eH + H
+
+(2) Temporal–Spatial Convolution. The model aggregates features across temporal and spatial dimensions: 
+
+F = σ(Wt ∗ H′ + Ws ∗ H′ + b)
+
+where ∗ denotes convolution and σ(·) is the ReLU activation function. 6arXiv Template A P REPRINT 
+
+(3) MLP Projector. Flattened features are passed through a two-layer MLP with residual and normalization layers to produce semantic embeddings aligned with the CLIP image space: 
+
+ZE = W2ϕ(W1Flatten( F) + b1) + b2
+
+(4) Training Objective. The encoder is optimized with a joint contrastive–regression objective: 
+
+Lsem = λ1LCLIP + λ2LMSE , LMSE = ∥ZE − zI ∥22
+
+where LCLIP is the contrastive loss defined in the previous subsection. 
+
+2.3.2 Prior Diffusion 
+
+To further align EEG-derived embeddings with the visual semantic manifold, a conditional diffusion prior Ho et al. [2020] is introduced to model the distribution p(zI | ZE ). The model learns to predict Gaussian noise in the CLIP latent space: 
+
+ztI = zI + σtϵ, ˆϵ = ϵprior (ztI , t, ZE )
+
+and minimizes the denoising objective: 
+
+Lprior = Et,z I ,ϵ 
+
+∥ϵprior (ztI , t, ZE ) − ϵ∥22
+
+
+
+This probabilistic alignment enables EEG features to be transformed into CLIP-consistent semantic latents, providing a robust prior for downstream visual reconstruction. 
+
+2.4 Structure Prediction Module 
+
+To provide spatial priors for visual reconstruction, we introduce an EEG-based Structure Prediction Module that estimates coarse visual structures from neural signals. This module takes EEG features as input and generates a low-resolution structural representation, which guides the subsequent diffusion-based image synthesis. 
+
+2.4.1 Network Architecture 
+
+As illustrated in Fig. 5, the network follows an encoder–decoder paradigm similar to ControlNet Zhang et al. [2023]. Raw EEG signals are first processed through an embedding layer and a channel-wise attention layer to obtain discriminative spatiotemporal representations. These features are then reshaped into a compact latent tensor and progressively upsampled via multiple ConvTranspose2d layers to generate structural feature maps. The upper block contains six transposed convolutional layers that double the spatial size and halve the feature dimensions, while the lower block contains two transposed convolutional layers that preserve the resolution and refine the generated structure. The resulting feature maps S ∈ R4×64 ×64 serve as the visual structural prior for diffusion generation. ……FPz FP1 O2  
+
+> Embedding Layer
+> …
+> Channel-wise Attention Layer
+> ℝℝ଼
+> Dimension Reshaping
+> ℝ
+> 6× Size Doubled Dims Halved ConvTranspose2d Size Preserved Dims Halved ConvTranspose2d
+> 2×
+> 8064×1×1 16×64×64 4×64×64
+
+Figure 5: Architecture of the EEG-based Structure Prediction Module . EEG signals are embedded and processed through a channel-wise attention layer to capture spatiotemporal dependencies. The resulting latent representations are reshaped and passed through stacked transposed convolutional layers to produce a coarse visual structure map, providing spatial priors for the subsequent diffusion generator. 7arXiv Template A P REPRINT 
+
+2.4.2 Training Objective 
+
+The structure prediction network is trained to minimize the mean squared error between the predicted structure map S
+
+and the reference structural map Sgt extracted from the SDXL-turbo VAE encoder Rombach et al. [2022]: 
+
+Lstruct = ∥S − Sgt ∥22
+
+This structural supervision ensures that the predicted maps capture the global spatial layout and object contours consistent with the subject’s visual perception. 
+
+2.5 Dual-Constrained Diffusion Generation 
+
+Building upon the semantic alignment and structural prediction modules, the final stage of SGDM integrates both priors to synthesize cognitively consistent visual representations. The goal is to generate images that faithfully reflect the subject’s perceived semantics and spatial layout while maintaining controllable and coherent reconstruction. 
+
+2.5.1 Dual Conditioning Mechanism 
+
+As illustrated in Fig. 1, the semantic embedding zI and predicted structural map S serve as dual conditioning inputs to the diffusion process. The semantic feature zI is injected into the SDXL-turbo U-Net via the IP-Adapter Huang et al. [2025] to ensure high-level semantic consistency, while the structural map S is integrated through ControlNet Zhang et al. [2023] to constrain spatial geometry and preserve object layout. This dual-conditioning design effectively balances semantic alignment and structural fidelity during image synthesis. 
+
+2.5.2 Generation Process 
+
+Starting from Gaussian noise, the conditioned U-Net iteratively denoises through 2–4 steps to reconstruct the final image: 
+
+ˆx0 = U -Net( zI , S, ϵ t)
+
+where ϵt denotes the predicted noise at time step t. By combining EEG-derived semantic and structural guidance, SGDM enables robust, semantically grounded, and spatially coherent EEG-to-vision reconstruction without requiring additional fine-tuning. 
+
+## 3 Results 
+
+3.1 EEG Semantic Alignment: Integrating Multilevel Representations 
+
+Achieving effective alignment between EEG signals and the semantic space of cognitive imagery is a critical prerequisite for ensuring accurate image generation. We first visualized the EEG embeddings before and after alignment across multiple representational levels to evaluate the effectiveness of the alignment process in integrating hierarchical representations and explaining individual variability. 
+
+3.1.1 Group-Level EEG Alignment 
+
+To preserve local neighborhood structures and reveal potential clustering patterns, we employed the t-distributed Stochastic Neighbor Embedding (t-SNE) algorithm Maaten and Hinton [2008] to project the EEG features before (Fig. 6(a)(b)) and after (Fig. 6(c)) alignment into a two-dimensional space. The results show that, before alignment, EEG signals exhibit distinct representational patterns in early (approximately 150 ms) and late (approximately 400 ms) temporal windows: early responses mainly capture local shape-related features (e.g., head, limbs, wings), while late responses reflect higher-level categorical distinctions (e.g., animal vs. non-animal). This “local-to-category” temporal progression is consistent with our previous representational analyses on the same dataset Lian et al. [2025] and aligns with established findings from prior visual decoding studies Grootswagers et al. [2019], Foster et al. [2017]. After alignment, the two-dimensional visualization of EEG embeddings revealed that the semantic groupings of the tangram images (e.g., human, animal, object, and structural groups characterized by wings or limbs) formed clearly separated clusters in the low-dimensional space. This result indicates that the EEG encoder successfully captured category-level semantic information while preserving local structural consistency. From the overall distribution (Fig. 6(c)), three major clusters and their transitional regions can be distinguished, corresponding to cross-category shared local structural patterns (e.g., the upper-view head of biological figures, lateral head profiles, and salient parts of objects). Such cluster–category hierarchical correspondence demonstrates that the aligned EEG embeddings are capable of simultaneously integrating early local features and late semantic representations. The extraction and preservation of these multi-level representations lay the foundation for subsequent cognitive image reconstruction. 8arXiv Template A P REPRINT animal 
+
+> human
+> wing others
+> two feet
+> object Category
+> head straight head tilt object with head Cluster two feet head wing others animate inanimate abstract natural
+
+EEG Signals, 150ms (a) EEG Signals, 400ms EEG Embeddings (t-SNE Projection) (b) (c) 
+
+Figure 6: Comparison of EEG distributions before and after alignment. (a) Dimensionality-reduced visualization of pre-alignment EEG signals around 150 ms, highlighting local feature clustering (e.g., head, feet). (b) Dimensionality-reduced visualization of pre-alignment EEG signals around 400 ms, showing semantic clustering (e.g., animal vs. non-animal). (c) Dimensionality-reduced visualization of post-alignment EEG embeddings. Colors of tangrams indicate categories; broad color clusters reflect shared cross-category features. column human human human sub01 sub18 sub19  
+
+> vase lamp horn tree hat man chief animal queen
+> human Avg .Category animal object
+> human Individual Tags animal
+> object
+
+Figure 7: Subject-specific EEG embeddings after alignment and inter-subject semantic differences. From left to right are the aligned EEG embedding distributions of Sub01, Sub18, and Sub19. The panels on the right show semantic annotation differences for the same set of tangram figures across subjects. Scatter colors denote the cross-subject average semantic category of each EEG sample, while clustered color regions indicate subject-specific semantic patterns. 
+
+3.1.2 Within-Subject EEG Alignment and Diversity 
+
+To further verify whether the aligned EEG representations could retain subject-specific cognitive characteristics, we analyzed the embedding distributions across different participants using the Kilogram abstract visual object dataset. Fig. 7 illustrates the visualized EEG embeddings of three subjects (Sub01, Sub18, and Sub19). For each subject, four similar tangram images were selected, and their corresponding EEG embeddings and semantic annotations were labeled. The results show notable inter-subject variability in semantic labeling. Sub01 labeled one sample as “column,” while the remaining three were annotated as “human.” Sub18 tended to interpret the same images as various objects, whereas Sub19 regarded three images as differently dressed humans and one as an animal. Despite these subjective semantic differences, the aligned EEG embeddings within each individual formed compact intra-class clusters and clearly separated inter-class distributions. This demonstrates that our cross-modal alignment method effectively integrates individual semantic representations while maintaining the structural consistency of the cognitive space. 9arXiv Template A P REPRINT EEG Encoder Projection 7×7 EEG Embedding Cognitive Encoding Multi-Embedding Latent Decoder VAE(sd) Decoder Latent Embedding     
+
+> Seen Low Level SGDM Seen Low Level SGDM Foreground (a) (b) (c) (d) (e)
+> IoU Comparison IoU-shift Comparison
+
+Figure 8: Pipeline, reconstruction results, and evaluation of structural information. (a) The generative model from EEG to structural information. The 7×7 cognitive code Lian et al. [2025] serves as a key structural prior for supervision. (b) Comparison of structural reconstruction results between low-level feature extraction Li et al. [2024] and SGDM on the THINGS dataset. (c) Comparison of structural reconstruction results between low-level feature extraction and SGDM on the Kilogram dataset. (d) IoU evaluation of the reconstructed structures by the two methods on the Kilogram dataset. (e) Shift-IoU evaluation of the reconstructed structures by the two methods on the Kilogram dataset. These findings further validate the effectiveness of our alignment strategy from the perspective of individual specificity. The EEG encoder not only captures hierarchical local and categorical information but also preserves semantic differences across subjects, thereby enabling accurate and personalized cognitive image generation. 
+
+3.2 Stage I: Structure Reconstruction from EEG 
+
+Introducing structural priors into multilevel visual representations constitutes the core concept of our cognitive image reconstruction framework. The first question to address, therefore, is whether EEG signals contain sufficient structural information that can be explicitly predicted and extracted. In our previous Kilogram EEG experiment Lian et al. [2025], distinct structural types exhibited clear clustering patterns in representational similarity analysis (RSA) embeddings, while temporal generalization analysis further revealed differentiated activation and suppression of local features across participants. These results indicate that EEG signals indeed possess the potential to encode structural characteristics of visual objects. Building upon these findings, we designed a structural information extraction and generation pipeline (Fig. 8(a)). In this framework, the model first generates a structured image of the target foreground via a variational autoencoder (VAE), guided jointly by EEG embeddings and cognitive encodings Lian et al. [2025]. The extracted structural information is then utilized to guide the subsequent diffusion-based cognitive image reconstruction. We conducted experiments and evaluations on both the natural image dataset THINGS and the abstract Kilogram dataset, comparing the proposed SGDM structural extraction method with existing low-level feature extraction approachesLi et al. [2024]. Fig. 8(b) illustrates the structural generation results on the THINGS dataset. Here, the Base method for comparison is set as the previously proposed low-level feature extraction approach Li et al. [2024] that integrates hierarchical representations. The results show that the structural extraction stage reliably captures the global shape of target objects, providing a solid basis for subsequent structure-supervised learning. Compared with Base methods, SGDM produces structures that approximate the spatial layout of the foreground through compositional shape modeling, exhibiting higher interpretability and structural consistency. Fig. 8(c) presents the structural generation results on the Kilogram dataset. Given that Tangram images possess explicit geometric compositions and hierarchical relations, the model was trained under direct supervision of structural signals (cognitive encodingLian et al. [2025]). The results demonstrate that existing low-level feature extraction methods generate blurred or distorted boundaries, deviating substantially from the ground truth. In contrast, SGDM more accurately reconstructs the block composition and spatial relationships of the stimuli. Quantitative results 10 arXiv Template A P REPRINT 
+
+(Fig. 8(d)(e)) show that SGDM achieves a higher mean Intersection-over-Union (IoU) between generated and target structures( p = 0 .013 ), and significantly increases the proportion of high-quality structural reconstructions( p = 0 .008 ). Beyond generation quality, SGDM also exhibits superior training stability. Owing to the cognitively guided encoding supervision and the use of a deconvolutional architecture (see Supplementary data), SGDM effectively captures the key geometric features of Tangram objects and supports controllable structural editing, while mitigating the overfitting tendencies observed in low-level feature extraction Base model. 
+
+3.3 Stage II: Cognitive Image Reconstruction with Structural Guidance 
+
+In the image generation experiments, we further validated the capability of the SGDM model to perform cognitive image reconstruction under structural guidance. Fig. 9(c) illustrates the overall pipeline, in which SGDM reconstructs realistic images conditioned on abstract Tangram stimuli, along with the corresponding evaluation pipeline. To handle the inherent uncertainty of Tangram annotations and to capture their abstract semantic characteristics, we proposed a similarity-based evaluation scheme for generated images. Specifically, we fine-tuned the CLIP model jointly on Tangram images and their semantic annotations, ensuring comparability between abstract stimuli and real visual images within a shared CLIP embedding space. This allowed us to compute the CLIP feature similarity between generated and target images, thereby quantifying the semantic consistency and cognitive plausibility of the generated outputs. 
+
+3.3.1 Results and Evaluation of Cognitive Image Reconstruction 
+
+Fig. 9(a),(b) show the generation results on the THINGS and Kilogram (Tangram) datasets, respectively, in comparison with other representative generation modelFu et al. [2025], Zhou et al. [2024]. For comparison, the Base method is still a model that leverages multi-level representations to guide the diffusion process Li et al. [2024]. These examples were uniformly sampled from the results based on semantic categories, without any additional selection criteria. On the THINGS dataset, it can be observed that both SGDM and the baseline methods are capable of generating images that exhibit a relatively high degree of semantic similarity to the viewed stimuli (e.g., food items, containers, elongated objects). However, SGDM demonstrates a clear advantage in capturing structural information of objects. This is particularly evident for visually complex structures—such as multiple stacked sausages, horizontally elongated rods, and densely arranged items—where SGDM more accurately reconstructs spatial layouts and geometric relationships. In contrast, the reconstructions generated by BrainVis and DreamDiffusion exhibit less stable semantic representations. The core strength of the proposed SGDM framework lies in its brain-inspired dual constraints on structural geometry and semantic information. These results suggest that, while maintaining relatively accurate semantic predictions, the structural information pathway in SGDM effectively regularizes and guides the image reconstruction process. On the Kilogram dataset, we evaluated both structural and semantic reconstruction performance. SGDM showed a striking advantage in structural reconstruction, producing segmented and spatially coherent object arrangements that closely matched the stimuli. In contrast, the Base model yielded blurred and structurally inconsistent results. At the semantic level, due to the inherently ambiguous categorical nature of Tangram stimuli, the Base model’s performance declined substantially. SGDM, however, generated semantically plausible images that corresponded meaningfully with participants’ annotations (e.g., “mountain,” “seated person,” “glass trophy”), demonstrating the model’s ability to generalize abstract cognitive semantics from EEG signals. Fig. 9(d),(e) present quantitative evaluations of cognitive image reconstruction. We computed the CLIP feature similarity between generated and viewed images for random generation, SGDM and other representative methods across both THINGS and Kilogram. Results show that all methods significantly outperform random generation, while SGDM consistently achieves higher mean similarity scores on Kilogram ( p = 0 .021 ) and THINGS ( p = 0 .037 ), confirming that incorporating structural priors leads to more accurate and cognitively consistent reconstructions. Table 1: Comparison of generation metrics on the Kilogram and THINGS 
+
+Dataset Model SSIM ↑ IS ↑ SwAV FID ↓ CLIP Score ↑
+
+Tangram Base 0.198 7.070 49.979 0.222 BrainVis 0.232 7.497 47.631 0.331 DreamDiffusion 0.218 6.380 56.081 0.209 SGDM 0.322 6.208 38.999 0.396 
+
+THINGS Base 0.250 9.088 24.408 0.363 BrainVis 0.247 8.847 25.113 0.351 DreamDiffusion 0.245 8.594 27.637 0.307 SGDM 0.279 8.682 23.979 0.387 
+
+11 arXiv Template A P REPRINT SGDM EEG Embedding Image Embedding    
+
+> Image Embedding Annotations Diffusion Encoder Cosine Similarity (a) (b) (c) (d) (e)
+> Similarity Distribution
+> Similarity Score Density  Density
+> Similarity Distribution
+> Similarity Score
+> Base SGDM BrainVis DreamDiffusion
+> SGDM BrainVis Dream-Diffusion
+> Stimuli Stimuli Base
+> Rand
+> SGDM
+> Base
+> BrainVis DreamDiffusion
+> SGDM
+> Base
+> BrainVis DreamDiffusion
+
+Figure 9: Performance and framework of cognitive image generation. (a)Visual comparison of cognitive image generation results among SGDM and different reconstruction methods on the Kilogram dataset. (b)Visual comparison of cognitive image generation results among SGDM and different reconstruction methods on the THINGS dataset. (c)Pipeline of the SGDM framework for cognitive image generation, including the neural decoding stage and the evaluation procedure. (d)Similarity-based quantitative evaluation comparing SGDM with other representative methods on the Kilogram dataset. (e) Similarity-based quantitative evaluation comparing SGDM with other representative methods on the THINGS dataset. When evaluating cognitive image generation, in addition to the CLIP similarity metric, we employed the low-level feature metric Structural Similarity Index Measure(SSIM) Wang et al. [2004] to assess pixel-level consistency, the Inception Score(IS) Salimans et al. [2016] metric to evaluate image realism, and the Swapping Assignments between Views(SwAV) FID Caron et al. [2020] metric to measure overall representation distance. Building upon a systematic evaluation framework that spans from low-level visual features to high-level semantic consistency, Table 1 summarizes the image reconstruction performance of different algorithms across the two datasets. The four metrics, listed from left to right, respectively assess reconstruction quality in terms of low-level features, diversity, high-level semantics, and overall semantic alignment. In comparison with other representative methods, the proposed SGDM achieves the best performance on SSIM, SwAV FID, and CLIP Score across both the Tangram and THINGS datasets. However, in terms of generative diversity, as measured by the Inception Score (IS), SGDM performs lower than most competing approaches. This behavior is consistent with the design principle of SGDM. By imposing dual constraints on the image generation process, SGDM reduces a certain degree of diversity while improving reconstruction fidelity. Importantly, as illustrated by the qualitative 12 arXiv Template A P REPRINT Trophy Bowl on table Fox Table Sub1 Sub2 Sub3 Sub4 Human Candlestick Fish Hotpot Seen Sub1 Sub2 Sub3 Sub4 Seen Sub1 Sub2 Sub3 Sub4 Seen Sub1 Sub2 Sub3 Sub4 Seen Animal Bird Fish Column Horn Bird Crab Woodpecker (a) (b) (c) 
+
+> Similarity & Diversity VS. Abstraction (SGDM)
+> Similarity Diversity Abstraction
+> Similarity & Diversity VS. Abstraction (Base)
+> Diversity Abstraction Similarity
+
+Figure 10: Subject-specific cognitive image generation and the effect of image abstraction parameters on reconstruction. (a) Cognitive reconstructions and corresponding annotations of the same tangram figure across different subjects. (b) Similarity and diversity trends of cognitive reconstructions at different abstraction levels using the SGDM method. (c) Similarity and diversity trends of cognitive reconstructions at different abstraction levels using the Base method. results in Fig. 9, this reduction in diversity does not significantly compromise the perceptual quality of the reconstructed images. Furthermore, among all evaluation metrics, SGDM exhibits the largest improvement in SSIM, indicating that the incorporation of structural priors via the structural representation pathway effectively enhances the reconstruction of low-level visual features. 
+
+3.3.2 Cross-Subject Variability and Cognitive Diversity in Reconstruction 
+
+A particularly noteworthy finding lies in the cognitive diversity of Tangram stimuli. The same Tangram configuration can elicit distinct semantic interpretations across participants, posing a challenging test for EEG-based reconstruction models to extract stable yet individualized representations. Fig. 10(a) illustrates SGDM’s reconstructions of the same Tangram stimulus across different participants, together with their corresponding semantic annotations. SGDM successfully generated semantically diverse real-world images—such as “hotpot,” “seated person,” “table,” and “candlestick”—while maintaining reasonable visual correspondence to the original Tangram layout. This demonstrates SGDM’s capacity to capture participant-specific semantic representations from EEG. Furthermore, we quantitatively analyzed the relationship between image similarity and stimulus abstraction level (Detailed information is provided in Supplementary data). As shown in Fig. 10(b), within the SGDM model, similarity between generated and stimulus images decreases as the abstraction level increases(Pearson’s r = −0.97 ,p < 0.001 ), consistent with the intuitive expectation that higher abstraction imposes greater reconstruction difficulty. In contrast, the Base model (Fig. 10(c)) exhibited no significant trend(Pearson’s r = −0.11 ,p = 0 .73 ), consistent with its limited generative performance on the Tangram dataset. Collectively, these findings demonstrate that SGDM achieves, for the first time, the modeling and reconstruction of individual cognitive diversity under abstract visual conditions, showing strong adaptability across subjects and abstract semantic contexts in EEG-based cognitive image generation. The proposed SGDM framework demonstrates cognitively consistent image reconstruction not only on Tangram stimuli but also on natural images. To better evaluate subjective cognitive alignment, we focus on natural images with cognitive ambiguity, where semantic interpretations are inherently uncertain. 13 arXiv Template A P REPRINT SGDM BrainVis Dream-Diffusion Stimuli 
+
+> Base
+
+Figure 11: Comparative reconstruction performance on natural images with cognitive ambiguity. As shown in Fig. 11, baseline models, BrainVis, and DreamDiffusion exhibit unstable and often incoherent reconstruc-tions under such conditions, frequently failing to align with the actual stimuli (e.g., misinterpreting a minesweeper device as “landmines” or producing disorganized outputs for cluttered tools). In contrast, SGDM captures salient cognitive structures despite semantic ambiguity. For example, even when participants cannot recognize a minesweeper device, they reliably perceive “multiple vertically arranged components,” which is reflected in SGDM’s reconstruction. Similarly, for unfamiliar objects such as orchestral instruments, SGDM preserves the perception of “elongated vertical structure.” These results indicate that SGDM effectively leverages structural cues to achieve reconstruction aligned with subjective cognition, even when explicit semantics are unclear. 
+
+3.4 Spatio-Temporal Analysis of EEG-Based Cognitive Image Reconstruction 
+
+To further explore the temporal and spatial characteristics of the SGDM reconstruction framework, we conducted a series of spatiotemporal experiments to evaluate how different time windows and cortical regions contribute to reconstruction performance. 
+
+3.4.1 Temporal Analysis 
+
+For temporal analysis, we employed two time-windowing strategies: cumulative windows and sliding windows. In the cumulative window experiment, EEG segments were selected from the stimulus onset (0 ms) up to varying endpoints, progressively extending the temporal range. In contrast, the sliding window experiment used a fixed window width of 200 ms, shifting this window across the entire post-stimulus period. Reconstruction quality was assessed by computing the CLIP feature similarity between generated images and their corresponding target stimuli. As shown in Fig. 12(c)(d), in the cumulative window condition, the highest reconstruction similarity occurred within the 0–500ms time range; both shorter and longer windows led to performance degradation. In the sliding window condition (Fig. 12(a)(b)), reconstruction similarity increased steadily before peaking around 500 ms, followed by minor fluctuations. Collectively, these results suggest that the 400–600 ms interval contributes most substantially to the reconstruction of abstract Tangram stimuli. This temporal range is slightly later than the typical peak window observed for natural image decoding (200–300 ms) Grootswagers et al. [2024], but aligns well with prior findings on abstract visual processing Lian et al. [2025], indicating the additional cognitive load required for semantic abstraction. 
+
+3.4.2 Spatial Analysis 
+
+To further assess the spatial contributions of different brain regions, we divided EEG channels into five major brain areas: frontal, parietal, central, temporal, and occipital (Fig. 13(a)). Using the same CLIP-based similarity metric, we evaluated the reconstruction performance for each region separately. As shown in Fig. 13(b)(c), the temporal region exhibited the highest reconstruction similarity ( p = 0 .043 ), followed by the parietal and occipital regions. This finding contrasts with previous results from natural image decoding studies, where the occipital cortex typically achieves the highest decoding accuracy Li et al. [2024], consistent with its role as the core region for early visual processing. In the Tangram condition, however, low-level visual differences among stimuli are minimal, and the primary distinctions arise from higher-level semantic and cognitive processing. Consequently, occipital signals contribute less to reconstruction, while activity from the temporal and parietal cortices—which are associated with semantic integration, mental imagery, and cognitive control—plays a dominant role. 14 arXiv Template A P REPRINT (a) (c) (b) (d) 0.1s 0.2s 0.3s 0.4s 0.5s 0.6s 0.7s 0.8s        
+
+> Cognition Reconstruction From Sliding Windows
+> 0.1s 0.2s 0.3s 0.4s 0.5s 0.6s 0.7s 0.8s
+> Cognition Reconstruction From Cumulative Windows
+> Similarity with Sliding Window Similarity with Comulative Window
+> Similarity Time(s) Similarity Time(s)
+
+Figure 12: SGDM-based cognitive reconstruction and evaluation across different EEG time windows. (a) Cognitive image reconstruction results under sliding time windows. Red boxes highlight reconstructed samples that accurately match the original stimuli. (b) Similarity curves of cognitive reconstructions with varying sliding time windows. (c) Cognitive image reconstruction results under cumulative time windows. (d) Similarity curves of cognitive reconstruc-tions with varying cumulative time windows. In summary, the temporal analysis reveals that abstract visual reconstruction relies heavily on later processing stages (400–600 ms), while the spatial analysis highlights the critical involvement of temporal and parietal regions during these stages. Together, these findings indicate that SGDM’s success in reconstructing abstract visual stimuli depends on the extraction of structured representations from late cognitive processing, rather than early perceptual signals alone. 
+
+3.5 Ablation on Structural and Generative Components 
+
+To analyze the contribution of SGDM’s core components and key parameters to cognitive image reconstruction performance, we conducted a series of ablation experiments. The study consisted of two parts: (1) evaluating the roles of the structure module and structural information during the structure prediction stage, and (2) analyzing the influence of the generation control coefficient during the conditional generation stage. 
+
+3.5.1 Structure-Guided Module Ablation 
+
+Structural guidance serves as the central mechanism of the SGDM framework, and validating the effectiveness of structural priors is essential. We employed Intersection over Union (IoU) and Shifted-IoU as quantitative metrics for evaluating structure generation, and compared three configurations: No Component — removing the structural processing module; Zero Information — retaining the module but setting the input structural information to zero; Structure Guided — the full SGDM model incorporating explicit structural priors. Table 2: Ablation study of reconstruction accuracy across different datasets 
+
+Dataset Method IoU IoU shift 
+
+Kilogram No component 0.492 0.519 Zero information 0.494 0.520 SGDM 0.517 0.543 
+
+THINGS No component 0.432 0.472 Zero information 0.459 0.481 SGDM 0.541 0.576 
+
+15 arXiv Template A P REPRINT (a) (b) (c) Occipital Temporal Parietal Central Frontal Occipital Temporal Parietal Central Frontal                                            
+
+> Fpz Fp1 Fp2 AF3 AF8 F7 F5 F3 F1 Fz F2 F4 F6 F8 FT7 FC5 FC3 FC1 FCz FC2 FC4 FC6 FT8 T7 C5 C3 C1 Cz C2 C4 C6 T8 AF7 AF4 Pz TP7 CP5 CP3 CP1 P7 CP2 CP4 CP6 TP8 P5 P3 P1 P2 P4 P6 P8 PO7 PO5 PO3 POz PO4 PO6 PO8 O1 O2 Oz
+> Similarity Comparison of Brain Regions
+> Brain Regions Similarity
+> Temporal Parietal Occipital Central Frontal
+
+Figure 13: SGDM-based cognitive reconstruction and evaluation across different brain regions. (a) EEG electrode distributions corresponding to different brain regions. (b) Bar chart of cognitive reconstruction similarity across 5 brain regions. Error bars represent the standard error of the mean (SEM). (c) Cognitive image reconstruction results based on EEG signals from 5 brain regions under the same tangram stimulus condition. Red boxes highlight reconstructed samples that accurately match the original stimuli. As shown in Tab. 2, the inclusion of structural guidance significantly improved structural prediction accuracy on both the Kilogram (Tangram) and THINGS datasets. The performance gain was particularly prominent on the THINGS dataset (IoU on THINGS increased by 0.109, on Kilogram increased by 0.025), indicating that in complex natural scenes, structural priors play a crucial role in ensuring generation stability and spatial consistency. In the second stage of SGDM, final cognitive image reconstruction is performed under the guidance of the predicted structural information. Therefore, we further evaluated the effect of the generation control coefficient, which determines the relative weighting between structural and semantic constraints. Five control values within the range 0-1 were tested, using three evaluation metrics: Structural Similarity Index (SSIM) for low-level feature alignment, Inception Score (IS) for image realism, and SwAV-FID for joint assessment of semantic and structural consistency. 
+
+3.5.2 Generation Control Parameter Ablation 
+
+Table 3: Comparison of generation metrics under different control rates on the Kilogram 
+
+Control Rate SSIM ↑ IS ↑ SwAV FID ↓
+
+0.00 0.253 6.864 39.913 0.25 0.278 6.829 38.891 0.50 0.308 6.298 38.424 
+
+0.75 0.345 5.778 40.162 1.00 0.373 4.980 43.162 As summarized in Tab. 3, increasing the control coefficient led to a monotonic rise in SSIM but a decline in IS, revealing a trade-off between fine-grained structural fidelity and perceptual realism. The comprehensive SwAV-FID metric first decreased and then increased, achieving its minimum around 0.5, suggesting an optimal balance point between low-level and high-level representations. Accordingly, we selected 0.5–0.6 as the optimal control range for subsequent experiments. Overall, these results demonstrate that structural priors are indispensable for multi-level visual reconstruction, and that a moderate control strength effectively balances structural precision and semantic coherence. This confirms the architectural soundness and robustness of the SGDM framework in cognitive image generation. 16 arXiv Template A P REPRINT 
+
+## 4 Discussion 
+
+Compared with previous visual decoding approaches that primarily rely on natural images and categorical labels Takagi and Nishimoto [2023], Li et al. [2024], Cheng et al. [2025], the proposed Structure-Guided Diffusion Model (SGDM) explicitly models the hierarchical relationship between structural information and semantic representations through a two-stage design. By incorporating both natural and abstract image datasets, SGDM achieves structured and controllable generation that bridges the perceptual and cognitive levels. In the first-stage structure generation, SGDM effectively integrates the spatiotemporal features contained in EEG signals and captures both the global configuration and local composition of visual objects through the structure prediction module. In the second-stage conditional generation, the experimental results demonstrate that SGDM significantly improves structural consistency and cross-subject generalization. Particularly in the abstract visual task using Tangram stimuli, the model not only reconstructs the geometric layout of objects with high fidelity but also reflects individual differences in subjective semantic interpretation, showing sensitivity to personalized cognitive representations. These findings collectively verify the critical role of structural information in cognitive-level image generation and demonstrate the feasibility of controllable visual cognition modeling at the EEG level. From the perspective of neural mechanisms, the spatiotemporal analyses reveal that abstract visual reconstruction mainly depends on EEG activity within the 400–600 ms post-stimulus interval, with substantial contributions from the temporal and parietal regions. This time window occurs later than the early visual responses typically observed for natural image recognition (200–300 ms) Grootswagers et al. [2019], suggesting that abstract visual processing involves deeper semantic integration and higher-order cognitive engagement. Furthermore, the structure-guided constraint introduced in SGDM aligns closely with the theory of distributed hierarchical processing in the brain Felleman and Essen [1991]. By jointly incorporating structural and semantic constraints during the diffusion generation stage, SGDM partially emulates the human brain’s integration process from local shape encoding to global semantic composition. This structure-guided generation strategy endows the model with a degree of neural interpretability and provides a novel computational pathway for understanding the representational mechanisms underlying visual cognition. Despite these promising results, several limitations remain. First, the current experiments are based on a relatively small dataset of abstract graphical stimuli, and the limited sample size and semantic diversity may constrain the model’s generalization ability. Second, the low spatial resolution of EEG poses challenges for precisely capturing fine-grained structural features. Future studies may address these issues by (1) validating the cross-modal consistency of SGDM on larger and multimodal datasets such as EEG–fMRI or EEG–fNIRS; (2) exploring online learning and few-shot individual adaptation strategies to enable real-time cognitive image generation; and (3) investigating potential applications of SGDM in clinical BCI, consciousness assessment, and cognitive rehabilitation. In summary, the proposed SGDM framework demonstrates the feasibility of extracting and utilizing structural infor-mation from EEG signals for cognitive image reconstruction. By integrating structure guidance, semantic alignment, and conditional diffusion generation, SGDM achieves a unified balance between high-level semantic coherence and low-level spatial controllability. This work not only advances the frontier of EEG-based perceptual and cognitive image reconstruction but also provides a novel modeling and analytical framework for understanding the hierarchical processing mechanisms of human visual cognition. 
+
+## 5 Conclusion 
+
+This study proposes a novel EEG-based visual cognition reconstruction framework, termed the Structure-Guided Diffusion Model (SGDM). The model introduces structural guidance and dual semantic constraints into the generative mechanism, achieving highly consistent reconstruction of cognitive images from EEG signals through explicit structure prediction, cross-modal semantic alignment, and controllable diffusion generation. Experimental results demonstrate that SGDM significantly enhances structural fidelity, semantic coherence, and cross-subject generalization under abstract visual stimulation, while revealing the critical role of late-stage EEG activity and the temporal–parietal regions in the formation of structured cognitive representations. The development of SGDM not only verifies the existence of hierarchically structured information within EEG signals that can be explicitly modeled but also provides new insights into the neural encoding mechanisms of visual cognition. By integrating the hierarchical processing theory of neuroscience with generative diffusion modeling, this study highlights the great potential of cross-modal information fusion in advancing cognitive image reconstruction. Looking forward, the SGDM framework can be extended to multimodal neural signals (e.g., fMRI and MEG) and cross-task decoding scenarios to enable higher-resolution and semantically richer reconstructions. The approach also shows potential for applications in BCIs, psychological assessment, and neurorehabilitation. Overall, this work provides a framework for decoding both externally driven perception and internally generated subjective cognitive representations 17 arXiv Template A P REPRINT 
+
+from neural signals, supporting BCIs with increased degrees of freedom for intention decoding and more flexible brain-to-machine communication. 
+
+## About Preprint 
+
+This is the version of the article before peer review or editing, as submitted by an author to Journal of Neural Engineering. 
+
+## References 
+
+Bin He and Zhe Chen. Neural engineering for brain connectivity and neural decoding. Annual Review of Biomedical Engineering , 20:195–219, 2018. Saydul Akbar Murad and Nick Rahimi. Unveiling thoughts: A review of advancements in eeg brain signal decoding into text. IEEE Transactions on Cognitive and Developmental Systems , 2024. Frank Tong and Michael S Pratte. Decoding patterns of human brain activity. Annual review of psychology , 63(1): 483–509, 2012. Xia Chen, Xiangbin Teng, Han Chen, Yafeng Pan, and Philipp Geyer. Toward reliable signals decoding for electroen-cephalogram: A benchmark study to eegnex. Biomedical Signal Processing and Control , 87:105475, 2024. Paul Scotti, Atmadeep Banerjee, Jimmie Goode, Stepan Shabalin, Alex Nguyen, Aidan Dempster, Nathalie Verlinde, Elad Yundler, David Weisberg, Kenneth Norman, et al. Reconstructing the mind’s eye: fmri-to-image with contrastive learning and diffusion priors. Advances in Neural Information Processing Systems , 36:24705–24728, 2023. Yu Wang, Heyang Liu, Yuhao Wang, Chuan Xuan, Yixuan Hou, Sheng Feng, Hongcheng Liu, Yusheng Liao, and Yanfeng Wang. Progress, challenges and future of linguistic neural decoding with deep learning. Communications Biology , 8(1):1350, 2025. Steven J. Luck. An Introduction to the Event-Related Potential Technique . MIT Press, 2014. Wenjie Cheng, Jun Tan, Lizhi Wang, María Trinidad Herrero, and Hong Zeng. Fine-grained image generation with eeg multi-level semantics. Computer Methods and Programs in Biomedicine , page 108909, 2025. Hong Zeng, Nianzhang Xia, Dongguan Qian, Motonobu Hattori, Chu Wang, and Wanzeng Kong. Dm-re2i: A framework based on diffusion model for the reconstruction from eeg to image. Biomedical Signal Processing and Control , 86:105125, 2023. Prajwal Singh, Dwip Dalal, Gautam Vashishtha, Krishna Miyapuram, and Shanmuganathan Raman. Learning robust deep visual representations from eeg brain recordings. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision , pages 7553–7562, 2024. Simone Palazzo, Isaak Kavasidis, Concetto Spampinato, Daniela Giordano, and Mubarak Shah. Decoding brain representations by multimodal learning of neural activity and visual features. IEEE Transactions on Pattern Analysis and Machine Intelligence , 43(11):3833–3849, 2021. Dongyang Li, Chen Wei, Shiying Li, Jiachen Zou, and Quanying Liu. Visual decoding and reconstruction via eeg embeddings with guided diffusion. In Proceedings of the 38th International Conference on Neural Information Processing Systems , pages 102822–102864, 2024. Claudio Spampinato, Simone Palazzo, Isaak Kavasidis, Daniela Giordano, Nasim Souly, and Mubarak Shah. Deep learning human mind for automated visual classification. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 6809–6817, 2017. Vernon J. Lawhern, Amelia J. Solon, Nicholas R. Waytowich, Stephen M. Gordon, Chou P. Hung, and Brent J. Lance. Eegnet: A compact convolutional neural network for eeg-based brain–computer interfaces. Journal of Neural Engineering , 15(5):056013, 2018. Zhifen Guo, Jiao Wang, Tianyu Jing, and Longyue Fu. Investigating the interpretability of schizophrenia eeg mech-anism through a 3dcnn-based hidden layer features aggregation framework. Computer Methods and Programs in Biomedicine , 247:108105, 2024. Pouya Bashivan, Irina Rish, Mohammed Yeasin, and Noel Codella. Learning representations from eeg with deep recurrent-convolutional neural networks. In International Conference on Learning Representations . International Conference on Learning Representations, ICLR, 2016. Yannick Roy, Hubert Banville, Isabela Albuquerque, Alexandre Gramfort, Denis Faubert, Pierre-Emmanuel Plourde, and Jean-Marc Lina. Deep learning-based electroencephalography analysis: A systematic review. Journal of Neural Engineering , 16(5):051001, 2019. 18 arXiv Template A P REPRINT 
+
+Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, and Ilya Sutskever. Learning transferable visual models from natural language supervision. In Proceedings of the 38th International Conference on Machine Learning (ICML) , 2021. Chao Jia, Yinfei Yang, Ye Xia, Yi-Ting Chen, Zarana Parekh, Hieu Pham, Quoc Le, Yun-Hsuan Sung, Zhen Li, and Tom Duerig. Scaling up visual and vision-language representation learning with noisy text supervision. In Proceedings of the 38th International Conference on Machine Learning (ICML) , 2021. Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. In Advances in Neural Information Processing Systems (NeurIPS) , 2020. Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn Ommer. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 10684–10695, 2022. Chitwan Saharia, William Chan, Saurabh Saxena, Lala Li, Jay Whang, Emily Denton, Seyed Kamyar Seyed Ghasemipour, Burcu Karagol Ayan, Tim Salimans, Jonathan Ho, and David Fleet. Photorealistic text-to-image diffu-sion models with deep language understanding. In Advances in Neural Information Processing Systems (NeurIPS) ,2022. Yu Takagi and Shinji Nishimoto. High-resolution image reconstruction with latent diffusion models from human brain activity. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 14453–14463, 2023. Daniel J. Felleman and David C. Van Essen. Distributed hierarchical processing in the primate cerebral cortex. Cerebral Cortex , 1(1):1–47, 1991. Nikolaus Kriegeskorte, Marieke Mur, and Peter A. Bandettini. Representational similarity analysis—connecting the branches of systems neuroscience. Frontiers in Systems Neuroscience , 2, 2008. Daniel L. K. Yamins and James J. DiCarlo. Using goal-driven deep learning models to understand sensory cortex. 
+
+Nature Neuroscience , 19:356–365, 2016. Alexey Beliy, Amir Golan, Keren Guedalia, and Galit Yovel. Voxel-wise encoding models reveal the hierarchical organization of the human visual cortex. NeuroImage , 197:583–594, 2019. Kohitij Kar, J. Leo Winter, and James J. DiCarlo. Evidence that recurrent circuits are critical to the ventral stream’s hierarchical computations of visual form. Nature Neuroscience , 22(6):974–983, 2019. Zhen Yang, Shuai Zhao, Chen Wei, and Quanying Liu. Cross-modal representation alignment for brain–image decoding. 
+
+NeuroImage , 263:119621, 2022. Gaocheng Shen, Hanlin Lu, Tomoyasu Horikawa, and Yukiyasu Kamitani. End-to-end deep image reconstruction from human brain activity. Frontiers in Computational Neuroscience , 13, 2019. Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. Adding conditional control to text-to-image diffusion models. In 
+
+Proceedings of the IEEE/CVF international conference on computer vision , pages 3836–3847, 2023. Qihan Huang, Siming Fu, Jinlong Liu, Hao Jiang, Yipeng Yu, and Jie Song. Resolving multi-condition confusion for finetuning-free personalized image generation. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 39, pages 3707–3714, 2025. Andrea Frome, Greg Corrado, Jonathon Shlens, Samy Bengio, Jeff Dean, Tomas Mikolov, and Marc’Aurelio Ranzato. Devise: A deep visual-semantic embedding model. In Advances in Neural Information Processing Systems (NeurIPS) ,2013. Anya Ji, Noriyuki Kojima, Noah Rush, Alane Suhr, Wai Keen Vong, Robert Hawkins, and Yoav Artzi. Abstract visual reasoning with tangram shapes. In Proceedings of the 2022 conference on empirical methods in natural language processing , pages 582–601, 2022. Yongxiang Lian, Shihao Pan, and Li Shi. Multidimensional representation dynamics for abstract visual objects in encoded tangram paradigms. Brain Sciences , 15(9):941, 2025. Jonathan Peirce, Jeremy R Gray, Sol Simpson, Michael MacAskill, Richard Höchenberger, Hiroyuki Sogo, Erik Kastman, and Jonas Kristoffer Lindeløv. Psychopy2: Experiments in behavior made easy. Behavior research methods , 51(1):195–203, 2019. Alessandro T Gifford, Kshitij Dwivedi, Gemma Roig, and Radoslaw M Cichy. A large and rich eeg dataset for modeling human visual object recognition. NeuroImage , 264:119754, 2022. Alexandre Gramfort, Martin Luessi, Eric Larson, Denis A Engemann, Daniel Strohmeier, Christian Brodbeck, Roman Goj, Mainak Jas, Teon Brooks, Lauri Parkkonen, et al. Meg and eeg data analysis with mne-python. Frontiers in Neuroinformatics , 7:267, 2013. 19 arXiv Template A P REPRINT 
+
+Laurens van der Maaten and Geoffrey Hinton. Visualizing data using t-sne. Journal of machine learning research , 9 (Nov):2579–2605, 2008. Tijl Grootswagers, Amanda K Robinson, and Thomas A Carlson. The representational dynamics of visual objects in rapid serial visual processing streams. NeuroImage , 188:668–679, 2019. Joshua J Foster, David W Sutterer, John T Serences, Edward K Vogel, and Edward Awh. Alpha-band oscillations enable spatially and temporally resolved tracking of covert spatial attention. Psychological science , 28(7):929–941, 2017. Honghao Fu, Hao Wang, Jing Jih Chin, and Zhiqi Shen. Brainvis: Exploring the bridge between brain and visual signals via image reconstruction. In ICASSP 2025 - 2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) , pages 1–5, 2025. doi:10.1109/ICASSP49660.2025.10889805. Jinxin Zhou, Tianyu Ding, Tianyi Chen, Jiachen Jiang, Ilya Zharkov, Zhihui Zhu, and Luming Liang. Dream: Diffusion rectification and estimation-adaptive models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 8342–8351, June 2024. Zhou Wang, Alan C Bovik, Hamid R Sheikh, and Eero P Simoncelli. Image quality assessment: from error visibility to structural similarity. IEEE transactions on image processing , 13(4):600–612, 2004. Tim Salimans, Ian Goodfellow, Wojciech Zaremba, Vicki Cheung, Alec Radford, and Xi Chen. Improved techniques for training gans. Advances in neural information processing systems , 29, 2016. Mathilde Caron, Ishan Misra, Julien Mairal, Priya Goyal, Piotr Bojanowski, and Armand Joulin. Unsupervised learning of visual features by contrasting cluster assignments. Advances in neural information processing systems , 33: 9912–9924, 2020. Tijl Grootswagers, Amanda K Robinson, Sophia M Shatek, and Thomas A Carlson. Mapping the dynamics of visual feature coding: Insights into perception and integration. PLOS Computational Biology , 20(1):e1011760, 2024. 20

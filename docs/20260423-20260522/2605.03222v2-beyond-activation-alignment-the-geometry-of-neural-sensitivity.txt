@@ -1,0 +1,1560 @@
+Title: Beyond Activation Alignment: The Geometry of Neural Sensitivity
+
+URL Source: https://arxiv.org/pdf/2605.03222v2
+
+Published Time: Fri, 08 May 2026 00:59:13 GMT
+
+Number of Pages: 32
+
+Markdown Content:
+# Beyond Activation Alignment: The Geometry of Neural Sensitivity 
+
+Amirhossein Yavari 1, Farnaz Zamani Esfahlani 1,2∗ 
+
+> 1
+
+Stephenson School of Biomedical Engineering, University of Oklahoma  
+
+> 2
+
+Data Science and Analytics Institute, University of Oklahoma Norman, OK, USA 
+
+amirhossein.yavari@ou.edu, fzamani@ou.edu 
+
+Abstract 
+
+Activation-alignment measures such as Representational Similarity Analysis (RSA), Canonical Correlation Analysis (CCA), and Centered Kernel Alignment (CKA) are widely used to compare biological and artificial neural representations. Recent theoretical work interprets many of these methods as assessing agreement between optimal linear readouts over broad families of global tasks. However, agreement at the level of global readouts does not determine how a system uses local stimulus evidence. Specifically, representations may align in activation space yet differ in their sensitivity to small perturbations. To address this challenge, we introduce a complementary framework based on local decodable information, which focuses on a representation’s ability, under noise, to discriminate small perturbations within a specified stimulus-coordinate subspace. Building on Fisher information and local representation geometry, we summarize each representation using the expected projected pullback/Fisher metric over that subspace. This formulation induces a second-moment family of local discrimination tasks, for which the resulting operator provides a minimal, complete dataset-level summary of expected discriminability. We compare these regularized signatures using a log-spectral distance on the manifold of symmetric positive definite (SPD) matrices, yielding the Spectral Riemannian Alignment Score (S-RAS) and a uniform multiplicative certificate over the corresponding family of lifted task values. Empirically, this framework enables the recovery of corresponding layers across independently trained artificial neural networks, supports transferable class-conditional probes, reveals controlled dissociations between standard and robust training, and uncovers stimulus-coordinate family effects across mouse visual cortex using the Allen Brain Observatory static gratings dataset. 
+
+1 Introduction 
+
+One of the central goals in machine learning and computational neuroscience is to compare internal representations in terms of their shared computations, invariances, and underlying mechanisms [ 9, 17 , 18 , 25 , 27 ]. A number of widely used methods for representational comparison include Representational Similarity Analysis (RSA), Canonical Correlation Analysis (CCA), and Centered Kernel Alignment (CKA), which are primarily focused on quantifying geometric similarity in stimulus-evoked activity patterns [ 17 , 18 , 25 ]. While these approaches are effective for measuring representational alignment across models and biological systems, they are limited in determining whether aligned representations rely on the same local stimulus evidence to support downstream computations [7, 12, 14].    
+
+> ∗Corresponding author. Preprint.
+> arXiv:2605.03222v2 [cs.LG] 7 May 2026 Neural Transformation f
+> Pullback Activation Point Cloud Alignment Local Sensitivity Alignment “Off-Manifold” Noise “On-Manifold” Data
+> A - Input Space B - Representation Space C - Pullback to Input Space D - Representation Comparison
+> Neural Transformation g
+> Activation Map g Activation Map f Sensitivity Map f Sensitivity Map g
+
+Figure 1: Comparing representations via dataset-level sensitivity summaries. (A) Input space contains structured data on a data manifold, contrasted with off-manifold noise. (B) Representation maps f and g transform the same data into feature spaces where local neighborhoods have different geometries. (C) Pulling these local geometries back to input/stimulus coordinates yields Jacobian-induced sensitivity ellipses, indicating which directions are amplified or suppressed. (D) We compare representations by averaging this local pullback/Fisher geometry over a specified perturbation family, rather than by aligning activation point clouds. Several complementary perspectives including decodable-information and local-geometry approaches have been proposed to address this limitation [ 3, 6 , 12 , 14 , 21 , 30 ]. The decoder-based perspective defines representation similarity in terms of downstream accessibility, characterizing representations by which variables are linearly decodable and therefore available to subsequent computational stages. Under this view, similarity measures evaluate whether different representations support comparable performance across a shared family of decoding tasks, thus capturing agreement among optimal linear readouts rather than alignment at the level of individual units [ 14 ]. Nevertheless, decoder agreement does not uniquely determine the underlying encoding process where distinct representations can support similar linear readouts while relying on different stimulus directions. Consistent with this limitation, prior work [ 7] shows that activation-based similarity measures (e.g., CKA) are not invariant to simple post hoc transformations of representational point clouds, such as fixed subset translations followed by global mean-centering. Another complementary perspective emphasizes local discriminability by studying how representa-tions respond to small input changes, particularly how perturbations in stimulus or task coordinates are transformed within the representation. To quantify this, local geometry-based methods use derivatives, Jacobians, and Fisher or pullback metrics to identify directions in stimulus space that are amplified, suppressed, or made discriminable [ 3, 5 , 8, 12 , 13 , 21 , 24 , 30 ]. However, local geometry does not specify the choice of perturbation family, how information should be aggregated across stimuli, or what dataset-level summary is sufficient to characterize the resulting discrimination tasks. Motivated by these limitations, we ask whether two representations make the same small changes discriminable within a specified stimulus or task-coordinate family. We formalize this through expected local discriminability where perturbations are restricted to a chosen coordinate subspace, summarized by their second moments, and averaged over the stimulus distribution. This yields dataset-level signatures that can be compared across models where the resulting operator fully characterizes expected discriminability for the chosen second-moment perturbation family. The overall framework is shown in Figure 1. We make three main contributions. First, we define second-moment local perturbation-discrimination tasks and identify the projected expected Fisher/pullback operator as their minimal complete dataset-level summary. Second, we compare regularized summaries with a log-spectral SPD distance, yielding 
+
+S-RAS and a uniform multiplicative certificate over lifted task values. Third, we demonstrate that these summaries are empirically useful in both artificial and biological systems through a range of experiments, including layer correspondence, transferable class-conditional probes, robust-training dissociations, and Allen Brain Observatory static gratings recordings with explicitly defined stimulus-coordinate families. 22 Local perturbation tasks and dataset-level sensitivity summaries 
+
+We now turn the local-geometry viewpoint into a representation comparison. Starting from the Jacobian-based objects used in local-geometry methods [ 3, 6, 12 , 21 , 30 ], we specify which perturba-tions count, average their discriminability over stimuli, and identify the minimal summary for the resulting second-moment tasks. 
+
+2.1 Representation maps and local discriminability 
+
+A feedforward network can be written as a composition of layer-wise maps 
+
+f1, . . . , f L,
+
+so that the representation at depth n is the input-to-layer function 
+
+Φn(x) := ( fn ◦ fn−1 ◦ · · · ◦ f1)( x). (1) This notation is standard when treating a representation as a function of the stimulus rather than as a collection of activation vectors alone [ 20 ]. It also makes clear that activation-based and Jacobian-based analyses begin from the same object. We therefore fix a layer and write 
+
+f : Rd → Rm
+
+for a differentiable representation map, with stimuli x ∼ D . The corresponding pullback metric 
+
+Mf (x) := Jf (x)⊤Jf (x) ∈ Sd 
+
+> +
+
+(2) describes infinitesimal sensitivity: differentiability gives 
+
+∥f (x + ϵv ) − f (x)∥22 = ϵ2v⊤Mf (x)v + o(ϵ2).
+
+This is the same local object used in recent intrinsic- and local-geometry approaches to representation comparison [ 6 , 12 , 21 ]. Here it becomes a representation-level summary only after choosing a perturbation family and averaging discriminability over stimuli. A standard operationalization of local sensitivity is discrimination between a stimulus and a small coordinate perturbation of it using noisy population activity [ 8, 13 ]. We formulate this in local stimulus coordinates. Let 
+
+ψ : Ω ⊂ Rq → Rd, hf = f ◦ ψ, 
+
+where q is the dimension of the stimulus-coordinate space and ψ parameterizes either pixel space, a data manifold, or an experimentally controlled stimulus family. 
+
+Definition 1 (Local coordinate-perturbation discrimination task) . Fix s ∈ Ω and a small coordinate perturbation η ∈ Rq . An observer receives a noisy representation and must discriminate 
+
+H0 : r ∼ N (hf (s), Σ) vs. H1 : r ∼ N (hf (s + η), Σ) , (3) where Σ ∈ Sm 
+
+> ++
+
+is a stimulus-independent noise covariance on the representation space. Linearizing hf gives 
+
+hf (s + η) ≈ hf (s) + Jhf (s)η, Jhf (s) = Jf (ψ(s)) Dψ (s),
+
+so the local Fisher metric in the chosen stimulus coordinates is 
+
+If,ψ (s) = Jhf (s)⊤Σ−1Jhf (s). (4) The corresponding squared discriminability and its second-moment average are 
+
+d′2(s, η ) = η⊤If,ψ (s)η, E[d′2 | s] = Tr( CI f,ψ (s)) for C = E[ηη ⊤], (5) with derivation in Appendix A.1. Thus local perturbation discriminability is governed by the same Fisher quadratic form used in population coding [ 5, 24 ]. In the isotropic case Σ = σ2I,
+
+If,ψ (s) = σ−2Jhf (s)⊤Jhf (s), so the Fisher geometry reduces to the pullback metric up to a scalar noise factor. For recurrent systems, f can denote either an unrolled fixed-time state map or, when dynamics converge, the equilibrium map x 7 → r∗(x); Appendix B gives the fixed-point form. 32.2 Projected second-moment task families 
+
+Pointwise discriminability becomes a representation-level comparison only after specifying the perturbation family and the stimulus distribution. We therefore fix a coordinate family, average over stimuli, and summarize the resulting second-moment discrimination tasks. 
+
+Definition 2 (Projected second-moment local task family) . Fix a smooth parameterization ψ : Ω ⊂
+
+Rq → Rd, write hf = f ◦ ψ, let P ∈ Rq×k have orthonormal columns, and let s ∼ ν. Perturbations have the form s 7 → s + P z , where z ∈ Rk and Cz = E[zz ⊤] ⪰ 0. The projected expected Fisher operator is 
+
+Ff,ψ,P, Σ := Es∼ν
+
+P ⊤Jhf (s)⊤Σ−1Jhf (s)P  ∈ Sk
+
+> +
+
+, (6) and the associated expected local-discriminability task value is 
+
+T (Σ)  
+
+> ψ,P,C z
+
+(f ) := Tr( Cz Ff,ψ,P, Σ). (7) When ψ is the identity or clear from context, we suppress it. By Eq. (5), 
+
+T (Σ)  
+
+> ψ,P,C z
+
+(f ) = Es,z 
+
+d′2(s, P z ) .
+
+Thus ψ, span( P ), and Σ define the local evidence family being compared. 
+
+Proposition 1 (Task-summary property) . For fixed ψ, P , and Σ ≻ 0, and for representation maps f
+
+and g, the operator Ff,ψ,P, Σ determines all values {T (Σ)  
+
+> ψ,P,C z
+
+(f ) : Cz ⪰ 0}. Conversely, if 
+
+T (Σ)  
+
+> ψ,P,C z
+
+(f ) = T (Σ)  
+
+> ψ,P,C z
+
+(g) for all Cz ⪰ 0,
+
+then 
+
+Ff,ψ,P, Σ = Fg,ψ,P, Σ.
+
+The proof uses the PSD trace-separation argument in Appendix A.2. The substantive point is the identification of the task-family statistic: for the specified perturbation family and observation model, 
+
+Ff,ψ,P, Σ is exactly the minimal complete dataset-level summary of expected local discriminability. In the isotropic case Σ = σ2I,
+
+Ff,ψ,P, Σ = σ−2Gf,ψ,P , Gf,ψ,P := Es
+
+(Jhf (s)P )⊤(Jhf (s)P ) . (8) We call Gf,ψ,P the projected expected pullback metric. Only the subspace span( P ), not the particular orthonormal basis P , matters for the task family; changing ψ or span( P ) changes the scientific question. The basis-invariance calculation is given in Appendix A.4. 
+
+2.3 Gain, shape, and shared contrast directions 
+
+The same projected operator can be decomposed into total sensitivity, directional allocation, and class-conditional contrasts. 
+
+Definition 3 (Gain, shape, and class-conditional contrast summaries) . For a k-dimensional coordinate family P , define 
+
+γf,ψ,P := 1
+
+k Tr( Gf,ψ,P ), bGf,ψ,P := Gf,ψ,P 
+
+Tr( Gf,ψ,P ) when Tr( Gf,ψ,P ) > 0. (9) Thus γ is total expected sensitivity, while bG records directional allocation. For normalized C ⪰ 0
+
+with Tr( C) = 1 , the shape-only task value is 
+
+bTψ,P,C (f ) = Tr( C bGf,ψ,P ),
+
+which is nontrivial only for k ≥ 2.For a restricted distribution νy , such as images from class y, define 
+
+G(y) 
+
+> f,ψ,P
+
+:= Es∼νy
+
+(Jhf (s)P )⊤(Jhf (s)P ) . (10) 4Given model groups A and B, define 
+
+∆Gy = G(y) 
+
+> A,ψ,P
+
+− G(y) 
+
+> B,ψ,P
+
+, ∆ bGy = bG(y) 
+
+> A,ψ,P
+
+− bG(y) 
+
+> B,ψ,P
+
+. (11) Here the overline denotes averaging the corresponding class-conditional summary over models in the indicated group. The full contrast captures gain and allocation differences; the shape-only contrast isolates allocation after trace normalization. 
+
+Proposition 2 (Optimal shared contrast directions) . Let ∆Gy ∈ Sk be the class-conditional group contrast in Definition 3. Then, for every unit vector v ∈ Rk,
+
+v⊤∆Gy v
+
+is the between-group contrast in expected local quadratic sensitivity along the shared coordinate-family direction v. Moreover, 
+
+max  
+
+> ∥v∥2=1
+
+v⊤∆Gy v = λmax (∆ Gy ), min  
+
+> ∥v∥2=1
+
+v⊤∆Gy v = λmin (∆ Gy ),
+
+attained by top and bottom eigenvectors. The corresponding rank-r statements follow from Ky Fan’s principle, and the same results hold with ∆Gy replaced by ∆ bGy ; see Appendix A.11. 
+
+The contrast directions in Proposition 2 are shared across the distribution defining G(y), unlike image-conditioned local distortion objectives. If ∆Gy (x) is an imagewise contrast and qx(v) = 
+
+v⊤∆Gy (x)v, then 
+
+max  
+
+> ∥v∥=1
+
+Ex[qx(v)] ≤ Ex
+
+
+
+max  
+
+> ∥v∥=1
+
+qx(v)
+
+
+
+. (12) The construction is therefore distribution-level: its directions are shared contrasts under G(y), not separately optimized perturbations around each image. In the experiments below, we test whether these shared directions can be externalized into finite perturbation sets that transfer across held-out images and held-out models, making the construction complementary to eigen-distortions and principal distortions [3, 12, 21]. 
+
+3 S-RAS : geometry-aware comparison of sensitivity summaries 
+
+Section 2.2 maps each representation and perturbation family to a PSD task summary. For a nonzero PSD summary Af,P ∈ Sk
+
+> +
+
+, where A may denote either G or the noise-aware Fisher summary F , we use the trace-scaled SPD lift 
+
+eAf,P := Af,P + εreg 
+
+Tr( Af,P )
+
+k Ik ∈ Sk
+
+> ++
+
+. (13) When A = G we write eG, and when A = F we write eF . For lifted tasks, write eTP,C (f ) = Tr( C eAf,P ); the trace-summary argument from Proposition 1 applies unchanged. We compare lifted signatures with the affine-invariant Riemannian metric on Sk 
+
+> ++
+
+[23], 
+
+dAIRM (A, B ) := log 
+
+
+
+A−1/2BA −1/2
+
+> F
+
+, (14) and define, for a fixed perturbation family P ,
+
+dS-RAS ,P (f, g ) := 1
+
+√k dAIRM ( eGf,P , eGg,P ), S-RAS P (f, g ) := exp[ −dS-RAS ,P (f, g )] . (15) The normalization by √k keeps scores comparable across family dimensions; in noise-aware settings we replace eG by eF .
+
+Theorem 1 (Uniform control over lifted second-moment tasks) . Let A, B ∈ Sk 
+
+> ++
+
+and d =
+
+dAIRM (A, B ). Then 
+
+e−dA ⪯ B ⪯ edA, 
+
+and consequently, for every C ⪰ 0,
+
+e−dTr( CA ) ≤ Tr( CB ) ≤ edTr( CA ). (16) 5Applying Theorem 1 with A = eGf,P and B = eGg,P gives uniform multiplicative control over lifted task values. If 
+
+δ = dS-RAS ,P (f, g ), S = S -RAS P (f, g ) = e−δ ,
+
+then 
+
+S 
+
+> √k
+
+eTP,C (f ) ≤ eTP,C (g) ≤ S−√k eTP,C (f ). (17) Thus S-RAS is a dimension-normalized similarity score, while the certificate itself is controlled by the unnormalized AIRM distance. The task-control viewpoint also has a sharp worst-case form: replacing the Frobenius log-spectral distance in Theorem 1 by its operator-norm analogue exactly captures the largest possible log-multiplicative disagreement over lifted task values (Appendix A.5). Separately, because the construction depends on Jacobians rather than activation point clouds, it is insensitive to post-hoc representation-space shifts that are constant with respect to the stimulus, including the subset-translation construction of [7] (Appendix A.9). 
+
+4 Experiments 
+
+Experimental setup. We evaluate three model settings and one biological application: Tiny10 CNNs for layer matching; ResNet-18 [ 15 ] and small-ViT [ 10 ] CIFAR-10 [ 19 ] banks for architecture comparisons; fixed-architecture ResNet-18 banks trained with ERM, PGD [ 22 ], TRADES [ 29 ], or MART [ 28 ] for regime comparisons; and Allen static-gratings recordings for biologically defined stimulus-coordinate families (θ, ρ, ϕ ). Activation baselines and sensitivity comparisons use the same checkpoints or neural-response summaries; details are in Appendix C. 
+
+4.1 Layer matching examination 
+
+As a sanity check, we ask whether independently trained Tiny10 CNNs recover the expected layer correspondence under the retrieval protocol of Kornblith et al. [17] . A match is correct when the architecturally corresponding layer is the top row-wise and column-wise retrieval in the 8 × 8
+
+layer-similarity matrix. Table 1 summarizes the results. Under random perturbation families, S-RAS already gives a mean-ingful correspondence signal at K = 16 and improves with family dimension, reaching 85 .1% at 
+
+K = 768 . Under PCA-basis families, it reaches 93 .8% , nearly matching linear and RBF CKA at 
+
+94 .4% and 94 .0% , respectively. Thus the experiment is a coherence check: the sensitivity summaries recover layer identity and off-diagonal structure, while strong activation baselines remain best in raw accuracy. We also include two pointwise local-geometry controls on the same n = 1024 benchmark and projected families: pointwise AIRM and a down-projected MSA-style baseline. These test the aggregation choice by contrasting dataset-level expected task-family operators with imagewise metric comparisons averaged over the dataset. pw-AIRM is strong at small K but degrades at larger K,while full S-RAS gives the strongest high-K local-geometry result. The MSA-style control is near chance under random projections but remains above chance under PCA-basis families, indicating that the projected family can carry layer information even when the spectral-ratio summary is less discriminative than S-RAS . Appendix A.10 gives diagnostic context. Because these baselines are down-projected for tractability, we treat them as targeted controls rather than an exhaustive benchmark; Appendix Table 5 summarizes the resulting compute and memory scaling. Additional diagnostics are in Appendix D.1. 
+
+4.2 Held-out class-conditional diagnostic probes 
+
+Layer matching tests whether sensitivity summaries recover a basic correspondence signal. We next ask whether class-conditional sensitivity contrasts can be externalized into finite perturbations whose effects transfer to held-out images and held-out models. This instantiates Section 2.3: a learned smooth-deformation parameterization defines a q-dimensional coordinate system, PK selects a K-dimensional task-family subspace, and leading positive and negative eigendirections of the discovery-set contrast are instantiated as finite image deformations. For each class y, we estimate the summaries in Eq. (10) , form the discovery-set contrast in Eq. (11) ,and evaluate only on held-out images and models. The probes optimize between-group local quadratic 6Table 1: Layer-identification accuracy. All entries use the shared n = 1024 -image benchmark and report mean ± SEM. Local-geometry cells are random / PCA-basis results. Compute/memory scaling is in Appendix Table 5.                                     
+
+> Local geometry: random / PCA basis Activation baselines Method 16 32 64 128 Ref. Method Acc.
+> S-RAS (full) 71 .7±1.6/77 .5±1.972 .6±1.6/78 .8±1.874 .9±1.4/79 .6±1.676 .5±1.2/81 .5±1.585 .1±1.2/93 .8±0.9†CKA (linear) 94 .4±0.9‡
+> S-RAS (shape) 49 .2±1.3/57 .1±1.953 .1±1.6/62 .8±1.954 .0±1.6/65 .0±1.954 .2±1.8/67 .4±2.155 .7±1.7/78 .1±1.6CKA (RBF) 94 .0±0.8
+> pw-AIRM 73 .8±1.6/83 .2±1.373 .5±1.5/82 .5±1.260 .4±1.3/75 .8±1.150 .4±1.0/56 .9±1.345 .6±1.1/46 .3±1.1Procrustes 66 .0±0.8
+> MSA ∗15 .3±0.6/39 .9±1.313 .8±0.4/35 .0±1.114 .3±0.5/32 .5±1.014 .0±0.5/31 .5±0.614 .2±0.5/29 .2±0.7CCA ( R2)12 .5±0.0
+
+Ref. is K = 768 for S-RAS and K = 256 for pointwise controls. † Best local-geometry result. ‡ Best activation-based and overall result. ∗ Exact local spectral-ratio distance averaged pointwise over images on family-restricted projected metrics. Original ResNet18 probe 1 ResNet18 (-) probe 1 ResNet18 probe 2 ResNet18 (-) probe 2 Small ViT probe 1 Small ViT probe 2 816 32 64 0.0 0.2 0.4 0.6 0.8 1.0 1.2 Held-out image separation (resnet18 score - small_vit score) Class-conditional diagnostic probes Contrast Random contrast Pooled sensitivity Label permutation −1 01234Pooled sensitivity −1 01234Contrast Split-class diagnostic K=32,P=2Task family dimension A B C
+
+Figure 2: Held-out class-conditional diagnostic probes. (A) Example probes at K = 32 , two probes per side. (B) Mean held-out image separation across task-family dimensions and controls. (C) Split-class diagnostic visualization against pooled sensitivity; formal tests aggregate to the held-out model-split level. sensitivity, not pooled sensitivity shared by both groups. We compare them with random-contrast probes, pooled-sensitivity probes from G(y)
+
+A + G(y)
+
+B , and a label-permutation null; construction details, split protocol, amplitudes, held-out model AUC, and ablations are in Appendix D.2. At the main setting ( K = 32 , two probes per side), contrast-derived probes produce larger held-out image separation than all controls: 1.10 , compared with 0.43 for random contrast, 0.31 for pooled sensitivity, and 0.03 for the label-permutation null. After aggregating over classes within each held-out model split, contrast-derived probes outperform all three controls in all 10 splits, giving one-sided paired Wilcoxon p = 9 .77 × 10 −4 for each comparison. The effect is present by K = 16 ,stable through K = 64 , and robust across probe counts at K = 32 . We therefore treat held-out image transfer of finite probes, rather than held-out model classification, as the primary claim. 
+
+4.3 Robust training as a controlled dissociation 
+
+We next apply the same contrast-and-probe construction to CIFAR-10 ResNet-18 banks trained with ERM, PGD, TRADES, or MART. Because architecture is fixed, separations cannot be attributed to model class. We use the pre-logit representation and K = 32 as the default family size. Figure 3 shows that contrast-derived probes are smooth, finite perturbations and that they separate standard models from PGD, TRADES, and MART on held-out images, with mean separations 0.99 ,
+
+1.22 , and 1.14 , respectively. In all three standard-versus-robust comparisons, contrast-derived probes outperform the three controls at K = 32 (one-sided Wilcoxon p = 9 .77 × 10 −4 over held-out splits). The same construction also separates PGD from TRADES more weakly ( 0.28 ), and the effect is already present by K = 16 and generally strengthens through K = 32 and 64 .Appendix D.3 extends the analysis to all six regime pairs, layer ablations, and direct model-space separations. There, TRADES versus MART shows a smaller but reliable effect, whereas PGD versus MART shows little separation under the present family. This selectivity is informative: the probe battery is not simply flagging every regime pair, but is strongest where training objectives induce clearer changes in local evidence use. 7Standard probe 1 Standard probe 2 PGD probe 1 PGD probe 2 Original Standard vs PGD Standard vs TRADES Standard vs MART PGD vs TRADES −0.2 0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 Held-out image separation Contrast-derived Random contrast Pooled sensitivity Label permutation Diagnostic Probes from class-conditional sensitivity contrast (K = 32) 816 32 64 0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 Held-out image separation Contrast-derived probes strengthen with richer task families Standard vs PGD Standard vs TRADES Standard vs MART PGD vs TRADES Task family dimension A B CFigure 3: Controlled regime shifts under robust training. (A) Example probes from the standard-versus-PGD contrast. (B) Held-out image separation at K = 32 , comparing contrast-derived probes to random-contrast, pooled-sensitivity, and label-permutation controls. Error bars in (B) are 95% percentile bootstrap intervals over held-out model-split means. (C) Separation as a function of task-family dimension K.Full Fisher CKA Shape-only Fisher Naive full 0.0 0.1 0.2 0.3 0.4 0.5 Top-1 accuracy 0.458 0.288 0.259 0.222 Cross-area identity Full Fisher CKA Shape-only Fisher Naive full 0.0 0.1 0.2 0.3 0.4 0.5 Top-1 accuracy 0.466 0.483 0.397 0.293 VISp depth benchmark θρϕθρ+θϕ+ρϕ+θρϕ++0.25 0.30 0.35 0.40 0.45 0.50 0.55 Top-1 accuracy Family-relative matching Area — full Area — shape-only VISp depth — full VISp depth — shape-only A B C
+
+Figure 4: Biological sensitivity geometry in mouse visual cortex. (A) Cross-area identity under donor-distinct matched-count comparison. (B) VISp-depth identity is harder. Full Fisher remains competitive with CKA and above naive geometry. (C) Matching depends on the grating-coordinate family. Dashed curves show trace-normalized shape-only summaries for families with dimension at least two. 
+
+4.4 Biological static-gratings application 
+
+We next instantiate the theory in an experimentally parameterized stimulus space. The Allen Brain Observatory Visual Coding dataset provides a standardized survey of visually evoked calcium responses across mouse visual cortical areas and depths [ 9]. We focus on static gratings, whose controlled variables define the q = 3 coordinate system 
+
+s = ( θ, ρ, ϕ ), ρ = log 2(spatial frequency ),
+
+with 6 orientations, 5 spatial frequencies, and 4 phases, yielding 120 conditions [ 2 ]. This setting matches the parameterized-family version of Section 2 where the perturbation family is a biologically meaningful stimulus-coordinate family rather than an arbitrary pixel subspace. It also connects to population-coding theory, where Fisher information and correlated variability determine local stimulus discriminability [ 1 , 11 , 26 ], and to neural-manifold analyses of visual cortex population responses [4, 27]. For each experiment e, we estimate condition-mean responses μe(s) ∈ Rnmatch , pooled within-condition covariance Σe, and finite-difference response Jacobian Dμ e(s). The noise-aware Fisher summary and unwhitened local-geometry baseline are 
+
+Fe = Es
+
+Dμ e(s)⊤Σ−1
+
+e Dμ e(s) , Ge = Es
+
+Dμ e(s)⊤Dμ e(s) .
+
+We also compare trace-normalized shape-only versions, bFe = Fe/Tr( Fe) and bGe = Ge/Tr( Ge), to separate total sensitivity scale from directional allocation. Full preprocessing, covariance regulariza-tion, finite differences, family restrictions, and donor-distinct retrieval details are in Appendix D.4. We evaluate donor-distinct retrieval in cross-area and within-VISp depth cohorts, matching counts before retrieval because Fisher scale depends on population size. In the primary area benchmark, 8Table 2: Biological top-1 retrieval. Entries are donor-distinct top-1 identity accuracy after matched-count control; reliability is mean split-half reliability after matching. 
+
+Cohort nmatch Reliability Chance Full Fisher CKA Shape-only Fisher Naive full Area 60 0.941 0.167 0.458 0.288 0.259 0.222 VISp depth 45 0.932 0.250 0.466 0.483 0.397 0.293 
+
+full Fisher reaches 0.458 top-1 accuracy, above CKA 0.288 , shape-only Fisher 0.259 , and naive full geometry 0.222 (Table 2, Figure 4A). Its advantage over CKA is significant under paired query-level permutation testing after FDR correction ( q = 8 .0 × 10 −4), as is the advantage over naive full geometry. Thus the area-level signal is not explained by activation alignment or unwhitened derivative geometry alone; the covariance term is part of the comparison, consistent with the role of correlated variability in population-code accuracy [1, 11, 26]. The VISp-depth benchmark is more nuanced. CKA reaches 0.483 top-1 accuracy, full Fisher 0.466 ,shape-only Fisher 0.397 , and naive full 0.293 . On diagonal AUC, full Fisher and CKA are nearly tied, 0.549 and 0.547 , while naive full remains lower at 0.513 (Appendix Table 6). Thus VISp depth identity is a harder within-area comparison, where the noise-aware Fisher summary remains informative but no longer separates as sharply from activation-based summaries. For Q ⊆ { θ, ρ, ϕ }, we compare Fe,Q = P ⊤ 
+
+> Q
+
+FePQ and, for |Q| ≥ 2, its trace-normalized version. The best-matching family is not always the full coordinate set; in the area cohort, ρ + ϕ reaches 
+
+0.500 top-1 accuracy and θ + ϕ reaches 0.486 , both above the full θ + ρ + ϕ family at 0.458 ; in VISp depth, θ + ϕ reaches 0.569 , also exceeding the full family. Thus adding coordinates can dilute the matching signal when the added direction emphasizes variation irrelevant to the population distinction under study. The gain/shape decomposition adds a complementary view where area identity depends on both total noise-aware sensitivity and directional allocation, while shape-only Fisher gives the strongest area diagonal-AUC and adds information beyond activation, decoder-profile, and mapping baselines in an auxiliary pair-classification analysis (Appendix Table 7). 
+
+5 Discussion 
+
+Activation-based comparisons are most informative when the question concerns stimulus-evoked organization or downstream readout structure. We asked a complementary question: whether two representations make the same small stimulus directions discriminable on average over a dataset. We formalized this through second-moment local perturbation tasks, used the projected expected pullback/Fisher operator as the minimal complete dataset-level summary for that family, and compared regularized summaries with a log-spectral SPD geometry. The resulting similarity is family-relative rather than universal: a perturbation family P defines which local evidence is under study, so agreement under one family need not imply agreement under another. This dependence appears across the experiments: perturbation-family choice affects layer correspondence and probe transfer in models, while Allen static-gratings recordings show that noise-aware Fisher geometry and grating-coordinate choice affect area and depth matching. Empirically, S-RAS recovers meaningful layer-correspondence structure and sharper off-diagonal suppression, though not uniformly higher raw top-match accuracy than strong activation baselines. The stronger evidence comes from targeted diagnostics: class-conditional probes transfer to held-out images and models, robust-training contrasts reveal regime-specific evidence-use differences, and static-gratings recordings expose family-dependent biological sensitivity structure. The framework remains local, dataset-level, and second-moment based; it does not capture image-conditioned optima, higher-order effects, or strongly nonlinear finite-perturbation behavior. Its dis-criminability interpretation depends on the stated observation model, especially stimulus-independent noise in the Fisher form. Broader benchmarks, especially with larger architectures using subsam-pling, lower-rank families, and distributed JVP batching, are needed to identify when dataset-level sensitivity summaries reveal evidence-use structure not captured by activation alignment or pointwise local-geometry baselines. 9Code and Data Availability 
+
+Code for reproducing the main analyses is available at https://github.com/ amirhosseinyavari/neural-sensitivity-geometry . The Allen Brain Observatory Visual Coding data are publicly available from the Allen Institute. 
+
+References 
+
+[1] L. F. Abbott and Peter Dayan. The effect of correlated variability on the accuracy of a population code. Neural Computation , 11(1):91–101, 1999. doi: 10.1162/089976699300016827. [2] Allen Institute for Brain Science. Allen Brain Observatory: Visual Coding—Static Gratings. https://observatory.brain-map.org/visualcoding/stimulus/static_ gratings , 2016. Accessed: 2026-04-30. [3] Alexander Berardino, Johannes Ballé, Valero Laparra, and Eero P. Simoncelli. Eigen-distortions of hierarchical representations. In Advances in Neural Information Processing Systems (NeurIPS) , 2017. [4] Kosio Beshkov, Marianne Fyhn, Torkel Hafting, and Gaute T. Einevoll. Topological structure of population activity in mouse visual cortex encodes densely sampled stimulus rotations. iScience ,27(4):109370, 2024. doi: 10.1016/j.isci.2024.109370. [5] Nicolas Brunel and Jean-Pierre Nadal. Mutual information, fisher information, and population coding. Neural Computation , 10(7):1731–1757, 1998. doi: 10.1162/089976698300017115. [6] N Alex Cayco-Gajic and Arthur Pellegrino. Geometry-aware similarity metrics for neural representations on Riemannian and statistical manifolds. arXiv preprint arXiv:2603.28764 ,2026. [7] MohammadReza Davari, Stefan Horoi, Amine Natik, Guillaume Lajoie, Guy Wolf, and Eugene Belilovsky. On the reliability of cka as a similarity measure in deep learning. arXiv preprint arXiv:2210.16156 , 2022. [8] Peter Dayan and L. F. Abbott. Theoretical Neuroscience: Computational and Mathematical Modeling of Neural Systems . The MIT Press, Cambridge, MA, 2001. [9] Saskia E. J. de Vries, Jerome A. Lecoq, Michael A. Buice, et al. A large-scale standard-ized physiological survey reveals functional organization of the mouse visual cortex. Nature Neuroscience , 23:138–151, 2020. doi: 10.1038/s41593-019-0550-9. [10] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Representations , 2021. URL 
+
+https://openreview.net/forum?id=YicbFdNTTy .[11] Alexander S. Ecker, Philipp Berens, Georgios A. Keliris, Matthias Bethge, Nikos K. Logothetis, and Andreas S. Tolias. The effect of noise correlations in populations of diversely tuned neurons. 
+
+Journal of Neuroscience , 31(40):14272–14283, 2011. doi: 10.1523/JNEUROSCI.2539-11.2011. [12] Jenelle Feather, David Lipshutz, Sarah E. Harvey, Alex H. Williams, and Eero P. Simoncelli. Discriminating image representations with principal distortions. In International Conference on Learning Representations (ICLR) , 2025. [13] David M. Green and John A. Swets. Signal Detection Theory and Psychophysics . John Wiley & Sons, New York, 1966. [14] Sarah E. Harvey, David Lipshutz, and Alex H. Williams. What representational similarity measures imply about decodable information. arXiv preprint arXiv:2411.08197 , 2024. Also presented at UniReps 2024 workshop. 10 [15] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for im-age recognition. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition , pages 770–778, 2016. [16] Roger A. Horn and Charles R. Johnson. Matrix Analysis . Cambridge University Press, second edition, 2012. [17] Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton. Similarity of neural network representations revisited. In International Conference on Machine Learning (ICML) ,pages 3519–3529. PMLR, 2019. [18] Nikolaus Kriegeskorte, Marieke Mur, and Peter A Bandettini. Representational similarity analysis—connecting the branches of systems neuroscience. Frontiers in Systems Neuroscience ,2:4, 2008. [19] Alex Krizhevsky. Learning multiple layers of features from tiny images. Techni-cal report, University of Toronto, 2009. URL https://www.cs.toronto.edu/~kriz/ learning-features-2009-TR.pdf .[20] Karel Lenc and Andrea Vedaldi. Understanding image representations by measuring their equivariance and equivalence. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , 2015. [21] David Lipshutz, Jenelle Feather, Sarah E. Harvey, Alex H. Williams, and Eero P. Simoncelli. Comparing the local information geometry of image representations. OpenReview preprint ,2024. [22] Aleksander Madry, Aleksandar Makelov, Ludwig Schmidt, Dimitris Tsipras, and Adrian Vladu. Towards deep learning models resistant to adversarial attacks. In International Conference on Learning Representations , 2018. URL https://openreview.net/forum?id=rJzIBfZAb .[23] Xavier Pennec, Pierre Fillard, and Nicholas Ayache. A Riemannian framework for tensor computing. International Journal of Computer Vision , 2006. [24] Alexandre Pouget, Peter Dayan, and Richard S. Zemel. Information processing with population codes. Nature Reviews Neuroscience , 1(2):125–132, 2000. doi: 10.1038/35039062. [25] Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Sohl-Dickstein. SVCCA: Singu-lar vector canonical correlation analysis for deep learning dynamics and interpretability. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) , volume 30, 2017. [26] H. S. Seung and H. Sompolinsky. Simple models for reading neuronal population codes. 
+
+Proceedings of the National Academy of Sciences , 90(22):10749–10753, 1993. doi: 10.1073/ pnas.90.22.10749. [27] Carsen Stringer, Marius Pachitariu, Nicholas Steinmetz, Matteo Carandini, and Kenneth D. Harris. High-dimensional geometry of population responses in visual cortex. Nature , 571: 361–365, 2019. doi: 10.1038/s41586-019-1346-5. [28] Yisen Wang, Difan Zou, Jinfeng Yi, James Bailey, Xingjun Ma, and Quanquan Gu. Improving adversarial robustness requires revisiting misclassified examples. In International Conference on Learning Representations , 2020. URL https://openreview.net/forum?id=rklOg6EFwS .[29] Hongyang Zhang, Yaodong Yu, Jiantao Jiao, Eric P. Xing, Laurent El Ghaoui, and Michael I. Jordan. Theoretically principled trade-off between robustness and accuracy. In Proceedings of the 36th International Conference on Machine Learning , volume 97 of Proceedings of Machine Learning Research , pages 7472–7482. PMLR, 2019. URL https://proceedings. mlr.press/v97/zhang19p.html .[30] Jingyang Zhou, Chanwoo Chun, Ajay Subramanian, and Eero P. Simoncelli. Comparing neural models using their perceptual discriminability predictions. Proceedings of Machine Learning Research (PMLR): UniReps Workshop , 2024. 11 A Theory details and proofs 
+
+A.1 Derivation of local discriminability 
+
+For the Gaussian discrimination task in Eq. (3) , the two hypotheses share covariance Σ and differ only in their means, 
+
+μ0 = hf (s), μ1 = hf (s + η).
+
+For equal-covariance Gaussian discrimination, the squared discriminability is 
+
+d′2 = ( μ1 − μ0)⊤Σ−1(μ1 − μ0).
+
+Under local linearization, 
+
+hf (s + η) ≈ hf (s) + Jhf (s)η, 
+
+so 
+
+d′2(s, η ) = η⊤Jhf (s)⊤Σ−1Jhf (s)η = η⊤If,ψ (s)η, 
+
+with If,ψ (s) defined in Eq. (4). If C = E[ηη ⊤], then 
+
+E[d′2 | s] = E[η⊤If,ψ (s)η | s] = Tr( CI f,ψ (s)) ,
+
+which gives Eq. (5). For the projected family η = P z with Cz = E[zz ⊤],
+
+Es,z [d′2(s, P z )] = Tr  Cz Es[P ⊤Jhf (s)⊤Σ−1Jhf (s)P ] = Tr( Cz Ff,ψ,P, Σ),
+
+which is the task value in Eq. (7). 
+
+A.2 Trace-task summaries and minimality 
+
+All completeness/minimality claims used in the main text are instances of the same elementary separation fact. 
+
+Lemma 1 (PSD trace probes separate symmetric matrices) . Let D ∈ Sk. If 
+
+Tr( CD ) = 0 for all C ⪰ 0,
+
+then D = 0 .Proof. If D̸ = 0 , then some vector v satisfies v⊤Dv ̸ = 0 . Taking C = vv ⊤ ⪰ 0 gives 
+
+0 = Tr( vv ⊤D) = v⊤Dv, 
+
+a contradiction. 
+
+Lemma 2 (Linear trace-task summary) . Let Γf , Γg ∈ Sk and define 
+
+TC (f ) = Tr( CΓf ), TC (g) = Tr( CΓg ), C ⪰ 0.
+
+Then Γf determines all task values {TC (f ) : C ⪰ 0}. Conversely, if TC (f ) = TC (g) for all C ⪰ 0,then Γf = Γ g .Proof. Completeness is immediate from the definition of TC . For minimality, equality of all task values gives 
+
+Tr( C(Γ f − Γg )) = 0 for all C ⪰ 0.
+
+Lemma 1 implies Γf = Γ g .
+
+Projected Fisher and pullback summaries. Proposition 1 follows from Lemma 2 by taking 
+
+Γf = Ff,ψ,P, Σ.
+
+The isotropic pullback case follows from 
+
+Ff,ψ,P,σ 2I = σ−2Gf,ψ,P .
+
+12 Lifted summaries. The same argument applies to 
+
+eTP,C (f ) = Tr( C eAf,P )
+
+by taking Γf = eAf,P , with A = G or A = F .
+
+Trace-normalized shape summaries. For shape-only summaries, assume Tr( Gf,ψ,P ) > 0 and define 
+
+bGf,ψ,P = Gf,ψ,P 
+
+Tr( Gf,ψ,P ) .
+
+For normalized probes C ⪰ 0 with Tr( C) = 1 ,
+
+bTψ,P,C (f ) = Tr( C bGf,ψ,P ).
+
+If bTψ,P,C (f ) = bTψ,P,C (g) for all such C, then by rescaling nonzero PSD matrices, the equality holds for all C ⪰ 0. Lemma 2 gives 
+
+bGf,ψ,P = bGg,ψ,P .
+
+A.3 Proof of Theorem 1 
+
+Proof. Let 
+
+M = A−1/2BA −1/2 ∈ Sk
+
+> ++
+
+.
+
+If λi(M ) are the eigenvalues of M , then 
+
+dAIRM (A, B )2 = ∥ log M ∥2 
+
+> F
+
+=
+
+> k
+
+X
+
+> i=1
+
+(log λi(M )) 2.
+
+Thus | log λi(M )| ≤ d for every i, where d = dAIRM (A, B ). Hence 
+
+e−dI ⪯ M ⪯ edI. 
+
+Congruence by A1/2 gives 
+
+e−dA ⪯ B ⪯ edA. 
+
+Now let C ⪰ 0. Congruence by C1/2 preserves the Loewner order, so 
+
+e−dC1/2AC 1/2 ⪯ C1/2BC 1/2 ⪯ edC1/2AC 1/2.
+
+Taking traces and using cyclicity gives 
+
+e−dTr( CA ) ≤ Tr( CB ) ≤ edTr( CA ).
+
+A.4 Basis invariance of projected task families 
+
+Let P ′ = P Q , where Q⊤Q = Ik. Then 
+
+Ff,ψ,P ′,Σ = Q⊤Ff,ψ,P, ΣQ, Gf,ψ,P ′ = Q⊤Gf,ψ,P Q. 
+
+For the corresponding covariance change C′ 
+
+> z
+
+= Q⊤Cz Q, the task value is unchanged: 
+
+Tr( C′ 
+
+> z
+
+Ff,ψ,P ′,Σ) = Tr( Cz Ff,ψ,P, Σ),
+
+and likewise in the isotropic pullback case, 
+
+Tr( C′ 
+
+> z
+
+Gf,ψ,P ′ ) = Tr( Cz Gf,ψ,P ).
+
+Thus the projected task family depends on the chosen coordinate subspace, not on the particular orthonormal basis used to represent it. 13 A.5 Tight worst-case constant and relation to AIRM 
+
+The AIRM-based bound in Theorem 1 is convenient and symmetric, but in some settings one may want the sharpest possible worst-case log-spectral constant. This leads to the operator-norm quantity 
+
+d∞(A, B ) := log 
+
+
+
+A−1/2BA −1/2
+
+> op
+
+.
+
+Theorem 2 (Tight worst-case constant via d∞). Let A, B ∈ Sk
+
+> ++
+
+. Then d∞(A, B ) is the smallest constant t ≥ 0 such that 
+
+e−tA ⪯ B ⪯ etA. (18) 
+
+Lemma 3 (d∞ and AIRM) . For all A, B ∈ Sk
+
+> ++
+
+,
+
+d∞(A, B ) ≤ dAIRM (A, B ) ≤ √k d ∞(A, B ).
+
+A.6 Proof of Theorem 2 
+
+Proof. Write 
+
+C := A−1/2BA −1/2 ∈ Sk
+
+> ++
+
+.
+
+Then the sandwich 
+
+e−tA ⪯ B ⪯ etA
+
+is equivalent, after congruence by A−1/2, to 
+
+e−tI ⪯ C ⪯ etI. 
+
+Because C is symmetric positive definite, this holds if and only if every eigenvalue of C lies in the interval [e−t, e t], that is, 
+
+e−t ≤ λi(C) ≤ et for all i. 
+
+Equivalently, 
+
+log λi(C) ≤ t for all i. 
+
+Since log C is symmetric, the smallest such t is precisely the largest absolute eigenvalue of log C,namely 
+
+t = ∥ log C∥op = d∞(A, B ).
+
+This proves the claim. 
+
+Theorem 3 (Variational characterization of d∞). For all A, B ∈ Sk
+
+> ++
+
+,
+
+d∞(A, B ) = sup  
+
+> C⪰0, C ̸=0
+
+log Tr( CB )Tr( CA ) . (19) 
+
+Equivalently, 
+
+d∞(A, B ) = sup  
+
+> C⪰0,Tr( CA )=1
+
+|log Tr( CB )| . (20) 
+
+A.7 Proof of Theorem 3 
+
+Proof. Let 
+
+M := A−1/2BA −1/2 ∈ Sk
+
+> ++
+
+.
+
+For any C ⪰ 0 with C̸ = 0 , define 
+
+D := A1/2CA 1/2 ⪰ 0.
+
+Then 
+
+Tr( CB ) = Tr( DM ), Tr( CA ) = Tr( D).
+
+Therefore Tr( CB )Tr( CA ) = Tr( DM )Tr( D) . (21) Let the eigenvalues of M be 
+
+λmin (M ) ≤ λ1(M ) ≤ · · · ≤ λmax (M ).
+
+14 Since D ⪰ 0, the quantity Tr( DM )/Tr( D) is a convex combination of the eigenvalues of M . Hence 
+
+λmin (M ) ≤ Tr( DM )Tr( D) ≤ λmax (M ).
+
+Applying log gives 
+
+log λmin (M ) ≤ log Tr( CB )Tr( CA ) ≤ log λmax (M ).
+
+Therefore 
+
+log Tr( CB )Tr( CA ) ≤ max | log λmin (M )|, | log λmax (M )| = ∥ log M ∥op = d∞(A, B ).
+
+To show equality, let umax be a unit eigenvector of M with eigenvalue λmax (M ). Set 
+
+D = umax u⊤
+
+> max
+
+, C = A−1/2DA −1/2.
+
+Then C ⪰ 0, C̸ = 0 , and 
+
+Tr( CB )Tr( CA ) = Tr( DM )Tr( D) = λmax (M ).
+
+Thus 
+
+log Tr( CB )Tr( CA ) = | log λmax (M )|.
+
+Likewise, choosing an eigenvector for λmin (M ) attains 
+
+| log λmin (M )|.
+
+Taking the larger of the two proves (19). The normalized form (20) follows by rescaling C so that Tr( CA ) = 1 .
+
+A.8 Proof of Lemma 3 
+
+Proof. Let 
+
+L := log 
+
+
+
+A−1/2BA −1/2
+
+.
+
+Then, by definition, 
+
+d∞(A, B ) = ∥L∥op , dAIRM (A, B ) = ∥L∥F .
+
+Since L is symmetric, ∥L∥op is the ℓ∞ norm of its eigenvalues in absolute value, whereas ∥L∥F is the corresponding ℓ2 norm. The standard relation between these norms yields 
+
+∥L∥op ≤ ∥ L∥F ≤ √k ∥L∥op ,
+
+and hence 
+
+d∞(A, B ) ≤ dAIRM (A, B ) ≤ √k d ∞(A, B ).
+
+A.9 Immunity of Jacobian-based alignment to subset translation Lemma 4 (Invariance to locally constant representation-space shifts) . Fix a finite dataset {xi}ni=1 
+
+and a differentiable representation map f : Rd → Rm. Suppose there are open neighborhoods Ui of 
+
+xi and constants ci ∈ Rm such that 
+
+˜f (x) = f (x) + ci for all x ∈ Ui.
+
+Then, at each dataset point, 
+
+J ˜f (xi) = Jf (xi), M ˜f (xi) = Mf (xi). (22) 
+
+Consequently, if Gf is computed by averaging over the empirical dataset, then 
+
+G ˜f = Gf , (23) 
+
+and any score depending on f only through Gf is unchanged. 
+
+15 Proof. On each neighborhood Ui, the added term ci is constant with respect to the input coordinates. Hence its derivative is zero on Ui, and in particular 
+
+J ˜f (xi) = Jf (xi).
+
+Therefore 
+
+M ˜f (xi) = J ˜f (xi)⊤J ˜f (xi) = Jf (xi)⊤Jf (xi) = Mf (xi).
+
+Averaging over the empirical distribution gives G ˜f = Gf . Any score constructed only from Gf ,including S-RAS after the SPD lift, is therefore unchanged. 
+
+Remark. This invariance applies to post-hoc representation-space shifts that are locally constant with respect to input coordinates on neighborhoods of the evaluated datapoints. If the added shift varies smoothly with x, then its derivative need not vanish and the sensitivity signature may change. 
+
+A.10 Structural diagnostics for pointwise spectral-ratio baselines 
+
+For the pointwise MSA baseline used in the layer-matching appendix, we write the local spectral-ratio distance as 
+
+dSR (A, B ) := 1 −
+
+r λmin 
+
+λmax 
+
+, (24) where λmin and λmax are the smallest and largest generalized eigenvalues of the pair (B, A ), equiva-lently the smallest and largest eigenvalues of A−1/2BA −1/2.
+
+Proposition 3 (Conformal blindness of spectral-ratio pointwise similarity) . Let A, B ∈ Sk
+
+> ++
+
+. If 
+
+B = cA for some c > 0,
+
+then 
+
+dSR (A, B ) = 0 .
+
+Proof. If B = cA , then 
+
+A−1/2BA −1/2 = A−1/2(cA )A−1/2 = cI. 
+
+Hence all generalized eigenvalues are equal: 
+
+λmin = λmax = c. 
+
+Substituting into (24) gives 
+
+dSR (A, B ) = 1 −
+
+r cc = 0 .
+
+Proposition 4 (Extreme-spectrum collapse) . Let A, B, eA, eB ∈ Sk
+
+> ++
+
+. If 
+
+κ
+
+
+
+A−1/2BA −1/2
+
+= κ
+
+ eA−1/2 eB eA−1/2
+
+,
+
+where 
+
+κ(M ) := λmax (M )
+
+λmin (M ) ,
+
+then 
+
+dSR (A, B ) = dSR ( eA, eB).
+
+In particular, dSR depends only on the extreme generalized eigenvalues of the relative metric and ignores the interior spectrum. Proof. By definition, 
+
+dSR (A, B ) = 1 −
+
+r λmin 
+
+λmax 
+
+= 1 − κ
+
+
+
+A−1/2BA −1/2−1/2
+
+.
+
+Thus equal relative condition number implies equal spectral-ratio distance. 16 A.11 Proof of Proposition 2 
+
+Proof. For any unit vector v,
+
+v⊤∆Gy v = v⊤G(y) 
+
+> A,ψ,P
+
+v − v⊤G(y) 
+
+> B,ψ,P
+
+v. 
+
+For a model m, with hm = fm ◦ ψ,
+
+v⊤G(y) 
+
+> m,ψ,P
+
+v = Es∼νy
+
+∥Jhm (s)P v ∥22
+
+ .
+
+Thus v⊤∆Gy v is the between-group contrast in expected local quadratic sensitivity along the shared coordinate-family direction v.The one-direction statements follow from the Rayleigh–Ritz variational characterization of eigenval-ues [16, Ch. 4]: 
+
+max  
+
+> ∥v∥2=1
+
+v⊤∆Gy v = λmax (∆ Gy ), min  
+
+> ∥v∥2=1
+
+v⊤∆Gy v = λmin (∆ Gy ).
+
+The r-dimensional statements follow from Ky Fan’s variational principle [16, Ch. 4]: 
+
+max   
+
+> U⊤U=Ir
+
+Tr( U ⊤∆Gy U ) = 
+
+> r
+
+X
+
+> i=1
+
+λ↓ 
+
+> i
+
+(∆ Gy ),
+
+with the minimum obtained by the r smallest eigenvalues. The same argument applies to ∆ bGy .Exactly the same proposition applies if ∆Gy is replaced by the shape-only contrast 
+
+∆ bGy := bG(y) 
+
+> A,P K
+
+− bG(y) 
+
+> B,P K
+
+,
+
+which isolates between-group differences in directional allocation independent of overall gain. 
+
+B The recurrence abstraction 
+
+The main text treats a representation as a differentiable map f : Rd → Rm. Recurrent systems fit the same abstraction by taking f to be either the unrolled state map at a fixed readout time or, when the dynamics converge, the equilibrium map. 
+
+B.1 From recurrence to a representation map 
+
+Consider a recurrent state r(t) ∈ RN driven by a constant stimulus x ∈ Rd through an input drive 
+
+u(x) ∈ RN , with dynamics 
+
+τ dr dt = −r(t) + σ W r (t) + u(x), (25) where W ∈ RN ×N and σ is applied elementwise. Two representation maps are immediate: (i) a finite-time map ft(x) := r(t; x), and (ii) when (25) converges, an equilibrium map f (x) := r∗(x),where r∗(x) satisfies 
+
+r∗(x) = σ W r ∗(x) + u(x). (26) 
+
+B.2 Geometric sensitivity via Jacobians 
+
+In the unrolled case, Jft (x) is obtained by differentiating through time. In the equilibrium case, 
+
+Jf (x) follows from implicit differentiation. Define 
+
+F (r, x ) := r − σ(W r + u(x)) .
+
+At equilibrium, F (r∗(x), x ) = 0 . Differentiating with respect to x gives 
+
+∂F ∂r (r∗,x )
+
+dr ∗
+
+dx + ∂F ∂x (r∗,x )
+
+= 0 .
+
+17 Table 3: Model banks used in the experiments. Bank Dataset Model family Training regime Seeds Tiny10 CIFAR-10 Tiny10 CNN standard training 10 Standard CIFAR-10 ResNet-18, small ViT standard training 10 each Robust CIFAR-10 ResNet-18 PGD / TRADES / MART 5 each Let 
+
+D(x) := diag  σ′(W r ∗(x) + u(x)) .
+
+Then ∂F ∂r = I − D(x)W, ∂F ∂x = −D(x) du dx .
+
+Assuming I − D(x)W is invertible, the implicit function theorem yields 
+
+Jf (x) = dr ∗
+
+dx =  I − D(x)W −1D(x) du dx . (27) 
+
+B.3 Compatibility with the main-text geometry 
+
+Once a recurrent network is cast as a differentiable map f , the main-text definitions apply verbatim: 
+
+Mf (x) = Jf (x)⊤Jf (x), Gf = Ex[Jf (x)⊤Jf (x)] .
+
+In this sense, pulling back to input space is not a change of object, but a coordinate description of local sensitivity of the same representation map. 
+
+C Additional experimental details 
+
+C.1 Model banks 
+
+We use three model banks, chosen to probe different kinds of representational variation. 
+
+Tiny10 bank. We trained 10 independent Tiny10 CNNs on CIFAR-10[ 19 ] dataset. This bank is intentionally small and homogeneous: all models share the same architecture and dataset, so differences arise only from optimization and random initialization. We use this bank primarily for sanity-check, especially layer-identity recovery and other analyses where a controlled setting is desirable before moving to larger or more heterogeneous models. 
+
+Standard-training banks. To study architectural variation under standard supervised training, we trained ResNet-18[ 15 ] and a small vision transformer (ViT)[ 10 ] on CIFAR-10, using 10 seeds for each architecture–dataset pair. These banks are used for comparisons in which the dataset and broad supervised-training setting are fixed, while the compared model families use architecture-appropriate standard training recipes. The resulting variation therefore reflects trained model family, including architecture and its standard optimization recipe, together with seed-to-seed variability. 
+
+Adversarially trained banks. To study how local sensitivity geometry changes under different robustness objectives while holding architecture fixed, we trained ResNet-18 models on CIFAR-10 datasets with three adversarial-training procedures: PGD adversarial training, TRADES, and MART. For each dataset–method pair we trained 5 seeds. These banks are used for training-regime comparisons, where the architecture is fixed and the main source of variation is the learning objective. Thus, taken together, the full suite lets us study local geometric sensitivity in three complementary regimes including within-architecture seed variability, across-architecture variation under standard training, and across-training-regime variation under fixed architecture. 
+
+C.2 Training details 
+
+All models were trained from scratch with independent random seeds. Table 4 summarizes the optimizer and schedule settings used for the model banks. Checkpoints were selected consistently within each bank and then reused unchanged for all activation-based and sensitivity-based analyses. 18 Table 4: Training hyperparameters for computational model banks. The standard ResNet-18 and small-ViT banks use architecture-appropriate supervised training recipes; robust-training comparisons hold architecture fixed and vary only the training objective.                                                                           
+
+> Bank Dataset Model Optimizer Epochs Batch LR WD Warmup Label smooth. Schedule / selection Tiny10 CIFAR-10 Tiny10 CNN AdamW 100 128 10 −310 −450.00 warmup + cosine; consistent saved checkpoint Standard CIFAR-10 ResNet-18 SGD/Nesterov 200 512 0.10 5×10 −450.10 warmup + cosine to 10 −2LR; early stop after min 60 Standard CIFAR-10 small ViT AdamW 300 512 3×10 −45×10 −220 0.10 warmup + cosine to 10 −2LR; early stop after min 100 Robust CIFAR-10 ResNet-18 PGD SGD/momentum 110 256 0.10 5×10 −4––step decay at 55/75/90 epochs; best robust checkpoint Robust CIFAR-10 ResNet-18 TRADES SGD/momentum 110 256 0.10 5×10 −4––step decay at 55/75/90 epochs; best robust checkpoint Robust CIFAR-10 ResNet-18 MART SGD/momentum 110 256 0.10 5×10 −4––step decay at 55/75/90 epochs; best robust checkpoint
+
+Standard-model training. For the standard ResNet-18 models, we use SGD with Nesterov mo-mentum 0.9, decoupled weight decay on non-bias/non-normalization parameters, label smoothing 
+
+0.10 , and a warmup-cosine learning-rate schedule. For small ViT, we use AdamW with gradient clipping at global norm 1.0, label smoothing 0.10 , and the same warmup-cosine schedule form. The cosine schedule decays to 10 −2 times the base learning rate. CIFAR training uses random crop/flip augmentation and dataset-specific channel normalization. Early stopping is allowed only after the minimum epoch shown in the training code and uses held-out evaluation accuracy. 
+
+Tiny10 training. Tiny10 models use AdamW with batch size 128 , 100 epochs, base learning rate 
+
+10 −3, weight decay 10 −4, and a 5-epoch linear warmup followed by cosine decay to 1% of the base learning rate. CIFAR-10 images are scaled to [−1, 1] . Training augmentation uses reflection padding by 4 pixels, random crop back to 32 × 32 , and random horizontal flip. 
+
+Robust ResNet-18 training. Robust models use ℓ∞ adversarial training with radius ϵ = 8 /255 ,step size 2/255 , 10 inner-loop PGD steps for training, and 20 PGD steps for robust evaluation. PGD models minimize adversarial cross-entropy. TRADES uses KL-based adversarial examples and 
+
+β = 6 .0. MART uses the MART loss with β = 5 .0. All robust models use SGD with momentum 
+
+0.9, weight decay 5 × 10 −4, batch size 256 , 110 epochs, and learning-rate drops by a factor 0.1 at epochs 55 , 75 , and 90 . Robust checkpoints are selected by held-out robust accuracy. 
+
+C.3 Layer definitions and extracted representations 
+
+For each trained network, we treat a layer representation as the input-to-layer map Φn introduced in Section 2. In practice, this means that for a given checkpoint we extract both activations Φn(x) and local sensitivity information through Jacobian-vector products of the same map. 
+
+Tiny10 CNNs. For Tiny10, candidate layers correspond to the post-nonlinearity outputs of the convolutional stages and the corresponding final hidden layer representation used before the clas-sifier. This bank is used when we want a relatively fine-grained but still manageable sequence of convolutional representations. 
+
+ResNet-18. For ResNet-18, we use the stem representation, the outputs of the residual blocks, and the pooled pre-logit representation. This yields a sequence of intermediate maps that naturally tracks the model from early local feature extraction to the final global representation. 
+
+Small ViT. For the small ViT, we use the patch-embedding representation, the token representation before the encoder stack, the outputs of successive transformer blocks, and the pre-logit class-token representation. This gives an architecture-matched sequence of intermediate transformer representations without requiring a forced one-to-one correspondence with convolutional layers. Throughout, whenever we compare two layers, the compared objects are the corresponding saved representation maps and their associated dataset-level sensitivity summaries, rather than individual activation vectors from a single image. 
+
+C.4 Evaluation protocol and aggregation 
+
+Unless stated otherwise, comparisons are made between independently trained models. For within-bank analyses, we aggregate over seed pairs so that reported values reflect stable trends rather 19 than idiosyncrasies of a single training run. For layer-identification experiments, each candidate layer in one model is compared against the candidate layers in another model, and prediction is counted as correct when the matched layer index agrees with the true layer identity. For cross-model disagreement analyses, distances are computed from the relevant representation layers and then related to independently measured perturbation-task disagreement across the same model pairs. This protocol is used to separate the following questions. Whether the measure is stable across random initializations, whether it captures architecture-level differences beyond seed noise, and whether it is sensitive to systematic changes in the training objective such as adversarial training. 
+
+C.5 Compute resources 
+
+The computational-model experiments were run in Google Colab TPU v6e High-RAM environments using Python/JAX workflows. The Tiny10 layer-matching experiments, activation baselines, class-conditional probe analyses, and robust-training probe analyses can be reproduced on a comparable modern accelerator runtime. The main memory requirements come from storing activations, projected Jacobian-vector-product summaries, and pairwise layer/model similarity matrices. The sweeps over model pairs, layers, task-family dimensions K, probe counts, and training-regime pairs are independently parallelizable, and in our runs were executed as separate accelerator jobs rather than as one monolithic run. The Allen static-gratings analysis was run locally on a CPU workstation/server. The main require-ments are memory for matched-count response matrices, condition means, pooled covariances, and per-experiment 3 × 3 Fisher/pullback summaries. A workstation with 16–32 CPU cores and 64– 128GB RAM is sufficient for reproducing the matched-count area and VISp-depth analyses; more cores primarily speed up independent experiment, subsample, and family-restriction loops. The biological pipeline is CPU-parallelizable across experiments and matched subsamples and does not require a GPU. 
+
+D Additional Experiments. 
+
+D.1 Layer matching sanity check and task-family dependence 
+
+This appendix provides experimental details and robustness analyses for the layer-matching sanity check reported in Figure 5. The goal of this experiment is not to establish a new benchmark in its own right, but to verify that the proposed geometry produces a sensible layer-identity signal in the setting introduced by Kornblith et al. [17] , corresponding layers in independently trained networks should be most similar to one another. In our framework, this sanity check is performed relative to explicit local perturbation task families. 
+
+Experimental setup. We train 10 independently initialized Tiny10 convolutional networks on CIFAR-10 and compare the eight intermediate ReLU layers across all unordered model pairs. For each pair of models (a, b ) and each task-family dimension K, we form a layer-similarity matrix 
+
+S(a,b ) 
+
+> K
+
+∈ R8×8, S(a,b ) 
+
+> K
+
+(i, j ) = exp 
+
+−
+
+dAIRM 
+
+  eGΦ(a)  
+
+> i,P K
+
+, eGΦ(b) 
+
+> j,P K
+
+
+
+√K
+
+ ,
+
+where Φ(a) 
+
+> i
+
+denotes the input-to-layer map for layer i in model a, GΦ(a)  
+
+> i,P K
+
+is the corresponding subspace-restricted expected pullback metric, and eG denotes the trace-scaled SPD lift used throughout the paper. For comparison, we also compute layer-similarity matrices using linear CKA and RBF CKA on the same input-to-layer maps. We report the average similarity matrix 
+
+¯SK := 1
+
+|P| 
+
+X
+
+> (a,b )∈P
+
+S(a,b ) 
+
+> K
+
+,
+
+where P is the set of unordered model pairs. The displayed heatmaps in both the main text and appendix are these pair-averaged matrices. 20 Task families. The main-text sanity check uses a random-basis family. We sample a single parent orthonormal matrix 
+
+P rand  
+
+> Kmax
+
+∈ Rd×Kmax , (P rand  
+
+> Kmax
+
+)⊤P rand  
+
+> Kmax
+
+= I, 
+
+and define nested restrictions 
+
+P rand  
+
+> K
+
+= P rand  
+
+> Kmax
+
+[: , 1: K].
+
+Perturbations are then drawn as 
+
+δ = P rand  
+
+> K
+
+z, z ∼ N (0 , I K ).
+
+Thus the admissible perturbations lie in a shared random K-dimensional subspace, while directions inside that subspace are weighted isotropically. As a robustness analysis, we also consider a PCA-basis family. Let 
+
+μ := Ex∼D [x], ΣD := Ex∼D 
+
+(x − μ)( x − μ)⊤.
+
+Write the eigendecomposition of the stimulus covariance as 
+
+ΣD = U ΛU ⊤, Λ = diag( λ1, . . . , λ d), λ1 ≥ · · · ≥ λd ≥ 0,
+
+with columns of U given by principal directions u1, . . . , u d. For dimension K, define 
+
+P PCA  
+
+> K
+
+:= [ u1, . . . , u K ] ∈ Rd×K , (P PCA  
+
+> K
+
+)⊤P PCA  
+
+> K
+
+= IK .
+
+We again take 
+
+δ = P PCA  
+
+> K
+
+z, z ∼ N (0 , I K ).
+
+This defines a data-adapted but within-subspace isotropic family, where the support of the task family is determined by the dominant principal directions of the dataset, but all directions inside that span are weighted equally. Equivalently, this is a PCA-basis second-moment local task family with Cz = IK .For either choice of PK , the corresponding expected pullback metric is 
+
+Gf,P K := Ex∼D 
+
+(Jf (x)PK )⊤(Jf (x)PK ) ∈ RK×K ,
+
+and expected local discriminability over the family is 
+
+E[d′2] = Tr( Cz Gf,P K ).
+
+Under the isotropic choice Cz = IK , Gf,P K remains the minimal dataset-level summary that preserves expected performance over the chosen subspace-restricted family. 
+
+Evaluation metrics. The main-text and appendix figures use several summary statistics derived from the pairwise similarity matrices. First, layer-identification accuracy is defined by checking whether the correct corresponding layer is the top match in each row and column: 
+
+Acc K = 12L|P| 
+
+X
+
+> (a,b )∈P
+
+
+
+> L
+
+X
+
+> i=1
+
+1
+
+
+
+arg max  
+
+> j
+
+S(a,b ) 
+
+> K
+
+(i, j ) = i
+
+
+
++
+
+> L
+
+X
+
+> j=1
+
+1
+
+n
+
+arg max  
+
+> i
+
+S(a,b ) 
+
+> K
+
+(i, j ) = j
+
+o×100 ,
+
+where L = 8 is the number of compared layers. Second, the similarity decay by layer distance averages similarity over entries with a fixed absolute layer offset: 
+
+DK (∆) := 1
+
+|{ (i, j ) : |i − j| = ∆ }| 
+
+X
+
+> |i−j|=∆
+
+¯SK (i, j ).
+
+This is the quantity plotted in panel A of Figure 5. Third, the top-1 margin is defined for each row and column as the similarity of the correct layer match minus the strongest incorrect match, then averaged across rows and columns. This is the quantity plotted in panel B of Figure 5. Fourth, the appendix uses a threshold-free summary of diagonal-versus-off-diagonal separability. For each pairwise similarity matrix, diagonal entries are treated as positives and off-diagonal entries as 21 16 32 64 96 128 160 192 256 512 768 1024 75 80 85 90 Identification accuracy (%) Layer identification accuracy Random basis PCA basis CKA baseline (94.4%) Task family dimension 01234567Absolutelayerdistance|−|ij0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 Mean similarity Similarity decay by layer distance CKA CKA Random PCA basis 0.04 0.06 0.08 0.10 0.12 0.14 0.16 0.18 Correct-match minus best-incorrect similarity Top margin 95 Random basis, K = 768 PCA basis, K = 768 A B CFigure 5: Layer-matching diagnostics. (A) Mean similarity as a function of absolute layer distance for CKA and S-RAS under random-basis and PCA-basis families at K = 768 . (B) Top-margin statistic, defined as the correct-match similarity minus the strongest incorrect-match similarity. (C) Layer-identification accuracy as a function of task-family dimension K, with linear CKA shown as a dashed reference. 0.75 0.80 0.85 0.90 0.95 1.00 Cumulative variance explained 78 80 82 84 86 88 90 92 94 Identification accuracy (%) 16 32 64 96 128 160 192 256 512 768 1024 PCA basis PCA basis CKA baseline 0.1 0.2 0.3 0.4 0.5 0.6 0.7 JLdistortionproxylog/√NK75 80 85 90 95 Identification accuracy (%) 16 32 64 96 128 160 192 256 512 768 1024 Random basis Random basis CKA baseline CKA Random PCA basis 0.825 0.850 0.875 0.900 0.925 0.950 0.975 1.000 AUC Diagonal vs off-diagonal separability A B C
+
+Figure 6: Task-family dependence of layer-identification performance and off-diagonal sepa-rability. A , diagonal-versus-off-diagonal separability, measured by AUC, for linear CKA, S-RAS under the random-basis family, and S-RAS under the PCA-basis family. B, layer-identification accuracy for the PCA-basis family as a function of cumulative variance explained by the retained principal directions. C, layer-identification accuracy for the random-basis family as a function of the Johnson–Lindenstrauss distortion proxy plog N/K . Together, these panels show that the task-family choice changes the geometric axis along which performance is organized. In the PCA-basis family, performance tracks the amount of dataset variance admitted into the family, whereas in the random-basis family, performance improves as the expected projection distortion decreases. negatives, and the resulting area under the ROC curve (AUC) is computed. Larger values indicate stronger separation between correct and incorrect matches. Finally, for the family-dependence plots in Figure 6, we summarize the horizontal axis differently for the two families. In the PCA-basis family, we report cumulative explained variance of the retained principal directions. In the random-basis family, we report the Johnson–Lindenstrauss distortion proxy 
+
+ϵJL (K) ∝
+
+r log NK ,
+
+with N the number of sampled images, as a simple measure of how projection distortion should decrease as K grows. 
+
+Compute and memory profile. Table 1 uses 10 Tiny10 models, 8 layers, 45 unordered model pairs, and the same fixed n = 1024 CIFAR-10 images for reported methods. The trace-scaled SPD lift uses 
+
+εreg = 10 −4. Dataset-level S-RAS stores one K × K expected operator per model, layer, and family, so the dominant cache for one K = 768 operator is 768 2 float32 entries. By contrast, pointwise AIRM and the MSA-style control store imagewise projected metrics of size n × K × K, making their memory scale linearly with the number of images in addition to quadratically in K. This is why the pointwise local-geometry controls are reported up to K = 256 , whereas dataset-level S-RAS 
+
+22 K = 16 K = 32 K = 64 K = 128 K = 256 K = 512 K = 768 K = 1024 Acc: 71.7% Acc: 72.6% Acc: 74.9% Acc: 76.5% Acc: 79.6% Acc: 82.8% Acc: 85.1% Acc: 84.7% 12345678123456781 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 81 2 3 4 5 6 7 8Figure 7: Random-basis task-family sweep for S-RAS layer identification. Each panel shows the pair-averaged S-RAS similarity matrix for a random-basis subspace-restricted local perturbation task family of dimension K, together with the corresponding layer-identification accuracy. As the task-family dimension increases from K = 16 to K = 1024 , accuracy rises from 71 .7% to 84 .7% ,with the highest value reached at K = 768 and similar performance at K = 1024 . Across the sweep, the similarity structure becomes increasingly concentrated near the diagonal while distant off-diagonal entries are more strongly suppressed. These panels should be read not as increasingly accurate random sketches of a fixed object, but as nested restrictions of the random-basis local perturbation task family used to probe dataset-averaged sensitivity geometry. Table 5: Layer-matching compute and memory scaling. All methods in Table 1 use the same 
+
+n = 1024 images and 45 unordered model pairs. Memory entries describe the dominant cached array type, excluding model parameters and framework workspace.                                     
+
+> Method Dominant cached object Scaling and practical consequence
+> S-RAS full / shape Dataset-level G∈RK×Kper model, layer, and family. Memory scales as O(K2)per summary after streaming over images. This permits the K= 768 high-Krefer-ence. Shape-only S-RAS reuses the same summaries after trace normalization. pw-AIRM Imagewise projected metrics Gx∈
+> Rn×K×K.Memory scales as O(nK 2), and pairwise comparisons average nlocal AIRM distances. This motivates the
+> K= 256 cap for pointwise controls. MSA-style spectral ratio Same imagewise projected metrics as pw-AIRM. Uses the same O(nK 2)cache, then averages a local spectral-ratio distance over images. This is a down-projected control, not a full ambient-dimensional MSA benchmark. CKA / Procrustes / CCA Forward activations, Gram matrices, or sample-space SVD factors. No JVPs or imagewise local metric cache are required. These baselines are sample-matched but not compute-matched to local-geometry methods.
+
+is reported at K = 768 . Activation baselines require only forward activations and sample-space similarity computations, and are therefore not compute-matched to the JVP-based local-geometry methods. The comparison in Table 1 is therefore sample-matched and checkpoint-matched, but not compute-matched. 
+
+Results. Figure 5 provides the diagnostic summary for the layer-matching experiment. Panel A shows that S-RAS similarities decay more sharply with absolute layer distance than CKA, indicating stronger suppression of distant off-diagonal matches. Panel B shows the corresponding top-margin statistic: the correct match is more separated from the strongest incorrect match under the projected 23 K = 16 K = 32 K = 64 K = 128                                        
+
+> K = 256 K = 512 K = 768 K = 1024 Acc: 77.5% Acc: 78.8% Acc: 79.6% Acc: 81.5% Acc: 87.5% Acc: 92.2% Acc: 93.8% Acc: 93.8% 123456781234567812345678123456781234567812345678
+
+Figure 8: PCA-basis task-family sweep for S-RAS layer identification. Each panel shows the pair-averaged S-RAS similarity matrix for a PCA-basis subspace-restricted local perturbation task family of dimension K, together with the corresponding layer-identification accuracy. Here the admissible perturbations are restricted to the top-K principal directions of the dataset, but weighted isotropically within that span. As K increases from 16 to 1024 , identification accuracy rises from 
+
+77 .5% to 93 .8% , and the similarity structure becomes more tightly concentrated around the diagonal than in the random-basis family. This indicates that when the local task family is aligned with dominant directions of dataset variation, corresponding layers are recovered even more reliably, while distant incorrect matches remain strongly suppressed. sensitivity families, especially for the PCA-basis family. Panel C reports the K-sweep, showing that layer-identification accuracy improves with task-family dimension and that the PCA-basis family approaches the CKA baseline at high K.The full random-basis and PCA-basis heatmap sweeps are shown in Figures 7 and 8. These supplemen-tary results show that the correspondence signal strengthens with K, but not perfectly monotonically, reflecting both increased retained dimension and the particular directions included in each perturba-tion family. The family-dependence analyses in Figure 6 further show that random and PCA-basis families organize the comparison differently: random-family performance tracks reduced projection distortion, whereas PCA-basis performance tracks the amount of dataset variance admitted into the family. Appendix A.10 gives diagnostic context for the down-projected spectral-ratio baseline, including its invariance to conformal gain changes and its dependence only on the extreme generalized eigenvalues. 
+
+D.2 Held-out class-conditional diagnostic probes 
+
+This appendix gives the exact construction used in Section 4.2. The goal is to test whether the class-conditional projected expected pullback metric can be externalized into a small finite probe set that generalizes to held-out models and held-out images. 
+
+Class-conditional summaries. For each image x, let ψx(u), u ∈ Rq , denote the smooth-deformation parameterization and define 
+
+hm,x (u) = fm(ψx(u)) .
+
+For each model m, family dimension K, and class y, we estimate 
+
+G(y) 
+
+> m,P K
+
+= Ex∼D y
+
+(Jhm,x (0) PK )⊤(Jhm,x (0) PK ) ∈ SK 
+
+> +
+
+.
+
+24 Here q is the dimension of the learned deformation-coordinate system, and PK ∈ Rq×K is the 
+
+K-dimensional task-family subspace inside that system. It is taken as a nested restriction of a single maximal basis so that comparisons across K remain within the same ambient learned family. The perturbation family is built from a broad boundary-safe smooth deformation bank. Concretely, we begin with a 6 × 6 bank of scalar sine modes on the image lattice and form separate horizontal and vertical displacement fields, yielding 72 base flows in total. For each image, base tangents are estimated by centered finite differences with coefficient 0.5 pixels RMS. We then learn a nested family basis from the empirical covariance of these tangents on a separate family-learning split of 
+
+500 training images. All reported K ∈ { 8, 16 , 32 , 64 } families are nested restrictions of this single learned Kmax = 64 family, so changing K changes family dimension without changing the ambient learned basis. 
+
+Discovery/test split. Image pools are separated by role. The deformation family basis is learned from 500 CIFAR-10 training images. Class-conditional sensitivity contrasts are estimated on a disjoint 2000 -image CIFAR-10 training split. Probe evaluation uses only CIFAR-10 test images: from a deterministic candidate pool of 256 test images, we retain the first 128 that are clean-correct for at least 12 models in total and at least 4 models from each architecture group across the full bank. We use 10 balanced model splits. In each split, the two architecture groups are partitioned into 5
+
+discovery and 5 held-out models per group. Probe directions are derived using only the discovery models and the training-image contrast summaries. Evaluation is then performed only on held-out models and the retained held-out test images. During held-out evaluation, an image contributes only if at least 2 held-out models from each group remain valid on that image. Thus the finite probes are derived from training images and discovery models, whereas the reported separations are evaluated on held-out test images and held-out models. 
+
+Probe construction. For a class y, let 
+
+G(y) 
+
+> A,P K
+
+and G(y)
+
+> B,P K
+
+denote the discovery-set class-conditional averages for the two model groups. We define the contrast operator 
+
+∆Gy := G(y) 
+
+> A,P K
+
+− G(y) 
+
+> B,P K
+
+.
+
+Let 
+
+∆Gy = U ΛU ⊤
+
+be its eigendecomposition. The top positive eigenvectors define probes favoring group A, while the most negative eigenvectors define probes favoring group B. We use P probes per side and instantiate each probe direction as a finite perturbation in the learned family. 
+
+Probe score. Each selected eigen-direction is evaluated with both finite warp signs to reduce depen-dence on odd finite-amplitude effects. Let b ∈ { +, −} index the two contrast sides, corresponding to the positive and negative eigendirections of ∆Gy , let p ∈ { 1, . . . , P } index probes within a side, let 
+
+σ ∈ {− 1, +1 } denote the finite warp sign, and let a ∈ A = {0.5, 1.0} denote RMS-flow amplitude. For model m, image x, and finite perturbation δb,p,σ,a , define 
+
+∆Mm(x; δ) = Mm(x) − Mm(x + δ),
+
+where Mm is the true-class logit margin. We first symmetrize within each contrast side, 
+
+Rbm(x) = 1
+
+P |A| 2
+
+> P
+
+X
+
+> p=1
+
+X
+
+> a∈A
+
+X
+
+> σ∈{− 1,+1 }
+
+∆Mm(x; δb,p,σ,a ),
+
+and then define the held-out probe score as 
+
+sm(x) = R+
+
+> m
+
+(x) − R−
+
+> m
+
+(x).
+
+Thus the finite perturbation response is averaged over warp signs and amplitudes within each side, while the final score is the contrast between positive- and negative-eigenvector probe sides. 25 816 32 64 0.5 0.6 0.7 0.8 0.9 Held-out model AUC Held-out model classification Contrast Random contrast Pooled sensitivity Label permutation 124Probes per side 0.0 0.2 0.4 0.6 0.8 1.0 1.2 Held-out image separation Contrast Random contrast Pooled sensitivity Label permutation 816 32 64 0.0 0.2 0.4 0.6 0.8 Held-out image separation Low-amplitude probes 816 32 64 0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 Held-out image separation High-amplitude probes Contrast Random contrast Pooled sensitivity Label permutation −3 −2 −1 01234Held-out image separation 01234Random contrast 01234Contrast Probe-count ablation at K = 32 Split-class rows at K=32, P = 2 Paired split-class comparison K=32,P=2Task family dimension Task family dimension Task family dimension Contrast Random contrast Pooled sensitivity Label permutation Contrast Random contrast Pooled sensitivity Label permutation A B C
+
+D E FFigure 9: Additional ablations for held-out class-conditional diagnostic probes. A , held-out model classification AUC as a function of task-family dimension K. B, low-amplitude version of the held-out image-separation analysis. C, high-amplitude version of the held-out image-separation analysis. D, probe-count ablation at the main setting ( K = 32 ). E, distribution of split-class rows at the main setting. F, split-class diagnostic visualization against the random-contrast baseline. These panels show that the held-out image-separation effect is robust across perturbation amplitude and probe count. Split-class rows are shown as a diagnostic visualization; formal statistical tests in the main result aggregate first to the held-out model-split level. 
+
+Aggregation and uncertainty. For each split, class, probe type, family dimension, amplitude, and probe count, we average sm(x) over valid held-out images and held-out models to obtain a split-class image-separation row. For formal statistical testing, we aggregate these rows over classes within each held-out model split and perform paired one-sided Wilcoxon tests across the 10 split-level paired observations. Split-class scatter plots are retained only as diagnostic visualizations of heterogeneity across classes. Unless otherwise stated, appendix summaries report means over the saved split-class rows; the formal p-values use the split-level aggregation. 
+
+Control probe sets. We compare the contrast-derived probes to three controls. 1. Random-contrast probes: random directions sampled in the same family and ranked by the same quadratic contrast criterion. 2. Pooled-sensitivity probes: directions drawn from high-sensitivity directions under G(y)
+
+A,P K +
+
+G(y)
+
+B,P K and then ranked by the same contrast score within that restricted candidate set. 3. Label-permutation null: probes derived after randomly permuting discovery-set group labels, rebuilding the contrast from those permuted labels, and deriving probes from that null contrast. 
+
+Main result. At the main setting ( K = 32 , two probes per side), contrast-derived probes achieve mean held-out image separation 1.10 , compared with 0.43 for random-contrast probes, 0.31 for pooled-sensitivity probes, and 0.03 for the label-permutation null. Using the split-level test defined above, contrast-derived probes outperform each control, with one-sided paired Wilcoxon p =9.77 × 10 −4 for contrast versus random contrast, contrast versus pooled sensitivity, and contrast versus label permutation. 
+
+Held-out model classification. As a secondary diagnostic, we also ask whether the average probe score can classify held-out models by group. At the same setting, mean held-out model AUC is 0.874 
+
+26 Standard vs PGD Standard vs TRADES Standard vs MART PGD vs TRADES TRADES vs MART PGD vs MART −0.2 0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 Held-out image separation Contrast-derived Random contrast Pooled sensitivity Label permutation All pairwise comparisons (penultimate layer, K=32) Figure 10: All pairwise regime comparisons at the main setting. Held-out image separation at 
+
+K = 32 for all six pairwise comparisons among standard, PGD, TRADES, and MART-trained ResNet-18 models, comparing contrast-derived probes to the same three controls used in the main text. The three standard-versus-robust comparisons are strongest, TRADES versus MART is smaller but positive, and PGD versus MART shows little or no separation under the present family. for contrast-derived probes, compared with 0.795 for random-contrast probes, 0.625 for pooled-sensitivity probes, and 0.474 for the label-permutation null. Because this comparison is between ResNet18 and small ViT, we treat held-out model classification as supporting evidence rather than as the primary metric. 
+
+Ablations. We report results for nested family dimensions K ∈ { 8, 16 , 32 , 64 }, for probe counts 
+
+P ∈ { 1, 2, 4} per side, and for low- and high-amplitude perturbations separately. In the saved runs, the main held-out image-separation effect is already strong by K = 16 , remains strong at 
+
+K = 32 , and changes only modestly at K = 64 . At K = 32 , mean held-out image separation for contrast-derived probes is 1.16 , 1.10 , and 1.08 for 1, 2, and 4 probes per side, respectively, showing that the main effect is also stable across probe-count choices. These auxiliary analyses support the interpretation that the main result is not tied to one fragile choice of family dimension, amplitude, or probe budget. 
+
+D.3 Robust training as a controlled dissociation 
+
+This appendix reuses the same learned-family, finite-probe, and held-out evaluation framework as Appendix D.2, but now in a fixed-architecture bank of CIFAR-10 ResNet-18 models trained with four loss functions: standard empirical-risk minimization, PGD adversarial training, TRADES, and MART. The purpose of this experiment is to remove architecture as a confound and ask whether the learned probe battery can reveal differences in local evidence use that are attributable to training objective alone. For each regime pair, we generate 10 matched discovery/test splits. Because each robust bank contains 5 models, each split uses 3 discovery and 2 held-out models per group. Unless otherwise noted, the main analysis uses the pre-logit representation, K ∈ { 8, 16 , 32 , 64 }, and two probes per side. Benchmark images are selected from a candidate pool of 256 test images, retaining the first 
+
+128 that are clean-correct for at least 12 models in total. For each regime pair and family size K, we form a discovery-set contrast between the corresponding regime-level sensitivity summaries, derive contrast-favoring and contrast-opposing probe directions from that operator, and evaluate them on held-out models and held-out images. During held-out evaluation, an image contributes whenever at least one held-out model from each group is valid on that image. Figure 10 reports all six pairwise comparisons at K = 32 . The three standard-versus-robust comparisons are strongest, with mean held-out image separation 0.99 (standard vs PGD), 1.22 
+
+(standard vs TRADES), and 1.14 (standard vs MART). Within the robust models, PGD versus 27 Original PGD-fav 1 PGD-fav 2 TRADES-fav 1 TRADES-fav 2 Original PGD-fav 1 (-) PGD-fav 2 (-) TRADES-fav 1 (-) TRADES-fav 2 (-) Figure 11: Within-robust qualitative example. Example probes for PGD versus TRADES at the main setting. Even though the quantitative effect is smaller than in the standard-versus-robust comparisons, the two probe sets still differ in visible character. Fnat1Fnat2Fnat3Fnat4Fnat5Fnat6Fnat7Fnat8
+
+Figure 12: Examples from the learned family basis. Representative family directions used to instantiate finite probes. These basis elements are smooth local deformations rather than noisy pixel patterns, which helps interpret the learned probe sets as structured perturbations within a coherent family. TRADES remains clearly positive ( 0.28 ), TRADES versus MART is smaller but still reliable ( 0.22 ), and PGD versus MART is near zero ( −0.01 ). At K = 32 , contrast-derived probes outperform all three controls in the TRADES-versus-MART comparison (all p < 10 −3), whereas no such advantage is present for PGD versus MART. 
+
+Learned family basis. In the robust-training experiment, the perturbation family is represented by a shared learned basis 
+
+Fnat = {Fnat ,1, . . . , F nat ,K max },
+
+where each Fnat ,j is a learned smooth deformation field in pixel space. These basis elements are obtained by first constructing the 72 -flow base bank, estimating image-conditioned tangents in that bank, computing the tangent covariance on the family-learning split, and taking the top eigenvectors of that covariance as a learned maximal family basis. For family dimension K, perturbations are 28 Standard vs PGD Standard vs TRADES Standard vs MART PGD vs TRADES TRADES vs MART PGD vs MART 0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 Held-out model score separation S-RAS LogE Linear CKA RBF CKA Plain metric regime separation (penultimate layer, K=32) Activation Block 6 Activation Block 8 Penultimate Layer 0.0 0.2 0.4 0.6 0.8 1.0 1.2 Held-out image separation Layer ablation for contrast-derived probes Standard vs PGD Standard vs TRADES Standard vs MART PGD vs TRADES A BFigure 13: Supporting analyses: direct model-space separation and layer ablation. (A), direct model-space score separation at the pre-logit layer for S-RAS , Log-Euclidean distance, and activation-based baselines. (B), layer ablation for contrast-derived probes across block 6, block 8, and pre-logits. Direct model-space separation is already strong for several metrics, whereas the held-out probe effect is not confined to the final layer and is often already strong in intermediate blocks. then restricted to linear combinations of the first K learned basis elements. Thus Fnat denotes the ambient learned family basis itself, not a set of contrast-derived probes. Figure 12 shows representative basis elements themselves, whereas Figure 11 shows selected probe directions obtained from between-group contrasts within that family. Figures 11 and 12 provide qualitative support for this interpretation. The within-robust PGD-versus-TRADES example shows that the learned probes remain visibly different even when the quantitative effect size is smaller, while the family-basis examples show that the ambient perturbation family itself is smooth and structured. 
+
+Direct model-space separation. The direct model-space analysis in Figure 13 uses the same discovery/test splits as the probe analysis, but does not instantiate finite image perturbations. For a regime pair A, B , split r, held-out model m, and distance matrix D computed on a fixed layer and family dimension, define 
+
+dA(m) = 1
+
+|D (r)
+
+A |
+
+X
+
+j∈D (r)
+
+> A
+
+D(m, j ), dB (m) = 1
+
+|D (r)
+
+B |
+
+X
+
+j∈D (r)
+
+> B
+
+D(m, j ),
+
+where D(r)
+
+A and D(r)
+
+B are the discovery models from the two regimes. The model-space score is 
+
+uD (m) = dB (m) − dA(m),
+
+so larger values indicate that m is closer to the discovery models from regime A. The plotted model-space score separation is 
+
+Sep D = 1
+
+|H (r)
+
+A |
+
+X
+
+m∈H (r)
+
+> A
+
+uD (m) − 1
+
+|H (r)
+
+B |
+
+X
+
+m∈H (r)
+
+> B
+
+uD (m),
+
+averaged over the 10 held-out splits, where H(r)
+
+A and H(r)
+
+B are the held-out models. We also compute the corresponding held-out model AUC from the same scores. Distances D are computed using 
+
+S-RAS , Log-Euclidean distance, linear CKA distance, or RBF CKA distance on the same saved representations. Figure 13 should be read as supporting context rather than the primary probe claim. Direct model-space regime separation is already strong for several metrics, which is why we focus the main result on finite perturbations and held-out image transfer. The layer ablation shows that the standard-versus-robust and PGD-versus-TRADES effects are not confined to the final layer, whereas PGD versus MART remains weak across layers. In addition to the main regime-pair comparisons, the saved analyses include all six pairwise regime contrasts at K = 32 , K-sweeps for the probe battery, layer ablations across block 6, block 8, and pre-logits, and direct model-space separation baselines using 
+
+S-RAS , Log-Euclidean distance, and activation-based comparisons. 29 D.4 Biological static-gratings implementation 
+
+This appendix describes how the biological analysis approximates the theory in Section 2. The theory assumes a smooth parameterized stimulus family x = ψ(s) and a representation map hf (s) = 
+
+f (ψ(s)) . In the Allen static-gratings analysis, the role of the representation map is played by the experiment-level population response map 
+
+s 7 → μe(s), s = ( θ, ρ, ϕ ).
+
+Recordings and trial responses. For each experiment e, we use the static-gratings stimulus table and retain the condition coordinates orientation, spatial frequency, and phase. The Allen static-gratings protocol contains 6 orientations, 5 spatial frequencies, and 4 phases, yielding 120 stimulus conditions [2]. For each trial we compute response-minus-baseline activity, 
+
+∆rt = rresponse  
+
+> t
+
+− rbaseline  
+
+> t
+
+,
+
+using the precomputed trial response and baseline summaries. The condition mean 
+
+μe(s) = E[∆ rt | st = s]
+
+is estimated by averaging trials assigned to the same grating condition. 
+
+Matched-count populations. Because Fisher scale depends strongly on population size, each benchmark uses matched-count cell subsampling. For the area benchmark we use nmatch = 60 
+
+cells per experiment; for the VISp-depth benchmark we use nmatch = 45 . For each experiment, we draw 100 matched cell subsamples without replacement. For each subsample, condition means and pooled covariances are recomputed from the selected cells, and the reported experiment-level operator is the average over the 100 matched-subsample operators. Matched split-half reliability is computed by splitting trials within each condition, recomputing the full Fisher operator on the two halves, comparing the two half-operators with S-RAS, and averaging over 2 split-half repetitions per matched subsample. Full-population reliability diagnostics use 8 split-half repetitions. 
+
+Noise covariance. Let ∆rt ∈ Rnmatch denote the response-minus-baseline vector for trial t, and let 
+
+ϵt = ∆ rt − μe(st)
+
+be the residual after subtracting the condition mean. We concatenate residuals across static-grating conditions and estimate bΣe with Ledoit–Wolf shrinkage covariance, using the centered residuals. The shrinkage coefficient is estimated separately for each experiment or matched subsample. Before inversion, we use the same SPD numerical constant as in the S-RAS lift, εSPD = 10 −6: the covariance is replaced by bΣe + εSPD I, symmetrized, and eigenvalues are floored at εSPD before inversion. The noise-aware Fisher operator uses this regularized inverse covariance, whereas the naive baseline replaces the inverse covariance by the identity. 
+
+Finite-difference Jacobian. We estimate the Jacobian 
+
+Dμ e(s) = [ ∂θ μe(s) ∂ρμe(s) ∂ϕμe(s)] 
+
+by finite differences over the static-gratings grid. Thus this biological instantiation has coordinate dimension q = 3 , response dimension nmatch , Dμ e(s) ∈ Rnmatch ×3, and bΣe ∈ Rnmatch ×nmatch .Orientation and phase are treated as circular coordinates, while spatial frequency is treated on the log scale 
+
+ρ = log 2(spatial frequency ).
+
+The implementation uses orientation in radians, ρ in octaves, and the raw Allen phase coordinate for ϕ. No additional z-scoring or unit standardization is applied before computing finite differences. Specifically, orientation and phase use centered circular differences, while ρ uses centered differences across neighboring log-spatial-frequency values; spatial-frequency endpoints without both neighbors are omitted from the average. 30 Experiment-level operators. At each valid grid point s, we form the local noise-aware metric 
+
+Ie(s) = Dμ e(s)⊤ bΣ−1 
+
+> e
+
+Dμ e(s)
+
+and the unwhitened local metric 
+
+Me(s) = Dμ e(s)⊤Dμ e(s).
+
+The experiment-level summaries are 
+
+Fe = Es[Ie(s)] , Ge = Es[Me(s)] .
+
+These are the biological analogues of the projected expected Fisher operator and projected expected pullback metric in the main theory. 
+
+Shape-only normalization. For shape-only comparisons, we use trace normalization: 
+
+bF = F
+
+Tr( F ) , bG = G
+
+Tr( G) .
+
+This differs from determinant or geometric-mean normalization. One-dimensional shape-only families are not reported, because every nonzero 1 × 1 operator becomes identical after trace normalization. 
+
+Family-restricted comparisons. For each coordinate family Q ⊆ {θ, ρ, ϕ }, let PQ be the coordinate-selection matrix. We compute 
+
+Fe,Q = P ⊤ 
+
+> Q
+
+FePQ, Ge,Q = P ⊤ 
+
+> Q
+
+GePQ.
+
+The families are 
+
+θ, ρ, ϕ, θ + ρ, θ + ϕ, ρ + ϕ, θ + ρ + ϕ. 
+
+Similarity and retrieval. All Fisher and naive operators are compared using the same regularized S-RAS score as in the model experiments. Each query experiment ranks donor-distinct candidate experiments by similarity. Top-1 accuracy records whether the nearest candidate has the same area or VISp-depth label. Diagonal AUC treats same-label pairs as positives and different-label pairs as negatives and evaluates threshold-free label separation. All method summaries are computed from the same donor-distinct query-record table, so Fisher, shape-only Fisher, naive geometry, CKA, RSA, decoder-profile, and mapping baselines are evaluated on identical query/candidate records. 
+
+Activation, decoder-profile, and mapping baselines. Let Xe ∈ R120 ×ne denote the condition-mean response matrix for experiment e, with rows corresponding to the 6 × 5 × 4 static-grating conditions and columns to matched cells. The activation baseline is linear CKA, 
+
+CKA( Xe, X e′ ) = ∥Xc⊤ 
+
+> e
+
+Xce′ ∥2
+
+> F
+
+∥Xc⊤ 
+
+> e
+
+Xce ∥F ∥Xc⊤ 
+
+> e′
+
+Xce′ ∥F
+
+,
+
+where Xc denotes column-centered responses. The RSA baseline computes Euclidean representa-tional dissimilarity matrices over the 120 conditions and reports the Spearman correlation between the upper-triangular entries of the two dissimilarity matrices. The decoder-profile baseline summarizes each experiment by how well its condition-mean responses linearly decode the three stimulus coordinates. We flatten the static-gratings grid to 120 condition examples and use cross-validated multinomial logistic regression with standardized features to predict orientation, log-spatial-frequency index, and phase index separately. This gives a three-dimensional profile 
+
+de =  Acc e(θ), Acc e(ρ), Acc e(ϕ).
+
+Decoder-profile similarity between experiments is the Pearson correlation of the finite entries of 
+
+de and de′ . This is an auxiliary summary of which stimulus variables are linearly accessible from condition means; it is not a local-geometry or noise-aware Fisher summary. The inter-experiment mapping baselines ask how well responses in one experiment predict responses in another across matched static-grating conditions. For each donor-distinct pair (e, e ′), we use the same 120 condition rows, randomly split conditions into train/test halves for 10 repetitions, fit a map 31 Table 6: Biological diagonal-AUC diagnostics. Diagonal AUC is a threshold-free same-label versus different-label diagnostic computed from the same donor-distinct query records as the top-1 retrieval table. Top-1 accuracy is the main table metric; diagonal AUC is included to show softer label separation. Cohort Full Fisher CKA Shape-only Fisher Naive full Area 0.556 0.567 0.604 0.518 VISp depth 0.549 0.547 0.540 0.513 Table 7: Complementarity of biological Fisher summaries. Auxiliary area-cohort pair-classification analysis using cross-validated AUC. The baseline uses activation, decoder-profile, and inter-experiment mapping features. Adding trace-normalized shape-only Fisher gives the largest gain, suggesting that allocation contains information not fully captured by standard activation and mapping baselines. Feature set Area CV AUC Baseline activation / decoder / mapping features 0.589 Baseline + full Fisher 0.600 Baseline + shape-only Fisher 0.646 Baseline + naive full 0.588 Baseline + naive shape-only 0.632 from Xe to Xe′ on the training half, and score the mean test-set correlation across target cells. We compute this in both directions and average the two directional scores. The ridge mapping baseline uses dual ridge regression with α ∈ { 0.1, 1, 10 , 100 } selected by generalized cross-validation within each split. The PLS mapping baseline uses PLS regression with 
+
+ncomp = min(10 , n e, n e′ , n train − 1) .
+
+These mapping baselines test whether the Fisher summaries add information beyond direct linear inter-experiment predictability. 
+
+Auxiliary biological diagnostics. Table 6 reports diagonal-AUC diagnostics for the same donor-distinct query records as the main top-1 table. Table 7 reports an auxiliary area-cohort pair-classification analysis testing whether Fisher summaries add information beyond activation, decoder-profile, and mapping features. For the pair-classification analysis, each donor-distinct experiment pair is represented by a feature vector containing the pairwise scores from the specified feature set. The binary label is whether the pair shares the same area label in the area cohort. We train a logistic-regression classifier with standardized features and evaluate cross-validated AUC using group splits over unordered experiment-pair groups, so that the same experiment pair does not contribute to both training and test folds. The baseline feature set contains activation CKA, RSA, decoder-profile correlation, ridge mapping score, and PLS mapping score. The “baseline + Fisher” rows add one additional Fisher or naive-geometry similarity score to this baseline. These diagnostics are supportive rather than the primary biological benchmark; the main text reports donor-distinct top-1 retrieval because it gives the most direct identity-matching interpretation. 32

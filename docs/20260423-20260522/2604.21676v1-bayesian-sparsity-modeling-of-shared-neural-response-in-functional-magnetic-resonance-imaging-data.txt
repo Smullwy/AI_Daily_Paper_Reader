@@ -1,0 +1,536 @@
+Title: Bayesian Sparsity Modeling of Shared Neural Response in Functional Magnetic Resonance Imaging Data
+
+URL Source: https://arxiv.org/pdf/2604.21676v1
+
+Published Time: Fri, 24 Apr 2026 01:04:38 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# BAYESIAN SPARSITY MODELING OF SHARED NEURAL 
+
+# RESPONSE IN FUNCTIONAL MAGNETIC RESONANCE IMAGING 
+
+# DATA 
+
+Spencer Wadsworth 
+
+Department of Statistics University of Connecticut Storrs, CT, USA 
+
+wadsworth.spencer.g@gmail.com 
+
+Nabin Koirala 
+
+Brain Imaging Research Core University of Connecticut Storrs, CT, USA 
+
+nabin.koirala@uconn.edu 
+
+Nicole Landi 
+
+Department of Psychological Sciences University of Connecticut Storrs, CT, USA 
+
+nicole.landi@uconn.edu 
+
+Ofer Harel 
+
+Department of Statistics University of Connecticut Storrs, CT, USA 
+
+ofer.harel@uconn.edu 
+
+# ABSTRACT 
+
+Detecting shared neural activity from functional magnetic resonance imaging (fMRI) across individu-als exposed to the same stimulus can reveal synchronous brain responses, functional roles of regions, and potential clinical biomarkers. Intersubject correlation (ISC) is the main method for identifying voxelwise shared responses and per-subject variability, but it relies on heavy data summarization and thousands of regional tests, leading to poor uncertainty quantification and multiple testing issues. ISC also does not directly estimate a shared neural response (SNR) function. We propose a model-based alternative applicable to both task-based and naturalistic fMRI that simultaneously identifies spatial regions of shared activity and estimates the SNR function. The model combines sparse Gaussian pro-cess estimation of the response function with a Bayesian sparsity prior inspired by the horseshoe prior to detect voxel activation. A spatially structured extension encourages neighboring voxels to exhibit similar activation patterns. We examine the model’s properties, evaluate performance via simulations, and analyze two real-world fMRI datasets, including one task-based and one naturalistic dataset. The Bayesian framework provides principled uncertainty quantification for the shared response function and shows improved activation detection and response estimation compared to standard approaches. Model fits demonstrate comparable or superior performance relative to ISC, while the framework opens avenues for clinical applications. 
+
+Keywords Sparse Gaussian processes · Shrinkage priors · Spatial statistics · Intersubject correlation · Neuroimaging ·
+
+Naturalistic fMRI 
+
+> arXiv:2604.21676v1 [stat.AP] 23 Apr 2026
+
+# Bayesian Naturalistic Shared Neural Response Model 
+
+# 1 Introduction 
+
+Intersubject neural synchronization (INS) assumes that people who are exposed to the same external stimuli will exhibit similar neural activity in regions effected by the stimuli. A primary method of data collection to study INS is functional magnetic resonance imaging (fMRI) [Nastase et al., 2019, Jääskeläinen et al., 2008]. fMRI utilizes the blood-oxygen-level-dependent (BOLD) signal, a non-invasive and indirect measure of neural activity that reflects changes in blood flow and oxygenation in response to task performance or stimuli. An fMRI image at a single time point consists of tens to hundreds of thousands of BOLD measurements in three dimensional cubes known as voxels. A sequence of dozens to thousands of images taken of a participant’s brain over the course of several minutes to hours of scanning produces a time series at each voxel. See Lindquist [2008] for a brief description of fMRI data meant for statisticians. The most common type of experiment in fMRI studies is task-based fMRI (tfMRI). In tfMRI studies, participants are scanned while exposed to highly controlled simple stimuli and/or asked to perform simple actions. Task-based analyses are helpful for determining neural reactions to basic events, and there is an abundance of literature on analyzing tfMRI data in neuroscience and statistical literature [Friston et al., 1994, Lindquist, 2008, Zhang et al., 2015]. In daily life it is unlikely for people to be exposed to simple tfMRI tasks in isolation, limiting the ecological validity of such studies [Sonkusare et al., 2019, Simony and Chang, 2020]. Increasingly, cognitive neuroscientists who study INS are utilizing naturalistic fMRI (nfMRI), or more ecologically valid continuous stimuli such as listening to stories, or viewing a movie. Naturalistic stimuli can thus lead to insights about more complex neural processing and inter-person synchrony than task-based stimuli [Schmuckler, 2001, Hasson et al., 2004, Nastase et al., 2020, Simony and Chang, 2020], while still providing a cognitive focus which is absent in rsfMRI experiments [Saarimäki, 2021, Zhang et al., 2021]. Interestingly, while nfMRI studies are prevalent in the neuroscience literature and other fields, they have received considerably less attention in the statistics literature than tfMRI despite the growing need for advanced methodological development. The tightly controlled experiments in tfMRI allow for explicitly constructing predictor variables of the expected BOLD response to be used in a general linear model (GLM), but this framework relies on strong assumptions about the timing and form of neural responses, likely violated in naturalistic settings. The processes in naturalistic stimuli which influence cognitive function cannot be easily decoded into a complete set of known predictors. Consequently, standard model-based approaches are insufficient, motivating the use of data-driven methods such as intersubject correlation (ISC), independent component analysis (ICA), and other multivariate INS techniques [Nastase et al., 2019, Pamilo et al., 2012]. While current approaches such as ISC are effective for detecting time-locked similarity across participants, they rely on heavily summarized data which ignores much of the uncertainty in fMRI data, they do not directly estimate the latent shared neural response, and they typically rely on large numbers of regional tests [Nastase et al., 2019]. Functional alignment methods, including the shared response model (SRM), move closer to latent-response estimation [Chen et al., 2015], but they rely on restrictive assumptions such as exact temporal correspondence, low-dimensional linear structure, orthogonality constraints, and simplified noise models. The contribution of this manuscript is to present a unified Bayesian modeling framework for analyzing INS under nfMRI experiments. The model, termed the Bayesian neural response (BNR) model, provides a joint inferential framework for estimating the latent shared response as well as regional activation. It improves upon the standard methodology currently used for analysis of nfMRI data by making use of all available BOLD response data, thus accounting for much of the uncertainty ignored using ISC methods. The BNR model is a generalization of the classical GLM used in traditional fMRI analyses in which the expected BOLD predictor is estimated to accommodate nfMRI 
+
+# 1Bayesian Naturalistic Shared Neural Response Model 
+
+experiment data. Shared voxelwise estimation is done using a novel spatial sparsity prior. The motivating data come from Telesford et al. [2023] who provide well curated nfMRI as well as tfMRI response data on 22 adult participants. Section 2 includes background on shared neural response (SNR) theory and classical GLM and ISC methodology used for analysis of tfMRI and nfMRI data respectively. In Section 3, the BNR model is introduced including the nearest neighbor sparse GP used for estimation of the expected BOLD response and the spatial sparsity prior used for detecting shared voxel activation. In Section 4, the model is fit to data in three examples including simulated, real tfMRI, and real nfMRI data. In these analyses, the BNR model shows results comparable to the classical multi-participant GLM when fit to tfMRI data and superior activation and function estimation compared with ISC methods in the nfMRI setting. The manuscript is concluded with a brief discussion in Section 5. 
+
+# 2 Shared Neural Response Background 
+
+In this section, we briefly describe SNR theory, the largely accepted neuroscience theory for INS. We also discuss the classical GLM and basic ISC analyses, including some of their drawbacks before introducing the proposed unifying approach under the BNR framework. 
+
+2.1 Shared Neural Response Theory 
+
+Following the notation used in Nastase et al. [2019], equation (1) presents a formula of the signals that make up the time series in one voxel for several participants exposed to the same time-locked stimulus. The signal c(·) is triggered by the stimulus which is shared by participant or subject s and all other participants. The signal id (·), known as the idiosyncratic response, represents the triggered response specific to participant s, of the stimulus, and ϵ(t) is participant specific spontaneous noise. 
+
+xs(t) = βsc(t) + αsid s(t) + ϵs(t) (1) Inference focuses on estimating c(·) and βs. The form of c(·) should correspond with the stimuli, and it is estimated from the data or given in a model. The parameter βs reflects how strong c(·) is, and a significant value gives evidence of the presence of INS. 
+
+2.2 Classical GLM 
+
+The most common method for analyzing stimulus driven fMRI data is the classical GLM, first proposed by Friston et al. [1994], see also Lindquist [2008]. The tfMRI data is assumed to follow model (2) where Bs,v (t) is the BOLD response at time t for participant s and voxel v. Here, there are K separate tasks, and hk(·) is the task BOLD predictor. The term 
+
+ϵs,v (t) captures noise and possible nuisance variables. 
+
+Bs,v (t) = 
+
+> K
+
+X
+
+> k=1
+
+βk,s,v hk(t) + ϵs,v (t) (2) The process of defining the task BOLD predictor is shown in Figure 1. Here, the block design –or timing of whether a task is on or off– is convolved with the hemodynamic response function (HRF) to produce the BOLD predictor, see Zhang et al. [2015] for additional discussion. The main objective of a task-based GLM is to detect voxel activation by fitting model (2) to the data and testing whether or not βk,s,v is zero, where a significant result leads to the conclusion that voxel v is activated by task k. The activation patterns are reported in an activation map, or a map of the brain where active voxels are highlighted (see Figures 5 and 6 as examples). In multi-participant studies, model (2) is fit to each participant and voxel independently, and the estimated coefficients are treated as data on which tests are conducted. Extensions of the classical GLM deal with multiple testing issues, Bayesian modeling for including voxel spatial correlation, prior distributions for sparse activation, and computational improvements [Zhang et al., 2015]. 
+
+# 2Bayesian Naturalistic Shared Neural Response Model 
+
+Figure 1: Process of defining the BOLD predictor in the classical task-based GLM In tfMRI experiments, it is possible to formulate a reasonable set of predictors {hk(·)}Kk=1 , although the design may not capture completely the BOLD trajectory driven by a stimulus. Wilzén et al. [2020] proposed modeling the BOLD response via a Gaussian process (GP) prior, but their analysis is limited to a single participant experiment, and they assume apriori that the mean function of the GP prior is an already predicted task BOLD response. In nfMRI studies using the classical GLM, stimulus features are extracted either manually or using computational methods such as neural networks [Güçlü and Van Gerven, 2015, Jain and Huth, 2018]. However, the complexity of naturalistic stimuli generally makes it impossible to extract every relevant feature, and those obtained via computational methods can be highly correlated with eachother [Eickenberg et al., 2017, La Tour et al., 2022]. 
+
+2.3 Intersubject Correlation 
+
+Intersubject correlation (ISC) was introduced by Hasson et al. [2004] as a data driven method for detecting shared activity in situations where model specification is difficult or incomplete, and it has since become the standard method for analyzing the SNR in nfMRI data. To perform ISC is at a given voxel, one calculates the pairwise correlation of the nfMRI time series between all participants. The result is a set of S(S − 1) /2 correlations –where S is the total number of participants– to be tested for significance and plotted in an activation map. Nonparametric tests performed via various methods of permuting either raw fMRI or ISC data Theiler et al. [1992], Chang et al. [2020] is the standard in ISC analyses, but most studies ignore various levels of correlation including spatial correlation and/or shared participant correlation values. Chen et al. [2019, 2020] attempted to address the lack of accounting for correlations, but this remains an open problem. By construction, the ISC hypothesis tests and models rely on highly summarized data and thus ignore much of the uncertainty present in the raw fMRI data. In ISC literature, the SNR function is often estimated as the mean of time series among participants [Nastase et al., 2019], but this lacks regularization and uncertainty quantification and is susceptible to irregular or extreme behavior. 
+
+# 3 Methodology 
+
+3.1 Shared BOLD Bayesian Response Model 
+
+The BNR model for the shared BOLD response is given in equation (3). The function f (·) is analogous to c(·) in equation (1), and it captures the BOLD signal shared by some or all participants. βv is the strength of the shared signal at voxel v, and ϵs,v (·) captures random noise. It is possible to generalize ϵs,v (·) to capture a participant’s idiosyncratic response or nuisance variables. 
+
+Bs,v (t) = βv f (t) + ϵs,v (t); ϵs,v (t) ∼ N (0 , σ 2 
+
+> ϵ
+
+) (3) The form of f (·) depends on the prior beliefs in a particular experiment. For example, in a tfMRI experiment with a single stimulus, f (·) = h(·) where h(·) is the BOLD predictor from (2). In this case (3) reduces to the classical GLM. In the case where participants are exposed to naturalistic stimuli, f (·) can no longer be specified as a known function which captures all aspects of the stimuli. Our desire is to use the data to simultaneously estimate the shared 
+
+# 3Bayesian Naturalistic Shared Neural Response Model 
+
+BOLD response function and the shared activation. We propose to embed model (3) into a Bayesian framework with thoughtfully chosen prior distributions for f (·) and βv . The function f (·) is modeled as a latent nearest-neighbor Gaussian process (NNGP), reviewed in the following section. Importantly, estimating f (·) accurately depends on having more than one participant in a study as with only one participant, the estimated response is confounded with the idiosyncratic signal and additional noise in equation (1). 
+
+3.2 Nearest-Neighbor Gaussian Process 
+
+The NNGP was introduced in 2016 by Datta et al. [2016a,b] as a sparse version of the standard Gaussian process (GP) [Rasmussen and Williams, 2006]. To NNGP is defined by first constructing a standard GP. Let w(t) be the realization of a process at time (and/or location) t ∈ T ⊂ R. For any finite set of realizations w(t) = ( w(t1), ..., w (tn)) where 
+
+t = {t1, ..., t n}, w(t) follows a GP if it has a joint Gaussian distribution, that is 
+
+w(t) ∼ N (μ, K(θ)) 
+
+for some mean vector μ and covariance matrix K(θ). A GP is specified by its mean function mθ (t) = E[w(t)|θ] and its covariance function kθ (t, t ′) = cov (w(t), w (t′)) , and the process is denoted as w(t) ∼ GP (mθ (·), k θ (t, t ′)) . It is common when assigning a function a GP prior to set mθ (·) = 0 , and we follow this convention herein. The joint density of a GP may be written as p(wS ) = Qni=1 p(w(ti)|w(t1:( i−1) ) where t1: i = ( t1, ..., t i).The GP has been used extensively in many fields [Brahim-Belhouari and Bermak, 2004, Cressie, 2015, Gramacy and Lee, 2008] and maintains popularity largely due to its accuracy in making out-of-sample predictions and for the simplicity in interpolating unobserved points in stochastic fields with automatic uncertainty quantification [Datta et al., 2016b]. However, evaluating the multivariate Gaussian likelihood becomes the GPs primary bottleneck as one must calculate the determinant or inverse of the n × n covariance matrix K(θ) which costs roughly O(n3) floating point operations (flops). The NNGP is a sparse precision GP approximation, and it is an example of a Vecchia approximation [Vecchia, 1988, Katzfuss and Guinness, 2021]. It is constructed by using the joint distribution defined in (4) where N (ti) is the set of nearest neighbors that w(ti) is conditioned on, and its cardinality is the selected number of neighbors m. Here S is a set of nodes and NS = {N (ti); i = 1 , 2, .., n } is the collection of condition sets. The pair {S , N S } is a directed graph where N (ti) is the set of directed neighbors of ti, that is every node in N (ti) has a directed edge to ti.
+
+˜p(wS ) = 
+
+> n
+
+Y
+
+> i=1
+
+p(w(ti)|w(tN (ti)) (4) Datta et al. [2016a] show that this construction formulates a Gaussian process with a sparse covariance matrix ˜Cθ
+
+which has at most km (m + 1) q2/2 nonzero entries, where k is the number of unobserved points in the process which one wishes to estimate and m is the selected number of neighbors. The required computation is then reduced to 
+
+O(( n + k)m2) flops. We assign an NNGP prior distribution to the latent SNR function f (·) in model (3), that is f (t) ∼
+
+N N GP (0 , k θ (·, ·)) where the covariance function is set to be the squared exponential function in (5). Here, σ2
+
+determines the variance and ρ is known as the lengthscale parameter which controls the distance at which the correlation between points x and x′ decays. 
+
+k(x, x ′) = σ2exp 
+
+
+
+− (x − x′)2
+
+2ρ2
+
+
+
+(5) It should be noted that βv and f (·) in (3) are not identifiable parameters, so careful prior selection and certain constraints are important for making estimation possible. To assist with identifiability, the variance parameter in (5) is fixed to 
+
+# 4Bayesian Naturalistic Shared Neural Response Model 
+
+be σ2 = 1 to allow βv from model (3) to control the process variance. The prior assigned to βv is restricted to have nonnegative support, and additional features of its design further encourage identifiability. The lengthscale parameter ρ
+
+is estimated via posterior updating after assigning a prior distribution. 
+
+3.3 Spatial Sparsity Activation Prior 
+
+The parameter βv in (3) is typically modeled by voxel and subject independently, or a spatial field is applied so that it closely resembles its neighbors [Zhang et al., 2015]. The approach we take herein is to assign a spatial sparsity prior distribution on βv of the form in (6). Here, N +(·, ·) denotes the half-normal distribution and t+ 
+
+> a
+
+(·, ϕ ) denotes the half-t distribution with a degrees of freedom and scale parameter ϕ.
+
+βv |λv , τ ∼ N +(0 , λ 2 
+
+> v
+
+τ 2); λv |ϕv ∼ t+ 
+
+> ν
+
+(0 , ϕ v ) (6) The prior distribution in (6) belongs to the global-local scale mixture of normal shrinkage priors, which are used when coefficients or signals are sparse. The parameter λν determines the local shrinkage at voxel v and the parameter τ
+
+determines the global shrinkage shared by signals at all voxels. The prior distribution in (6) is notably similar to the horseshoe (HS) sparsity prior which was designed to provide spike and slab like behavior but with a continuous distribution, making computation much simpler [Carvalho et al., 2009, 2010]. Two features of the HS prior provide it with excellent shrinkage properties including having an infinite mass at zero and heavy tails which allow signals to escape the strong pull to zero. We refer to the prior in (6) as the half-t horseshoe (HTHS) prior. The HTHS prior differs from the HS in two important ways, primarily with respect to the hyperprior distribution on the local shrinkage parameter λv . First, the use of the half-t prior in place of the half-Cauchy provides a simple way to adjust the distribution shape by changing the degrees of freedom parameter v. Increasing v to be greater than 1 causes lighter tails and slightly adjusted spike behavior at zero, although the infinite spike is maintained as shown by Theorem 3.1. The marginal distribution in Theorem 3.1 is the HTHS integrated over λv . Without loss of generality, we assume 
+
+τ = 1 and drop the subscripts v to simplify notation. A proof is given in the supplementary materials, along with a figure comparing the marginal distribution of the HTHS prior with the HS. 
+
+Theorem 3.1. For τ 2 = 1 , ϕ ∈ (0 , 1] and degrees of freedom ν ≥ 1, the density p(β|ϕ) for the half-t horseshoe prior satisfies 
+
+lim  
+
+> |β|→ 0
+
+p(β|ϕ) = ∞
+
+The additional control on the prior shape is important when modeling naturalistic data with model (3) due to the simultaneous estimation of f (·) and βv . As shown in the simulation study in Section 4, for large degrees of freedom ν
+
+on the local shrinkage parameter λv provides improved shrinkage when there is no true activation signal as compared to small ν. The primary benefit is to make the tails lighter and thus making more difficult that false signals escape the shrinkage to zero. For the work done herein, we prefer ν = 1000 which makes the prior nearly a half-normal, though fitting results were very similar between ν = 20 and ν = 1000 . However, we recommend using finite ν because the light tails in the half-normal prior fail to meet the conditions established by Ghosh and Chakrabarti [2015] and van der Pas et al. [2016] for a minimax optimal posterior contraction rate. Due to lack of identifiablity of f (·) and βv , care must be taken when assigning a hyperprior to the global parameter 
+
+τ . In the linear model case with a known predictor, Polson and Scott [2010] recommend the prior distribution 
+
+τ ∼ C+(0 , τ 0) where C+(·, ·) denotes the half-Cauchy distribution. Piironen and Vehtari [2017a,b] also recommend the half-Cauchy distribution along with prior information to select the value of τ0 . However, where f (·) in model (3) must be estimated, we found that the heavy tails of the half-Cauchy led to poor estimation of f (·) and higher active SNR voxels than should be expected. Thus, regularization on τ is desired, and we assign the prior distribution 
+
+# 5Bayesian Naturalistic Shared Neural Response Model 
+
+τ ∼ t+1000 (0 , τ 0), where the lighter tails make it more difficult for τ to be too easily enlarged. Using the framework given by Piironen and Vehtari [2017a,b], we set τ0 = τ ∗/√S × V × T , where S is the number of participants, V is the total number of voxels, and T is the total number of time steps. We set the value τ ∗ = 0 .1, which may be considered our rough prior estimate of the proportion of active voxels in a naturalistic SNR experiment. As discussed by Piironen and Vehtari [2017a], activation can be sensitive to the value of τ ∗, but as shown in small exploration of other values in the supplementary material, activation is not too effected for τ ∗ ≤ 0.1. Between fixing the GP variance parameter to be equal to 1, constraining βv to be nonnegative, and using the HTHS prior in place of the HS, the identifiability concern was largely resolved. To determine whether or not to declare a voxel as activated by the naturalistic stimulus, the posterior shrinkage factor given in (7) is estimated and then compared with a determined cutoff value. This shrinkage factor is similar to that given by Carvalho et al. [2010] and Piironen and Vehtari [2017b] who declare a coefficient assigned the HS prior to be significant if E[κv |τ, σ, f ] < 0.5. We estimate E[κv |τ, σ, f ] as the mean of posterior draws of the parameter κv ,and declare a voxel active if that value is less than 0.5. The cutoff of 0.5 is usually reasonable as the large majority of posterior means of κv tend to be very close to 0 or 1 signaling a clear escape of the coefficient away from 0 or strongly maintained shrinkage to 0 respectively. This is demonstrated in the simulation study in the following section. 
+
+κv = 11 + Sσ −2 
+
+> ϵ
+
+τ 2λ2 
+
+> v
+
+f ⊤f (7) The HTHS prior on the activation coefficient βv treats voxel activation as conditionally independent, but as activation is expected to be similar among neighboring voxels, a spatial component is added to the local shrinkage parameter. This is done by modeling the scale parameters of the prior on λv ϕ = ( ϕ1, ..., ϕ V ) as a latent spatial field which follows an intrinsic Gaussian Markov random field (IGMRF) model defined in (8). Here, N (v) is the set of neighbors to voxel v
+
+–not including voxel v– and dN (v) is the number of neighbors. A neighbor of voxel v is defined as a voxel which shares a face v which in three dimensions makes the maximum number of total neighbors six. 
+
+ϕv = logit (αv )
+
+αv |αN (v) ∼ N
+
+P  
+
+> αi∈N(v)
+
+αi
+
+dN (v)
+
+, 1
+
+dN (v)
+
+! (8) The IGMRF model, introduced by Besag et al. [1991], assumes a high level of correlation amongst neighbors and is a case of a Gauss Markov random field (GMFR) model. GMRF models are characterized by their precision matrices which are made sparse by assuming conditional independencies. This sparsity leads to fast computation while still allowing for reasonable correlation structures [Rue and Held, 2005]. The IGMRF model is an improper distribution, but when combined with a likelihood the posterior distribution often is proper, and a sum to zero constraint P 
+
+> i
+
+αi = 0 
+
+ensures propriety [Lee, 2011]. The spatial smoothing applied to the local shrinkage parameters encourages neighboring voxels to show similar activation. Incorporating spatial information into the HTHS prior adds a novel contribution to the growing literature on dependent variable selection priors. Jhuang et al. [2019] propose a spatial horseshoe prior where the prior on λv is replaced with a Gaussian copula model that preserves the half-Cauchy distribution while also accounting for spatial dependence. Chang et al. [2018] and Li et al. [2024] introduced a shrinkage prior which assigns independent Laplace priors to regression coefficients and incorporates variable dependence by modeling the Laplace shrinkage parameters as a connected graph based on underlying information. Denis and Tadesse [2026] extend the work of Faulkner and 
+
+# 6Bayesian Naturalistic Shared Neural Response Model 
+
+Minin [2017] and introduce a HS GMRF which encodes graph information in local shrinkage parameters of priors on coefficient differences. 
+
+3.4 BNR Model Fitting 
+
+When fitting model (3) to whole brain data from multiple participants as done in the real data examples in Section 4, the model is fit to a select set of regions of interest (ROIs) each independently for two reasons. First, it is assumed that voxel behavior within one region is very similar among all voxels in that region but that the overall behavior can differ from that in other ROIs. Fitting the ROIs separately allows f (·) to vary by region but also maintains the assumption of similar within region behavior. The second reason for modeling each independently is computation. Fitting this way allows for ROIs to be fit in parallel, greatly improving fit time and scalability. An obvious drawback is the lack of shared information among ROIs and the possibility of starkly different model behavior of neighboring voxels in differing ROIs. However, our results did not suggest that these issues were very severe, in line with previous findings in the literature [Musgrove et al., 2016, Wang et al., 2024]. The model is fit via Hamiltonian Monte Carlo sampling using the cmdstanr package in R, which employs the No-U-Turn sampler [Hoffman et al., 2014, Gabry et al., 2024, Stan Development Team, 2026]. The NNGP is evaluated using the gptools package which interfaces with Stan [Hoffmann and Onnela, 2025]. For voxel activation, To assess posterior convergence, we fit the BNR model to data in an ROI with several detected active voxels by drawing 3000 posterior samples from four chains –dropping the first 1500 as a burn-in– and checking diagnostic statistics. Among all parameters, the maximum ˆR statistic was 1.006, the minimum effective sample size was 1,899, and the minimum tail effective sample size was 1,211. The recommended values to meet for these are a maximum ˆR below 1.01 and a few hundred effective samples. The intended use for the BNR model is for nfMRI experiments involving up to dozens of participants, a typical sample siz. Adjustments to the fitting mechanism such as using fitting via integrated nested Laplace approximation rather than MCMC sampling could produce speedups which allow larger sample sizes [Zhang et al., 2015, Mejia et al., 2020], the cost being a potential reduction in inference quality. 
+
+# 4 Data Analyses 
+
+In this section, the BNR model’s ability to predict SNR activation and estimate a SNR function is assessed by fitting the model to simulated nfMRI data, real tfMRI data, and real nfMRI data. The results are compared with standard methods used for these analyses. 
+
+4.1 Simulation Study 
+
+The data for this study was simulated using the neuRosim package in R [Welvaert et al., 2011]. The fMRI data is simulated from model (2), where the user defines the forms of hk(t) by specifying a task design –including the duration of the task and the task onset times– and convolving the design with the hemodynamic response function. The intention was to make a complicated BOLD signal, so four separate tasks were specified, each having its own onset times and task durations. The total time was set to 240 seconds, and TR was set to 2 making in total 120 temporal observations per participant. The study was done under 12 different settings including four BOLD signal strength levels and three different number of participants S ∈ { 5, 10 , 20 }. The BOLD signal strengths for all tasks were βk,s,v ∼ F N (μ, σ 2) for 
+
+σ = 0 .34 and μ ∈ { 0.5, 1, 2} representing a weak, medium, or strong signal or βk,s,v = 0 for no signal. F N denotes the folded normal distribution which was used to ensure βk,s,v was positive. On an 11 × 11 voxel grid, a circular activation region was specified where the maximum signal was in the center of the circle. For each participant the circle center was the same, but the radius was drawn from the normal distribution N (2 .5, 0.56 2). The maximum signal was at the center of the circle with a slight fading to the edge. The term ϵs,v (t) in model (2) captures noise and possible nuisance variables. The neuRosim package allows for simulating various types of noise, including spatial, temporal, 
+
+# 7Bayesian Naturalistic Shared Neural Response Model 
+
+physiological, low-frequency, and white noise. We specified the AR(3) temporal process 
+
+γs(t) = η1γs(t − 1) + η1γs(t − 2) + η1γs(t − 3) + ξ(t)
+
+where η = ( η1, η 2, η 3) ∼ M V N ((0 .142 , 0.108 , 0.084) , 0.3I) and ξ(t) is i.i.d normal for all t. The remaining spatial, physiological, low-frequency and white noise were set to default settings except that the white noise was Rician distributed based on a low selected signal-to-noise ratio and previous research on fMRI noise [Welvaert et al., 2011, Adrian et al., 2025]. For each of the 12 settings, 200 replicates were simulated to which models were fit for estimating voxel activation and the SNR function. Before fitting, the data was centered and scaled to have standard deviation 1. Figures 2, 3 and 4 show the results of fitting the BNR-ν model to the simulated data for differing degrees of freedom ν ∈ { 1, 3, 20 , 1000 }
+
+on the HTHS prior. The results for activation and estimation are compared with activation estimated using ISC where sampling distributions for testing were estimated using circular shifting or phase scrambling resampling methods. In Figure 2, the average voxel activation over all 200 simulation replicates is shown under different signal strength values for number of participants S = 10 . The ISC methods show low statistical power for a weak BOLD signal, and they have a high false positive rate when the signal is strong, up to 30%. They do well at predicting voxel activation for medium signals and almost never predict false positive activation when there is no signal. All BNR models improve over the ISC methods in predicting voxel activation for weak to strong signals and have low false positive rates up 4%. When the signal is zero, they tend to predict some false positive active voxels. However, as the degrees of freedom ν on the HTHS prior increases, the tendency to falsely predict active voxels decreases significantly from 40% when ν = 1 to 21% when ν = 1000 . Overall, the BNR models with higher ν = 1000 performs the best at detecting voxels that are active where the SR signal is non-zero and minimizing the false positive activation prediction. 
+
+Figure 2: Mean over 200 simulated replicates of shared response activation predicted at each voxel on the 11 × 11 grid. Columns are separated by signal strength from none to high, and rows separate results by activation prediction model. 
+
+# 8Bayesian Naturalistic Shared Neural Response Model 
+
+The plots on the left of Figure 3 show the overall classification accuracy for each model under different levels of signal strength. For all signal strengths, the BNR models tend to have similar accuracy with ν ∈ { 20 , 1000 } slightly outperforming the lower degrees of freedom models. The BNR models outperform ISC for all signal strengths except where the signal is zero. The plots on the right of Figure 3 show the receiver operating characteristic (ROC) curves for the BNR and ISC methods. The ROC curves, along with the area under the curve (AUC) values show that the BNR models with ν ∈ { 20 , 1000 } achieve the highest sensitivity and specificity. Plots of the posterior expected values of the shrinkage factor κv are included in the supplementary materials along with an additional brief discussion of voxel activation under different prior distributions. 
+
+Figure 3: (left) Overall classification accuracy score of active voxels number of participants. Each plot shows accuracy for increasing signal strength, and scores are separated by classification model. (right) Receiver operating characteristic (ROC) curves and area under the curve (AUC) for each activation detection method separated by number of participants. The plots in Figure 4 show the mean square error (MSE) between the true SNR function and the function estimated by the model or by estimating the function as the mean over time points from the data. The BNR-ν models clearly outperform estimating the SNR function by taking the mean over all participants, with the larger ν models performing the best. Overall, the BNR-ν models with large ν perform the best at both classification and function estimation. One drawback is the tendency to classify some voxels as active when no signal is present. 
+
+4.2 Task-based Checkerboard Study 
+
+An important assessment of the BNR model’s ability to detect shared activation and estimate a SNR function from real data is to compare its performance against that of a GLM fitted to fMRI data from a simple task-based experiment. Given a well designed task-based experiment, we would not expect the BNR model to outperform the GLM, but it should be able to create a similar activation map as well as estimate a shared response function with a trajectory similar to the BOLD predictor used in the GLM. In this study, we fit the GLM and BNR models to the same t-fMRI dataset –involving a single task– and we compare the activation profiles of the two models. We also compare the BNR’s estimated shared neural response functions to the BOLD predictor used in the GLM. The data in this study comes from Telesford et al. [2023]. Telesford et al. [2023] collected fMRI data on 22 adult participants who were each presented with several different stimuli, each on a different scanning occasion. One of these was a checkerboard stimulus. The checkerboard stimulus involved showing each participant a radial checkerboard which flickered at 12 Hz for a 20 second period. Following the viewing of the checkerboard, a neutral rest image was shown for 20 seconds, and the task was repeated several 
+
+# 9Bayesian Naturalistic Shared Neural Response Model 
+
+Figure 4: Average of 200 simulation replicates mean square error (MSE) between the true shared neural response function and the estimated function coloured by model or by mean. times. The repetition time (TR) was 2.1 seconds, and each voxel dimension was 3.469 × 3.469 × 3.330 mm. The data underwent several standard preprocessing steps, including registration of scans from each participant to a common template space, processing with and without spatial and temporal filtering, and processing with and without global signal regression as well as several other steps, see the Methods section in Telesford et al. [2023]. Herein, we use the preprocessed data which did not undergo filtering but which did undergo global signal regression. The data was then separated into 400 ROIs from the Schaefer 400 atlas [Schaefer et al., 2018]. The number of voxels per ROI ranged from 4 to 247 with the median number of voxels being 78. For the GLM, model (2) was fit where K = 1 and a common β1,v (dropping the subscript s) was estimated. The BOLD predictor h1(·) was made by convolving the task block design with the canonical HDR function. The prior distribution on the activation coefficient β1,v is the HTHS prior (6) used in the BNR model except that the normal distribution was used instead of the half-normal and the degrees of freedom was ν = 1 . This is the standard HS prior. The prior distribution assigned to the global shrinkage parameter was τ ∼ C+(0 , 0.1) . For the BNR model the degrees of freedom on the local shrinkage prior was ν = 1000 , and the prior assigned to the global shrinkage parameter was 
+
+τ ∼ t+1000 (0 , 0.1) . Both models were fit to each of the 400 ROIs separately. Figure 5 shows SNR activation results for the two models as well as the BNR predicted SNR function for ROIs which contained active voxels. In the activation maps, the orange shows activation for the BOLD response, whereas the blue shows activation for the negative BOLD response. In the case of the GLM negative bold response means the mean estimated β1,v < 0, and for the BNR the estimated f (·) followed a negative trajectory of h1(·).The activation maps in plot (a) from the two models are very similar with the BNR model displaying slightly stronger spatial relationships in that some of the voxels declared active by the GLM model have few or no active neighbors. It also reflects the fact that the BNR model does not allow for a single ROI to contain active voxels of both BOLD and negative BOLD response. Plot (b) shows the mean predicted shared neural response functions for the ROIs with any number of active voxels under the BNR model. The predicted functions are overlaid with the BOLD predictor 
+
+h1(t) used in the GLM. The predicted functions clearly show a pattern similar to the designed predictor, suggesting the BNR GP does a reasonable job estimating a true shared neural response. Of the 400 ROIs, the GLM predicted at least one activated voxel in 80 and the BNR predicted at least one activated voxel in 35. However, of the 80 ROIs from the GLM, 26 of these contained only one activated voxel. Additional plots in the supplemental materials are shown to compare BNR-1000 fits with those of the BNR-1, BNR-3, and BNR-20 models. 
+
+# 10 Bayesian Naturalistic Shared Neural Response Model 
+
+Figure 5: (a) Shared neural activation maps of checkerboard task fMRI data for GLM and BNR models. Orange voxels show positive BOLD activation and blue voxels show negative BOLD activation. (b) Estimated shared neural response function from BNR model for ROIs where any number of voxels was predicted as active. Functions are overlaid with GLM BOLD predictor function for the experiment design. The results show that the BNR-1 and BNR-3 models predict far more active voxels than the GLM. This suggests that either there is far more shared neural response than can be detected using the GLM, or more likely that the BNR-1 and BNR-3 models make spurious predictions. 
+
+4.3 Naturalistic Stimulus Study 
+
+The study in this section demonstrates the BNR model fit to naturalistic fMRI data. The data in this study comes from Telesford et al. [2023] and belongs to the same dataset which was used in the previous study. Besides the checkerboard stimulus, the participants were presented with several different naturalistic videos. The nfMRI data here were collected from the same 22 adult participants while they viewed a 10 minute clip of the movie Despicable Me . The exact playing times of the clip are 1:02:09 - 1:12:09. The data underwent the same preprocessing steps as the checkerboard data, and it was separated into the same 400 ROIs and 97 time steps from the original data were used. The BNR-3 and BNR-1000 models were fit to the data for predicting voxel activation, and ISC voxel activation prediction was also performed on the data under both circular shifting and phase scrambling methods. Part (a) of Figure 6 shows the SNR activation maps for the four methods. Both BNR activation maps predict voxel activation in roughly the same areas as the ISC models, but the BNR activation maps show a much higher spatial relationship among neighboring voxels. The BNR-3 shows much higher activation than the BNR-1000, though the BNR-3’s activation is likely higher than should be expected. Particularly notable is that the BNR models show higher activation in the visual cortex than the ISC, which is expected to be highly active during a visual stimulus [Di et al., 2023]. Also notable is the BNR-1000 displays much higher activation on the right side of the prefrontal cortex than the left which has been noted in other studies as characteristic during naturalistic viewing tasks [Jääskeläinen et al., 2008]. Part (b) of Figure 6 shows estimated SNR functions at three different voxels with varying strengths of activity. The 
+
+# 11 Bayesian Naturalistic Shared Neural Response Model 
+
+estimated functions where activity is estimated as stronger appear to follow trends from the BOLD time series of the 22 participants. Note that participant data shown in Figure 6 is spatially filtered to help visualize that the estimated SNR function appears to fit well the true real data signal. The data used for fitting, however, was unfiltered, showcasing the BNR’s ability to capture the true SNR signal.  
+
+> (a) (b)
+
+Figure 6: (a) Shared neural activation maps of naturalistic fMRI data where participants viewed a clip from Despicable Me . Results are show for ISC circular shift and phase scrambling methods and two BNR models. (b) (left) Neural response data from 22 participants during viewing of Despicable Me overlaid with estimated shared neural response function at three voxels with varying levels of estimated activation by the BNR-1000 model. (right) Activation map for one ROI with outlined voxels corresponding from top to bottom to the three estimated function on the left. 
+
+# 5 Conclusion 
+
+In this manuscript, we introduced a Bayesian modeling framework for simultaneously estimating a fMRI SNR function and detecting voxel activation of multiple participants exposed to a naturalistic stimulus. The modeling framework is a generalization of the classical GLM used in tfMRI studies, where rather than supplying functional predictors the SNR function is estimated given the data. The model relies on sparse Gaussian random field modeling to assist in making more rapid sampling from the posterior distribution. The combined estimation of the SNR function and the voxel activation map require thoughtful selection of the prior distribution on activation coefficients. This led to the development and study of the half-t generalization of the horseshoe prior. In a simulation study, the model outperformed standard ISC methodology for analyzing nfMRI data, and in a real data analysis it performed similar to the classical GLM on tfMRI data. In a real data analysis of nfMRI data, the model detected shared responses in areas of the brain considered inactive using ISC methods, and produced a smoother spatial activation map. In a clinical setting, a natural extension to the model used herein would be to incorporate group information in the spatial activation and/or the estimated SNR function. A multi-group spatial field or GP could be used to capture group differences and allow for coherent analysis where group responses would be expected to be different, e.g. where one group of participants is diagnosed with a particular condition or disease and the other group is categorized neurotypical. As of the most recent writing of this manuscript, the authors were exploring methodology addressing the two previously mentioned lines of inquiry. 
+
+# 12 Bayesian Naturalistic Shared Neural Response Model 
+
+Time for model fitting is a major bottleneck, and certain decisions made by the authors to handle this can be improved upon in future work. For instance the decision to fit each ROI independently was necessary and not unreasonable, but jointly modeling all regions would likely lead to improved fits particularly on the edges of the regions. A potential avenue for accelerating the time to fit would be to approximate the posterior distribution via integrated nested Laplace approximation. Laplace approximation has been used successfully on tfMRI data, and it provides a good framework for modeling non-Euclidean cortical surface data [Mejia et al., 2020, Sidén et al., 2021]. The methodology herein was developed for small sample sizes (dozens of participants), and scaling to larger datasets of hundreds or thousands of participants will demand more efficient and scalable model fitting. 
+
+# References 
+
+Daniel W Adrian, Ranjan Maitra, and Daniel B Rowe. Rice-distributed autoregressive time series modeling of magnitude functional mri data. The Annals of Applied Statistics , 19(2):1494–1513, 2025. Julian Besag, Jeremy York, and Annie Mollié. Bayesian image restoration, with two applications in spatial statistics. 
+
+Annals of the Institute of Statistical Mathematics , 43(1):1–20, 1991. Sofiane Brahim-Belhouari and Amine Bermak. Gaussian process for nonstationary time series prediction. Computational Statistics & Data Analysis , 47(4):705–712, 2004. Carlos M Carvalho, Nicholas G Polson, and James G Scott. Handling sparsity via the horseshoe. In Artificial Intelligence and Statistics , pages 73–80. PMLR, 2009. Carlos M Carvalho, Nicholas G Polson, and James G Scott. The horseshoe estimator for sparse signals. Biometrika ,pages 465–480, 2010. Changgee Chang, Suprateek Kundu, and Qi Long. Scalable Bayesian variable selection for structured high-dimensional data. Biometrics , 74(4):1372–1382, 2018. Luke Chang, Jeremy Manning, Christopher Baldassano, Alejandro de la Vega, Gordon Fleetwood, Linda Geerligs, James Haxby, Juha Lahnakoski, Carolyn Parkinson, Heather Shappell, Won Mok Shim, Tor Wager, Tal Yarkoni, Yaara Yeshurun, and Emily Finn. naturalistic-data-analysis/naturalistic_data_analysis: Version 1.0. Zenodo . Zenodo, 2020. doi: 10.5281/zenodo.3937849. URL https://doi.org/10.5281/zenodo.3937849 .Gang Chen, Paul-Christian Bürkner, Paul A Taylor, Zhihao Li, Lijun Yin, Daniel R Glen, Joshua Kinnison, Robert W Cox, and Luiz Pessoa. An integrative Bayesian approach to matrix-based analysis in neuroimaging. Human Brain Mapping , 40(14):4072–4090, 2019. Gang Chen, Paul A Taylor, Xianggui Qu, Peter J Molfese, Peter A Bandettini, Robert W Cox, and Emily S Finn. Untangling the relatedness among correlations, part III: Inter-subject correlation analysis through Bayesian multilevel modeling for naturalistic scanning. NeuroImage , 216:116474, 2020. Po-Hsuan Cameron Chen, Janice Chen, Yaara Yeshurun, Uri Hasson, James Haxby, and Peter J Ramadge. A reduced-dimension fmri shared response model. Advances in Neural Information Processing Systems , 28, 2015. Noel Cressie. Statistics for spatial data, revised edition . John Wiley & Sons, New York, NY, 2015. Abhirup Datta, Sudipto Banerjee, Andrew O Finley, and Alan E Gelfand. Hierarchical nearest-neighbor Gaussian process models for large geostatistical datasets. Journal of the American Statistical Association , 111(514):800–812, 2016a. Abhirup Datta, Sudipto Banerjee, Andrew O Finley, and Alan E Gelfand. On nearest-neighbor Gaussian process models for massive spatial data. Wiley Interdisciplinary Reviews: Computational Statistics , 8(5):162–171, 2016b. 
+
+# 13 Bayesian Naturalistic Shared Neural Response Model 
+
+Marie Denis and Mahlet G Tadesse. Graph-structured variable selection with Gaussian Markov random field horseshoe prior. Statistical Modelling , 26(2):103–122, 2026. Xin Di, Ting Xu, Lucina Q Uddin, and Bharat B Biswal. Individual differences in time-varying and stationary brain connectivity during movie watching from childhood to early adulthood: Age, sex, and behavioral associations. 
+
+Developmental Cognitive Neuroscience , 63:101280, 2023. Michael Eickenberg, Alexandre Gramfort, Gaël Varoquaux, and Bertrand Thirion. Seeing it all: Convolutional network layers map the function of the human visual system. NeuroImage , 152:184–194, 2017. James R Faulkner and Vladimir N Minin. Locally adaptive smoothing with Markov random fields and shrinkage priors. 
+
+Bayesian Analysis , 13(1):225, 2017. Karl J Friston, Peter Jezzard, and Robert Turner. Analysis of functional mri time-series. Human brain mapping , 1(2): 153–171, 1994. Jonah Gabry, Rok ˇ Cešnovar, and Andrew Johnson. cmdstanr: R Interface to ’CmdStan’, 2024. R package version 0.7.1, https://discourse.mc-stan.org. Prasenjit Ghosh and Arijit Chakrabarti. Posterior concentration properties of a general class of shrinkage estimators around nearly black vectors. arXiv preprint arXiv:1412.8161 , 2015. Robert B Gramacy and Herbert K H Lee. Bayesian treed gaussian process models with an application to computer modeling. Journal of the American Statistical Association , 103(483):1119–1130, 2008. Umut Güçlü and Marcel AJ Van Gerven. Deep neural networks reveal a gradient in the complexity of neural representations across the ventral stream. Journal of Neuroscience , 35(27):10005–10014, 2015. Uri Hasson, Yuval Nir, Ifat Levy, Galit Fuhrmann, and Rafael Malach. Intersubject synchronization of cortical activity during natural vision. Science , 303(5664):1634–1640, 2004. Matthew D Hoffman, Andrew Gelman, et al. The No-U-Turn sampler: adaptively setting path lengths in Hamiltonian Monte Carlo. Journal of Machine Learning Research , 15(1):1593–1623, 2014. Till Hoffmann and Jukka-Pekka Onnela. gptools: Scalable Gaussian process inference with Stan. Journal of Statistical Software , 112:1–31, 2025. Iiro P Jääskeläinen, Katri Koskentalo, Marja H Balk, Taina Autti, Jaakko Kauramäki, Cajus Pomren, and Mikko Sams. Inter-subject synchronization of prefrontal cortex hemodynamic activity during natural viewing. The Open Neuroimaging Journal , 2:14, 2008. Shailee Jain and Alexander Huth. Incorporating context into language encoding models for fMRI. Advances in Neural Information Processing Systems , 31, 2018. An-Ting Jhuang, Montserrat Fuentes, Jacob L Jones, Giovanni Esteves, Chris M Fancher, Marschall Furman, and Brian J Reich. Spatial signal detection using continuous shrinkage priors. Technometrics , 2019. Matthias Katzfuss and Joseph Guinness. A general framework for Vecchia approximations of Gaussian processes. 
+
+Statistical Science , 36(1):124–141, 2021. Tom Dupré La Tour, Michael Eickenberg, Anwar O Nunez-Elizalde, and Jack L Gallant. Feature-space selection with banded ridge regression. NeuroImage , 264:119728, 2022. Duncan Lee. A comparison of conditional autoregressive models used in Bayesian disease mapping. Spatial and Spatio-temporal Epidemiology , 2(2):79–89, 2011. 
+
+# 14 Bayesian Naturalistic Shared Neural Response Model 
+
+Wenrui Li, Changgee Chang, Suprateek Kundu, and Qi Long. Accounting for network noise in graph-guided Bayesian modeling of structured high-dimensional data. Biometrics , 80(1):ujae012, 2024. Martin A Lindquist. The Statistical Analysis of fMRI Data. Statistical Science , 23(4):439–464, 2008. Amanda F Mejia, Yu Yue, David Bolin, Finn Lindgren, and Martin A Lindquist. A Bayesian general linear modeling approach to cortical surface fMRI data analysis. Journal of the American Statistical Association , 115(530):501–520, 2020. Donald R Musgrove, John Hughes, and Lynn E Eberly. Fast, fully Bayesian spatiotemporal inference for fMRI data. 
+
+Biostatistics , 17(2):291–303, 2016. Samuel A Nastase, Valeria Gazzola, Uri Hasson, and Christian Keysers. Measuring shared responses across subjects using intersubject correlation. Social Cognitive and Affective Neuroscience , 14(6):667–685, 2019. Samuel A Nastase, Ariel Goldstein, and Uri Hasson. Keep it real: Rethinking the primacy of experimental control in cognitive neuroscience. NeuroImage , 222:117254, 2020. Siina Pamilo, Sanna Malinen, Yevhen Hlushchuk, Mika Seppä, Pia Tikka, and Riitta Hari. Functional subdivision of group-ICA results of fMRI data collected during cinema viewing. 2012. Juho Piironen and Aki Vehtari. On the hyperprior choice for the global shrinkage parameter in the horseshoe prior. In 
+
+Artificial Intelligence and Statistics , pages 905–913. PMLR, 2017a. Juho Piironen and Aki Vehtari. Sparsity information and regularization in the horseshoe and other shrinkage priors. 
+
+Electronic Journal of Statistics , 11:5018–5051, 2017b. Nicholas G Polson and James G Scott. Shrink globally, act locally: Sparse Bayesian regularization and prediction. 
+
+Bayesian Statistics , 9(501-538):105, 2010. Carl Edward Rasmussen and Christopher KI Williams. Gaussian Processes for Machine Learning . MIT press, Cambridge, MA, 2006. Havard Rue and Leonhard Held. Gaussian Markov random fields: theory and applications . Chapman and Hall/CRC, 2005. Heini Saarimäki. Naturalistic stimuli in affective neuroimaging: A review. Frontiers in Human Neuroscience , 15: 675068, 2021. Alexander Schaefer, Ru Kong, Evan M Gordon, Timothy O Laumann, Xi-Nian Zuo, Avram J Holmes, Simon B Eickhoff, and BT Thomas Yeo. Local-global parcellation of the human cerebral cortex from intrinsic functional connectivity MRI. Cerebral Cortex , 28(9):3095–3114, 2018. Mark A Schmuckler. What is ecological validity? a dimensional analysis. Infancy , 2(4):419–436, 2001. Per Sidén, Finn Lindgren, David Bolin, Anders Eklund, and Mattias Villani. Spatial 3D Matérn priors for fast whole-brain fMRI analysis. Bayesian Analysis , 16(4):1251–1278, 2021. Erez Simony and Catie Chang. Analysis of stimulus-induced brain dynamics during naturalistic paradigms. NeuroImage ,216:116461, 2020. Saurabh Sonkusare, Michael Breakspear, and Christine Guo. Naturalistic stimuli in neuroscience: critically acclaimed. 
+
+Trends in Cognitive Sciences , 23(8):699–714, 2019. Stan Development Team. Stan reference manual, 2.38.0. https://mc-stan.org , 2026. Accessed: 2026-02-26. 
+
+# 15 Bayesian Naturalistic Shared Neural Response Model 
+
+Qawi K Telesford, Eduardo Gonzalez-Moreira, Ting Xu, Yiwen Tian, Stanley J Colcombe, Jessica Cloud, Brian E Russ, Arnaud Falchier, Maximilian Nentwich, Jens Madsen, et al. An open-access dataset of naturalistic viewing using simultaneous eeg-fmri. Scientific Data , 10(1):554, 2023. James Theiler, Stephen Eubank, André Longtin, Bryan Galdrikian, and J Doyne Farmer. Testing for nonlinearity in time series: the method of surrogate data. Physica D: Nonlinear Phenomena , 58(1-4):77–94, 1992. SL van der Pas, J-B Salomond, and J Schmidt-Hieber. Conditions for posterior contraction in the sparse normal means problem. Electronic Journal of Statistics , 10(1):976–1000, 2016. Aldo V Vecchia. Estimation and model identification for continuous spatial processes. Journal of the Royal Statistical Society Series B: Statistical Methodology , 50(2):297–312, 1988. Zhengxin Wang, Daniel B Rowe, Xinyi Li, and D Andrew Brown. A fully Bayesian approach for comprehensive mapping of magnitude and phase brain activation in complex-valued fMRI data. Magnetic Resonance Imaging , 109: 271–285, 2024. Marijke Welvaert, Joke Durnez, Beatrijs Moerkerke, Geert Berdoolaege, and Yves Rosseel. neuRosim: An R package for generating fMRI data. Journal of Statistical Software , 44:1–18, 2011. Josef Wilzén, Anders Eklund, and Mattias Villani. Physiological Gaussian process priors for the hemodynamics in fMRI analysis. Journal of Neuroscience Methods , 342:108778, 2020. Linlin Zhang, Michele Guindani, and Marina Vannucci. Bayesian models for functional magnetic resonance imaging data analysis. Wiley Interdisciplinary Reviews: Computational Statistics , 7(1):21–41, 2015. Yizhen Zhang, Jung-Hoon Kim, David Brang, and Zhongming Liu. Naturalistic stimuli: A paradigm for multiscale functional characterization of the human brain. Current Opinion in Biomedical Engineering , 19:100298, 2021. 
+
+# 16 SUPPLEMENTARY MATERIAL FOR BAYESIAN SPARSITY 
+
+# MODELING OF SHARED NEURAL RESPONSE FUNCTIONAL 
+
+# MAGNETIC RESONANCE IMAGING DATA BY SPENCER 
+
+# WADSWORTH , N ABIN KOIRALA , N ICOLE LANDI , AND OFER 
+
+# HAREL 
+
+# Web Appendix A. Proof of Theorem 1 and Figure of Marginal HTHS Prior 
+
+Proof. Without loss of generality, assume ϕ = 1 and drop it to simplify notation. Then, 
+
+p(β) = 
+
+Z ∞
+
+> 0
+
+1
+
+√2πλ 2 exp 
+
+
+
+− β2
+
+2λ2
+
+ Γ( ν+1 2 )
+
+√νπ Γ( ν 
+
+> 2
+
+)
+
+ ν + λ2
+
+ν
+
+−( ν+1 2 )
+
+dλ 
+
+Let ζ = 1 /λ 2, then 
+
+p(β) = R
+
+Z ∞
+
+> 0
+
+1
+
+ζ exp 
+
+
+
+− β2
+
+2 ζ
+
+  ν + (1 /ζ )
+
+ν
+
+−( ν+1 2 )
+
+dζ 
+
+≥ R
+
+Z ∞
+
+> 0
+
+1
+
+ζ exp 
+
+
+
+− β2
+
+2 ζ
+
+
+
+exp 
+
+
+
+− (ν + 1) 2ν
+
+1
+
+ζ
+
+
+
+dζ 
+
+≥ R
+
+Z ∞
+
+> 0
+
+1
+
+ζ exp 
+
+
+
+− β2
+
+2 ζ
+
+
+
+exp 
+
+
+
+− 1
+
+ζ
+
+
+
+dζ 
+
+≥ R
+
+Z ∞
+
+> 1
+
+1
+
+ζ exp 
+
+
+
+− β2
+
+2 ζ
+
+
+
+dζ 
+
+= RE 1
+
+ β2
+
+2
+
+
+
+where E1(·) is the exponential integral function. The first inequality follows from the fact that (1 + x)−a ≥ e−ax and the second from the fact that (ν + 1) /2ν ≥ 1 for ν ≥ 1. The function E1(·) has the lower bound exp (−t)2 log 
+
+
+
+1 + 2
+
+t
+
+
+
+< E 1(t)Supplement to Bayesian Naturalistic Shared Neural Response Model PRIME AI paper 
+
+for all t > 0. From this bound p(β) → ∞ as β → 0.Figure 1 compares the marginal HTHS with ν = 1000 with the marginal HS prior where τ = ϕ = 1 and with the standard normal distribution. The figure shows plots for bulk of the prior distributions near zero as well as the distribution tails. 
+
+Figure 1: Marginal horseshoe, half-t horseshoe, and standard normal prior distributions. Here τ = 1 and ϕ = 1 .
+
+# Web Appendix B. Shrinkage Factor Estimates Under Differing Prior Distributions 
+
+Figure 2 shows histograms of the estimated posterior mean of the shrinkage factor κv from equation (8) in the main text. These pertain to the simulation study in Section 3. There are four plots, one for each ν ∈ { 1, 3, 20 , 1000 }
+
+where ν is the degrees of freedom of the half-t distribution in the HTHS prior. Each plot contains subplots faceted by activated signal strength in the x-axis and the hyperprior parameter value τ ∗ in the y-axis. Recall from Section 2 that the prior distribution assigned to the global shrinkage parameter of the HTHS prior is τ ∼ t+1000 (0 , τ 0) where 
+
+τ0 = τ ∗/√S × V × T . Here τ ∗ is considered the rough prior estimate of the proportion of active voxels in a naturalistic SNR experiment. The plots show the characteristic U shape of the shrinkage factor, and how it varies depending on the choice of prior. As discussed in the main text, where the true activation signal is 0, the HTHS priors for smaller ν are more likely to falsely declare some voxels active. This may also occur occasionally for larger ν, but only as τ ∗ increases. In general, as τ ∗
+
+increases, the number of small κv also increases. Ultimately the value τ ∗ = 0 .1 was chosen for the results presented in the main text because it most accurately reflects our prior beliefs on voxel activation, and because it maintained relatively strong shrinkage based on the results shown here. 
+
+# Web Appendix C. Checkerboard Stimulus Activation Maps for BNR Models 
+
+Figure 3 shows activation maps for the BNR SNR models for degrees of freedom ν ∈ { 1, 3, 20 , 1000 } using checker-board tfMRI data (see section 3.2 in the main text). The purpose for including these results is to show how activation differs by the degrees of freedom assigned to the prior of the local shrinkage parameter in the HTHS prior distribution. For small degrees of freedom, 1 and 3, the BNR model shows far more activation than even the GLM shows. This suggests that either there is far more SNR activation by the checkerboard stimulus than would generally be detected via the GLM, or more likely that the BNR-1 and BNR-3 models’ activation predictions are spurious. This further illustrates the need to use the HTHS prior over the HS prior with high degrees of freedom in the local shrinkage parameter prior. 2Supplement to Bayesian Naturalistic Shared Neural Response Model PRIME AI paper 
+
+Figure 2: Histograms of posterior mean of shrinkage factor κv from simulation study in Section 4 of the main text. Each of the four plots represents results where for different degrees of freedom ν of the HTHS prior local shrinkage parameter. Each plot is further faceted by the shared neural response function signal strength on the x-axis and the prior parameter τ ∗ of the prior assigned to the HTHS global shrinkage parameter. 3Supplement to Bayesian Naturalistic Shared Neural Response Model PRIME AI paper 
+
+Figure 3: Shared neural activation maps of checkerboard task fMRI data for BNR models faceted by degrees of freedom 
+
+ν ∈ { 1, 3, 20 , 1000 }.4

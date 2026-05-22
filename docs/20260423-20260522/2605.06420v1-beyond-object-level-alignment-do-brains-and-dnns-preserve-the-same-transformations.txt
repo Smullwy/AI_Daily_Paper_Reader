@@ -1,0 +1,757 @@
+Title: Beyond Object-Level Alignment: Do Brains and DNNs Preserve the Same Transformations?
+
+URL Source: https://arxiv.org/pdf/2605.06420v1
+
+Published Time: Fri, 08 May 2026 01:27:22 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+# Beyond Object-Level Alignment: Do Brains and DNNs Preserve the Same Transformations? 
+
+Yukiyasu Kamitani 1,2 1Graduate School of Informatics, Kyoto University 
+
+> 2
+
+ATR Computational Neuroscience Laboratories 
+
+Abstract 
+
+Brain–DNN alignment is usually assessed through stimulus-level correspondence or stimulus-set geometry. Inspired by category theory, we operationalize a different question: do brain and model preserve the same candidate transformations among stimuli? We formalize this as approximate naturality — if a proxy-defined stimulus change is propagated through the brain side and then translated to the model side, the result should match translating first and then propagating through the model side, so that the naturality square approximately commutes. We quantify deviations from commutativity by a Naturality Violation Score (NVS) normalized to a permutation null, shifting alignment from per-stimulus sameness to preservation of structure under an explicitly chosen comparison map. As a proof of concept, a controlled five-factor synthetic setting shows that NVS separates complementary alignment failures that aggregate object- and geometry-level scalars cannot resolve. Applied to fMRI responses from the GOD dataset (5 subjects), 3 vision DNNs, and 3 external embedding spaces used as limited World-Model proxies, the axis-resolved analysis reveals a hierarchy crossover: semantic axes align most strongly toward HVC and deeper DNN layers (animacy has the lowest pooled NVS among the tested axes, 
+
+NVS animacy = 0 .39 , compared with 0.52 for the next-best axis and 1.0 for the permutation-null baseline), whereas low- and mid-level visual axes align toward earlier visual cortex and shallower layers. Supporting analyses — a 15-axis appendix atlas, dissociation tests against RSA/CKA and encoding/decoding accuracy, and a W-less anchor-ablation control — support that the alignment is selective over candidate morphism families rather than uniform. NVS thereby turns brain–DNN comparison into a test of jointly preserved candidate transformations, relative to an explicitly chosen proxy space and permutation null, opening a path to richer proxy spaces and controlled world-side transformations. 
+
+# 1 Introduction 
+
+When brain and model assign similar codes to the same image, do they also move between images in the same way? Existing alignment metrics — encoding (Yamins et al., 2014) and decoding (Horikawa and Kamitani, 2017) accuracies, Brain-Score (Schrimpf et al., 2018), the Brain Hierarchy (BH) score (Nonaka et al., 2021), RSA (Kriegeskorte et al., 2008; Kriegeskorte, 2015), CKA (Kornblith et al., 2019), and Procrustes alignment — summarize how closely the two systems agree on individual stimuli or on overall stimulus-set geometry. In their standard use, these metrics do not directly test whether a specified stimulus transformation propagates compatibly through both systems: two systems can agree on per-stimulus predictions and on stimulus-set geometry yet still disagree about which changes among stimuli they treat as equivalent, stable, or meaningful. Inspired by category theory, we frame this as a question about approximate naturality : whether brain and model preserve the same proxy-defined candidate changes under translation, so that the 1                                      
+
+> arXiv:2605.06420v1 [q-bio.NC] 7 May 2026 Figure 1: Brain–DNN alignment as approximate naturality (motivational concept diagram). Left:
+> the World Model Wparameterizes which stimulus change r:s→s′is tested; the translators η:B→Mand
+> η′:M→Bconnect the two sides. Right: the naturality square (the analogous square is also asked of η′). This is the motivational categorical reading; in practice FB(r), F M(r)are not estimated as endomorphisms of
+> B, M but realized at first order via the proxy chain FW,ΦB,ΦM(Fig. 2); FB, F Mare not enforced to be strict functors (App. A1).
+
+two paths around the square approximately commute (Fig. 1; full categorical setup in App. A1). We use this as an operational analogy rather than as a claim that the fitted maps constitute strict functors — the tested operator families are empirical linear approximations defined on sampled stimulus pairs. This shifts alignment from objectwise sameness to preservation of structure under an explicitly chosen comparison map. Concretely, B (brain) and M (model) are ambient vector spaces with stimulus points bs ∈ B, ms ∈ M . A tested stimulus change r : s → s′ is realized on each side by linear operators FB (r) : B → B and FM (r) : M → M (Fig. 1, left), which we approximate per edge from sampled stimulus pairs (formalized in §3). We call the cross-system maps η : B → M and 
+
+η′ : M → B translators (Shirakawa et al., 2025): linear maps between brain activity and a target latent representation, with η a decoder and η′ an encoder. In the present framework they act as approximate intertwiners. For readability we write the forward square explicitly, 
+
+η ◦ FB (r) = FM (r) ◦ η, (1) i.e., the two paths — propagate then translate, vs. translate then propagate — should agree (Fig. 1, right). The same square is asked of η′ : M → B in the reverse direction ( η′ ◦ FM (r) = FB (r) ◦ η′). Standard alignment metrics test only η(bs) ≈ ms at each stimulus individually; approximate naturality additionally constrains the change structure — whether the same candidate transformation is preserved across the two systems. The candidate morphisms r are specified through an external comparison space W : the proxy through which the same candidate stimulus change is mapped into both brain and model spaces, sitting at the apex of the cospan that links them (Fig. 1; full categorical setup in App. A1). The choice of W determines which transformations can be tested and is therefore part of the scientific question, not a nuisance parameter. In this paper, W is a limited World Model proxy in the broad neuro-AI sense (Ha and Schmidhuber, 2018; Bisk et al., 2020), given by an embedding function 
+
+FW : Stim → W ; we instantiate three: CLIP-text (Radford et al., 2021), DINOv2 (Oquab et al., 2024), and DreamSim (Fu et al., 2023), capturing language-grounded semantics, self-supervised visual structure, and human perceptual similarity, respectively. We do not treat these as full generative or causal world models, only as embedding spaces that supply a structured family of candidate morphisms. Differences within W parametrize world-structural changes via the linear representation hypothesis (Mikolov et al., 2013; Park et al., 2024) — the empirical observation that semantically meaningful features are encoded as approximately linear directions in modern embedding spaces, so 2that a single direction in W corresponds to one such change. Restricting to a single concept axis via a CAV (Kim et al., 2018) yields an axis-resolved version (formalized in §3; throughout this paper, “axis” refers only to this CAV-based parameterization). The Naturality Violation Score (NVS) is defined in §3 as the relative L2 residual of Eq. (1) , evaluated in both translation directions ( η, η ′)and normalized to a permutation null. We evaluate this in two stages. A five-factor synthetic toy world serves as a proof of concept 
+
+(§4): morphism-level NVS recovers complementary failures that aggregate object- and geometry-level scalars collapse. On empirical data — GOD fMRI from 5 subjects, 3 vision DNNs, and 3 World Model proxies (§5) — we first fit conventional per-stimulus encoding/decoding mappings and only then evaluate naturality post hoc, without optimizing for commutativity. The axis-resolved analysis reveals a hierarchy crossover (Tab. A2): low-level photometric morphisms align at V1 ×shallow cells, semantic morphisms at HVC ×deep cells, and mid-level morphisms in between, with animacy the strongest of the six main axes. To keep the main narrative readable while preserving evidential support, the appendix is organized by scientific function rather than chronology: formal setup and data-processing details (Apps. A1– A3), cross-subject reproducibility and confirmatory tests of the main claim (App. A4), atlas-wide 
+
+NVS a on the full 15-axis set (App. A5), the W-less control (App. A6), readout diagnostics and the variance decomposition (App. A7), alternative-explanation checks (App. A8), and metric-reduction / reproducibility material (Apps. A9–A10). The scope is deliberately limited: empirical results come from n = 5 subjects on a single dataset, depend on the chosen proxy space W (and the embedding FW that defines it), and use category-theoretic naturality as an operational analogy rather than a strict functorial claim — the operational maps used to realize each candidate morphism are fitted independently per edge without enforced composition (§3; App. A1). 
+
+Contributions: (i) we reframe brain–DNN alignment as approximate naturality of the paired translators (η, η ′), building on linear decoding/encoding practice (Yamins et al., 2014; Horikawa and Kamitani, 2017) and the linear-representation hypothesis (Mikolov et al., 2013; Park et al., 2024) as an operational assumption for the chosen FW spaces; (ii) we define NVS, a permutation-normalized residual of that naturality square, and use a cospan reading to situate existing scalar metrics by what they retain and discard; (iii) a synthetic proof-of-concept demonstrates that NVS recovers complementary world-axis sharing that standard scalars collapse; (iv) on the GOD dataset (5 subjects, 3 vision DNNs, 3 World Model proxies) we report a hierarchy crossover in which alignment is selective and axis-dependent, with animacy as the strongest among the CAV-parameterized candidate morphism families tested. 
+
+# 2 Related Work 
+
+Most prior brain–DNN alignment work has asked whether the same objects or stimulus sets are represented similarly. Our framing is complementary: whether the same transformations or relations 
+
+are preserved across the two systems. 
+
+Encoding/decoding metrics. Encoding (Yamins et al., 2014; Naselaris et al., 2011) and decoding (Horikawa and Kamitani, 2017) accuracies provide per-stimulus correspondence between DNNs and brains; Brain-Score (Schrimpf et al., 2018) introduced these as a composite benchmark and was later developed into an integrative benchmarking framework (Schrimpf et al., 2020), while the BH score (Nonaka et al., 2021) summarizes the resulting ROI–layer hierarchy. In our framework these correspond to the closest object-level special cases of the cospan, obtained by choosing W =M or 
+
+W =B and collapsing the question to stimuli rather than directed morphisms (App. A9). 3Representational similarity. RSA (Kriegeskorte et al., 2008; Kriegeskorte, 2015), CKA (Kornblith et al., 2019), and Procrustes alignment compare representational geometry through second-order pairwise statistics or global alignment transforms. These methods move from individual objects to stimulus-set structure, but still summarize agreement as a single scalar and do not isolate which candidate transformations are preserved. 
+
+Critical re-evaluation of brain–DNN alignment. Recent work (Conwell et al., 2024) questions how strongly current scalar metrics actually distinguish brain-aligned from non-aligned representa-tions, motivating finer-resolution diagnostics. Sucholutsky et al. (2025) similarly argue alignment is plural; our proposal isolates preserved morphism families as one such aspect, complementary to integrative-benchmark approaches (Schrimpf et al., 2020). The aim here is not merely a finer scalar, but a shift in question: from global similarity to selective correspondence across morphism classes. Animacy is a long-standing organizing principle of the ventral stream (Konkle and Caramazza, 2013; Long et al., 2018), providing prior validation for the axis-level outlier we report. 
+
+World models in neuro-AI. Ha and Schmidhuber (2018); Bisk et al. (2020) situate a world model as a latent representation through which perception is interpreted. We use FW as a linearized proxy for this role: not as another target representation to match, but as a structural anchor that specifies which candidate morphisms are being tested. 
+
+Categorical / equivariant approaches. Categorical deep learning (Gavranović et al., 2024) and category-theoretic work in cognitive science (Ehresmann and Vanbremeersch, 2007; Phillips, 2022) provide formal language for structure-preserving mappings, but have not been applied to brain–DNN data. More broadly, treating brain–DNN alignment as preservation of selected relations under an externally supplied comparison map parallels the partial-structures view of scientific representation (da Costa and French, 2003), in which inter-system correspondence holds only on a designated subset of relations, and the comparison-map-relative reading of representation due to van Fraassen (2008). Equivariant networks (Cohen and Welling, 2016; Sanborn et al., 2023) build transformation-respecting structure directly into FM at design time, fixing which transformations a model must preserve. Our framework is complementary: FM is taken as given (a pre-trained vision DNN), and we measure post hoc which transformations brain and DNN do preserve in common, with the candidate class set by FW rather than baked in. 
+
+# 3 Method: cospan and NVS 
+
+Spaces and estimated maps. Our goal is to test whether the same candidate stimulus morphism 
+
+is preserved across two systems — a brain space B (synthetic factor projection in §4, fMRI voxel space in §5) and a model space M (toy DNN candidates in §4, vision-DNN layer activations in §5) — relative to an external proxy space W with embedding function FW : Stim → W , so each candidate morphism is parameterized by ∆W = FW (s′) − FW (s) ∈ W . The naturality square (Eq. 1) is realized operationally through three learned linear maps: 
+
+• ΦB : W → B and ΦM : W → M , world-to-brain and world-to-model maps fit by per-target Ridge (App. A3); these realize each tested change as the increments ΦB (∆ W ) in B and 
+
+ΦM (∆ W ) in M .
+
+• η : B → M and η′ : M → B, linear translators between the two systems, fit on per-stimulus pairs. The proxy embedding FW parameterizes the candidate morphism family; choosing a proxy space determines which kinds of stimulus changes can be tested. Conceptually, FB and FM act as constant-on-objects quiver representations Stim → Vect sending each tested r to a linear operator 4Figure 2: Dual-triangle decomposition of NVS. Each world morphism ∆W has two paths to a target space. Left: direct ΦM (∆ W ) vs. brain-mediated η(Φ B (∆ W )) . Right: direct ΦB (∆ W ) vs. DNN-mediated   
+
+> η′(Φ M(∆ W)) . NVS is the symmetric mean of the two per-direction permutation-normalized residuals (§3); used identically in the synthetic PoC and the empirical fMRI study.
+
+inside B or M — not strict functors, since identities and composition across stimulus pairs are not enforced — and η, η ′ play the role of approximate intertwiners : under the strict-functorial reading they would be natural transformations, but here that requirement is relaxed. Operationally, 
+
+FB (r), F M (r) are realized at first order via the proxy chain FW , ΦB , ΦM above (full categorical setup in App. A1). 
+
+NVS. The naturality square then becomes the operational identity 
+
+ΦM (∆ W ) = η(Φ B (∆ W )) . (2) We measure the relative residual of Eq. 2 in both translation directions, normalize each direction to its own permutation null, and average. Writing Eπ for the expectation under independent shufflings 
+
+π of pair indices in ΦB (∆ W ) and ΦM (∆ W ) (which preserve each side’s marginal geometry while destroying cross-space correspondence; App. A3), 
+
+NVS η = E η(Φ B (∆ W )) − ΦM (∆ W )
+
+Eπ η(Φ B (∆ W )) − ΦM (∆ W ) ,
+
+NVS η′ = E η′(Φ M (∆ W )) − ΦB (∆ W )
+
+Eπ η′(Φ M (∆ W )) − ΦB (∆ W ) ,
+
+NVS = 12
+
+ NVS η + NVS η′
+
+.
+
+Expectations are over ordered test pairs (s, s ′) (per-pair Euclidean norm, then averaged). Because each NVS d is already normalized to its own permutation null, the symmetric mean NVS is itself a chance-referenced score: NVS = 1 .0 is chance, NVS = 0 is perfect commutativity, and lower is better. “Chance” here refers specifically to the permutation null that destroys cross-space pairing while preserving the marginal geometry of ΦB (∆ W ) and ΦM (∆ W ); NVS < 1 should therefore be read as evidence for structure relative to this null, not as an absolute proof of shared representation. The same residual form is used in two complementary regimes that share ΦB , ΦM , η, η ′. The 
+
+full-vector regime uses the full ∆W = FW (s′) − FW (s) and yields NVS full , a single global score over all directions in W . The axis-resolved regime replaces ∆W by its projection ⟨∆W , v a⟩ va onto a unit CAV direction va for a named concept axis a (animacy, real size, luminance, . . . ; App. A3.6) and yields NVS a (e.g., NVS animacy ), localizing whether the specific world-named transformation is preserved. The same definition is used for both the synthetic PoC (§4) and the empirical fMRI study (§5); only the concrete spaces B, M, F W differ. 54 Synthetic Proof of Concept 
+
+These analyses reveal structure that aggregate similarity scores obscure. NVS separates alignment by generating factor, exposing how different models track position, object identity, or neither even when scalar summaries look similar. 
+
+Setup. The world has 5 independent factors w = ( x, y, scale , θ, color ) ∼ N (0 , I 5), generating 1,500 
+
+stimuli. The brain B = wA B ∈ R32 uses a random orthogonal projection retaining all 5 factors. Four DNN candidates differ only in which factors they extract: Mfull keeps all 5; Mpos keeps only {x, y };
+
+Mobj keeps only {scale , θ, color }; Mrandom destroys factor structure. Mpos and Mobj both perfectly extract a subset of world factors, but disjoint subsets. 
+
+Scalar alignment metrics. We benchmark five canonical alignment scalars – encoding r, decoding 
+
+r, RSA, top-1 linear CCA (Hardoon et al., 2004), and Procrustes alignment ( 1−disparity with optimal orthogonal rotation; Schönemann, 1966) – by treating FW as a single space (Tab. 1, left block). None of them distinguishes Mpos from Mobj in a way that localizes which factors each model misses. CCA returns ≈ 0.99 for Mfull , Mpos , and Mobj alike: the 5 world factors form a maximally correlated linear subspace inside B regardless of which subset M retains. Procrustes does separate the models numerically ( 0.91 /0.26 /0.48 ) but cannot say which factors are aligned. Aggregated, the five scalars agree both models are broadly aligned with B.
+
+Per-axis and full-∆ NVS. Restricting ∆W to a single axis (e.g., ∆W = (∆ x, 0, 0, 0, 0) ) yields a per-axis NVS that cleanly separates the candidate models by which factors they preserve (Tab. 1, per-axis NVS block): Mpos has NVS ≈ 0.02 on {x, y } but ≈ 0.57 on {scale , θ, color }, while Mobj 
+
+shows the exact inverse. The full-∆ NVS (rightmost column) gives a single global score that also separates the models ( Mfull ≈ 0.01 , Mpos ≈ 0.32 , Mobj ≈ 0.23 , Mrandom ≈ 0.57 ), but it does not localize which factors are preserved or missed; that diagnosis requires the per-axis decomposition. 
+
+Table 1: PoC results: static scalars, per-axis NVS, and full-∆ NVS. Higher is better for the five static scalars; lower is better for NVS. Static scalars collapse Mpos and Mobj to single-number summaries; per-axis NVS reveals which factors each model preserves vs. misses (bold cells = preserved factors); full-∆
+
+NVS gives a global score (last column).                                                                
+
+> Static (↑)Per-axis NVS (↓)Full-∆NVS (↓)Model enc rdec rRSA CCA Proc. NVS xNVS yNVS scale NVS θNVS color NVS full
+> Mfull 0.95 0.95 0.97 0.99 0.91 0.01 0.01 0.01 0.01 0.01 0.01
+> Mpos 0.55 0.84 0.57 0.99 0.24 0.02 0.02 0.57 0.57 0.56 0.32
+> Mobj 0.71 0.90 0.72 0.99 0.50 0.57 0.57 0.02 0.02 0.02 0.23
+> Mrandom −0.01 −0.01 0.00 0.41 0.00 0.58 0.58 0.58 0.59 0.58 0.57
+
+An additional bias-robustness PoC also shows that adding session-specific additive bias to B
+
+collapses RSA from 1.00 to 0.29 while symmetric NVS rises only 0.04 → 0.06 , because ∆-space largely cancels additive bias (App. A2). 
+
+# 5 Empirical study: brain–DNN alignment on GOD 
+
+We next move from the toy proof of concept to empirical data, instantiating the cospan of §3 with a brain side B and a model side M on the GOD dataset (Horikawa and Kamitani, 2017). The GOD stimuli are natural object photographs drawn from ImageNet-linked categories. fMRI responses from 5 subjects viewing these images provide B as voxel patterns over 5 ROIs (V1, V2, V3, V4, and a higher-visual-cortex ROI HVC defined as LOC ∪ FFA ∪ PPA); each of 3 vision DNNs (AlexNet, ResNet-50, ViT-B/16) is fed the same images and provides M as activations over 8 representative layers (L1–L8). Three external World Model proxies supply FW for axis decomposition: CLIP-text 6from the per-image AMT captions, DINOv2 and DreamSim from the images themselves. Across the 1,200 single-trial training images we fit ΦB , ΦM , η, η ′ as defined in §3; NVS is then evaluated on the 50 trial-averaged 35 -trial test images, using the exhaustive 50 ×49 = 2 ,450 ordered test pairs. The full grid is 5 ROI × 8 layer × 3 FW × 6 axes (plus a full-FW row); per-direction η, η ′ values are in App. A3.10. We adopt a two-phase exploratory–confirmatory design (full protocol: App. A3): all choices underlying the headline confirmatory analyses — modeling form, axis set, proxy-viability criterion, cell grid, and test statistics — are fixed on Sub-01, and Sub-02–05 ( n= 4) are then analyzed under that frozen protocol as a held-out confirmatory cohort. Sub-01-only post hoc checks (e.g., the MLP ΦB , ΦM control) are reported separately in App. A8. The setup is also diagnostic: we first fit conventional object-level encode/decode-style mappings and only then ask how well those mappings satisfy the naturality criterion, rather than optimizing them for commutativity. As in the PoC, we report both the per-axis and unrestricted full-FW results. 
+
+5.1 Per-axis NVS along candidate morphism classes 
+
+The three World Model proxies are not equally informative for every tested axis. Held-out 5-fold CAV readout from FW is high for the semantic axes (animacy: 0.68 –0.91 ; real size: 0.57 –0.83 ), strong for DreamSim on the low/mid-level visual axes, modest for CLIP-text on curvilinearity and texture energy, and poor for DINOv2 on the low/mid-level visual axes (App. A3.8; Tab. A1). Under the proxy-viability criterion used throughout the paper (positive held-out CAV readout, 
+
+R2 > 0), CLIP-text passes 4/6 main axes, DINOv2 2/6, and DreamSim 6/6; on the 15-axis atlas the corresponding counts are 12/15, 3/15, and 15/15 (App. A3.8). We treat these counts as diagnostics of the World Model proxies themselves: when a proxy-axis combination fails this screen, that proxy is not an adequate comparison space for that axis under the present setup. The downstream NVS values are nonetheless retained in the pooled summaries and figures, with the failed combinations marked explicitly rather than filtered out. We therefore treat FW as part of the scientific question rather than a nuisance-free substrate: different proxies support different candidate morphism families. 
+
+Table 2: Per-axis NVS a for the 6 main scalar axes: per-FW pooled mean and best cell. The first three numeric columns give the 5-subject mean across the 3 DNN × 5 ROI × 8 layer cells for each (FW , axis ),reported as μ±σ with σ the across-5-subjects SD of the pooled per-subject mean. The last column gives the cell minimizing the 5-subject mean across all 9 (FW , DNN ) blocks × 5 ROI × 8 layer . A = AlexNet, 
+
+R = ResNet, V = ViT-B. Entries marked † are proxy-axis combinations that fail the proxy-viability criterion (R2 ≤ 0 in held-out CAV readout); they are retained for transparency and should not be interpreted as valid tests of that morphism family for that proxy.                                            
+
+> Per-FWpooled mean (over 3 DNN ×5 ROI ×8 layer) Axis CLIP-text DINOv2 DreamSim best cell (ROI ×L (DNN, FW): μ±σ)luminance 0.680 ±0.023 †0.708 ±0.036 †0.448 ±0.031 V1 ×L4 (R, Dream): 0.368 ±0.029
+> spatial frequency 0.619 ±0.073 †0.687 ±0.038 †0.450 ±0.059 V1 ×L4 (R, Dream): 0.320 ±0.064
+> curvilinearity 0.691 ±0.025 0.794 ±0.017 †0.579 ±0.038 V2 ×L4 (A, Dream): 0.517 ±0.049
+> texture energy 0.509 ±0.074 0.648 ±0.044 †0.400 ±0.042 V1 ×L2 (A, Dream): 0.278 ±0.045
+> real size 0.749 ±0.018 0.812 ±0.017 0.590 ±0.013 HVC ×L7 (R, Dream): 0.448 ±0.045
+> animacy 0.404 ±0.054 0.388 ±0.061 0.373 ±0.063 HVC ×L6 (R, Dream): 0.193 ±0.058
+
+Decomposing ∆W along six scalar axes (Fig. 3) reveals the main selective structure in the empirical data. The six-axis panel covers two low-level photometric axes (luminance, spatial frequency), two mid-level form/texture axes (curvilinearity, texture energy), and two higher-level semantic axes with strong ventral-stream precedent (real size, animacy). Low-level axes align best in earlier visual / shallower-layer cells and the high-level axes in higher-visual / deeper-layer cells; the two mid-level axes fall in between, with texture energy showing the cleaner intermediate pattern and curvilinearity proxy-dependent (Tab. A2). NVS real size pools at 0.72 and NVS animacy at 0.39 . For animacy, this 7Figure 3: 5-subject mean NVS a (6 scalar-axis rows) and NVS full (full-FW row, bottom) × 3 FW                       
+
+> ×3 vision DNNs. Each submap is a 5ROI ×8layer heatmap, ROI horizontal (V1 →HVC), layer vertical (L1 →L8). Color: deep blue =stronger preservation, white =permutation null ( 1.0), red =above null.
+> A/R/V =AlexNet/ResNet/ViT-B. The axis-resolved rows show the hierarchy crossover (low-level axes →
+> V1 ×shallow; semantic axes →HVC ×deep), absent in the diffuse full-FWrow. Per-subject heatmaps: Fig. A2; statistical crossover: Tab. A2. Submaps failing the CAV viability screen are marked †(in the heatmap and in the corresponding tables) and should not be read as valid tests.
+
+ordering is statistically clean: pooling the 5-subject mean over the 8 layers and 3 DNNs gives an ROI profile that decreases monotonically V1 →HVC under all three FW proxies (Spearman ρ = −1.00 ), and the layer profile likewise favors deeper layers ( ρ = −0.93 , −0.93 , −0.81 for the three proxies); the same analysis on low-level axes runs in the opposite direction (Tab. A2). The hierarchy crossover is confirmed by a within-subject permutation test on the semantic-vs-low-level class contrast of ROI-rank Spearman ρ (T = −1.34 , empirical one-sided p < 10 −4, i.e. none of 10 ,000 axis-label permutations reach the observed magnitude in the predicted direction, on the full 5-subject pool; the held-out confirmatory cohort Sub-02–05 ( n = 4 ) alone gives T = −1.45 with the same empirical one-sided p < 10 −4; App. A4.2). The qualitative six-axis topology is stable across subjects (Fig. A2, App. A4.1), and the per-axis best cells in Tab. 2 recover an early-visual to higher-visual ROI-layer ordering analogous to BH-style results but resolved per axis (Nonaka et al., 2021; Yamins et al., 82014). 
+
+5.2 Comparing axes across architectures and proxies 
+
+Within the tested axis set, animacy separates from the rest: 5-subject pooled NVS animacy = 0 .39 ±0.06 
+
+(bootstrap 95% CI [0 .34 , 0.44] ), the lowest-ratio axis in 5/5 subjects across the six main scalar axes (because each axis is normalized to its own permutation null, cross-axis comparisons reflect relative preservation against axis-specific shuffled baselines rather than raw residual magnitudes); across the same six axes the remaining pooled means range 0.52 –0.72 (Tab. 2). Animacy stays low across all 9 (FW , DNN ) combinations whereas the low/mid-level axes depend more strongly on which World Model proxy is viable for them (App. A3.8); subject-resampling CIs and the 15-axis atlas (Apps. A4.2, A5) support the same axis ordering. The animate/inanimate distinction is a long-known organizing principle of ventral cortex (Kriegeskorte et al., 2008; Konkle and Caramazza, 2013); the morphism-level finding here is consistent with that prior without implying animacy is uniquely privileged. Crucially, “high-level” is not by itself sufficient for strong alignment: in the 15-axis atlas (App. A5), the affordance and material axes ( hold , ride , mat_metal , mat_natural ) all cluster at NVS a ≈ 0.73 –0.74 , well above NVS animacy (0.39 ) and the better low/mid-level axes. 
+
+5.3 Unrestricted full-FW baseline 
+
+Beyond the axis decomposition, the unrestricted full-FW comparison still separates the proxies (DreamSim ≈ 0.58 < CLIP-text ≈ 0.70 < DINOv2 ≈ 0.85 ) but answers a different question and lacks the per-axis structure: no full-FW cell reaches the per-axis animacy minimum (Tab. 3). The brain side B and model side M are the same in all three blocks; what changes is FW , which specifies the morphism family being tested. Lower full-∆ NVS for DreamSim therefore means the DreamSim-defined family propagates more compatibly through the same (B, M ) pair than the DINOv2-defined one, i.e. a morphism-family comparison rather than a global proxy-quality or DNN-quality ranking; this is why §1 treats W as part of the scientific question rather than a nuisance parameter. Appendix Table A3 reproduces this in the same format, and the matched W-less baseline in App. A6 shows that the advantage is not simply a property of fitting η, η ′ on unrestricted vectors.                                                                                            
+
+> Table 3: Full-vector NVS full for each (FW,DNN )combination. Each numeric entry is μ±σwhere μ
+> is the 5-subject mean over the relevant ROI ×layer cells and σis the across-5-subjects SD of that pooled per-subject mean. The pooled-mean column averages over all 5ROI ×8layer cells for that FW, and the best-cell column reports the single (ROI, layer, DNN) cell minimizing the 5-subject mean for that FW, with
+> σthe across-5-subjects SD of that best cell. A=AlexNet, R=ResNet, V=ViT-B. This table gives the unrestricted whole-space comparison as background to the per-axis analyses above. (NVS reading convention: lower is better, 1.0is chance; §A3 Evaluation .)
+> FWARVpooled mean best cell CLIP-text 0.704 ±0.053 0.696 ±0.041 0.702 ±0.048 0.701 ±0.047 HVC ×L8 (A): 0.626 ±0.046
+> DINOv2 0.832 ±0.047 0.859 ±0.041 0.852 ±0.044 0.847 ±0.044 V3 ×L1 (A): 0.803 ±0.038
+> DreamSim 0.579 ±0.052 0.576 ±0.043 0.590 ±0.051 0.582 ±0.049 V4 ×L6 (R): 0.496 ±0.045
+
+5.4 Dissociation from encoding/decoding and similarity metrics 
+
+NVS is not a re-description of encoding/decoding accuracy or representational similarity. The variance decomposition (App. A7.3) attributes only ≈ 34% of NVS variance to five readout-quality covariates — CAV CV R2 for the axis target plus pairwise-identification accuracies of ΦB , ΦM ,
+
+η, η′ — and η, η ′ together add only ≤ 0.7% on top of the other three, while axis identity alone adds ≈ 34% on top of FW /DNN/subject controls. As expected for global geometry metrics, RSA and CKA on the same cells provide a single cell-level summary (peaking at rs = 0 .27 / 0.46 ) and cannot distinguish which axis drives alignment (App. A8.3); the session-bias PoC (App. A2) further 9dissociates RSA (collapses 1.00 → 0.29 under additive bias) from symmetric NVS ( 0.04 → 0.06 ,near-stable). Together, these results argue the main effect is not a by-product of simple readout strength or static geometry. 
+
+Role of FW : W-less control. A W-less control (App. A6) replaces FW -derived directions by independent CAVs vB , v M in B and M , and stays close to the permutation-null baseline on the tested axes: the resulting per-axis ratios are systematically higher than their with-FW counterparts (Tab. A5). The reason is geometric: ΦB (vW ), ΦM (vW ) derived from a shared vW test both sides against the same world morphism, whereas independently optimized vB , v M are not constrained to do so, and the cosine cos (η(vB ), v M ) is small (typically below ∼ 0.15 on Sub-01/AlexNet across the tested axes). Choosing FW therefore controls which morphism class is tested, not how strongly a fixed one is detected. 
+
+# 6 Discussion 
+
+Our results recover an early-to-late ROI–layer ordering analogous to BH / Brain-Score-style analyses (Nonaka et al., 2021; Yamins et al., 2014; Schrimpf et al., 2018), but resolved by morphism class: animacy gives the strongest support among the main axes, with navigable and texture energy also coherent in the 15-axis atlas. Existing metrics (encoding/decoding, Brain-Score, RSA, CKA, CCA, Procrustes) sit within the cospan picture as what they retain or discard (App. A9); none directly tests agreement at the level of transformations . Full-∆ and per-axis NVS are complementary: the full-vector regime gives a single global magnitude, while the per-axis regime localizes which candidate transformations are preserved or missed (Tab. 1, §5.1). The W-less control (App. A6) confirms that alignment requires a shared world-side anchor. Compared with the BH score (Nonaka et al., 2021), NVS shows much weaker DNN dependence (variance decomposition: ≈ 0.001 to DNN dummies, ≈ 0.34 to axis identity), consistent with asking whether the same morphism class propagates through the cospan rather than how layer order maps onto V1 →HVC. 
+
+Limitations. The empirical study uses one dataset ( n = 5 on GOD), three vision DNNs, and three 
+
+FW proxies. η, η ′ are fit with standard encoding/decoding objectives and NVS is applied only post hoc ; NVS-aware training and morphism-level losses (Cao and Yamins, 2024a) are natural extensions. Sharper tests will require brain recording experiments with controlled world-side transformations. 
+
+Broader impacts and conclusion. Axis-resolved alignment can improve interpretability, but “shared” claims could still be overstated. NVS reframes alignment as naturality of (η, η ′): which 
+
+transformations propagate determines where alignment is strongest. 
+
+# Acknowledgments 
+
+This work was supported by JSPS KAKENHI Grant-in-Aid for Scientific Research (S) (Grant Number 25K24743) and by the Japan Agency for Medical Research and Development (AMED) (Grant Number 24wm0625409). 
+
+# References 
+
+P. Bao, L. She, M. McGill, and D. Y. Tsao. A map of object space in primate inferotemporal cortex. 
+
+Nature , 583:103–108, 2020. doi: 10.1038/s41586-020-2350-5. Y. Bisk, A. Holtzman, J. Thomason, J. Andreas, Y. Bengio, J. Chai, M. Lapata, A. Lazaridou, J. May, A. Nisnevich, N. Pinto, and J. Turian. Experience grounds language. In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP) , pages 8718–8735. 10 Association for Computational Linguistics, 2020. doi: 10.18653/v1/2020.emnlp-main.703. URL 
+
+https://aclanthology.org/2020.emnlp-main.703/ .M. F. Bonner and R. A. Epstein. Coding of navigational affordances in the human visual system. 
+
+Proceedings of the National Academy of Sciences , 114(18):4793–4798, 2017. doi: 10.1073/pnas. 1618228114. R. Cao and D. Yamins. Explanatory models in neuroscience, Part 1: Taking mechanistic abstraction seriously. Cognitive Systems Research , 87:101244, 2024a. doi: 10.1016/j.cogsys.2024.101244. R. Cao and D. Yamins. Explanatory models in neuroscience, Part 2: Functional intelligibility and the contravariance principle. Cognitive Systems Research , 85:101200, 2024b. doi: 10.1016/j.cogsys. 2023.101200. T. S. Cohen and M. Welling. Group equivariant convolutional networks. In Proceedings of the International Conference on Machine Learning (ICML) , volume 48, pages 2990–2999. PMLR, 2016. URL https://proceedings.mlr.press/v48/cohenc16.html .B. R. Conway. Color vision, cones, and color-coding in the cortex. The Neuroscientist , 15(3):274–290, 2009. doi: 10.1177/1073858408331369. C. Conwell, J. S. Prince, K. N. Kay, G. A. Alvarez, and T. Konkle. A large-scale examination of inductive biases shaping high-level visual representation in brains and machines. Nature Communications , 15:9383, 2024. doi: 10.1038/s41467-024-53147-y. N. C. A. da Costa and S. French. Science and Partial Truth: A Unitary Approach to Models and Scientific Reasoning . Oxford Studies in Philosophy of Science. Oxford University Press, 2003. A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Representations (ICLR) , 2021. A. C. Ehresmann and J.-P. Vanbremeersch. Memory Evolutive Systems: Hierarchy, Emergence, Cognition , volume 4 of Studies in Multidisciplinarity . Elsevier, 2007. C. Fellbaum, editor. WordNet: An Electronic Lexical Database . MIT Press, Cambridge, MA, 1998. S. Fu, N. Tamir, S. Sundaram, L. Chai, R. Zhang, T. Dekel, and P. Isola. DreamSim: Learning new dimensions of human visual similarity using synthetic data. In Advances in Neural Information Processing Systems (NeurIPS) , volume 36, pages 50742–50768. Cur-ran Associates, Inc., 2023. URL https://papers.nips.cc/paper_files/paper/2023/hash/ 9f09f316a3eaf59d9ced5ffaefe97e0f-Abstract-Conference.html .B. Gavranović, P. Lessard, A. Dudzik, T. von Glehn, J. G. M. Araújo, and P. Veličković. Position: Categorical deep learning is an algebraic theory of all architectures. In Proceedings of the International Conference on Machine Learning (ICML) , volume 235, pages 15209–15241. PMLR, 2024. URL https://proceedings.mlr.press/v235/gavranovic24a.html .M. R. Greene and A. Oliva. Recognition of natural scenes from global properties: Seeing the forest without representing the trees. Cognitive Psychology , 58(2):137–176, 2009. doi: 10.1016/j.cogpsych. 2008.06.001. 11 D. Ha and J. Schmidhuber. Recurrent world models facilitate policy evolution. In Advances in Neural Information Processing Systems (NeurIPS) , volume 31, pages 2450–2462. Cur-ran Associates, Inc., 2018. URL https://papers.nips.cc/paper_files/paper/2018/hash/ 2de5d16682c3c35007e4e92982f1a2ba-Abstract.html .D. R. Hardoon, S. Szedmák, and J. Shawe-Taylor. Canonical correlation analysis: An overview with application to learning methods. Neural Computation , 16(12):2639–2664, 2004. doi: 10.1162/ 0899766042321814. K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learning for image recognition. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 770–778, 2016. T. Horikawa and Y. Kamitani. Generic decoding of seen and imagined objects using hierarchical visual features. Nature Communications , 8:15037, 2017. doi: 10.1038/ncomms15037. Y. Kamitani and F. Tong. Decoding the visual and subjective contents of the human brain. Nature Neuroscience , 8(5):679–685, 2005. doi: 10.1038/nn1444. B. Kim, M. Wattenberg, J. Gilmer, C. Cai, J. Wexler, F. Viegas, and R. Sayres. Interpretability beyond feature attribution: Quantitative testing with concept activation vectors (TCAV). In 
+
+Proceedings of the International Conference on Machine Learning (ICML) , volume 80, pages 2668–2677. PMLR, 2018. URL https://proceedings.mlr.press/v80/kim18d.html .T. Konkle and A. Caramazza. Tripartite organization of the ventral stream by animacy and object size. Journal of Neuroscience , 33(25):10235–10242, 2013. doi: 10.1523/JNEUROSCI.0983-13.2013. T. Konkle and A. Oliva. A real-world size organization of object responses in occipitotemporal cortex. Neuron , 74(6):1114–1124, 2012. doi: 10.1016/j.neuron.2012.04.036. S. Kornblith, M. Norouzi, H. Lee, and G. Hinton. Similarity of neural network representations revisited. In Proceedings of the International Conference on Machine Learning (ICML) , volume 97, pages 3519–3529. PMLR, 2019. URL https://proceedings.mlr.press/v97/kornblith19a.html .N. Kriegeskorte. Deep neural networks: A new framework for modeling biological vision and brain information processing. Annual Review of Vision Science , 1:417–446, 2015. doi: 10.1146/ annurev-vision-082114-035447. N. Kriegeskorte, M. Mur, and P. Bandettini. Representational similarity analysis – connecting the branches of systems neuroscience. Frontiers in Systems Neuroscience , 2:4, 2008. doi: 10.3389/ neuro.06.004.2008. A. Krizhevsky, I. Sutskever, and G. E. Hinton. ImageNet classification with deep convolutional neural networks. In Advances in Neural Information Processing Systems (NeurIPS) , volume 25, pages 1097–1105. Curran Associates, Inc., 2012. URL https://papers.nips.cc/paper_files/ paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html .B. Long, C.-P. Yu, and T. Konkle. Mid-level visual features underlie the high-level categorical organization of the ventral stream. Proceedings of the National Academy of Sciences , 115(38): E9015–E9024, 2018. doi: 10.1073/pnas.1719616115. T. Mikolov, W.-t. Yih, and G. Zweig. Linguistic regularities in continuous space word representations. In Proceedings of the Conference of the North American Chapter of the Association for Computa-tional Linguistics: Human Language Technologies (NAACL-HLT) , pages 746–751. Association for Computational Linguistics, 2013. URL https://aclanthology.org/N13-1090/ .12 T. Naselaris, K. N. Kay, S. Nishimoto, and J. L. Gallant. Encoding and decoding in fMRI. NeuroImage ,56(2):400–410, 2011. doi: 10.1016/j.neuroimage.2010.07.073. S. Nonaka, K. Majima, S. C. Aoki, and Y. Kamitani. Brain hierarchy score: Which deep neural networks are hierarchically brain-like? iScience , 24:103013, 2021. doi: 10.1016/j.isci.2021.103013. A. Oliva and A. Torralba. Modeling the shape of the scene: A holistic representation of the spatial envelope. International Journal of Computer Vision , 42(3):145–175, 2001. doi: 10.1023/A: 1011139631724. B. A. Olshausen and D. J. Field. Emergence of simple-cell receptive field properties by learning a sparse code for natural images. Nature , 381(6583):607–609, 1996. doi: 10.1038/381607a0. M. Oquab, T. Darcet, T. Moutakanni, H. Vo, M. Szafraniec, V. Khalidov, P. Fernandez, D. Haziza, F. Massa, A. El-Nouby, M. Assran, N. Ballas, W. Galuba, R. Howes, P.-Y. Huang, S.-W. Li, I. Misra, M. Rabbat, V. Sharma, G. Synnaeve, H. Xu, H. Jégou, J. Mairal, P. Labatut, A. Joulin, and P. Bojanowski. DINOv2: Learning robust visual features without supervision. Transactions on Machine Learning Research , 2024. URL https://openreview.net/forum?id=a68SUt6zFt .K. Park, Y. J. Choe, and V. Veitch. The linear representation hypothesis and the geometry of large language models. In Proceedings of the International Conference on Machine Learning (ICML) ,volume 235, pages 39643–39666. PMLR, 2024. URL https://proceedings.mlr.press/v235/ park24c.html .S. Phillips. What is category theory to cognitive science? Compositional representation and comparison. Frontiers in Psychology , 13:1048975, 2022. doi: 10.3389/fpsyg.2022.1048975. J. Portilla and E. P. Simoncelli. A parametric texture model based on joint statistics of complex wavelet coefficients. International Journal of Computer Vision , 40(1):49–71, 2000. doi: 10.1023/A: 1026553619983. A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P. Mishkin, J. Clark, G. Krueger, and I. Sutskever. Learning transferable visual models from natural language supervision (CLIP). In Proceedings of the International Conference on Machine Learning (ICML) , volume 139, pages 8748–8763. PMLR, 2021. URL https: //proceedings.mlr.press/v139/radford21a.html .S. Sanborn, C. Shewmake, B. Olshausen, and C. Hillar. Bispectral neural networks. In International Conference on Learning Representations (ICLR) , 2023. URL https://openreview.net/forum? id=xnsg4pfKb7 .P. H. Schönemann. A generalized solution of the orthogonal Procrustes problem. Psychometrika , 31 (1):1–10, 1966. doi: 10.1007/BF02289451. M. Schrimpf, J. Kubilius, H. Hong, N. J. Majaj, R. Rajalingham, E. B. Issa, K. Kar, P. Bashivan, J. Prescott-Roy, F. Geiger, T. Poggio, and J. J. DiCarlo. Brain-Score: Which artificial neural network for object recognition is most brain-like? bioRxiv , 2018. doi: 10.1101/407007. M. Schrimpf, J. Kubilius, M. J. Lee, N. A. Ratan Murty, R. Ajemian, and J. J. DiCarlo. Integrative benchmarking to advance neurally mechanistic models of human intelligence. Neuron , 108(3): 413–423, 2020. doi: 10.1016/j.neuron.2020.07.040. 13 L. Sharan, R. Rosenholtz, and E. H. Adelson. Accuracy and speed of material categorization in real-world images. Journal of Vision , 14(9):12, 2014. doi: 10.1167/14.9.12. K. Shirakawa, Y. Nagano, M. Tanaka, S. C. Aoki, Y. Muraki, K. Majima, and Y. Kamitani. Spurious reconstruction from brain activity. Neural Networks , 190:107515, 2025. doi: 10.1016/j.neunet.2025. 107515. I. Sucholutsky, L. Muttenthaler, A. Weller, A. Peng, A. Bobu, B. Kim, B. C. Love, E. Grant, I. Groen, J. Achterberg, J. B. Tenenbaum, K. M. Collins, K. L. Hermann, K. Oktar, K. Greff, M. N. Hebart, N. Cloos, N. Kriegeskorte, N. Jacoby, Q. Zhang, R. Marjieh, R. Geirhos, S. Chen, S. Kornblith, S. Rane, T. Konkle, T. P. O’Connell, T. Unterthiner, A. K. Lampinen, K.-R. Müller, M. Toneva, and T. L. Griffiths. Getting aligned on representational alignment. Transactions on Machine Learning Research , 2025. URL https://openreview.net/forum?id=Hiq7lUh4Yn .B. C. van Fraassen. Scientific Representation: Paradoxes of Perspective . Oxford University Press, 2008. O. Yamashita, M.-a. Sato, T. Yoshioka, F. Tong, and Y. Kamitani. Sparse estimation automatically selects voxels relevant for the decoding of fMRI activity patterns. NeuroImage , 42(4):1414–1429, 2008. doi: 10.1016/j.neuroimage.2008.05.050. D. L. K. Yamins, H. Hong, C. F. Cadieu, E. A. Solomon, D. Seibert, and J. J. DiCarlo. Performance-optimized hierarchical models predict neural responses in higher visual cortex. Proceedings of the National Academy of Sciences , 111(23):8619–8624, 2014. doi: 10.1073/pnas.1403112111. 14 Appendix 
+
+The appendix collects the formal definitions, extended empirical results, robustness checks, and reproducibility details underlying the main text. 
+
+# A1 Categorical preliminaries 
+
+General categorical definitions. A category C consists of objects and morphisms with associative composition and identities. A functor F : C → D assigns to each object of C an object of D, and to each morphism a morphism, preserving composition and identities. Given two functors F, G : C → D 
+
+with the same source and target, a natural transformation η : F ⇒ G assigns to each object 
+
+A ∈ C a morphism ηA : F (A) → G(A) in D such that the naturality square commutes for every morphism f : A → B in C. When F, G are constant on objects – the case used throughout this paper – all components ηA coincide; writing η for that single map, the naturality square becomes (Fig. A1): 
+
+η ◦ F (f ) = G(f ) ◦ η. (3) The square lives entirely in D; the morphism f in C enters only through its images F (f ), G (f ).                      
+
+> Figure A1: Naturality square (constant-on-objects specialization). For functors F, G :C → D that are constant on objects and a morphism f:A→Bin C, the natural transformation η:F⇒Gcollapses to a single map ηwhich must make the square commute in D.
+
+Specialization to the brain–DNN setting. Our framework instantiates this picture as a motivational reading (the strict categorical conditions are relaxed below): 
+
+• C = Stim : the stimulus category. Objects are stimuli s; morphisms r : s → s′ are stimulus changes. 
+
+• D = Vect : the category of real vector spaces and linear maps. Both the brain pattern space 
+
+B and the DNN activation space M are objects of Vect (with different dimensions, but in the same category). 
+
+• FB : Stim → Vect sends every stimulus to B and each r to a linear operator FB (r) : B → B
+
+(Ridge-fitted from ∆W 7 → ∆b). 
+
+• FM : Stim → Vect sends every stimulus to M and each r to FM (r) : M → M .
+
+• Both assignments are constant on objects (FB (s) = B and FM (s) = M for all s). Under the strict-categorical reading FB , F M would be functors and the per-stimulus components of a natural transformation ηs : FB (s) → FM (s) would all collapse to the single linear map 
+
+η : B → M – the brain–DNN translator. We use these terms only to motivate the test; the operational version drops the functor / natural-transformation status (see Quivers and approximate functoriality below). 15 The general naturality condition (Eq. 3) specializes to the equation that NVS measures: 
+
+η ◦ FB (r) = FM (r) ◦ η for every r ∈ Stim . (4) The corresponding square in Fig. 1 (right panel) takes bs, b s′ , m s, m s′ at the four corners as a concrete instantiation: bs moved by FB (r) should match ms moved by FM (r) once both are translated by η.
+
+Role of the World Model. The World Model proxies (CLIP-text, DINOv2, DreamSim), each given by an embedding FW : Stim → W into a proxy space W , do not appear in the naturality square. They sit above Stim and select which morphisms r we test, via semantic deltas ∆W = FW (s′)−FW (s) ∈ W .Restricting ∆W to a single CAV direction inside W yields an axis-resolved r (and hence an axis-resolved NVS). Despite the shared letter F , the embedding FW plays a different role from the brain-and model-side assignments FB , F M above: FW parameterizes which stimulus changes are tested, while FB , F M describe how those changes are realized inside B and M .
+
+Quivers and approximate functoriality. The morphisms we test form a quiver Q = ( Q0, Q 1) –a directed multigraph with Q0 stimuli and Q1 edges (e.g., the semantic-delta morphisms in §3). The operators FB (r), F M (r) are fitted independently per edge, so we do not assume they extend to a strict functor on the free category over Q; composition preservation is therefore not enforced. What we fit is an empirical operator family on the quiver Q, not a strict functor; “categorical-inspired” in our usage refers to this distinction. 
+
+NVS as approximate naturality. Empirically, Eq. 4 holds only approximately. We define NVS η
+
+(§3) as the relative L2 residual of this equation normalized to a permutation null – a quantitative measure of approximate naturality, with both a geometric reading (gap, in M , between the two paths through the square) and a statistical one (rate of approximation failure relative to chance). 
+
+# A2 PoC details 
+
+The first synthetic control corresponds to the main PoC in §4, where NVS separates complementary world-factor structure that standard scalar metrics collapse. The second corresponds to the brief bias-robustness remark at the end of §4, showing why delta-space comparisons are insensitive to additive session bias. 
+
+A2.1 Complementary-factor PoC (5-factor toy) 
+
+World w ∈ R5, factors {x, y, scale , θ, color } ∼ N (0 , I 5), N = 1 ,500 stimuli. Brain B = wA B +ε ∈ R32 ,
+
+AB random orthogonal. DNN candidates: Mfull uses AM random orthogonal; Mpos masks dimensions to keep only {x, y }; Mobj masks to keep {scale , θ, color }; Mrandom random projection that breaks factor structure. NVS along axis k is computed with ∆W = α · ek for α ∼ N (0 , 1) , 2,000 samples. 
+
+A2.2 Bias-robustness PoC 
+
+With B = M + csession · u (session-specific additive bias, |u| = 1 ), csession ∼ U [−5, 5] across 10 sessions: object-level fit of η′ : M → B degrades 1.00 → 0.66 , RSA collapses 1.00 → 0.29 , but the symmetric NVS rises only 0.039 → 0.056 . The two directions decompose this asymmetrically: NVS η
+
+is essentially unchanged ( 0.039 → 0.040 ) because ∆-space cancels additive bias on the B → M side, while NVS η′ rises modestly ( 0.039 → 0.073 ) since η′ cannot recover the unobservable session-specific bias from M . The translator η : B → M also remains nearly intact ( 1.00 → 0.999 ) at the object level because the Ridge solution learns to ignore the bias direction. 16 A3 Detailed methods for the empirical fMRI brain–DNN analysis 
+
+A3.1 Subjects and fMRI data 
+
+The Generic Object Decoding (GOD) dataset (Horikawa and Kamitani, 2017) contains fMRI responses from 5 human subjects viewing natural object images drawn from ImageNet-linked object categories. In the standard GOD zero-shot split used here, the training set contains voxel-response patterns for 
+
+1,200 training images spanning 150 object categories, each image presented once, so “single-trial” refers here to a single-image fMRI response pattern. The test set contains voxel-response patterns for 50 held-out images from 50 categories that do not overlap the training categories; each test image was repeated 35 times, and the released test response for each image is the 35-trial mean fMRI pattern. Sub-01 served as the exploratory cohort : model family, axis set, proxy-viability criterion, cell grid, and the planned hypothesis tests (e.g., sign reversal between axis classes, animacy as the lowest-ratio axis) were all fixed on Sub-01 before any inspection of Sub-02–Sub-05. Sub-02 through Sub-05 ( n= 4) were then held out as the confirmatory cohort , evaluated under exactly that fixed protocol with no further model, hyperparameter, or test-statistic adjustment. This is a deliberate two-phase research-design commitment rather than a hyperparameter tuning exercise. We use 5 ROIs from the visual cortex (V1, V2, V3, V4, HVC = LOC ∪ FFA ∪ PPA). 
+
+A3.2 World Model proxies FW
+
+Why call them “World Model” proxies? We follow the broad neuro-AI usage in which a “World Model” is a learned latent representation that encodes structural regularities of the world the agent perceives, and through which other systems can be interpreted (Ha and Schmidhuber, 2018; Bisk et al., 2020). We do not claim our FW proxies are full generative world models; rather, they are 
+
+proxy embedding spaces satisfying three structural conditions that, in our framework, are what is needed to play the role of FW :1. Stimulus-aligned. FW provides a fixed embedding FW (s) ∈ RdW for every stimulus s, so 
+
+∆W = FW (s′) − FW (s) is well-defined as the world-side delta tested in NVS. 2. Carries world-level structure beyond the brain or the DNN. CLIP-text encodes language-grounded semantics (captions describe categories, attributes, actions); DINOv2 encodes object-centric self-supervised image structure (instance distinctions, viewpoint invariances); DreamSim encodes human perceptual-similarity structure (judgments of which images “look alike” to people). Each captures a candidate organization of the world that is not a copy of B (fMRI) or any single vision DNN M , so FW is not collapsing into either side of the comparison. 3. Supports a meaningful axis decomposition. Each FW admits CAV-style axis directions (App. A3.8; Kim et al., 2018) that pass a held-out viability check on the candidate axes we test, ensuring that “ ∆W along axis k” is operationally well-posed. The viability screen (App. A3.8) is the empirical safeguard for condition 3: when a proxy fails on an axis, we mark it as inadequate for that morphism family rather than treating FW as a nuisance-free substrate. The three proxies were chosen to span complementary world-structure families (language, self-supervised vision, perceptual similarity) so that “which FW supports which axis” becomes itself part of the scientific question. 
+
+The three proxies used here. 
+
+• CLIP-text (Radford et al., 2021): per-image average CLIP text embedding from the OpenAI CLIP ViT-B/32 model (512-d). The five captions per image are AMT crowdsourced annotations supplied with the GOD stimulus set. Captures language-grounded semantic, affordance, and 17 material structure that humans naturally describe; weak on low-level photometric structure (captions rarely describe luminance or spatial frequency). 
+
+• DINOv2 (Oquab et al., 2024): CLS token of ViT-B/14 self-supervised image embeddings (768-d). Captures object-centric self-supervised image structure trained without labels on the LVD-142M corpus; strong on category-level distinctions, weak on attribute axes that captions name (its viability screen passes only animacy, real size, and navigable on the 15-axis atlas). 
+
+• DreamSim (Fu et al., 2023): ensemble of DINO, CLIP, and OpenCLIP backbones fine-tuned on the NIGHTS dataset of human triplet similarity judgments (512-d). Captures human perceptual similarity structure directly and yields the lowest pooled NVS full values among the tested proxies. 
+
+A3.3 Vision DNNs 
+
+The vision DNN side M is implemented by extracting features from three architectures spanning different inductive biases. From each network we select 8 representative layers (early to late) for analysis, giving the 5 ROI × 8 layer heatmap grid used throughout. 
+
+• AlexNet (Krizhevsky et al., 2012): classical 8-layer CNN trained on ImageNet-1k. We use the 5 conv stages plus the 3 fully-connected layers (cnn1–cnn8 in the heatmaps), giving a clean shallow →deep progression with comparatively narrow receptive fields early on. 
+
+• ResNet-50 (He et al., 2016): 50-layer residual CNN trained on ImageNet-1k. We sample 8 representative blocks distributed from the stem to the last bottleneck (layer1–layer8), retaining the canonical CNN locality bias but with much greater depth and skip connections. 
+
+• ViT-B/16 (Dosovitskiy et al., 2021): vision Transformer with 12 transformer blocks operating on 16 × 16 patch tokens, trained on ImageNet-21k →1k. We sample 8 transformer blocks (layer1–layer8) covering early to late processing. Unlike the two CNNs, ViT-B/16 has global self-attention from the first block, so the “shallow →deep” axis is a depth axis but not a receptive-field axis. The three architectures differ in inductive bias (locality vs. global attention), depth (8 vs. 50 vs. 12 blocks), and training regime, so any architecture-invariant pattern across them is a stronger claim than a pattern specific to one model family. Concretely, AlexNet and ResNet-50 use the standard 
+
+torchvision ImageNet-1k weights ( AlexNet_Weights.IMAGENET1K_V1 , ResNet50_Weights.IMAGENET1K_V2 ); ViT-B/16 uses the torchvision ViT_B_16_Weights.IMAGENET1K_V1 checkpoint, originally pre-trained on ImageNet-21k and fine-tuned on ImageNet-1k. 
+
+A3.4 Per-target Ridge regression and feature selection 
+
+Linear translators η, η ′. The translator pair η : B → M (decoder direction) and η′ : M → B
+
+(encoder direction) is modeled linearly, following the standard linear tradition in brain decod-ing/encoding studies (Kamitani and Tong, 2005; Naselaris et al., 2011; Horikawa and Kamitani, 2017; Nonaka et al., 2021). Concretely, each output dimension is fit with Ridge regression. For an output map ϕ : X → Y and output dimension j, we (1) compute |corr (x·,i , y ·,j )| across training samples; (2) select the top K = 500 input dimensions; and (3) fit Ridge regression with α = 100 .
+
+World-to-brain and world-to-model maps ΦB , ΦM . ΦB and ΦM are implemented in a linear Ridge form for the main analysis, so that the maps in the empirical cospan remain first-order and directly comparable to the linear η, η ′ layer. We additionally tested nonlinear variants of ΦB , ΦM
+
+using a single-hidden-layer MLP (input → 128 ReLU units with dropout 0.3 → output; two weight matrices, hence “2-layer” in the conventional MLP-counting sense), but report the linear results in 18 the main text and treat the nonlinear results as robustness checks rather than as the primary analysis (App. A8.2). Additional sensitivity checks for α and top-K are reported later in the appendix. 
+
+A3.5 Semantic-delta protocol 
+
+For training image pairs, we sample 30,000 pairs and compute ∆W = FW (s2)−FW (s1), ∆B = bs2 −bs1 ,and ∆M = ms2 − ms1 . ΦB and ΦM are fit from ∆W 7 → ∆B , ∆M . Test pairs use the 50 averaged test images; we evaluate all 50 × 49 = 2 ,450 ordered pairs. By contrast, η and η′ are fit on per-image correspondences rather than directly on deltas, following the usual per-stimulus encoding/decoding setup of Naselaris et al. (2011) and later brain-decoding work. Under the present linear translator setup, however, the same fitted map also induces the corresponding delta map, since for any linear operator L, L(x2 − x1) = L(x2) − L(x1). Fitting η and η′ at the image level therefore fixes their action on ∆B and ∆M as well. 
+
+Linear Representation Hypothesis as the rationale for ∆W . Treating ∆W = FW (s′) − FW (s)
+
+as a meaningful candidate stimulus morphism rests on the Linear Representation Hypothesis (LRH; Mikolov et al., 2013; Park et al., 2024), which states that semantically meaningful features are encoded as approximately linear directions in modern representation spaces, so that vector-arithmetic differences (e.g. queen − woman ≈ king − man in the canonical word-vector example) recover interpretable transformations. Concretely, ∆W together with the projection onto a CAV concept axis (§A3.8) operationalizes “a real-world feature change” as a linear direction in W . The proxy-viability check (App. A3.8) is the empirical safeguard for this assumption per axis: when a proxy fails to support an axis as a linear readout target (held-out CAV CV R2 ≤ 0), we mark the corresponding 
+
+(FW , axis ) combination as inadequate rather than rely on a non-linear direction. 
+
+A3.6 Axis definitions 
+
+We define each axis as a per-stimulus scalar target y(s) ∈ R, computed from the GOD stimulus annotations or directly from the stimulus image. This subsection gives the full 15-axis appendix atlas; see §1 and §5.1 for the six main-axis analyses. 
+
+Low-level photometric axes. 
+
+• luminance (main ): mean of the per-pixel CIE luminance ( Y channel of CIE XYZ) over the image, after standard sRGB-to-linear conversion. Indexes overall image brightness, a parameter long known to drive early visual responses and to vary systematically across natural-image categories (Oliva and Torralba, 2001). 
+
+• saturation : mean of the saturation channel (HSV S) over the image. Indexes how chromatic vs. achromatic the stimulus is, a low-level feature dissociable from hue (Conway, 2009). 
+
+• hue-a: mean of the CIELAB a∗ channel (red–green opponency). 
+
+• hue-b: mean of the CIELAB b∗ channel (blue–yellow opponency). Together hue-a / hue-b
+
+span the perceptually approximately uniform chromatic plane used in primate cone-opponent processing (Conway, 2009). 
+
+Mid-level form/texture/spatial axes. 
+
+• spatial_freq (main ): mean of the radially averaged Fourier-amplitude spectrum, weighted by the natural-image 1/f profile so that image-specific deviations from 1/f contribute to the scalar. Tracks the global spatial-envelope of the scene (Oliva and Torralba, 2001) and aligns with the spatial frequency tuning of V1 simple cells (Olshausen and Field, 1996). 19 • curvilinearity (main ): summary statistic of orientation-tuned Gabor responses, contrasting energy at curved boundaries against energy at near-rectilinear boundaries. Curvature is a mid-level feature with dedicated tuning maps in primate inferotemporal cortex (Bao et al., 2020). 
+
+• texture_energy (main ): summary scalar of multi-scale, multi-orientation Gabor-energy statistics following the texture-statistics framework of Portilla and Simoncelli (2000). High texture energy images carry rich repeated micro-pattern, low values are dominated by smooth surfaces. 
+
+• object_area_ratio : ratio of segmented foreground-object area to image area, computed from per-stimulus segmentation masks supplied with the GOD annotations. 
+
+High-level semantic / affordance / material axes. 
+
+• animacy (main ): binary indicator y ∈ { 0, 1} via WordNet (Fellbaum, 1998) hypernymy, true if the stimulus’s WordNet synset is a hyponym of animal.n.01 . Animacy is a long-known organizing principle of human ventral cortex (Kriegeskorte et al., 2008; Konkle and Caramazza, 2013; Long et al., 2018). 
+
+• real_size (main ): continuous 1–7 scalar following Konkle and Oliva (2012), assigned via a WordNet hypernym walk against a hand-curated heuristic table that maps superordinate categories (insect, mammal, vehicle, building, etc.) to a perceived real-world size rating. 
+
+• navigable : binary affordance indicator, true if the stimulus depicts a region a human could plausibly walk into; constructed from the GOD per-image affordance annotations following the navigability literature (Greene and Oliva, 2009; Bonner and Epstein, 2017). 
+
+• hold / ride : binary affordance indicators (graspable / rideable), constructed analogously from the GOD per-image annotations. 
+
+• mat_metal / mat_natural : binary material indicators (metallic surface / natural material such as wood/stone/skin), following the material-perception taxonomy of Sharan et al. (2014). The four mid-level visual scalars (luminance, spatial frequency, curvilinearity, texture energy) and the color scalars (saturation, hue-a, hue-b) are computed per stimulus from cached per-pixel statistics released alongside the GOD stimulus archive ( code/_god_visual_features_cache.npz ,
+
+code/_god_visual_features_extras_cache.npz ); animacy and real size are derived from the GOD WordNet synset annotations; the affordance and material axes use the GOD per-image binary annotations. All reported axes are scalar (1-D). 
+
+A3.7 Concept-axis CAVs 
+
+For each axis and each FW , we learn a CAV vaxis ∈ RdFW by Ridge regression of the axis-target scalar 
+
+y(s) onto FW embeddings of the same stimuli, following the concept-activation-vector formulation of Kim et al. (2018). To train ΦB and ΦM for a given axis, we instantiate axis-specific world deltas by sampling a scalar coefficient α ∼ N (0 , 1) and setting ∆W = α v axis , so the input world delta used to fit these maps varies only along that one CAV direction. For test pairs, by contrast, we start from the observed image-pair delta ∆W = FW (s′) − FW (s) and project it onto vaxis to extract the component of the empirical stimulus change that lies along the chosen axis. Held-out 5-fold CV R2
+
+for axis readout from FW is reported in Tab. A1. 20 A3.8 Proxy-viability filtering 
+
+After defining the scalar axes, we ask which World Model proxies are adequate comparison spaces for them. For each axis and each proxy embedding FW , we fit the axis readout in W by 5-fold cross-validated Ridge and call the combination viable when the held-out mean readout is positive (R2 > 0). Failed proxy-axis combinations are retained in the main figures and pooled summaries but marked explicitly rather than dropped from downstream averaging. 
+
+Table A1: Held-out 5-fold CV R2 for Ridge ( FW → axis target) for all 15 scalar axes in the appendix atlas. Entries are fold-mean R2 on the 1,200 training stimuli (Sub-01). Entries marked † fail the proxy-viability criterion ( R2 ≤ 0). Across the 15-axis atlas, CLIP-text passes 12 /15 axes, DINOv2 passes 3/15 , and DreamSim passes 15 /15 .                                                
+
+> Axis CLIP-text DINOv2 DreamSim luminance −0.04 †−1.24 †0.74 saturation 0.09 −1.62 †0.68 hue-a0.21 −2.28 †0.61 hue-b0.26 −1.86 †0.69 spatial_freq −0.06 †−1.93 †0.54 curvilinearity 0.03 −2.26 †0.41 texture_energy 0.13 −1.11 †0.72 object area ratio −0.29 †−3.25 †0.08 real_size 0.83 0.57 0.62 animacy 0.91 0.68 0.82 navigable 0.69 0.30 0.53 hold 0.95 −1.74 †0.33 ride 0.94 −2.09 †0.27 mat_metal 0.95 −1.52 †0.37 mat_natural 0.94 −2.21 †0.23
+
+The main implication is that the three proxies should not be interpreted symmetrically. DreamSim is the most uniformly informative substrate in this study; CLIP-text is mainly useful on semantic and caption-accessible axes; DINOv2 mainly supports animacy, real size, and navigable. Outside those supported subsets, a weak result is better read as a proxy mismatch than as a decisive negative about the axis or the brain–DNN relation itself. 
+
+A3.9 Evaluation 
+
+Evaluation is performed on the full set of ordered test-image pairs. For each pair, we compute the two path outputs in each direction and take the Euclidean residual in the corresponding target space. As in §3, NVS η and NVS η′ are the per-direction residuals normalized by their permutation-null residuals, and the reported quantity is their symmetric mean NVS = 12 (NVS η + NVS η′ ). The permutation null shuffles pair indices independently in ΦB (∆ W ) and ΦM (∆ W ), preserving the marginal geometry on each side while destroying the tested cross-space correspondence. 
+
+A3.10 Bidirectional aggregation of NVS η, NVS η′
+
+Averaging the two directions follows the logic of prior bidirectional brain–DNN comparisons that combine encoding- and decoding-side evidence into a single summary score, such as the hierarchy score of Nonaka et al. (2021). The two directions also vary together rather than disagreeing: across subject-averaged cells the per-cell NVS η and NVS η′ values are positively correlated (Pearson r = 0 .65 ,Spearman ρ = 0 .64 on the six-axis panel; r = 0 .64 , ρ = 0 .63 on the 15-axis atlas), so the symmetric summary is not averaging out qualitatively different signals. 21 Figure A2: Per-subject counterpart of Fig. 3 (Sub-01–05, 3 + 2 layout). Same axes ( NVS a rows + full-FW row at bottom) and same conventions (V1 →HVC, L1 →L8; A/R/V = AlexNet/ResNet/ViT-B; CLIP/DINO/Dream = CLIP-text/DINOv2/DreamSim). The qualitative ROI/layer structure — low-level rows toward V1 ×shallow, semantic rows toward HVC ×deep — is stable across subjects. 
+
+# A4 Cross-subject reproducibility and confirmatory tests 
+
+This section reports the appendix evidence on cross-subject reproducibility, the hierarchy-crossover quantification, and the held-out confirmatory cohort. 
+
+A4.1 Inter-subject reproducibility and per-subject breakdown 
+
+The six-axis ratio profile is stable across subjects. The per-axis 5-subject pooled means and SDs (range 0.009 –0.059 ) are reported in Tab. 2, and the relative ordering among the six axes is preserved subject by subject. The per-subject heatmaps in Fig. A2 show that the ROI/layer pattern is already visible within individual subjects rather than only after pooling. 22 Pattern correlation across subjects. For each (DNN, FW , axis) submap, we compute the pairwise Pearson correlation between the (5 ROI × 8 layer = 40-dim) ratio patterns of the 5 subjects, giving 10 pairs per submap. Across the six main scalar axes and the 9 (DNN, FW ) blocks (490 pairs in total), the mean ¯r ≈ 0.72 . Per-axis values span ¯r ≈ 0.50 (curvilinearity) to ≈ 0.96 (animacy), with texture energy ≈ 0.82 , luminance 0.74 , spatial frequency 0.70 , real size 0.57 . Per-FW stratification gives DreamSim ¯r ≈ 0.78 , DINOv2 0.69 , CLIP-text 0.67 ; per-DNN values cluster between 0.70 and 
+
+0.74 , so cross-subject reproducibility is essentially independent of architecture and dominated by axis identity ( results/v5_lightweight_stats.json , key inter_subject_r ). 
+
+A4.2 Hierarchy crossover and confirmatory support 
+
+Hierarchy crossover: low-level vs. semantic axes go in opposite directions. For each axis we compute the ROI profile (5-subject mean NVS averaged over 8 layers) and the layer profile (averaged over 5 ROIs), then take the Spearman correlation of each profile with the V1 →HVC and L1 →L8 ranks (Tab. A2). A negative ρ means lower NVS toward HVC (or deeper layers); positive means lower toward V1 (or shallower). Low-level and semantic axes align in opposite directions, with mid-level axes between them. 
+
+Permutation test on the class contrast (5-subject pool). To avoid relying on the saturated rank values, we summarize each (subject, axis) by a single ROI Spearman ρ (pooled across the 3 DNNs and 3 FW within the subject) and test the contrast T = ρsem − ρlow between the semantic class {animacy , real_size } and the low-level class {luminance , spatial_freq }. Observed 
+
+T = −1.336 on the full 5-subject pool (sem mean −0.832 , low mean +0 .504 ). Under 10 ,000 within-subject permutations of the 6 axis labels (seed 42), 0/10 ,000 permuted T values reach the observed magnitude in the predicted direction (one-sided p < 10 −4, two-sided p ≈ 10 −4). The same test on the layer profile gives TL = −1.054 with 0/10 ,000 in either tail. The held-out replication on Sub-02–05 alone is reported in the next paragraph. Output: results/permutation_test_axis_ roi_interaction.json .
+
+Table A2: Hierarchy crossover via Spearman ρ of ROI/layer rank with NVS a (5-subject mean). 
+
+For each axis ×FW proxy, we collapse the 5-subject mean NVS to (i) a 5-element ROI profile (mean over layers and 3 DNNs) and correlate with V1 →HVC rank; (ii) an 8-element layer profile (mean over ROIs and 3 DNNs) and correlate with L1 →L8 rank. Sign convention: ρ < 0 means NVS decreases toward HVC (resp. deeper layers); ρ > 0 means it decreases toward V1 (resp. shallower layers). The animacy and (DINOv2/DreamSim) real size rows show consistently negative ρ on both axes; luminance, spatial frequency, and texture energy show consistently positive ROI ρ for the DINOv2 and DreamSim proxies. Entries marked † follow the convention of main-text Tab. 2. The per-subject crossover gap (Spearman ρanimacy − ρlow-level ∈ [−2, +2] ) is reported in the surrounding text (5/5 subjects, gap ≈ − 1.8, near the −2 saturation bound).                                                
+
+> ROI ρ(V1 →HVC rank) Layer ρ(L1 →L8 rank) Axis CLIP-text DINOv2 DreamSim CLIP-text DINOv2 DreamSim luminance −1.00 †+1 .00 †+1 .00 −0.57 †+0 .90 †+0 .60
+> spatial frequency +0 .10 †+0 .90 †+1 .00 +0 .48 †+0 .98 †+0 .43
+> curvilinearity −0.60 +0 .70 †+0 .80 +0 .00 +0 .76 †−0.55
+> texture energy +1 .00 +1 .00 †+1 .00 +0 .48 +0 .50 †+0 .26
+> real size +0 .00 −1.00 −1.00 −1.00 −0.98 −1.00
+> animacy −1.00 −1.00 −1.00 −0.93 −0.93 −0.81
+
+Confirmatory cohort (Sub-02–Sub-05, n = 4 ). Re-running the headline statistics on the held-out cohort alone ( code/confirmatory_cohort_analysis.py ; output results/confirmatory_ cohort_summary.json ) reproduces the main pattern: (i) the per-axis pooled means preserve the full 5-subject ordering (animacy 0.362 , texture energy 0.500 , spatial frequency 0.560 , luminance 
+
+0.587 , curvilinearity 0.677 , real size 0.704 ); (ii) the same class-contrast permutation test gives 23 T = −1.447 on n = 4 subjects, again 0/10 ,000 in the predicted direction (one-sided p < 10 −4,two-sided p ≈ 10 −4); (iii) the NVS variance decomposition on the n = 4 pool ( n = 7 ,840 cells) attributes only ≈ 0.7% to η, η ′ on top of the other readout-quality covariates, while axis identity still adds ≈ +0 .37 on top of all five covariates plus FW /DNN/subject controls. The held-out cohort is small ( n = 4 ); this analysis should be read as a within-dataset replication rather than as an independent population-level validation. 
+
+Bootstrap 95% CIs (5-subject pool). We resample subjects with replacement ( nboot = 10 ,000 )to construct 95% CIs on the 5-subject pooled mean ratio per axis. All five non-animacy CIs lie strictly between the animacy CI ( [0 .338 , 0.433] ) and the permutation-null baseline, confirming that animacy is significantly stronger than every other axis and that all six pooled main-axis means remain below that baseline. Per-axis-per-FW CIs are in results/multi_subject_bootstrap_ci.json .
+
+# A5 Atlas-wide NVS a: per-axis and full-vector baseline (15 axes) 
+
+The 15-axis atlas is defined in App. A3.6, with proxy-viability R2 in Tab. A1. Here we report the per-axis NVS a on the full atlas (Tab. A4), together with the per-DNN full-vector with-FW baseline (Tab. A3, the appendix counterpart of Tab. 3). Animacy, navigable, and texture energy sit at the low-ratio end, while material/affordance and object-area axes cluster at 0.70 –0.74 . DINOv2 results outside its supported subset should not be over-interpreted. 
+
+Table A3: Full-vector NVS full : with-FW baseline (appendix counterpart of main-text Tab. 3). Each numeric entry is μ ± σ where μ is the 5-subject mean over 5 ROI × 8 layer cells and σ is the across-5-subjects SD of that pooled per-subject mean; the best-cell column reports the single cell minimizing the 5-subject mean. A = AlexNet, R = ResNet, V = ViT-B. The matched W-less control is reported separately in App. A6.                                                      
+
+> FWARVpooled mean best cell CLIP-text 0.704 ±0.053 0.696 ±0.041 0.702 ±0.048 0.701 ±0.047 HVC ×L8 (A): 0.626 ±
+> 0.046
+> DINOv2 0.832 ±0.047 0.859 ±0.041 0.852 ±0.044 0.847 ±0.044 V3 ×L1 (A): 0.803 ±0.038
+> DreamSim 0.579 ±0.052 0.576 ±0.043 0.590 ±0.051 0.582 ±0.049 V4 ×L6 (R): 0.496 ±0.045
+
+24 Table A4: Per-axis NVS a across the 15-axis atlas (with-FW ). Entries are μ±σ across the 5 subjects: per-FW pooled mean over 3 DNN × 5 ROI × 8 layer cells, plus the best cell over all 9 ( FW , DNN ) blocks ×
+
+5 ROI × 8 layer . A = AlexNet, R = ResNet, V = ViT-B. Entries marked † follow the convention of main-text Tab. 2. The matched W-less control is reported in App. A6 (Tab. A5). 
+
+Axis CLIP-text DINOv2 DreamSim best cell (ROI ×L (DNN, FW ): μ±σ )luminance 0.680 ±0.023 † 0.708 ±0.036 † 0.448 ±0.031 V1 ×L4 (R, Dream): 0.368 ±0.029 
+
+saturation 0.662 ±0.016 0.742 ±0.033 † 0.495 ±0.044 V1 ×L2 (A, Dream): 0.420 ±0.034 
+
+hue-a 0.666 ±0.035 0.786 ±0.024 † 0.582 ±0.046 V2 ×L2 (A, Dream): 0.525 ±0.052 
+
+hue-b 0.648 ±0.058 0.754 ±0.010 † 0.563 ±0.027 HVC ×L1 (A, Dream): 0.489 ±0.046 
+
+spatial frequency 0.619 ±0.073 † 0.687 ±0.038 † 0.450 ±0.059 V1 ×L4 (R, Dream): 0.320 ±0.064 
+
+curvilinearity 0.691 ±0.025 0.794 ±0.017 † 0.579 ±0.038 V2 ×L4 (A, Dream): 0.517 ±0.049 
+
+texture energy 0.509 ±0.074 0.648 ±0.044 † 0.400 ±0.042 V1 ×L2 (A, Dream): 0.278 ±0.045 
+
+object area ratio 0.680 ±0.011 † 0.832 ±0.008 † 0.577 ±0.021 V2 ×L2 (A, Dream): 0.504 ±0.040 
+
+real size 0.749 ±0.018 0.812 ±0.017 0.590 ±0.013 HVC ×L7 (R, Dream): 0.448 ±0.045 
+
+animacy 0.404 ±0.054 0.388 ±0.061 0.373 ±0.063 HVC ×L6 (R, Dream): 0.193 ±0.058 
+
+navigable 0.491 ±0.043 0.496 ±0.038 0.465 ±0.039 HVC ×L8 (A, Dream): 0.343 ±0.066 
+
+hold 0.727 ±0.020 0.852 ±0.015 † 0.622 ±0.032 HVC ×L7 (R, Dream): 0.491 ±0.051 
+
+ride 0.725 ±0.020 0.849 ±0.016 † 0.633 ±0.027 HVC ×L7 (R, Dream): 0.512 ±0.053 
+
+mat_metal 0.723 ±0.020 0.838 ±0.020 † 0.613 ±0.027 HVC ×L7 (R, Dream): 0.460 ±0.052 
+
+mat_natural 0.720 ±0.019 0.846 ±0.014 † 0.639 ±0.019 HVC ×L7 (R, Dream): 0.479 ±0.058 
+
+A5.1 Atlas-wide inter-subject robustness 
+
+Re-running the inter-subject pattern correlation and the bidirectional η/η ′ correlation on all 15 axes without viability filtering recovers the same broad hierarchy. Animacy ( ¯r = 0 .96 ) and navigable (¯r = 0 .85 ) are the two most universal patterns across subjects; texture energy ( 0.82 ) and luminance (0.74 ) follow. The material and affordance axes (mat_natural, mat_metal, hold, ride) cluster around ¯r ≈ 0.40 –0.43 , and object area ratio is the weakest at ¯r = 0 .36 . At the atlas-wide level, the bidirectional correlation remains clearly positive even without excluding failed proxy-axis combinations (Pearson r = 0 .64 , Spearman ρ = 0 .63 over subject-averaged cells). 
+
+# A6 W-less control 
+
+We replace the shared world-side direction by axis directions trained independently in B and M
+
+(CAVs vB on brain features per (subject, ROI), vM on DNN features per (DNN, layer); η from the main pipeline; same 1,000-permutation null). The full-vector W-less 3-DNN pooled mean is 
+
+0.946 ± 0.011 , far above any with-FW proxy 0.582 –0.847 ; per-axis values are systematically higher than their with-FW counterparts on every viable axis (Tab. A5), and the HVC ×deep minima of the main heatmap are absent. FW therefore acts as a constraint forcing both sides to be tested against the same morphism class. 25 Table A5: W-less control: per-axis NVS a across the 15-axis atlas. Entries are μ±σ across 5 subjects: per-DNN pooled mean over 5 ROI × 8 layer cells, plus the pooled mean across the 3 DNNs (rightmost column). 
+
+A = AlexNet, R = ResNet, V = ViT-B. There is no FW row because vB , v M are trained independently in B
+
+and M . Values stay near the permutation-null baseline and are systematically higher than their with-FW
+
+counterparts in Tab. A4 on every viable axis. 
+
+Axis A R V pooled mean luminance 0.898 ±0.017 0.879 ±0.024 0.879 ±0.039 0.886 ±0.026 
+
+saturation 0.925 ±0.028 0.875 ±0.046 0.887 ±0.038 0.896 ±0.037 
+
+hue-a 0.948 ±0.012 0.947 ±0.011 0.942 ±0.007 0.946 ±0.009 
+
+hue-b 0.936 ±0.016 0.918 ±0.029 0.918 ±0.020 0.924 ±0.021 
+
+spatial frequency 0.871 ±0.022 0.767 ±0.039 0.783 ±0.048 0.807 ±0.033 
+
+curvilinearity 0.928 ±0.013 0.859 ±0.028 0.865 ±0.021 0.884 ±0.019 
+
+texture energy 0.825 ±0.034 0.746 ±0.051 0.761 ±0.045 0.777 ±0.041 
+
+object area ratio 0.956 ±0.015 0.869 ±0.033 0.894 ±0.029 0.906 ±0.024 
+
+real size 0.940 ±0.013 0.883 ±0.026 0.903 ±0.022 0.909 ±0.020 
+
+animacy 0.864 ±0.019 0.805 ±0.033 0.819 ±0.019 0.830 ±0.023 
+
+navigable 0.958 ±0.013 0.882 ±0.018 0.906 ±0.019 0.915 ±0.016 
+
+hold 0.939 ±0.024 0.854 ±0.035 0.881 ±0.027 0.891 ±0.028 
+
+ride 0.948 ±0.021 0.874 ±0.028 0.897 ±0.022 0.906 ±0.022 
+
+mat_metal 0.929 ±0.024 0.844 ±0.032 0.870 ±0.026 0.881 ±0.027 
+
+mat_natural 0.961 ±0.014 0.895 ±0.028 0.912 ±0.023 0.923 ±0.021 
+
+# A7 Model diagnostics: predictive accuracy of model components 
+
+Before asking what NVS is explained by (§A7.3), we summarize how each component of the NVS formula behaves on its own. The translator pair (η, η ′) is examined first (§A7.1), then the world-to-target maps (Φ B , ΦM ) (§A7.2). η, η ′ in this section are fitted on per-stimulus pairs only and are therefore independent of the World Model proxy FW and of any concept axis. Metric consistency is preserved at the level of role: NVS tables elsewhere report NVS averaged over a common cell domain, whereas this diagnostic section uses pairwise identification for every component because these maps are defined on stimuli rather than morphism residuals and must therefore be summarized by the same object-level predictive criterion. 
+
+A7.1 η, η ′ predictive accuracy 
+
+For each subject and each (ROI, DNN, layer) cell, we fit Ridge η : B → M on the 1,200 trial-averaged training stimulus pairs and evaluate 50 -way pairwise identification on the trial-averaged test stimuli (chance = 0 .5). η′ : M → B is fitted symmetrically. Tab. A6 summarizes the per-cell results in a Brain-Hierarchy-style format (Nonaka et al., 2021): panel (a) reports, for each (DNN architecture, layer), the brain ROI that the layer is most accurately decoded into; panel (b) reports, for each target brain ROI, the (DNN, layer) that encodes it most accurately. Code: 
+
+code/compute_eta_pure_per_cell.py ; output results/eta_pure_per_cell.json .26 Table A6: η, η ′ predictive accuracy on test stimuli, FW - and axis-independent (Brain-Hierarchy-style summary). Each entry is μ ± σ where μ is the 5-subject mean of 50 -way pairwise identification (chance = 0 .5) at the listed best partner and σ is the across-5-subjects SD. η, η ′ are fitted on per-stimulus pairs; no World Model proxy or concept axis is involved. Panel (a) (decoding-style η : B → M ): for each (DNN, layer), the brain ROI that gives the best decoding, in the spirit of Nonaka et al. (2021). Panel (b) 
+
+(encoding-style η′ : M → B, transposed): for each (DNN, ROI), the DNN layer that encodes that ROI best within the same architecture.                                                                                                                                                                                   
+
+> (a) η:B→M: best ROI per DNN-layer
+> DNN Target layer best ROI acc (5-subj μ±σ)AlexNet L1 V1 0.620 ±0.033
+> L2 V1 0.710 ±0.042
+> L3 V2 0.840 ±0.049
+> L4 V1 0.874 ±0.044
+> L5 V2 0.756 ±0.032
+> L6 HVC 0.847 ±0.036
+> L7 HVC 0.716 ±0.031
+> L8 HVC 0.832 ±0.029
+> ResNet L1 V2 0.547 ±0.026
+> L2 V2 0.627 ±0.021
+> L3 V2 0.640 ±0.020
+> L4 V4 0.668 ±0.026
+> L5 V4 0.707 ±0.029
+> L6 HVC 0.787 ±0.033
+> L7 V4 0.677 ±0.022
+> L8 HVC 0.707 ±0.030
+> ViT-B L1 V2 0.561 ±0.017
+> L2 V4 0.664 ±0.019
+> L3 V4 0.701 ±0.019
+> L4 HVC 0.684 ±0.035
+> L5 HVC 0.748 ±0.044
+> L6 HVC 0.636 ±0.022
+> L7 V3 0.512 ±0.007
+> L8 V3 0.622 ±0.047
+> (b) η′:M→B: best layer per (DNN, ROI)
+> DNN Target ROI best L acc ( μ±σ)AlexNet V1 L4 0.577 ±0.070
+> V2 L6 0.566 ±0.053
+> V3 L7 0.565 ±0.021
+> V4 L6 0.592 ±0.046
+> HVC L6 0.586 ±0.074
+> ResNet V1 L3 0.718 ±0.053
+> V2 L3 0.686 ±0.067
+> V3 L5 0.681 ±0.039
+> V4 L3 0.660 ±0.077
+> HVC L3 0.662 ±0.068
+> ViT-B V1 L3 0.744 ±0.059
+> V2 L3 0.725 ±0.057
+> V3 L3 0.711 ±0.063
+> V4 L3 0.696 ±0.082
+> HVC L3 0.690 ±0.086
+
+Consistency with prior brain–DNN translation work. η′ : M → B is the direction used in encoding-style studies (Yamins et al., 2014; Schrimpf et al., 2018, 2020); η : B → M is the direction used in decoding studies (Horikawa and Kamitani, 2017) and in the linear-readout step of the BH score (Nonaka et al., 2021). The Ridge fits used here are not identical to those reference setups (e.g., Yamashita et al., 2008 uses sparse-linear regression), but the qualitative low-to-low / high-to-high correspondence between DNN layer depth and ROI hierarchy is fairly clear for AlexNet’s 
+
+η panel (panel (a): early layers L1–L4 decoded best from V1/V2, deeper layers L6–L8 from HVC) and is less clean for ResNet and ViT-B, which show only a partial monotonic progression and several non-monotonic best ROIs (e.g., ViT-B L7–L8 fall back to V3). This pattern — clearer brain-hierarchy correspondence in AlexNet than in ResNet or ViT — is broadly consistent with the BH score results of Nonaka et al. (2021). The encoding-side panel (b) is similarly compatible: within each architecture, mid-to-deep layers tend to provide the best encoding into ventral-stream ROIs (AlexNet L4–L7, ResNet L3–L5, ViT-B L3). We use the per-cell pairwise-identification values directly as the readout-side covariates X4, X 5 in the variance decomposition (§A7.3). 
+
+A7.2 ΦB , ΦM predictive accuracy 
+
+This subsection reports the predictive accuracy of ΦB (FW → B) and ΦM (FW → M ) on the trial-averaged test stimuli for each proxy FW (see App. A3.8 for the held-out CAV readout). Tab. A7 27 gives pairwise identification accuracies on each side. 
+
+Predictive accuracy of ΦB and ΦM across all (FW , vision DNN ) combinations. To document how well each World Model proxy FW predicts the brain side ( ΦB : FW → B) and each vision DNN side ( ΦM : FW → M ), we trained a multi-output Ridge ( α = 10 ) on the 1,200 training stimuli and evaluated object-image-level pairwise identification on the 50 trial-averaged test stimuli (chance 
+
+= 0 .5). 
+
+Table A7: Pairwise identification accuracy of the World Model proxies on the brain side (a) and the DNN side (b). Multi-output Ridge ( α = 10 ) trained on 1,200 stimuli, evaluated with pairwise identification over 50 test stimuli (chance = 0 .5). Panel (a): per (FW , ROI ), μ ± σ with σ the across-5-subjects SD. Panel (b): per (FW , DNN ), mean over 8 layers; the DNN side is subject-invariant, so no across-subject SD applies. The table is reported as a readout diagnostic for the tested morphism families, not as a global proxy-quality ranking.                                                                     
+
+> (a) Brain side: ΦB:FW→BFWROI pairwise ident. CLIP-text V1 0.580 ±0.034
+> V2 0.574 ±0.041
+> V3 0.576 ±0.049
+> V4 0.588 ±0.090
+> HVC 0.645 ±0.118
+> DINOv2 V1 0.562 ±0.048
+> V2 0.573 ±0.022
+> V3 0.578 ±0.040
+> V4 0.589 ±0.062
+> HVC 0.567 ±0.059
+> DreamSim V1 0.724 ±0.045
+> V2 0.707 ±0.043
+> V3 0.704 ±0.042
+> V4 0.710 ±0.076
+> HVC 0.747 ±0.105
+> (b) DNN side: ΦM:FW→MFWDNN mean (8 L) CLIP-text AlexNet 0.843
+> ResNet 0.830
+> ViT-B 0.813
+> DINOv2 AlexNet 0.771
+> ResNet 0.845
+> ViT-B 0.841
+> DreamSim AlexNet 0.904
+> ResNet 0.863
+> ViT-B 0.850
+
+Implications. The DreamSim > CLIP-text > DINOv2 ordering mirrors Tab. A1 and the unre-stricted full-FW result, but should be read relative to the morphism families each FW makes available under the present linear setup, not as a global proxy-quality ranking. DINOv2 performs poorly on many held-out CAV readouts despite being a strong general-purpose visual representation, suggesting that the relevant proxy-axis readouts do not generalize well under the present linear setup. 
+
+A7.3 Decomposing NVS variance across the formula components 
+
+A direct one-line test of the dissociation in §5.4 is whether the readout-style accuracies that are routinely used by encoding/decoding-based metrics (Yamins et al., 2014; Horikawa and Kamitani, 2017; Schrimpf et al., 2018, 2020; Nonaka et al., 2021) can together re-derive NVS a. We pool 
+
+n = 10 ,000 ROI ×layer ×DNN ×FW ×subject ×axis cells from the 5-subject grid and fit OLS with five readout-quality covariates — CAV CV R2 (X1), pairwise identification of ΦB (X2), ΦM
+
+(X3), η (X4), and η′ (X5) — plus categorical dummies for FW , DNN, subject, and axis. The domain mismatch across predictors is intentional rather than ad hoc: each variable is indexed on the smallest domain on which that component is actually defined, and then broadcast to the common analysis cell only for the variance-decomposition regression. X4, X 5 are reported 
+
+per cell (mean over axes within each cell), since η, η ′ are conceptually one map per cell. Code: 
+
+code/analyze_nvs_predictor_decomposition_v5_with_eta.py .We quantify the R2–NVS a dissociation with three complementary tests ( code/analyze_r2_nvs_ dissociation.py ). In a partial regression on Sub-01 cells, OLS of NVS a on CV R2 explains only 28 R2 
+
+> model
+
+= 0 .156 ; adding ROI and layer rank yields 0.177 , while adding axis intercepts raises this to 
+
+0.624 . Across the defined ( FW , axis) pairs, the Spearman correlation between CV R2 and best-cell 
+
+NVS a is only −0.45 (p ≈ 0.08 ). At the animacy hero cell (HVC ×L6, Sub-01), replacing the learned 
+
+η by an orthogonal Procrustes map raises NVS full from 0.93 to 0.98 . Held-out one-sided readout quality therefore explains only a limited fraction of NVS a; the rest comes from axis-specific geometry and the shared translator. 
+
+Table A8: NVS a variance decomposition. 5-subject pool ( n = 10 ,000 cells). The five readout-quality covariates live on different domains. We list dimensions in a uniform order, writing the (ROI, layer) pair together as the brain–DNN cell and placing subject last when present: X1 varies across (FW , axis ), X2 across 
+
+(FW , ROI , subject ), X3 across (FW , DNN , layer ), and X4, X 5 across (DNN , (ROI , layer ), subject ) — i.e., the raw per-subject, per-cell, per-DNN η, η ′ pairwise identification values from Tab. A6 with no aggregation. 
+
+η, η ′ are themselves FW - and axis-independent. “Alone” is univariate R2; “partial R2 given X1 −X3” adds each predictor (or block) on top of the three FW -explicit covariates. Together η, η ′ add only +0 .7% of NVS variance over X1 −X3; axis identity still adds +34% on top of all five readout-quality covariates plus 
+
+FW /DNN/subject controls.                                                                                    
+
+> Predictor (domain on which it varies) Alone R2Partial R2given X1−X3
+> Continuous readout-quality covariates:
+> X1: CAV CV R2, per (FW,axis )0.264 —
+> X2:ΦBpairwise ident., per (FW,ROI ,subject )0.168 —
+> X3:ΦMpairwise ident., per (FW,DNN ,layer )0.046 —
+> X4:ηpairwise ident., per (DNN ,(ROI ,layer ),subject )0.016 +0 .005
+> X5:η′pairwise ident., per (DNN ,(ROI ,layer ),subject )0.008 +0 .001
+> X4+X5jointly 0.023 +0 .007
+> Categorical blocks:
+> FWdummies (3 levels) 0.252 +0 .015
+> DNN dummies (3 levels) 0.001 +0 .000
+> Subject dummies (5 levels) 0.039 +0 .026
+> Axis dummies (6 levels) 0.400 +0 .342
+> Nested model R2(cumulative):
+> X1−X3(readout-quality without η, η ′)0.331
+> X1−X5(readout-quality with η, η ′)0.338 (∆ = +0 .007 )
+> +FWdummies 0.352 (∆ = +0 .015 )
+> +DNN dummies 0.353 (∆ = +0 .000 )
+> +subject dummies 0.379 (∆ = +0 .026 )
+> +axis dummies 0.723 (∆ = +0 .344 )
+
+As a control for ROI-wise fMRI noise, we quantify the per-ROI noise level by split-half ∆B
+
+reliability and add it as a sixth continuous predictor in the decomposition. This noise covariate explains only 0.011 alone and changes the strict axis partial negligibly ( results/nvs_predictor_ decomposition_v5_noise_ceiling.json ); the main dissociation therefore does not reduce to per-ROI fMRI noise differences. The takeaway: axis identity dominates ( ∆R2 ≈ +0 .34 on top of all five readout scores plus FW /DNN/subject), so NVS a is not an axis-blind re-description of standard encoding/decoding accuracy. 
+
+Robustness to axis set. Repeating the decomposition on the 15-axis atlas (Tab. A4; n = 25 ,960 ,15 axis dummies) gives the same qualitative picture: axis-identity dummies add ≈ 33% on top of the readout-quality block, and the conclusion is unchanged when the per-ROI fMRI noise covariate (split-half ∆B reliability) is added as an extra continuous predictor ( results/nvs_predictor_ decomposition_v5_15axes_noise_ceiling.json ). 29 A8 Robustness analyses 
+
+This section covers checks on whether the result could be a by-product of fitting choices or static geometry rather than genuine morphism-level structure. 
+
+A8.1 Hyperparameter sensitivity ( α and top-K)
+
+We swept Ridge α ∈ { 10 , 100 , 1000 } and top-K ∈ { 100 , 500 , 2000 } on two representative cells (HVC ×ResNet ×layer 6 and V1 ×AlexNet ×cnn2) using DreamSim as the FW proxy on Sub-01 ( code/ analyze_alpha_topk_v5_fast.py ; output results/alpha_topk_sensitivity_v5_fast.json ). Hold-ing top-K at the main-pipeline value ( K= 500 ) and varying α, the within-cell axis ordering is preserved at both cells in all three α values except that the HVC cell shifts the lowest-ratio axis between animacy and texture energy at α=10 . Sweeping top-K produces larger magnitude shifts because 
+
+K=2000 approaches the full HVC voxel count ( ∼2,049) and effectively disables feature selection, but the qualitative ordering at the V1 cell is preserved across all 9 (α, K ) combinations, and the HVC cell preserves the same lowest-ratio axis in 6/9 combinations. The main-pipeline choice (α=100 , K = 500) 
+
+sits in the middle of the sweep range. 
+
+A8.2 Linear Ridge vs single-hidden-layer MLP ΦB , ΦM
+
+We replaced the linear Ridge ΦB , ΦM in the empirical cospan by a single-hidden-layer MLP (input →
+
+128 ReLU units with dropout 0.3 → output, i.e. two weight matrices with one ReLU nonlinearity in between) while keeping η linear. The control is run on Sub-01 with AlexNet across the same 5 ROI ×
+
+8 layer × 3 FW grid as the main pipeline (script code/poc_god_cav_alexnet_nonlinear_wbwm.py ;output code/poc_god_cav_alexnet_nonlinear_results.json ). The matched accuracy compari-son is in code/analyze_wbwm_nonlinear_accuracy.py and results/wbwm_nonlinear_accuracy. json : the nonlinear ΦB , ΦM raises per-feature prediction r by +0 .12 –0.14 on average over the linear Ridge baseline. Despite that accuracy gain, NVS a shifts only modestly (axis-projected animacy moves by up to ±0.30 depending on cell), and the qualitative axis ordering on both representative cells is preserved. We therefore retain the linear Ridge form in the main text as the more interpretable first-order operator family and report the MLP variant as a Sub-01 sanity check rather than as evidence that nonlinearity is irrelevant; a full 5-subject MLP rerun is left for future work. 
+
+A8.3 RSA / CKA on identical (ROI, layer) cells 
+
+As a scalar baseline on the same cells, we computed RSA (Spearman correlation between Pearson-distance RDMs) and linear CKA between brain test patterns and DNN test features for AlexNet, ResNet-50, and ViT-B/16 across 5 subjects. 5-subject mean best cells: 
+
+• RSA top-3: AlexNet ×cnn6 ×HVC ( rs = 0 .27 ), AlexNet ×cnn7 ×HVC ( 0.26 ), and AlexNet ×cnn8 ×HVC (0.25 ). 
+
+• CKA top-3: AlexNet ×cnn6 ×HVC, AlexNet ×cnn4 ×V2, and AlexNet ×cnn4 ×V3 (all 0.46 ). Both RSA and CKA peak in HVC ×mid-deep AlexNet layers, broadly consistent with the coarse HVC/deep-layer ordering recovered by axis-resolved NVS. However, neither metric identifies which morphism class (animacy vs. low-level visual axes vs. real size) drives the alignment: a single scalar per (ROI, layer, DNN) cell collapses across the axis dimension that NVS resolves. Per-subject and per-cell values are in results/rsa_cka_v5_5subj.json .
+
+# A9 Reduction of existing metrics to NVS 
+
+Several commonly used brain–DNN alignment metrics can be discussed within the same broad 
+
+W –B–M picture, but they should not all be read as exact algebraic reductions of NVS. Some are 30 close to object-level special cases obtained by choosing a particular comparison space; others are better viewed as partial projections of the broader alignment problem (for example, to stimulus-set geometry rather than directed morphisms). Tab. A9 uses this deliberately modest “cospan reading” only to clarify what each metric retains and what it discards. The reading is closest to exact for the object-level encoding/decoding cases; for RSA, CKA, CCA, and Procrustes it is better understood as a structural analogy indicating which aspect of the broader alignment problem is retained. 
+
+Table A9: Existing alignment metrics in the cospan picture. NVS keeps the directed ∆W structure explicit rather than collapsing it to objectwise prediction, global geometry, or a single shared subspace. 
+
+Metric Cospan reading What is retained / discarded Encoding-based (Yamins et al., 2014) Closest to an exact object-level special case: take the comparison space to be B itself ( W =B,
+
+ΦB = id ) and evaluate only 
+
+η′ : M → B on stimuli Retains pointwise prediction in brain space; discards directed ∆W structure and axis specificity Decoding-based (Horikawa and Kamitani, 2017) Closest to an exact object-level special case: take the comparison space to be M itself ( W =M ,
+
+ΦM = id ) and evaluate only 
+
+η : B → M on stimuli Retains pointwise prediction in feature space; discards directed ∆W structure and axis specificity Brain-Score (Schrimpf et al., 2018, 2020) Aggregate benchmark of encoding/decoding-style readout accuracies across multiple datasets and layers Retains an integrative readout-quality summary; discards morphism families and the axis structure of ∆W
+
+BH score (Nonaka et al., 2021) Scalar summary of object-level decoding/encoding over an ROI ×layer grid under one fixed feature space Retains hierarchical localization of object-level prediction; discards morphism families and within-cell axis structure RSA (Kriegeskorte et al., 2008; Kriegeskorte, 2015) Quotients the stimulus set to a representational dissimilarity matrix and compares pairwise distance structure across B and M
+
+Retains symmetric second-order geometry; discards the direction , composition, and axis identity of ∆W
+
+CKA (Kornblith et al., 2019) Kernel / Gram-matrix similarity on centered activations; closely related to linear RSA rather than an exact NVS specialization Retains global similarity of stimulus-set geometry; discards directed morphisms and axis-resolved failures Linear / kernel CCA (Hardoon et al., 2004) Replaces explicit world-level morphisms by maximally correlated shared subspaces between B and M
+
+Retains canonical shared directions; discards non-canonical directions and can miss complementary axis failures (Tab. 1) Procrustes alignment (Schönemann, 1966) Global alignment after constraining 
+
+η to be orthogonal; no explicit FW
+
+or directed morphism family Retains one global geometric fit; discards axis-resolved residual structure and transformation-specific failures Cao contravariance (Cao and Yamins, 2024b) Uses downstream behavior as the comparison space and studies explanatory relations with a contravariant emphasis Retains behavior-level structure; does not instantiate the empirical world-level proxy comparison across multiple FW used here Equivariant architectures / alignment priors (Cohen and Welling, 2016; Sanborn et al., 2023) Architectural complement rather than metric reduction: fixes how selected transformations act in M
+
+in advance Retains a pre-specified transformation class; does not by itself measure which morphism families are jointly preserved by brain and DNN 
+
+NVS (this paper) FW explicit; ΦB , ΦM , η, η′ all learned; directed ∆W tested per morphism family Retains world-level directed changes and asks whether the same candidate transformation propagates through both systems 
+
+31 Under this interpretation, NVS contains the object-level encoding/decoding cases as near-degenerate limits of the same setup, while RSA, CKA, CCA, Procrustes, and related approaches are more cautiously interpreted as projections or complements of the broader morphism-level question rather than as literal algebraic reductions. 
+
+Relation to the plural-alignment view of Sucholutsky et al. (2025). Sucholutsky et al. (2025) argue that “representational alignment” is not a single quantity: different measures (encod-ing/decoding accuracy, RSA-style geometry, behavior-matched probes, neural predictivity) probe genuinely different aspects of how two systems correspond, and that these aspects can dissociate. The cospan reading in Tab. A9 is a concrete realization of this stance: each existing metric is a particular projection of the W –B–M picture that retains some aspects (e.g., pointwise prediction, second-order geometry, shared subspaces, orthogonal alignment) and discards others (e.g., directed 
+
+∆W , axis identity, morphism class). NVS adds a missing projection to that pluralist landscape — preservation of directed candidate morphisms under an explicitly chosen FW — rather than claiming to subsume the others. In particular, our dissociations in §5.4 (NVS disagreeing with ΦB predictive accuracy, with CAV R2, and with RSA/CKA on the same cells) are empirical instances of the kind of measure-dependent partial alignment that Sucholutsky et al. (2025) predict: a single ROI ×layer cell can score well on one projection and poorly on another, so reporting a single scalar erases the structure that the morphism-level reading recovers. 
+
+# A10 Reproducibility 
+
+Data. The GOD dataset (Horikawa and Kamitani, 2017) for all five subjects is publicly available from figshare 7387130. As documented on the official GOD/OpenData project pages, the prepro-cessed GOD release on figshare is distributed under CC BY 4.0, whereas the raw fMRI data are available through OpenNeuro (dataset ds001246 ; DOI 10.18112/openneuro.ds001246.v1.0.1 ); for copyright reasons, the original stimulus images themselves are not redistributed with this paper and remain subject to the original GOD release/request terms. The AMT-crowdsourced caption annotations used by the CLIP-text proxy are released through the same GOD distribution channel: the training-stimulus captions are publicly downloadable, whereas the test-stimulus captions are shared on request rather than fully posted online, so as to minimize the chance that they are absorbed into future model-training corpora via web crawling and thereby compromise the reusability of the GOD test set as a held-out evaluation. The supplementary README.md documents how to obtain both. The human-subject fMRI dataset reused here was originally collected under institutional ethics approval at the time of acquisition, as documented in the cited original dataset paper (Horikawa and Kamitani, 2017). Participant-facing experimental procedures, including the original task instructions and compensation/consent details for the human-data and crowdsourced-annotation components, are documented in the original dataset papers and public release materials cited here rather than reproduced. 
+
+Licenses and checkpoints for reused models and code. The external model families used only as fixed feature extractors are credited and used under their public release terms; the license identifiers were checked against the corresponding public repositories used to obtain code/weights. Specifically, CLIP ViT-B/32 was loaded from openai/clip (MIT License), DINOv2 ViT-B/14 from the Meta AI facebookresearch/dinov2 repository (Apache License 2.0), and DreamSim from 
+
+ssundaram21/dreamsim (MIT License); the vision DNNs (AlexNet, ResNet-50, ViT-B/16) used the standard torchvision ImageNet checkpoints listed in App. A3.3. We do not redistribute third-party model weights in the supplementary archive; the code documents how to obtain or invoke the original public releases. 32 Code and reproducibility. A supplementary archive ( supplementary_v5.zip , ∼6 MB com-pressed) accompanies this paper and contains the full code base required to reproduce every reported number, table, and figure end-to-end once the GOD inputs are placed at ./god_data/ . It bun-dles every .py analysis and rendering script and every .json result file referenced in this paper, together with the synthetic-PoC result bundles kept under code/ , the per-stimulus low/mid-level visual-feature caches ( code/_god_visual_features*.npz ), a requirements.txt , and a README.md 
+
+/ MANIFEST.md pair documenting the layout, exact commands, and the script →result/figure mapping. All paths inside scripts are relative to the supplementary root. The 25 GB of per-subject CAV-weight caches ( code/_god_cav_weights_cache_* ) are not bundled because they are deterministic outputs of the per-subject CAV scripts and would inflate the archive without adding reproducibility. The archive is released under the MIT license. The pipeline is organized in three layers: 
+
+• Per-subject NVS computation — code/poc_god_cav_axis_per_roi_layer.py , code/poc_ god_cav_alt_dnn_pipeline.py , code/poc_god_cav_all_subspaces_addon.py , code/poc_ god_cav_affordance_addon.py , and code/poc_god_cav_action_axes_addon.py (per-subject CAV/NVS across the 6-axis main panel and the 15-axis atlas); code/compute_wb_wm_full_ grid.py (ΦB /ΦM diagnostics, App. A7.2); code/compute_eta_pure_per_cell.py (FW - and axis-independent η, η ′, App. A7.1; output results/eta_pure_per_cell.json ); code/analyze_ wless_full_grid_no_axis.py and code/compute_wless_v5_15axes_5subj_pooled.py (W-less controls; outputs results/wless_v5_15axes_5subj_pooled.json and results/wless_ v5_15axes_5subj_summary.json ; App. A6). 
+
+• Aggregation & statistics — code/analyze_v5_lightweight_stats.py and code/analyze_v5_ 15axes_lightweight.py (per-axis pooled means, inter-subject pattern correlation, paired gap CIs; outputs results/v5_lightweight_stats.json and results/v5_lightweight_stats_ 15axes.json ); code/analyze_nvs_predictor_decomposition_v5_with_eta.py together with its helper code/analyze_nvs_predictor_decomposition_v5.py (Tab. A8); code/compute_ noise_ceiling_v5_5subj.py (per-ROI fMRI noise level via split-half ∆B reliability; output 
+
+results/noise_ceiling_v5_5subj.json ) and code/analyze_noise_ceiling_controls_v5. py / code/analyze_noise_ceiling_controls_v5_15axes.py (ceiling-adjusted summaries; outputs results/noise_ceiling_nvs_stats_v5.json , results/noise_ceiling_nvs_stats_ v5_15axes.json , results/nvs_predictor_decomposition_v5_noise_ceiling.json , and results/ nvs_predictor_decomposition_v5_15axes_noise_ceiling.json ); code/compute_rsa_cka_ v5_5subj.py (App. A8.3; output results/rsa_cka_v5_5subj.json ); code/analyze_5subject_ bootstrap_ci.py (App. A4.2; output results/multi_subject_bootstrap_ci.json ); code/ permutation_test_axis_roi_interaction.py (App. A4.2; output results/permutation_ test_axis_roi_interaction.json ); code/confirmatory_cohort_analysis.py (App. A4.2; output results/confirmatory_cohort_summary.json ); code/poc_nvs_world_operation_ profile.py (synthetic PoC, Tab. 1; output code/poc_nvs_world_operation_profile_results. json ); code/poc_nvs_seed_average.py (deterministic seed-averaged variant of the same PoC bundle); and code/poc_nvs_advantage_drift_bias.py (session-bias robustness PoC for App. A2; output code/poc_nvs_advantage_drift_bias_results.json ). 
+
+• Figure rendering — code/figure_subject_average_publication.py (engine), with viability-masked wrappers code/render_v5_main_6axes_viability_masked.py (Fig. 3) and code/ render_v5_per_subject_6axes_viability_masked.py (Fig. A2); code/render_wless_v5_ sub01_6axes.py for the deleted W-less heatmap panel. Stimulus annotation tables and axis-label builders for the 6 main and 15 appendix scalar axes are shipped alongside, so each axis can be regenerated from the raw GOD-side metadata. 33 Computational resources. The pipeline was developed and tested on a MacBook (Apple M3, 16 GB) under Python 3.13 with numpy , scipy , scikit-learn , statsmodels , matplotlib , h5py ,and bdpy ; per-subject CAV/NVS extraction is parallel-friendly and was run on the same machine. Re-rendering main and appendix figures from the cached JSON outputs takes a few minutes; re-fitting the full per-subject CAV/NVS grid from raw GOD data with the included caches takes on the order of half a day end to end. 
+
+Random seeds. All stochastic components — the permutation null underlying NVS (default 1,000 
+
+random permutations of stimulus pairings), the bootstrap CIs in App. A7.2, the synthetic-PoC random factor draw, and the random-orthogonal projection AB (§4) — are seeded deterministically (numpy.random.default_rng(seed) with seed 42 for the main reported results) so that the released code reproduces the reported figures and tables up to numerical / BLAS-level variation. 34
