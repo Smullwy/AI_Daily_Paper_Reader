@@ -1,0 +1,1415 @@
+Title: PRiSE-EEG: A Prior-Guided Foundation Model with Depth-Stratified Experts for Cross-Paradigm EEG Representation Learning
+
+URL Source: https://arxiv.org/pdf/2605.18085v1
+
+Published Time: Tue, 19 May 2026 02:10:25 GMT
+
+Number of Pages: 32
+
+Markdown Content:
+# PRiSE-EEG: A Prior-Guided Foundation Model with Depth-Stratified Experts for Cross-Paradigm EEG Representation Learning 
+
+Wei Xiong 1, Jiangtong Li 1, Kun Zhu 1, Jie Li 1,2
+
+1. School of Computer Science and Technology, Tongji University, Shanghai, China 
+
+2. Translational Research Center, Shanghai Yangzhi Rehabilitation Hospital (Shanghai Sunshine Rehabilitation Center), Tongji University, Shanghai 
+
+{2610256, jiangtongli}@tongji.edu.cn 
+
+Abstract 
+
+EEG foundation models aim to learn reusable representations across heterogeneous paradigms, yet existing approaches often use uniform adaptation mechanisms and are typically reported under separate downstream fine-tuning protocols. In this work, we first analyze dense EEG Transformers from two complementary perspectives. Gradient similarity across six downstream datasets reveals substantial optimization conflicts among EEG paradigms, while CKA analysis on mixed-paradigm batches shows a consistent depth-wise transition: shallow layers preserve stronger cross-paradigm similarity, whereas deeper layers become increasingly specialized. Motivated by these findings, we propose PRiSE-EEG , a prior-guided EEG foundation model with CKA-calibrated Depth-Stratified Experts. PRiSE-EEG forms continuous multi-channel EEG patches using weak static cortical and network priors and dynamic short-time channel interactions, then allocates shared and specialized experts across MoE Transformer blocks according to a sigmoid mapping from layer-wise CKA sharedness. This design preserves common EEG regularities in early blocks while assigning more specialized capacity to later task-specific transformations. Experiments on 12 public EEG benchmarks show strong cross-paradigm performance under matched protocols. Compact ablations further show that CKA-derived expert allocation improves over dense Transformers, uniform MoE, and manually fixed shared-specific expert ratios. 
+
+1 Introduction 
+
+Electroencephalography (EEG) signals differ substantially in montage, temporal statistics, dominant rhythms, label semantics, and task-relevant spatial patterns. Classical models for EEG suffer from subject-, session-, and dataset-specific variability [ 29 , 61 , 10 ]. EEG foundation models (EEG-FM) aim to learn reusable representations across heterogeneous paradigms, yet cross-paradigm transfer remains difficult. Therefore, an EEG-FM must preserve general EEG regularities while still adapting to task-specific evidence. Existing models usually address this problem either by improving pretraining and tokenization, or by adding adaptation mechanisms during fine-tuning. Recent works such as BENDR [ 28 ], BIOT [ 78 ], EEGPT [ 74 ], CBraMod [ 75 ], CSBrain [ 83 ] improve scalable self-supervised pretraining and heterogeneous modeling. Discrete-token approaches, including LaBraM [ 24 ], CodeBrain [ 37 ] and TFM-Tokenizer [ 48 ], further show that how EEG is converted into discrete tokens is critical for representation quality. In parallel, EEGMoE [ 15 ] demonstrates that domain-specific experts can help decouple heterogeneous EEG domains in pre-training stage. However, two issues remain insufficiently explored. First, existing EEG-FMs rarely model cross-task                                                 
+
+> Preprint.
+> arXiv:2605.18085v1 [eess.SP] 18 May 2026 TUAB ADFTD TUEV SEED HMC PhysioMI TUAB ADFTD TUEV SEED HMC PhysioMI
+> -0.01 ±0.014 0.29 ±0.027 -0.12 ±0.020 0.22 ±0.021 0.14 ±0.022 -0.01 ±0.014 -0.18 ±0.007 0.18 ±0.009 -0.01 ±0.004 -0.03 ±0.005 0.29 ±0.027 -0.18 ±0.007 -0.24 ±0.019 0.23 ±0.021 0.18 ±0.026 -0.12 ±0.020 0.18 ±0.009 -0.24 ±0.019 -0.13 ±0.015 -0.13 ±0.005 0.22 ±0.021 -0.01 ±0.004 0.23 ±0.021 -0.13 ±0.015 0.01 ±0.008 0.14 ±0.022 -0.03 ±0.015 0.18 ±0.026 -0.13 ±0.005 0.01 ±0.008
+> 0.2 0.1 0.0 0.1 0.2 0.3
+> 16 64 128 176 240 288 352 400 464 512
+> STEP
+> 012345678910 11
+> 0.00 0.05 0.10 0.15 0.20
+> TUAB ADFTD TUEV SEED HMC PhysioMI TUAB ADFTD TUEV SEED HMC PhysioMI
+> BACKBONE
+> -0.25 ±0.064 0.23 ±0.054 0.03 ±0.009 -0.02 ±0.005 -0.01 ±0.011 -0.25 ±0.064 -0.16 ±0.046 -0.01 ±0.008 0.03 ±0.019 -0.05 ±0.009 0.23 ±0.054 -0.16 ±0.046 -0.01 ±0.004 -0.02 ±0.046 0.05 ±0.017 0.03 ±0.009 -0.01 ±0.008 -0.01 ±0.004 -0.04 ±0.066 0.10 ±0.023 -0.02 ±0.005 0.03 ±0.019 -0.02 ±0.046 -0.04 ±0.066 -0.01 ±0.002 -0.01 ±0.011 -0.05 ±0.009 0.05 ±0.017 0.10 ±0.023 -0.01 ±0.002
+> 0.2 0.1 0.0 0.1 0.2
+> 16 64 128 176 240 288 352 400 464 512
+> STEP
+> 0.25 0.30 0.35 0.40 0.45 0.50 0.55
+> BACKBONE TRANSFORMER LAYER TRANSFORMER LAYER
+> 012345678910 11
+
+(a) (b)(c) (d)Figure 1: Pairwise cosine similarity of downstream fine-tuning gradients across datasets for LaBraM (a) and CSBrain (c), respectively. Lower similarities indicate task-dependent optimization conflicts. Layer-wise sample CKA across pretraining steps for LaBraM (b) and CSBrain (d), respectively. Shal-low layers show stronger cross-paradigm alignment, whereas deeper layers become more specialized, motivating CKA-calibrated depth-stratified expert allocation. relationships, although heterogeneous paradigms may induce different update directions. Second, spatial structure beyond electrode coordinates or montage embeddings remains underused for patch formation. Although sensor-space EEG does not provide direct source-level measurements, it still preserves structured spatial regularities that are useful for representation learning. Electrophysiological stud-ies show that scalp recordings contain coarse network-level organization [ 9, 20 , 77 ], while EEG microstates and lag-sensitive coupling analyses suggest that multi-channel interactions can change within sub-100 ms windows [ 72 , 40 , 68 , 39 ]. These findings suggest that more sensor-space prior and short-window dynamics can provide weak guidance for EEG learning. We explore the task-relation issue afterwards by examining whether heterogeneous EEG tasks impose compatible updates at fine-tuning stage, as shown in Fig. 1. We train dense Transformer baselines on six downstream datasets and compute pairwise gradient similarities. The resulting heatmaps show clear optimization-direction discrepancies across tasks, suggesting that fully shared dense parameters may face conflicting update preferences across paradigms [56]. This motivates conditional capacity through MoE, where different inputs can activate different expert parameters. However, a uniform MoE allocation still ignores where shared and specialized capacity should appear across model depth. We therefore examine the representation geometry of a dense pilot EEG Transformer using Centered Kernel Alignment (CKA) [ 27 ]. Given mixed-paradigm batches, we compute block-wise CKA across predefined pretraining checkpoints, with within-paradigm and between-paradigm similarities averaged separately. The analysis shows a consistent depth-wise pattern: early blocks retain higher cross-paradigm similarity, while later blocks become increasingly task- or paradigm-specific. This suggests that EEG representations follow a general-to-specific transition across the pretraining Transformer stack, and that shared and specialized experts should not be allocated uniformly across all MoE blocks. Guided by these empirical observations, we propose PRiSE-EEG, a Prior-guided EEG foundation model with depth-Stratified Experts. PRiSE-EEG forms continuous multi-channel EEG patches by combining weak static region and network priors with dynamic short-window channel interactions. On top of these patches, PRiSE-EEG introduces a CKA-calibrated expert allocation rule. For each MoE Transformer block, we estimate the ratio between between-paradigm and within-paradigm 2CKA, and map it to the shared expert proportion. Blocks with higher sharedness receive more shared experts, while blocks with lower sharedness allocate more capacity to specialized experts. We evaluate PRiSE-EEG on 12 public EEG benchmarks covering sleep staging, motor imagery, emotion recognition, and other cognitive or clinical tasks. Under matched evaluation protocols, PRiSE-EEG outperforms dense Transformer baselines, uniform Mixture-of-Expert(MoE) variants, and fixed-ratio shared-specific expert allocations. These results show that expert specialization in EEG foundation models should not only be input-adaptive, but also depth-stratified according to the representation structure learned by dense pilot models. Our contributions are summarized as follows: • We characterize two issues in cross-paradigm EEG learning, including conflicting task updates across layers and underused weak sensor-space structure. • We propose CKA-calibrated Depth-Stratified Experts, which convert block-wise CKA sharedness into shared expert proportions through a simple sigmoid allocation rule. • We introduce PRiSE-EEG, combining prior-guided continuous tokenization with depth-stratified expert allocation, and validate it on 12 EEG benchmarks. 
+
+2 Related Works 
+
+2.1 EEG Foundation Models and Tokenization 
+
+Early convolutional, graph-based and attention-based models improve EEG spatial-temporal feature extraction but are commonly optimized for specific subjects or datasets [ 29 , 61 , 10 , 52 , 60 ]. Recent EEG foundation models learn transferable representations through self-supervised pretraining on heterogeneous EEG corpora, including BENDR [ 28 ], BIOT [ 78 ], EEGPT [ 74 ], CBraMod [ 75 ], CSBrain [ 83 ], and REVE [ 46 ]. Tokenization has also become central: LaBraM [ 24 ] learns vector-quantized neural codes, CodeBrain [ 37 ] decouples temporal and frequency tokens, and TFM-Tokenizer [ 48 ] learns single-channel time-frequency motifs. In contrast, PRiSE-EEG forms continu-ous patches using weak sensor-space priors and dynamic short-window interactions, then studies how shared capacity should be allocated across transformer layers. 
+
+2.2 Conditional Experts and Depth-wise Representation Analysis 
+
+MoE models provide scalable conditional computation through sparsely gated experts [ 57 , 14 ], and have also been used in neuroimaging for heterogeneous aging modeling [ 12 ] and cross-subject fMRI decoding [ 76 ]. In EEG representation learning, EEGMoE [ 15 ] introduces shared and specific expert groups to decouple domain-specific representations during self-supervised pretraining. PRiSE-EEG differs in the allocation axis: it assigns different proportions of shared and specialized experts according to Transformer-block depth and representation comparison. The depth-aware design is motivated by representation analysis. SVCCA [ 50 ], PWCCA [ 43 ], and CKA [ 27 ] compare neural representations across layers, models, and training stages, while studies in language, vision, and multimodal models show that different depths can encode different information [ 64 , 42 , 79 ]. Rather than using representation similarity only as a post-hoc diagnostic, we use layer-wise cross-paradigm CKA as an architecture calibration signal, assigning more shared experts to blocks with stronger cross-paradigm alignment. 
+
+2.3 Weak Sensor-Space Priors for EEG 
+
+EEG sensor-space signals do not directly provide source-level functional networks. Nevertheless, electrophysiological recordings still exhibit network-level organization [ 9, 20 , 77 ] and rapid short-window interactions relevant to dynamic brain states [ 72 , 40 , 68 , 39 ]. PRiSE-EEG therefore treats static region-network groupings and short-window channel interactions as weak inductive biases rather than hard anatomical assignments. To avoid making these priors overly rigid, we add learnable bias terms that can relax or adjust the predefined sensor-group associations during training. This design preserves coarse spatial guidance while allowing data-driven correction for task-, dataset-, and montage-specific deviations. 3Prior-Guided  
+
+> Continuous Tokenizer
+> EEG Reconstructor
+> Dual-Stream MLP Classifier
+
+Overview  
+
+> Patching
+> Multi-Scale
+> Convolution
+> Power Spectral
+> Density
+> Fpz
+> Pz
+> P5
+> P6
+> FT7
+> FT8
+> Channel PE
+> Q K V
+> Learnable Queries
+> EEG Embeddings MAE
+> TP
+> MAE
+> CH
+> GPT
+
+Prior-Guided Continuous Tokenizer EEG Reconstructor 
+
+Dual-Stream 
+
+MLP Classifier 
+
+> RoPE
+> Depth-Stratified Transformers
+> Expand
+> Avg.
+> Pool
+> MLP
+> Classification
+> Temporal
+> Feature
+> Spatial
+> Feature
+> Channel PE
+> Concatenation
+> Positional Encoding
+> Region/Network
+> Channel Group
+> Region/Network
+> Fixed Priors
+> Fpz
+> Pz
+> FT7
+> FT8
+
+M� + Δ��� 
+
+> Learnable Queries
+
+��     
+
+> Micro Frame
+> Segmentation
+> Frames of CH �
+> Frames of CH  �
+> Frame Lag Δ�=2
+> Learnable Queries
+
+�� Node Encoder 
+
+> Cross Attention Transformer Block
+
+Dynamic 
+
+Path 
+
+Static 
+
+Path 
+
+M�      
+
+> Q Mask  K,V
+> Feature Extraction
+> EEG Embeddings
+> MLP
+> MLP
+> Avg.
+> Pool
+> Cross Attention
+> Transformer Block
+> …
+> …
+> Temporal-wise Transformer
+> Group-wise Transformer
+> Self Attention
+> Expert 1 Expert 2 Shared
+> Expert 2
+> …
+> Self Attention
+> Expert 1 Expert 2 Expert 8Shared
+> Expert
+> …
+> Shared
+> Expert 1
+> CKA-
+> Calibrated
+> Expert
+> Allocation
+
+Figure 2: The architecture of PRiSE-EEG framework. The Prior-Guided Continuous Tokenizer exploits weak sensor-space prior to extract EEG features and CKA-Calibrated Depth-Stratified Transformers refine expert allocations. The EEG Reconstructor generates the original EEG signal with three pre-train tasks (MAE-TP, MAE-CH, and GPT), while Dual-Stream MLP Classifiers are applied on both spatial and temporal demension for downstream classification. 
+
+3 Methods 
+
+3.1 Overview 
+
+PRiSE-EEG consists of a prior-guided continuous patch tokenizer and a CKA-calibrated depth-stratified expert transformer. Given an EEG batch xp ∈ RB×T ×C×P , where B is the batch size, T
+
+is the number of 1-second patches, C is the number of channels, and P is the number of sample points, the tokenizer maps xp into continuous group representations h0 ∈ RB×T ×G×Dm . Here G
+
+is the number of static and dynamic groups, and Dm is the model dimension. PRiSE-EEG applies depth-stratified MoE blocks across the tokenizer, temporal/group encoder, and pretraining decoder, with shared-expert ratios determined by block-wise CKA sharedness from a dense pilot model. Unless otherwise specified, we report results of PRiSE-EEG-B. More details are in Appx. B and D.6 .
+
+3.2 Prior-Guided Continuous Tokenization 
+
+We first embed each EEG patch into channel-level representations. Let x ∈ RB×T ×C×Dm denote the embedded patch features after temporal-spectral feature extraction and channel positional encoding. 
+
+x = Embed( xp) + Ec, (1) where Ec is learnable positional encoding. The implementation of feature extraction, channel standardization, and positional encoding is described as Eq. 11 and 12 in Appendix B.2.1. To inject static sensor-space priors, we define coarse region-network groups P. Let Qs ∈ R|P|× Dm
+
+be learnable static group queries and Ms ∈ R|P|× C the corresponding static attention-bias matrix. Since these predefined groups are weak priors rather than hard anatomical assignments, we introduce a learnable relaxation term ∆pri ∈ R|P|× C . Static group attention is computed as 
+
+Attn( Qs, K, V ) = Softmax 
+
+ QsK⊤
+
+√dk
+
++ Ms + ∆pri 
+
+
+
+V, (2) where K, V ∈ R(BT )×C×Dm are projected from x, and dk is the attention head dimension. Static groups provide stable coarse structure, while dynamic groups capture sample-dependent micro-frame interactions. We denote the dynamic bias construction as Md = DynBias( xp; ∆ f , k d), where ∆f
+
+is the maximum micro-frame lag and kd is the number of selected dynamic groups. In practice, 4DynBias( ·) subdivides each patch into micro-frames, computes lag-limited channel affinities, and selects informative frame-pair groups. Let Qd ∈ Rkd×Dm be the dynamic group queries. The final query and bias sets are Q = [ Qs; Qd] and M = [ Ms + ∆pri ; Md]. The tokenizer output is 
+
+h0 = CrossAttn( Q, x; M) ∈ RB×T ×G×Dm , (3) where G = |P| + kd. Thus, PRiSE-EEG forms continuous multi-channel group tokens that handle montage heterogeneity while injecting priors. Details are described in Appx. B.2.2 and B.2.3. 
+
+3.3 CKA-Calibrated Depth-Stratified Expert MoE Transformer 
+
+The CKA-calibrated design is applied to all MoE Transformer layers, where each feed-forward block is replaced by a depth-stratified expert layer. Let hl ∈ RB×T ×G×Dm to be input of l-th layer. 
+
+Interleaved temporal and group layers. The encoder uses LE alternating Transformer layers: LE /2
+
+temporal-wise layers and LE /2 group-wise layers [ 6 ]. Temporal-wise attention models dependencies across the patch dimension T within each group, while group-wise attention models dependencies across the prior-guided group dimension G within each time patch. Each layer, regardless of its attention type, is followed by an independent depth-stratified MoE FFN: 
+
+˜hl = Attn al 
+
+> l
+
+(hl), hl+1 = ˜hl + DSE l(LN( ˜hl)) , (4) where al ∈ { temp , group } specifies the layer type. This factorized design separates temporal and group-wise interactions while coupling them through alternating layers. 
+
+CKA-Calibrated Depth-Stratified Expert Allocation . Before training PRiSE-EEG, we run a dense pilot version with the same non-MoE layout and compute CKA on paradigm batches at selected checkpoints T . For layer l in pretraining, let cintra  
+
+> l,t
+
+and cinter  
+
+> l,t
+
+denote the within-paradigm and between-paradigm CKA averages at checkpoint t. We define the layer sharedness as 
+
+sl,t = clip cinter 
+
+> l,t
+
+cintra  
+
+> l,t
+
++ ϵ , 0, 1
+
+!
+
+, ¯sl = 1
+
+|T | 
+
+X
+
+> t∈T
+
+sl,t , (5) where ϵ is a small constant. We convert ¯sl into the shared expert proportion by 
+
+ρsh  
+
+> l
+
+= ρmin + ( ρmax − ρmin )σ
+
+ ¯sl − τTcka 
+
+
+
+, (6) where ρmin and ρmax bound the shared-expert proportion, τ is the sharedness threshold, and Tcka is the temperature. More details are in Appx. B.3. Given El experts in layer l, we set 
+
+Esh  
+
+> l
+
+= round( Elρsh  
+
+> l
+
+), Esp  
+
+> l
+
+= El − Esh  
+
+> l
+
+. (7) Let Esh  
+
+> l
+
+and Esp  
+
+> l
+
+be the shared and specialized expert pools, Fl,e (·) be expert e and rl,e (·) be its router probability. For layer input hl, the depth-stratified expert block is 
+
+DSE l(hl) = X 
+
+> e∈E sh
+> l∪E sp
+> l
+
+rl,e (hl)Fl,e (hl), (8) The CKA-derived allocation is computed once from the dense pilot run and then fixed during training. 
+
+3.4 Stage-Specific Decoder 
+
+PRiSE-EEG uses different lightweight output modules for pretraining and downstream adaptation. 
+
+Pretraining Stage . An EEG reconstructor maps the encoder context henc ∈ RB×T ×G×Dm back to the channel space with learnable channel queries and Transformer decoding layers. It reconstructs both waveform and spectral targets in xref , supporting masked temporal-patch reconstruction, masked channel reconstruction, and future-patch prediction. 
+
+Fine-tuning Stage . We attach task-specific dual-stream MLP heads. One branch averages over group tokens to obtain temporal features, while the other averages over temporal patches to obtain group-level features. The two features are concatenated, normalized, and mapped to task logits. This head preserves both temporal and group-wise structure with lower cost than fully flattened classifiers. 53.5 Pretraining and Downstream Adaptation 
+
+During pretraining, PRiSE-EEG optimizes 3 self-supervised and 1 expert balancing loss functions: 
+
+Lpt = 13 (LMAE-TP + LMAE-CH + LGPT ) + βLAux . (9) where LMAE -TP reconstructs masked temporal patches, LMAE -CH reconstructs masked channels, 
+
+LGPT predicts future patches, Laux is the expert load-balancing loss, and β is its coefficient. For downstream adaptation, PRiSE-EEG uses unified multi-dataset fine-tuning by default. One shared backbone is optimized across K downstream datasets with task-specific heads: 
+
+Lft =
+
+KX
+
+k=1 
+
+Lk
+
+cls + βLaux , (10) where Lk
+
+cls is the weighted cross-entropy loss for dataset k, and Laux balances expert usage. Detailed adaptation protocols are given in Appendix B.5.1 and B.5.2. 
+
+4 Experiments 
+
+4.1 Datasets Pre-training Datasets. To learn robust and generalizable representations, PRiSE-EEG is pre-trained on a diverse corpus combining 17 public datasets, totaling over 28,000 hours of EEG signals. Detailed information about pre-training datasets is in Appx. A. 
+
+Fine-tuning Datasets. We conduct experiments across 12 EEG datasets spanning 10 task categories ,including: (1) Seizure Detection: Siena [ 11 ]; (2) Emotion Recognition: SEED [ 82 ], SEED-V [ 33 ]; (3) Motor Imagery: PhysioMI [ 54 ], Mimul-11 [ 23 ]; (4) Mental Stress: Workload [ 84 ]; (5) Sleep Staging: HMC [ 3]; (6) Anomalous Event Detection: TUEV [ 19 ]; (7) Abnormal Classification: TUAB [ 36 ]; (8) Visual Target Detection: Things-EEG-2 [ 16 ]; (9) Alzheimer’s Disease Identification: ADFTD [ 41 ]; and (10) Slowing Event Classification: TUSL [73] (details in Appx. A). 
+
+4.2 Experimental Setup Data Preprocessing. We utilize an MNE-based [ 17 ] pipeline to resample, filter, and normalize EEG signals, facilitating reproducible and scalable feature extraction. 
+
+Evaluation Metrics. To account for class imbalance in downstream tasks, we follow the protocol in Jiang et al. [25] and employ Balanced Accuracy, Cohen’s Kappa, and Weighted F1 for multi-class classification, and Balanced Accuracy, AUC-PR, and AUROC for binary classification. Model opti-mization dynamics and consistency are assessed using cosine similarity and expert router statistics. 
+
+Baselines. We compare PRiSE-EEG against two supervised benchmarks (EEGNet [ 29 ], EEGCon-former [ 61 ]) and seven EEG foundation models (BENDR [ 28 ], BIOT [ 78 ], LaBraM [ 24 ], REVE [ 46 ], Table 1: Performance comparison on 12 EEG datasets (Part 1). Best performance are highlighted in bolded. Statistically significant improvements over the second-best model are indicated by * (two-sample t-test: p < 0.05).                                                                                                                                                                                                   
+
+> Dataset Metrics EEGNet Conformer BENDR BIOT LaBraM EEGPT CBraMod CSBrain REVE PRiSE-EEG
+> TUSL B-Acc 44.94 ±1.50 54.26 ±0.62 49.60 ±2.02 63.96 ±1.56 64.22 ±1.26 77.54 ±1.95 70.91 ±1.12 66.67 ±0.21 73.85 ±1.27 79.82 ±1.95 *W-F1 43.95 ±1.09 46.73 ±1.58 37.80 ±2.42 61.51 ±1.90 51.41 ±5.59 73.63 ±2.70 67.51 ±2.98 60.90 ±2.34 67.81 ±1.81 77.34 ±2.30 *Kappa 23.06 ±0.88 25.98 ±1.85 21.52 ±3.80 44.19 ±2.10 37.97 ±2.61 65.12 ±3.48 52.18 ±3.79 43.63 ±1.08 56.62 ±2.35 65.45 ±2.31
+> Siena Scalp B-Acc 81.47 ±3.08 83.27 ±1.10 78.22 ±2.07 66.55 ±0.51 66.36 ±1.08 81.63 ±1.53 83.96 ±0.55 74.11 ±0.60 76.87 ±2.03 86.89 ±2.31 *AUROC 89.83 ±1.97 88.78 ±1.15 93.40 ±1.03 70.64 ±1.88 77.39 ±1.80 93.71 ±1.54 93.15 ±1.49 89.07 ±2.39 88.70 ±1.25 89.12 ±2.30 AUC-PR 99.78 ±0.05 99.72 ±0.02 99.82 ±0.03 99.05 ±0.13 99.50 ±0.07 99.85 ±0.03 99.84 ±0.04 99.72 ±0.11 99.78 ±0.03 99.85 ±0.03
+> SEED B-Acc 51.40 ±0.42 55.79 ±0.50 60.92 ±0.53 64.57 ±1.00 64.52 ±0.53 67.53 ±0.29 70.86 ±1.80 71.92 ±0.39 71.62 ±0.92 73.92 ±0.31 *W-F1 51.62 ±0.84 54.27 ±0.41 59.98 ±0.94 64.01 ±0.80 64.60 ±0.35 67.77 ±0.05 70.09 ±2.06 71.84 ±0.20 71.75 ±0.76 73.29 ±0.22 *Kappa 27.43 ±0.79 33.09 ±0.56 41.55 ±0.79 47.03 ±1.50 47.10 ±0.79 51.92 ±0.61 56.46 ±2.70 58.02 ±0.59 60.57 ±0.94 61.02 ±0.45 *SEED-V B-Acc 29.61 ±0.28 35.37 ±0.23 22.49 ±0.19 30.48 ±0.24 39.60 ±1.09 38.33 ±0.69 40.98 ±1.58 38.02 ±0.23 40.84 ±0.98 47.40 ±0.25 *W-F1 27.49 ±1.20 34.87 ±0.38 22.22 ±1.95 31.05 ±0.30 39.55 ±0.85 36.96 ±0.89 41.18 ±1.46 38.07 ±1.03 40.58 ±2.00 48.39 ±0.42 *Kappa 10.06 ±0.39 17.72 ±0.25 3.86 ±0.03 14.07 ±0.28 24.17 ±1.20 22.08 ±1.06 25.58 ±1.87 22.48 ±0.42 25.59 ±1.48 34.84 ±0.45 *PhysioMI B-Acc 57.25 ±0.73 55.23 ±0.19 48.01 ±0.29 61.53 ±1.54 61.73 ±0.89 62.92 ±0.32 61.74 ±0.91 63.04 ±0.74 64.80 ±0.53 65.55 ±0.38 *W-F1 56.68 ±0.97 40.58 ±0.50 46.57 ±3.06 61.58 ±1.97 61.77 ±1.16 62.72 ±0.34 61.79 ±1.69 63.08 ±0.81 64.84 ±0.94 65.83 ±0.56 *Kappa 42.91 ±0.95 46.50 ±0.38 30.66 ±0.39 48.75 ±2.72 52.22 ±1.19 53.12 ±1.63 52.22 ±1.00 53.80 ±0.76 53.04 ±0.85 54.78 ±0.69 *Mimul-11 B-Acc 45.92 ±0.59 49.25 ±0.81 49.68 ±0.94 41.73 ±0.28 48.57 ±1.04 47.09 ±0.66 50.51 ±0.63 42.67 ±0.77 46.05 ±0.62 51.33 ±0.24 *W-F1 49.29 ±1.15 46.51 ±1.70 58.49 ±1.22 50.59 ±0.56 57.95 ±0.96 56.60 ±0.95 58.09 ±0.61 51.93 ±0.87 52.82 ±0.64 58.82 ±0.23 *Kappa 20.28 ±1.62 21.98 ±1.05 32.74 ±3.52 15.96 ±1.08 31.91 ±2.54 26.23 ±2.89 33.63 ±1.80 18.13 ±2.05 20.88 ±0.87 31.49 ±0.98
+
+6Table 2: Performance comparison on 12 EEG datasets (Part 2). Best performance are highlighted in bolded. Statistically significant improvements over the second-best model are indicated by * (two-sample t-test: p < 0.05).                                                                                                                                                                                                
+
+> Dataset Metrics EEGNet Conformer BENDR BIOT LaBraM EEGPT CBraMod CSBrain REVE PRiSE-EEG
+> Workload B-Acc 66.74 ±1.92 67.47 ±0.30 62.67 ±0.99 63.67 ±0.59 57.93 ±0.86 69.31 ±1.69 74.23 ±1.36 71.27 ±0.75 74.50 ±1.65 82.47 ±0.30 *AUROC 77.48 ±1.26 76.94 ±0.42 71.38 ±3.02 75.09 ±1.42 78.29 ±0.48 74.70 ±0.98 82.53 ±0.75 79.63 ±1.20 82.07 ±2.54 89.21 ±0.19 *AUC-PR 49.98 ±1.50 50.30 ±1.14 50.24 ±3.75 69.09 ±2.25 60.15 ±0.55 55.93 ±1.92 61.48 ±1.90 55.10 ±2.21 64.67 ±2.21 70.75 ±0.47 *TUEV B-Acc 58.15 ±2.31 58.00 ±0.63 67.81 ±0.61 59.43 ±0.70 65.85 ±0.77 61.31 ±1.36 67.64 ±0.47 71.20 ±1.34 72.24 ±0.87 75.28 ±0.51 *W-F1 74.77 ±1.39 73.02 ±0.25 81.19 ±1.54 77.42 ±2.03 78.22 ±2.36 80.00 ±0.91 81.31 ±0.54 85.07 ±0.85 84.97 ±0.33 88.25 ±0.51 *Kappa 59.55 ±2.91 56.69 ±0.21 66.04 ±2.78 63.12 ±3.05 64.49 ±3.54 66.87 ±1.35 67.22 ±1.02 74.67 ±1.44 75.12 ±0.76 80.90 ±0.62 *TUAB B-Acc 79.87 ±0.46 81.78 ±0.53 81.67 ±0.70 81.23 ±0.42 80.74 ±0.43 81.75 ±0.65 80.89 ±0.36 78.97 ±0.17 81.53 ±0.12 82.22 ±0.12 *AUROC 88.78 ±0.25 89.58 ±0.49 88.08 ±0.45 88.36 ±0.27 86.72 ±1.48 89.60 ±1.05 87.81 ±0.45 85.33 ±1.51 87.43 ±1.04 89.93 ±0.31
+> AUC-PR 87.86 ±0.67 90.60 ±0.53 88.18 ±1.41 88.91 ±0.33 87.22 ±1.49 90.00 ±1.56 88.51 ±0.53 82.73 ±4.69 88.30 ±2.20 90.11 ±0.15
+> Things-EEG-2 B-Acc 51.27 ±0.29 60.30 ±0.50 63.76 ±1.57 51.87 ±0.09 51.48 ±0.21 60.83 ±0.82 60.25 ±1.19 57.20 ±0.29 61.03 ±0.90 65.15 ±0.48 *AUROC 62.10 ±0.10 68.42 ±1.39 77.54 ±0.70 66.17 ±0.73 52.78 ±0.23 73.53 ±1.56 75.11 ±1.92 62.67 ±0.53 68.03 ±0.52 86.63 ±0.35 *AUC-PR 16.82 ±0.22 22.31 ±1.37 40.89 ±1.20 18.47 ±0.53 12.39 ±0.05 31.91 ±3.21 34.19 ±1.92 21.53 ±0.42 34.07 ±1.85 42.82 ±1.19 *HMC B-Acc 58.31 ±0.95 66.68 ±0.94 70.25 ±1.00 71.33 ±0.50 70.68 ±0.89 71.93 ±0.41 71.48 ±0.40 72.18 ±0.24 71.83 ±0.26 74.33 ±0.21 *W-F1 58.37 ±1.87 64.73 ±1.35 72.30 ±1.35 72.62 ±0.33 71.73 ±1.50 72.79 ±0.64 72.76 ±0.55 74.16 ±0.27 73.10 ±0.22 77.31 ±0.20 *Kappa 48.29 ±1.94 57.15 ±1.05 64.51 ±1.50 64.94 ±0.36 64.04 ±1.30 64.97 ±0.53 64.86 ±0.41 66.43 ±0.16 67.20 ±0.29 70.69 ±0.19 *ADFTD B-Acc 37.07 ±1.24 36.68 ±0.45 41.83 ±0.37 42.31 ±1.25 37.86 ±2.07 50.81 ±2.28 52.20 ±0.93 48.96 ±2.65 50.12 ±0.75 58.75 ±0.66 *W-F1 30.65 ±6.15 33.09 ±1.46 43.10 ±0.51 44.01 ±2.37 35.31 ±2.91 50.10 ±1.52 55.29 ±1.50 50.17 ±3.76 50.55 ±0.43 64.12 ±0.63 *Kappa 17.14 ±15.40 5.43 ±0.83 16.35 ±0.68 16.78 ±2.11 6.08 ±2.92 25.68 ±0.99 31.38 ±1.82 24.96 ±4.13 29.48 ±0.83 39.41 ±0.79 *
+
+CBraMod [ 75 ], EEGPT [ 74 ], and CSBrain [ 83 ]). In fine-tuning, PRiSE-EEG uses unified, single-task, freezing and LoRA [ 21 ] strategies, while others follow official or reproduced setting. Experimental details are in Appx. D .
+
+4.3 Main Results 
+
+Tab. 1 and 2 report the results of PRiSE-EEG (basic version: 41.06M parameters with 18.05M activated ) across diverse benchmarks. Results are mean ± std over 10 runs; best results are in bold ,and statistically significant improvements over the second-best model are marked by *. PRiSE-EEG 
+
+achieves strong performance on most tasks. It shows large gains on disease-related and cognitive tasks, including ADFTD, SEED-V, and Workload, improving primary metrics by 6–8% over existing EEG-FMs. Consistent 2–5% gains are observed on TUEV, TUSL, PhysioMI, SEED, and HMC. For tasks such as TUAB and Mimul-11, where the gain in B-Acc is approximately 1%, PRiSE-EEG 
+
+displays lower variance with enhanced stability. On Things-EEG-2, it achieves a >9% AUROC gain, indicating stronger fine-grained visual target discrimination. Compared with supervised baselines ( e.g. , EEGNet and Conformer), PRiSE-EEG benefits from self-supervised pretraining on large unlabeled EEG corpora, reducing overfitting to task-specific labeled data. It also outperforms existing EEG-FMs, which we attribute to prior-guided continuous tokenization and the CKA-calibrated depth-stratified expert transformer. Moreover, even under single-task fine-tuning, the pretrained model surpasses existing EEG-FMs on most tasks (Tab. 9), showing that the gains do not rely solely on unified multi-dataset fine-tuning. Overall, these results support the effectiveness of combining weak sensor-space priors with CKA-calibrated depth-aware expert allocation for robust cross-paradigm EEG representation learning. Additional results on fine-tuning strategies and scaling behavior are in Appx. E and G .
+
+4.4 Ablation Study 
+
+Fig. 3 reports ablations on four representative datasets, covering prior-guided tokenization, CKA-calibrated depth-stratified experts, the classification head and unified fine-tuning. 
+
+Prior-guided continuous tokenization. Removing either the static or dynamic path consistently hurts performance, causing over 3% degradation across datasets and showing that both coarse sensor-space priors and sample-dependent short-window interactions are useful for robust EEG patch formation. The static path is more important for tasks with stronger region or network structure, such as TUSL, SEED-V, and Workload, while the dynamic path remains beneficial for HMC, where few channels still contain rich sub-second interactions. Removing the Gumbel selector also degrades results slightly, indicating that selecting informative lagged groups is better than using all dynamic candidates. 
+
+CKA-calibrated depth-stratified experts. Removing MoE reduces performance, confirming the need for conditional capacity under heterogeneous EEG paradigms. Using fixed shared experts is weaker than PRiSE-EEG, usually by 1–3 percentage points on primary metrics, suggesting that uniform allocation does not match layer-wise sharedness. The reversed expert-ratio sequence causes 7Balanced Acc. Weighted F1 Cohen's Kappa 
+
+> 0.40
+> 0.60
+> 0.80
+
+TUSL   
+
+> Balanced Acc. Weighted F1 Cohen's Kappa
+> 0.10
+> 0.20
+> 0.30
+> 0.40
+> 0.50
+
+SEED-V   
+
+> Balanced Acc. AUROC AUC-PR
+> 0.40
+> 0.60
+> 0.80
+
+Workload   
+
+> Balanced Acc. Weighted F1 Cohen's Kappa
+> 0.50
+> 0.60
+> 0.70
+> 0.80
+
+HMC 
+
+> PRiSE-EEG
+> w/o MoE
+> Only Static Path
+> Reversed Expert Ratio Sequence
+> Only Dynamic Path
+> Flatten MLP Classifier
+> w/o Gumbel Selector
+> w/o Unified Strategy
+> Fixed 2 Shared Experts
+
+Figure 3: Ablation Study. We study the effect of the approaches for three modules in Prior-Guided Continuous Tokenization, CKA-Calibrated Depth-Stratified Expert, the dual-stream MLP classifier and unified fine-tuning strategy. the largest drop, roughly over 8% on primary metrics, supporting our assumption that early layers benefit from more shared experts, whereas deeper layers need specialized capacity. 
+
+Classifier and fine-tuning strategy. The dual-stream head achieves comparable or stronger perfor-mance than the flattened MLP while reducing head parameters by over 90%, suggesting that separate temporal and group pooling preserves useful structure without parameter explosion. Removing uni-fied fine-tuning also lowers performance, showing that joint adaptation provides additional transfer, although the main gains come from prior-guided tokenization and depth-stratified expert allocation. 
+
+4.5 Representation and Routing Analysis 
+
+We analyze PRiSE-EEG from three perspectives: prior-group attribution, CKA-calibrated expert allocation, and the relation between gradient geometry and expert routing. 
+
+Attribution of prior groups. We treat static and dynamic attention biases in the tokenizer as attribution targets and compute Integrated Gradients [ 63 ] of the target logits with respect to each group bias using a zero baseline. Absolute attributions are accumulated across heads and temporal positions to identify influential prior groups. As shown in Tab. 3, PRiSE-EEG consistently assigns high attribution to frontal and temporal regions for emotion-related tasks, while occipital and parietal groups become more prominent in visual or decision-related tasks. Dynamic groups further reveal lag-dependent shifts of attended regions, suggesting that the tokenizer uses both stable spatial priors and sample-dependent short-window interactions. Additional Grad-CAM [ 55 ] visualizations are provided in Appx. F. 
+
+CKA-calibrated shared expert allocation. Fig. 4 visualizes the layer-wise CKA sharedness used to 0 1 2 3 4 5 6 7 8 9 10 11   
+
+> Layer
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> 0.40
+> = 0.275
+> Tcka = 0.040
+> sl
+> Esh
+> l
+> 1
+> 2
+> 3
+> 4
+> 5
+> 16
+> 64
+> 128
+> 176
+> 240
+> 288
+> 352
+> 400
+> 464
+> 512
+> Step
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> 7
+> 8
+> 9
+> 10
+> 11
+> Transformer  Layer
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> 0.40
+> 0.45
+> Elsh
+> sl
+
+Figure 4: CKA analysis and shared expert allocation. The left heatmap shows layer-wise CKA sharedness across the full PRiSE-EEG-B MoE Transformer stack over pilot pretraining steps. The right panel reports the averaged sharedness ¯sl and the CKA-derived shared expert count Esh  
+
+> l
+
+under 
+
+τ = 0 .275 and Tcka = 0 .040 .8Table 3: The significant attribution groups for static and dynamic attention biases via Integrated Gradient. 
+
+Path SEED THINGS-EEG-2 Group Name Focus Region Group Name Focus Region Static 
+
+Frontal - Occipital -Right Temporal - Visual Network -Salience Network - Dorsal Attention -
+
+Dynamic 
+
+Lag -0 Frontal Temporal Lag -0 Occipital 
+
+Lag -1 Frontal Temporal Lag -1 Occipital Parietal 
+
+Lag -2 Frontal Temporal Parietal 
+
+Lag -2 Temporal Frontal WORKLOAD 
+
+> TUSL TUAB TUEV SEED HMC
+> WORKLOAD
+> TUSL TUAB TUEV SEED HMC
+> 0.406 ±0.006 0.393 ±0.042 0.454 ±0.024 0.498 ±0.015 0.463 ±0.038 0.406 ±0.006 0.576 ±0.015 0.558 ±0.009 0.539 ±0.013 0.590 ±0.025 0.393 ±0.042 0.576 ±0.015 0.495 ±0.031 0.430 ±0.010 0.575 ±0.026 0.454 ±0.024 0.558 ±0.009 0.495 ±0.031 0.516 ±0.025 0.399 ±0.028 0.498 ±0.015 0.539 ±0.013 0.430 ±0.010 0.516 ±0.025 0.480 ±0.024 0.463 ±0.038 0.590 ±0.025 0.575 ±0.026 0.399 ±0.028 0.480 ±0.024
+> Encoder Subspace Affinity
+> 0.373 0.413 0.452 0.491 0.531 0.570 0.610
+> WORKLOAD
+> TUSL TUAB TUEV SEED HMC
+> WORKLOAD
+> TUSL TUAB TUEV SEED HMC
+> 0.131 ±0.022 0.162 ±0.031 0.114 ±0.020 0.185 ±0.028 0.138 ±0.024 0.131 ±0.022 0.171 ±0.027 0.148 ±0.025 0.120 ±0.019 0.199 ±0.033 0.162 ±0.031 0.171 ±0.027 0.156 ±0.021 0.142 ±0.026 0.184 ±0.030 0.114 ±0.020 0.148 ±0.025 0.156 ±0.021 0.167 ±0.029 0.096 ±0.023 0.185 ±0.028 0.120 ±0.019 0.142 ±0.026 0.167 ±0.029 0.152 ±0.020 0.138 ±0.024 0.199 ±0.033 0.184 ±0.030 0.096 ±0.023 0.152 ±0.020
+> Expert Routing Smilarity
+> 0.076 0.100 0.124 0.148 0.171 0.195 0.219
+
+Figure 5: Gradient subspace affinity (rank=5) and similarity of routed expert distribution among different datasets. configure the depth-stratified expert transformer. The CKA map shows a clear depth-wise transition: shallow layers maintain higher cross-paradigm alignment, whereas middle and deeper layers become more specialized. Accordingly, the sigmoid mapping assigns more shared experts to early layers and more specialized capacity to later layers. In our implementation with 9 experts per layer, layers 0–2 receive 5 shared experts, layer 3 receives 4, layers 4 and 7–11 receive 2, and layers 5–6 receive 1. This allocation is consistent with the observation that shared low-level EEG regularities dominate shallow layers, while deeper layers require stronger paradigm-specific transformations. 
+
+Gradient subspace and expert routing. Fig. 5 compares gradient subspace affinity with expert routing similarity across datasets. Encoder gradients are collected for 512 optimization steps under dataset-specific heads, projected to a lower-dimensional space, and summarized by rank-k PCA bases. For each dataset pair, subspace affinity measures the overlap between dominant update directions, while routing similarity is computed from cumulative expert usage. Datasets with more similar gradient subspaces tend to induce more similar routing patterns, such as SEED–TUEV and HMC– TUAB. This suggests that the depth-stratified experts do not route samples arbitrarily, but reflect dataset-level optimization geometry. Detailed computation method is described in Appx. C. 
+
+5 Conclusion 
+
+This work presents PRiSE-EEG , a prior-guided EEG foundation model for cross-paradigm repre-sentation learning. PRiSE-EEG forms continuous multi-channel patches with weak sensor-space priors and short-window interactions, and allocates shared and specialized expert capacity across layers using CKA-calibrated sharedness. Evaluated on 12 public benchmarks spanning 10 EEG task categories, PRiSE-EEG achieves strong performance and stable generalization under matched protocols. Further ablations and analyses show that prior-guided tokenization, depth-stratified expert allocation, and unified fine-tuning jointly improve cross-paradigm adaptation. Overall, PRiSE-EEG provides a compact framework for balancing shared EEG regularities with task-specific specialization. 9References 
+
+[1] Finding frequent items in data streams. Theoretical Computer Science , 312(1):3–15, 2004. ISSN 0304-3975. Automata, Languages and Programming. [2] Mashail Alsolamy and Anas Fattouh. Emotion estimation from eeg signals during listening to quran using psd features. In CSIT , pages 1–5, 2016. [3] Diego Alvarez-Estevez and Roselyne M. Rijsman. Inter-database validation of a deep learning approach for automatic sleep scoring. PLOS ONE , 16(8):1–27, 08 2021. [4] Anurag Arnab, Mostafa Dehghani, Georg Heigold, Chen Sun, Mario Luˇ ci´ c, and Cordelia Schmid. Vivit: A video vision transformer. In Proceedings of the IEEE/CVF international conference on computer vision , pages 6836–6846, 2021. [5] Christina Artemenko. Developmental fronto-parietal shift of brain activation during mental arithmetic across the lifespan: A registered report protocol. PLOS ONE , 16(8):1–13, 08 2021. [6] Gedas Bertasius, Heng Wang, and Lorenzo Torresani. Is space-time attention all you need for video understanding? In Icml , volume 2, page 4, 2021. [7] Benjamin Blankertz, Guido Dornhege, Matthias Krauledat, Klaus-Robert Müller, and Gabriel Curio. The non-invasive berlin brain–computer interface: Fast acquisition of effective perfor-mance in untrained subjects. NeuroImage , 37(2):539–550, 2007. [8] O Boucher, CH Bastien, G Muckle, D Saint-Amour, SW Jacobson, and JL Jacobson. Be-havioural correlates of the p3b event-related potential in school-age children. International Journal of Psychophysiology , 76(3):148–157, 2010. [9] Matthew J Brookes, Mark Woolrich, Henry Luckhoo, Darren Price, Joanne R Hale, Mary C Stephenson, Gareth R Barnes, Stephen M Smith, and Peter G Morris. Investigating the electrophysiological basis of resting state networks using magnetoencephalography. Proceedings of the National Academy of Sciences , 108(40):16783–16788, 2011. [10] Andac Demir, Toshiaki Koike-Akino, Ye Wang, Masaki Haruna, and Deniz Erdogmus. Eeg-gnn: Graph neural networks for classification of electroencephalogram (eeg) signals. In EMBC ,pages 1061–1067, 2021. [11] Paolo Detti. Siena scalp eeg database. physionet , 10:493, 2020. [12] Harini Eavani, Meng Kang Hsieh, Yang An, Guray Erus, Lori Beason-Held, Susan Resnick, and Christos Davatzikos. Capturing heterogeneous group differences using mixture-of-experts: Application to a study of aging. Neuroimage , 125:498–514, 2016. [13] Lingzhong Fan, Hai Li, Junjie Zhuo, Yu Zhang, Jiaojian Wang, Liangfu Chen, Zhengyi Yang, Congying Chu, Sangma Xie, Angela R Laird, et al. The human brainnetome atlas: a new brain atlas based on connectional architecture. Cerebral cortex , 26(8):3508–3526, 2016. [14] William Fedus, Barret Zoph, and Noam Shazeer. Switch transformers: Scaling to trillion parameter models with simple and efficient sparsity. Journal of Machine Learning Research , 23 (120):1–39, 2022. [15] Xuange Gao, Danli Wang, and Yanyan Zhao. Eegmoe: A domain-decoupled mixture-of-experts model for self-supervised eeg representation learning. IEEE Transactions on Neural Networks and Learning Systems , 2026. [16] Alessandro T Gifford, Kshitij Dwivedi, Gemma Roig, and Radoslaw M Cichy. A large and rich eeg dataset for modeling human visual object recognition. NeuroImage , 264:119754, 2022. [17] Alexandre Gramfort, Martin Luessi, Eric Larson, Denis A. Engemann, Daniel Strohmeier, Christian Brodbeck, Roman Goj, Mainak Jas, Teon Brooks, Lauri Parkkonen, and Matti Hämäläinen. Meg and eeg data analysis with mne-python. Frontiers in Neuroscience , 7, 2013. 10 [18] Tijl Grootswagers, Ivy Zhou, Amanda K Robinson, Martin N Hebart, and Thomas A Carlson. Human eeg recordings for 1,854 concepts presented in rapid serial visual presentation streams. 
+
+Scientific Data , 9(1):3, 2022. [19] A. Harati, M. Golmohammadi, S. Lopez, I. Obeid, and J. Picone. Improved eeg event classifica-tion using differential energy. In SPMB , pages 1–4, 2015. [20] Joerg F Hipp, David J Hawellek, Maurizio Corbetta, Markus Siegel, and Andreas K Engel. Large-scale cortical correlation structure of spontaneous oscillatory activity. Nature neuroscience , 15 (6):884–890, 2012. [21] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen, et al. Lora: Low-rank adaptation of large language models. ICLR , 1 (2):3, 2022. [22] Eric Jang, Shixiang Gu, and Ben Poole. Categorical reparametrization with gumble-softmax. In 
+
+International Conference on Learning Representations (ICLR 2017) , 2017. [23] Ji-Hoon Jeong, Jeong-Hyun Cho, Kyung-Hwan Shim, Byoung-Hee Kwon, Byeong-Hoo Lee, Do-Yeun Lee, Dae-Hyeok Lee, and Seong-Whan Lee. Multimodal signal dataset for 11 intuitive movement tasks from single upper extremity during multiple recording sessions. GigaScience ,9(10):giaa098, 2020. [24] Wei-Bang Jiang, Li-Ming Zhao, and Bao-Liang Lu. Large brain model for learning generic representations with tremendous eeg data in bci. In ICLR , 2024. [25] Wei-Bang Jiang, Yansen Wang, Bao-Liang Lu, and Dongsheng Li. Neurolm: A universal multi-task foundation model for bridging the gap between language and eeg signals. In ICLR ,2025. [26] Louis Korczowski, Martine Cederhout, Anton Andreev, Grégoire Cattan, Pedro Luiz Coelho Ro-drigues, Violette Gautheret, and Marco Congedo. Brain Invaders calibration-less P300-based BCI with modulation of flash duration Dataset (bi2015a). Technical report, July 2019. [27] Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton. Similarity of neural network representations revisited. In International conference on machine learning , pages 3519–3529. PMlR, 2019. [28] Demetres Kostas, Stephane Aroca-Ouellette, and Frank Rudzicz. Bendr: Using transformers and a contrastive self-supervised learning task to learn from massive amounts of eeg data. FHN ,15:653–659, 2021. [29] Vernon J Lawhern, Amelia J Solon, Nicholas R Waytowich, Stephen M Gordon, Chou P Hung, and Brent J Lance. Eegnet: a compact convolutional neural network for eeg-based brain–computer interfaces. Journal of Neural Engineering , 15(5), 2018. [30] Dongdong Li, Zhongliang Zeng, Zhe Wang, and Hai Yang. Estformer: Transformer utilising spatiotemporal dependencies for electroencephalogram super-resolution. Knowledge-Based Systems , 317:113345, 2025. [31] Aixin Liu, Bei Feng, Bing Xue, Bingxuan Wang, Bochao Wu, Chengda Lu, Chenggang Zhao, Chengqi Deng, Chenyu Zhang, Chong Ruan, et al. Deepseek-v3 technical report. arXiv preprint arXiv:2412.19437 , 2024. [32] Bingxiu Liu, Jifeng Guo, CL Philip Chen, Xia Wu, and Tong Zhang. Fine-grained interpretability for eeg emotion recognition: Concat-aided grad-cam and systematic brain functional network. 
+
+IEEE Transactions on Affective Computing , 15(2):671–684, 2023. [33] Wei Liu, Jie-Lin Qiu, Wei-Long Zheng, and Bao-Liang Lu. Comparing recognition performance and robustness of multimodal deep learning models for multimodal emotion recognition. IEEE TCDS , 14(2):715–729, 2022. [34] Wei Liu, Wei-Long Zheng, Ziyi Li, Si-Yuan Wu, Lu Gan, and Bao-Liang Lu. Identifying similarities and differences in emotion recognition with eeg and eye movements among chinese, german, and french people. Journal of Neural Engineering , 19(2):026012, 2022. 11 [35] Matthew D. Luciw, Ewa Jarocka, and Benoni B. Edin. Multi-channel eeg recordings during 3,936 grasp and lift trials with varying weight and friction. Scientific Data , 1(1):140047, Nov 2014. [36] S. López, G. Suarez, D. Jungreis, I. Obeid, and J. Picone. Automated identification of abnormal adult eegs. In SPMB , pages 1–5, 2015. [37] Jingying Ma, Feng Wu, Qika Lin, Yucheng Xing, Chenyu Liu, Ziyu Jia, and Mengling Feng. Codebrain: Towards decoupled interpretability and multi-scale architecture for eeg foundation model. arXiv preprint arXiv:2506.09110 , 2025. [38] Perrin Margaux, Maby Emmanuel, Daligault Sébastien, Bertrand Olivier, and Mattout Jérémie. Objective and subjective evaluation of online error correction during p300-based spelling. 
+
+Advances in Human-Computer Interaction , 2012(1):578295, 2012. [39] Chirag Mehra, Ahmad Beyh, Petroula Laiou, Pilar Garces, Emily JH Jones, Luke Mason, Jan Buitelaar, Mark H Johnson, Declan Murphy, Eva Loth, et al. Zero-phase-delay syn-chrony between interacting neural populations: implications for functional connectivity-derived biomarkers. Imaging Neuroscience , 3:IMAG–a, 2025. [40] Christoph M Michel and Thomas Koenig. Eeg microstates as a tool for studying the temporal dynamics of whole-brain neuronal networks: a review. Neuroimage , 180:577–593, 2018. [41] Andreas Miltiadous, Katerina D Tzimourta, Theodora Afrantou, Panagiotis Ioannidis, Niko-laos Grigoriadis, Dimitrios G Tsalikakis, Pantelis Angelidis, Markos G Tsipouras, Euripidis Glavas, Nikolaos Giannakeas, et al. A dataset of scalp eeg recordings of alzheimer’s disease, frontotemporal dementia and healthy subjects from routine eeg. Data , 8(6):95, 2023. [42] Gavin Mischler, Yinghao Aaron Li, Stephan Bickel, Ashesh D Mehta, and Nima Mesgarani. Contextual feature extraction hierarchies converge in large language models and the brain. 
+
+Nature Machine Intelligence , 6(12):1467–1477, 2024. [43] Ari Morcos, Maithra Raghu, and Samy Bengio. Insights on representational similarity in neural networks with canonical correlation. Advances in neural information processing systems , 31, 2018. [44] Raffaele Nardone, Luca Sebastianelli, Viviana Versace, Leopold Saltuari, Piergiorgio Lochner, Vanessa Frey, Stefan Golaszewski, Francesco Brigo, Eugen Trinka, and Yvonne Höller. Useful-ness of eeg techniques in distinguishing frontotemporal dementia from alzheimer’s disease and other dementias. Disease markers , 2018(1):6581490, 2018. [45] Iyad Obeid and Joseph Picone. The temple university hospital eeg data corpus. Frontiers in Neuroscience , 10:196, 2016. [46] Yassine El Ouahidi, Jonathan Lys, Philipp Thölke, Nicolas Farrugia, Bastien Pasdeloup, Vincent Gripon, Karim Jerbi, and Giulia Lioi. Reve: A foundation model for eeg - adapting to any setup with large-scale pretraining on 25,000 subjects. ArXiv , abs/2510.21585, 2025. [47] John Polich. Updating p300: an integrative theory of p3a and p3b. Clinical neurophysiology ,118(10):2128–2148, 2007. [48] Jathurshan Pradeepkumar, Xihao Piao, Zheng Chen, and Jimeng Sun. Tokenizing single-channel eeg with time-frequency motif learning. arXiv preprint arXiv:2502.16060 , 2025. [49] Pavel Prado, Vicente Medel, Raul Gonzalez-Gomez, Agustín Sainz-Ballesteros, Victor Vi-dal, Hernando Santamaría-García, Sebastian Moguilner, Jhony Mejia, Andrea Slachevsky, Maria Isabel Behrens, et al. The brainlat project, a multimodal neuroimaging dataset of neurodegeneration from underrepresented backgrounds. Scientific Data , 10(1):889, 2023. [50] Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Sohl-Dickstein. Svcca: Singular vector canonical correlation analysis for deep learning dynamics and interpretability. Advances in neural information processing systems , 30, 2017. 12 [51] Christopher Rorden. Mricrogl: voxel-based visualization for neuroimaging. Nature methods ,22(8):1613–1614, 2025. [52] Subhrajit Roy, Isabell Kiral-Kornek, and Stefan Harrer. Chrononet: A deep recurrent neural network for abnormal eeg identification. In David Riaño, Szymon Wilk, and Annette ten Teije, editors, Artificial Intelligence in Medicine , pages 47–56, 2019. [53] Arman Savran, Koray Çiftçi, Guillaume Chanel, Javier Mota, Luong Viet, Bulent Sankur, Lale Akarun, Alice Caplier, and Michèle Rombaut. Emotion detection in the loop from brain signals and facial images. 01 2006. [54] G. Schalk, D.J. McFarland, T. Hinterberger, N. Birbaumer, and J.R. Wolpaw. Bci2000: a general-purpose brain-computer interface (bci) system. IEEE TBE , 51(6):1034–1043, 2004. [55] Ramprasaath R Selvaraju, Michael Cogswell, Abhishek Das, Ramakrishna Vedantam, Devi Parikh, and Dhruv Batra. Grad-cam: Visual explanations from deep networks via gradient-based localization. In Proceedings of the IEEE international conference on computer vision , pages 618–626, 2017. [56] Ozan Sener and Vladlen Koltun. Multi-task learning as multi-objective optimization. Advances in neural information processing systems , 31, 2018. [57] Noam Shazeer, Azalia Mirhoseini, Krzysztof Maziarz, Andy Davis, Quoc Le, Geoffrey Hinton, and Jeff Dean. Outrageously large neural networks: The sparsely-gated mixture-of-experts layer. arXiv preprint arXiv:1701.06538 , 2017. [58] Seyed Yahya Shirazi, Alexandre Franco, Maurício Scopel Hoffmann, Nathalia B Esper, Dung Truong, Arnaud Delorme, Michael P Milham, and Scott Makeig. Hbn-eeg: The fair imple-mentation of the healthy brain network (hbn) electroencephalography dataset. bioRxiv , pages 2024–10, 2024. [59] Reece Shuttleworth, Jacob Andreas, Antonio Torralba, and Pratyusha Sharma. Lora vs full fine-tuning: An illusion of equivalence. arXiv preprint arXiv:2410.21228 , 2024. [60] Yonghao Song, Xueyu Jia, Lie Yang, and Longhan Xie. Transformer-based spatial-temporal feature learning for eeg decoding. arXiv preprint arXiv:2106.11170 , 2021. [61] Yonghao Song, Qingqing Zheng, Bingchuan Liu, and Xiaorong Gao. Eeg conformer: Convolu-tional transformer for eeg decoding and visualization. TNSRE , 31:710–719, 2022. [62] Sebastian Stober, Avital Sternin, Adrian M Owen, and Jessica A Grahn. Towards music imagery information retrieval: Introducing the openmiir dataset of eeg recordings from music perception and imagination. In ISMIR , pages 763–769, 2015. [63] Mukund Sundararajan, Ankur Taly, and Qiqi Yan. Axiomatic attribution for deep networks. In 
+
+International conference on machine learning , pages 3319–3328. PMLR, 2017. [64] Ian Tenney, Dipanjan Das, and Ellie Pavlick. Bert rediscovers the classical nlp pipeline. In 
+
+Proceedings of the 57th annual meeting of the association for computational linguistics , pages 4593–4601, 2019. [65] Mastaneh Torkamani-Azar, Sumeyra Demir Kanik, Serap Aydin, and Mujdat Cetin. Prediction of reaction time and vigilance variability from spatio-spectral features of resting-state eeg in a long sustained attention task. IEEE JBHI , 24(9):2550–2558, 2020. [66] Logan T. Trujillo. Mental effort and information-processing costs are inversely related to global brain free energy during visual categorization. Frontiers in Neuroscience , 13, 2019. [67] Logan T. Trujillo, Candice T. Stanfield, and Ruben D. Vela. The effect of electroencephalogram (eeg) reference choice on information-theoretic measures of the complexity and integration of eeg signals. Frontiers in Neuroscience , 11, 2017. [68] Dimitri Van de Ville, Juliane Britz, and Christoph M Michel. Eeg microstate sequences in healthy humans at rest reveal scale-free dynamics. Proceedings of the National Academy of Sciences , 107(42):18179–18184, 2010. 13 [69] Aaron Van Den Oord, Oriol Vinyals, et al. Neural discrete representation learning. In NeurIPS ,2017. [70] Laurens van der Maaten and Geoffrey Hinton. Visualizing data using t-sne. Journal of Machine Learning Research , 9(86):2579–2605, 2008. [71] Mariska J Vansteensel, Martin G Bleichner, Zac V Freudenburg, Dora Hermes, Erik J Aarnoutse, Frans SS Leijten, Cyrille H Ferrier, Johan Martijn Jansma, and Nick F Ramsey. Spatiotemporal characteristics of electrocortical brain activity during mental calculation. Human Brain Mapping ,35(12), 2014. [72] Raul Vicente, Leonardo L Gollo, Claudio R Mirasso, Ingo Fischer, and Gordon Pipa. Dynamical relaying can yield zero time lag neuronal synchrony despite long conduction delays. Proceedings of the National Academy of Sciences , 105(44):17157–17162, 2008. [73] E. von Weltin, T. Ahsan, V. Shah, D. Jamshed, M. Golmohammadi, I. Obeid, and J. Picone. Electroencephalographic slowing: A primary source of error in automatic seizure detection. In 
+
+SPMB , pages 1–5, 2017. [74] Guangyu Wang, Wenchao Liu, Yuhong He, Cong Xu, Lin Ma, and Haifeng Li. Eegpt: Pretrained transformer for universal and reliable representation of eeg signals. In NeurIPS , pages 39249– 39280, 2024. [75] Jiquan Wang, Sha Zhao, Zhiling Luo, Yangxuan Zhou, Haiteng Jiang, Shijian Li, Tao Li, and Gang Pan. Cbramod: A criss-cross brain foundation model for eeg decoding. In ICLR , 2025. [76] Yuxiang Wei, Yanteng Zhang, Xi Xiao, Tianyang Wang, Xiao Wang, and Vince D Calhoun. More-brain: Routed mixture of experts for interpretable and generalizable cross-subject fmri visual decoding. arXiv preprint arXiv:2505.15946 , 2025. [77] Marta Xavier, Inês Esteves, João Jorge, Rodolfo Abreu, Anne-Lise Giraud, Sepideh Sadaghiani, Jonathan Wirsich, and Patrícia Figueiredo. Consistency of resting-state correlations between fmri networks and eeg band power. Imaging Neuroscience , 3:IMAG–a, 2025. [78] Chaoqi Yang, M Westover, and Jimeng Sun. Biot: Biosignal transformer for cross-data learning in the wild. In NeurIPS , pages 78240–78260, 2023. [79] Zhi Zhang, Srishti Yadav, Fengze Han, and Ekaterina Shutova. Cross-modal information flow in multimodal large language models. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 19781–19791, 2025. [80] Zihan Zhang, Xiao Ding, Yu Bao, Yi Zhao, Xia Liang, Bing Qin, and Ting Liu. Chisco: An eeg-based bci dataset for decoding of imagined speech. Scientific Data , 11(1):1265, 2024. [81] W. Zheng, W. Liu, Y. Lu, B. Lu, and A. Cichocki. Emotionmeter: A multimodal framework for recognizing human emotions. IEEE TC , pages 1–13, 2018. [82] Wei-Long Zheng and Bao-Liang Lu. Investigating critical frequency bands and channels for eeg-based emotion recognition with deep neural networks. IEEE TAMD , 7(3):162–175, 2015. [83] Yuchen Zhou, Jiamin Wu, Zichen Ren, Zhouheng Yao, Weiheng Lu, Kunyu Peng, Qihao Zheng, Chunfeng Song, Wanli Ouyang, and Chao Gou. Csbrain: A cross-scale spatiotemporal brain foundation model for eeg decoding. arXiv preprint arXiv:2506.23075 , 2025. [84] Igor Zyma, Sergii Tukaev, Ivan Seleznov, Ken Kiyono, Anton Popov, Mariia Chernykh, and Oleksii Shpenkov. Electroencephalograms during mental arithmetic task performance. Data , 4 (1), 2019. 14 This supplementary material presents additional details, analyses, and experiments to support our primary findings. The document is structured as follows: • Appendix Adescribe the datasets utilized for pre-training and fine-tuning. • Appendix B elaborates on the specific implementation details of the model. • Appendix C details the method to analyze the gradient and routing dynamics. • Appendix D details the complete experimental configurations. • Appendix E presents supplementary experimental results and ablation studies evaluating the impact of different configurations. • Appendix F contains additional visualizations of classification results and saliency topomaps to further illustrate the model’s interpretability. • Appendix G provides an empirical investigation into the scaling behavior governing EEG representations. • Appendix H concludes with a discussion of current limitations and outlines potential avenues for future research. 
+
+A Datasets Description 
+
+A.1 Pre-training Datasets 
+
+The pre-training corpus for PRiSE-EEG comprises 17 diverse, publicly accessible EEG datasets. This multi-site corpus spans various experimental protocols, including clinical monitoring ( e.g. ,HBN, TUEG, Siena), cognitive assessments ( e.g. , SEED series, Motor Imagery), and brain-computer interface (BCI) tasks ( e.g. , BCIC, P300). Comprehensive specifications for each dataset, including specific citations, recording durations, and functional descriptions, are summarized in Tab. 4. To prevent pretraining data leakage, all TUEG recordings whose subject identifiers overlap with TUAB, TUEV, or TUSL evaluation subjects are removed from the pre-training corpus. 
+
+A.2 Fine-tuning Datasets 
+
+The detailed information on the evaluation datasets are listed in Tab. 5: (1) Seizure Detection: 
+
+Siena [ 11 ] (binary classification with seizure or healthy); (2) Emotion Recognition: SEED [ 82 ](3-class classification with sad, neutral or happy), SEED-V [ 33 ] (5-class classification with disgust, fear, sad, neutral or happy); (3) Motor Imagery: PhysioMI [54 ] (4-class classification with left fist, right fist, both fists or feet), Mimul-11 [23 ] (3-class classification with reaching, grasping or twisting); (4) Mental Stress: Workload [ 84 ] (binary-class classification with arithmetic calculation or resting); (5) Sleep Staging: HMC [3 ] (5-class classification with wake, REM, N1, N2 or N3); (6) Anomalous Event Detection: TUEV [ 19 ] (6-class classification with spike and slow wave, generalized periodic epileptiform discharge, periodic lateralized epileptiform dischage, eye movement artifact or background); (7) Abnormal Classification: TUAB [ 36 ] (binary-class classification with abnormal or normal); (8) Visual Target Detection: Things-EEG-2 [16 ] (binary-class classification with target or non-target); (9) Alzheimer ’s Disease Identification: ADFTD [ 41 ] (3-class classification with Alzheimer’s Disease, Frontotemporal Dementia or healthy); (10) Slowing Event Classification: 
+
+TUSL [73] (3-class classification with seizure, slow wave or background). 
+
+B Implementation Details 
+
+B.1 Overview 
+
+Let the raw EEG signal be denoted as x0 ∈ RC×P0 , where C is the number of channels and P0 is the total number of time points. This signal is segmented into non-overlapping patches of length P = fs.After batching, the batched input tensor is defined as xp ∈ RB×T ×C×P , where B is the batch size and T is the number of temporal patches. Throughout this paper, Dm denotes the model embedding dimension, L represents the feature concatenation operator, and RMS and ZN refer to Root Mean Square and Z-score normalization, respectively. 15 Table 4: Detailed information about pre-training datasets. Dataset Category #Channel Duration #Train #Valid Description TUEG [45] Clinical Recordings 19-22 60 1515391 75436 A rich archive of clinical EEG recordings col-lected at Temple University Hospital. HBN [58] Multiple Categories 70 15 395605 42376 EEG data and behavioral responses collected during EEG experiments from more than 3000 participants (5-21) performing six distinct tasks in the HBN project. SEED-IV [81] Emotion Recognition 60 10 13678 977 A emotion EEG dataset that 15 subjects watch 72 film clips which will induce happiness, sad-ness, fear or neutral emotions. SEED-GER [34] Emotion Recognition 60 10 8440 919 A emotion dataset eight German subjects watch 20 film clips (positive, neutral, negative) as stimuli. SEED-FRA [34] Emotion Recognition 60 10 6846 978 Eight French subjects watch 21 film clips in French (positive, neutral, negative) as stimuli. BCIC-1A [7] Motor Imagery 43 8 3155 535 EEG recordings for motor imagery tasks, where subjects imagined moving either their left hand, right hand, or foot. Emobrain [53] Emotion Recognition 54 10 1370 405 Multimodal emotion detection dataset using brain signals (EEG, fNIRS) from 5 male sub-jects. Grasp and Lift [35] Motor Execution 32 5 7003 1390 Grasp and lift action from 12 subjects in total, 10 series of trials for each subject. Inria BCI P300 [38] ERP 56 5 13647 7901 A P300-based spelling dataset including 26 sub-jects. Resting State [67] Resting 64 10 981 100 A dataset comprising 22 subjects for a resting eyes closed and eyes open. Raw EEG Data [66] Visual Stimulus 64 30 4806 319 A dataset recorded during reported Information-Integration categorization and reported multidi-mensional Rule-Based categorization tasks. SPIS Resting State [65] Resting 64 10 270 30 A resting-state EEG from 10 subjects contains 2.5 minutes of eyes-open and 2.5 minutes of eyes-closed. Target Versus Non-Target [26] ERP 32 15 3403 333 Dataset contains EEG recordings of 50 subjects playing to a visual P300 Brain-Computer Inter-face (BCI) video game. BrainLat [49] Alzheimer’s Disease 48 10 4164 912 The Latin American Brain Health Institute dataset comprises multimodal data of 780 par-ticipants from Latin American with neurode-generative diseases. Chisco [80] Imagined Speech 62 30 9941 2061 Chinese Imagined Speech Corpus (Chisco), in-cluding over 20,000 sentences of high-density EEG recordings of imagined speech from healthy adults. Things EEG 1 [18] Visual Stimulus 62 20 6568 1749 The THINGS-EEG dataset provides neu-roimaging recordings to a systematic collection of objects and concepts. OpenMIIR [62] Acoustic Stimulus 64 10 3399 992 A public domain dataset of EEG recordings taken during music perception and imagination comprised 10 subjects listening to and imagin-ing 12 short music fragments. Our framework consists of a shared encoder and two distinct decoder configurations. The encoder includes: (1) a Prior-Guided Continuous Tokenizer and (2) a Depth-Stratified Expert Trans-former . The stage-specific components include (3) an EEG Reconstructor for pre-training and (4) 
+
+Dual-Stream Spatial-Temporal Classifiers for fine-tuning. 
+
+B.2 Prior-Guided Continuous Tokenizer B.2.1 Feature Extraction and Positional Encoding 
+
+To capture temporal dynamics and global spectral characteristics, we extract features from both time and frequency domains. In the temporal domain, we apply stacked 1D convolutional blocks with multiple receptive fields to each patch. The normalized patch tensor xp ∈ RB×T ×C×P is reshaped 16 Table 5: Detailed information about evaluation datasets. Dataset Category #Channel Duration #Train #Valid #Test Task TUAB Abnormal Classification 23 30 247728 12315 12277 Binary Classification TUEV Anomalous Event Detection 21 5 87834 12473 13046 6-class Classification TUSL Slowing Event Classification 21,22 10 210 43 37 3-class Classification SEED Emotion Recognition 60 10 22455 7875 7560 3-class Classification SEED-V Emotion Recognition 60 10 3552 4638 4128 5-class Classification HMC Sleep Staging 4 30 91681 22804 22440 5-class Classification Workload Mental Stress 19 10 1537 300 297 Binary Classification Siena Seizure Detection 29 10 41631 5592 3607 Binary Classification Mimul-11 Motor Imagery 60 5 31398 5000 4949 3-class Classification PhysioMI Motor Imagery 64 4 6210 1734 1803 4-class Classification Things EEG 2 Visual Target Detection 63 5 24915 8324 8331 3-class Classification ADFTD Alzheimer’s Disease Identification 19 10 4743 1115 1155 3-class Classification into x′ 
+
+> p
+
+∈ R(BT C )×1×P and processed via S convolutional branches. The aggregated temporal feature is defined as: 
+
+xt = RMS GELU W⊤
+
+> emb
+> S
+
+M
+
+> i=1
+
+Yi
+
+!! 
+
+, (11) where Yi denotes the output of the i-th branch. In the frequency domain, we extract spectral features using the Power Spectral Density (PSD) [ 2 ]. Specifically, we apply Fast Fourier Transform (FFT) to xp to obtain its frequency representation. The one-sided PSD is computed using a Hanning window and converted to the decibel scale, yielding the spectral feature xs. The composite feature 
+
+x ∈ RB×T ×C×Dm is formed by concatenating the normalized temporal and spectral features: 
+
+x = M(ZN (xt), ZN (xs)) . (12) For the pre-training reconstruction task, the target signal xref consists of the concatenated raw patch 
+
+xp and spectral features xs.EEG channel configurations vary significantly across datasets. To address this, we define a standard-ized electrode superset C (based on the 10-10 system with auxiliary electrodes such as T1 and T2) and introduce a learnable channel positional embedding Ec ∈ R|C|× Dm , which is added to the input features x and serves as a query in the EEG reconstructor. For the temporal dimension, we apply Rotary Positional Encoding (RoPE) within the attention to encode relative temporal positions. 
+
+B.2.2 Static Group Queries with Weak Sensor-Space Priors 
+
+A core strategy of our design involves representing EEG signals not only as channel patches but also as a set of group patches corresponding to neuro-functional organization. We define a fixed grouping scheme P (details in Appx. D.7) that organizes channels according to anatomical regions and coarse functional networks. To incorporate prior knowledge, we employ a prior matrix Ms ∈ R|P|× C that defines channel-group associations, wherein in-group entries are set to 0 and out-of-group entries are assigned a negative bias (ablations in Appx. E.2). To prevent excessive rigidity, we introduce a learnable relaxation term ∆pri ∈ R|P|× C , which adjusts this bias while retaining the underlying structural guidance. Subsequently, we instantiate learnable parameters denoted as static queries 
+
+Qs ∈ R|P|× Dm , which serve as inputs to the group cross-attention modules. The attention mechanism incorporating these priors is formulated as: 
+
+Attn( Qs, K, V ) = Softmax 
+
+ QsK⊤
+
+√dk
+
++ Ms + ∆pri 
+
+
+
+V (13) where K and V are from the input x, reshaped to R(B×T )×C×Dm .
+
+B.2.3 Dynamic Sub-second Queries through Short-Time Correlation 
+
+Static groups provide stable anchors aligned with anatomy and networks, yet EEG signals also display rapid, sample- and task-specific coupling patterns that cannot be adequately captured by 1 s patches. Therefore, we introduce dynamic sub-second query groups where attention is modulated by 17 a short-time correlation module. We reshape and embed each patch into micro-frames : x −→ ˜x ∈
+
+RB×T ×F ×C×S , P = F · S, E = ϕ(˜ x) ∈ RB×T ×F ×C×H , (14) 
+
+Q′ = EW Q, K ′ = EW K ∈ RB×T ×F ×C×d, (15) where F , S, and H are the number of frames, samples per frame, and frame embedding dimension, respectively; ϕ(·) is a compact convolution projector, WQ, W K ∈ RH×d are projection matrices, and 
+
+d is the correlation feature dimension. For a given patch, the channel affinity between micro-frames 
+
+i and j is defined as: 
+
+Ai,j = 1
+
+√d Q′
+
+> i
+
+K′⊤  
+
+> j
+
+∈ RC×C , (16) where Q′
+
+> i
+
+, K ′ 
+
+> j
+
+∈ RC×d denote the slices of Q′ and K′ at frames i and j, respectively; Ai,j (a, b )
+
+quantifies the affinity between channel a (at frame i) and channel b (at frame j). We define a lag-limited set of frame pairs, G = {(i, j ) | 0 ≤ i−j ≤ ∆f }, where ∆f denotes the maximum frame lag, and each pair (i, j ) ∈ G constitutes a single dynamic group g. The group biases are derived from each affinity matrix via a node encoder applied row-wise, bg = enc (Ag ) ∈ RC , where Ag ∈ RC×C
+
+denotes the affinity matrix for group g, and enc (·) is an MLP-based node encoder utilizing row statistics and top-k neighbor values. Aggregating these groups yields ˜Md ∈ RB×T ×|G|× C , which serves as an additive dynamic attention bias analogous to Eq. 13, but utilizes a distinct set of parameters denoted as dynamic queries ˜Qd ∈ R|G|× Dm . To suppress uninformative lag pairs and reduce computation, we apply a Gumbel Selector to pick the most important frame-pairs in G for each sample-patch. We obtain differentiable importance scores with Gumbel-Softmax and select top-k groups: 
+
+Λ = Mean C( ˜ Md) + MLP( ˜Qd) ∈ R(B·T )×|G| (17) 
+
+Π = TopK(GumbelSoftmax( Λ; τ ), k ) ∈ R(B·T )×k (18) where τ is temperature. The Π score is used to gather corresponding dynamic biases Md ∈
+
+RB×T ×k×C and queries Qd ∈ Rk×Dm .
+
+B.3 CKA-Calibrated Depth-Stratified Expert Transformer 
+
+During pretraining, PRiSE-EEG contains an ordered MoE Transformer stack consisting of tokenizer cross-attention blocks, temporal-wise blocks, group-wise blocks, and decoder blocks. For PRiSE-EEG-B, this stack has L = 12 blocks: 2 tokenizer cross-attention blocks, 4 group MoE blocks, 4 temporal MoE blocks, and 2 decoder MoE blocks. All blocks use the same MoE-FFN structure, so CKA-calibrated shared expert allocation can be applied uniformly across the stack. 
+
+Interleaved temporal and group layers. Given the tokenizer output h0 ∈ RB×T ×G×Dm , the encoder contains LE Transformer layers. Temporal-wise and group-wise Transformer layers appear alternately, so each type has LE /2 layers [ 6, 4, 30 ]. For layer l, let al ∈ { temp , group } denote its attention type. If al = temp , self-attention is applied along the temporal dimension T for each group. If al = group , self-attention is applied along the group dimension G for each time patch. Each temporal-wise or group-wise layer has its own depth-stratified MoE feed-forward block: 
+
+˜hl = Attn al 
+
+> l
+
+(hl), hl+1 = ˜hl + DSE l(LN( ˜hl)) . (19) Thus, depth stratification is applied to the FFN of every Transformer layer, regardless of whether the layer performs temporal-wise or group-wise attention. 
+
+Dense pilot checkpoints. Before training PRiSE-EEG, we train a dense pilot version with the same tokenizer and interleaved temporal/group attention layout, but with standard dense FFNs. We save pilot checkpoints at selected pretraining steps T = {t1, . . . , t m}. At each step t ∈ T , we feed a mixed-paradigm batch Bt = {(xi, y i)}Nb
+
+> i=1
+
+, where yi denotes the dataset or paradigm identity of sample i.18 Sample-wise CKA. For block l, let Nl denote the number of tokens in that block representation. For sample i at pretraining step t, we reshape the block output as 
+
+R(i) 
+
+> l,t
+
+= reshape( h(i) 
+
+> l,t
+
+) ∈ RNl×Dm (20) be its flattened token representation. We use linear CKA between two samples i and j:
+
+CKA l,t (i, j ) = 
+
+( ¯R(i) 
+
+> l,t
+
+)⊤ ¯R(j)
+
+> l,t
+> 2
+> F
+
+( ¯R(i) 
+
+> l,t
+
+)⊤ ¯R(i) 
+
+> l,t F
+
+( ¯R(j) 
+
+> l,t
+
+)⊤ ¯R(j) 
+
+> l,t F
+
++ ϵ, (21) where ¯R = JR , Jl = INl − 1 
+
+> Nl
+
+11 ⊤ centers the token dimension, ∥ · ∥ F is the Frobenius norm, and 
+
+ϵ is a small constant. 
+
+Within- and between-paradigm CKA. Let Y be the set of paradigms in the mixed batch. For paradigm a, define within-paradigm pairs 
+
+Ia,a = {(i, j ) | i < j, y i = a, y j = a}. (22) For two different paradigms a and b, define between-paradigm pairs 
+
+Ia,b = {(i, j ) | yi = a, y j = b}. (23) We first average over pairs inside each paradigm or paradigm pair, and then average over paradigms: 
+
+cintra  
+
+> l,t
+
+= 1
+
+|Y| 
+
+X
+
+> a∈Y
+
+1
+
+|I a,a |
+
+X
+
+> (i,j )∈I a,a
+
+CKA l,t (i, j ), (24) 
+
+cinter  
+
+> l,t
+
+= 2
+
+|Y| (|Y| − 1) 
+
+X
+
+> a,b ∈Y
+> a<b
+
+1
+
+|I a,b |
+
+X
+
+> (i,j )∈I a,b
+
+CKA l,t (i, j ). (25) Here cintra  
+
+> l,t
+
+measures within-paradigm representation consistency at layer l and pretraining step t,while cinter  
+
+> l,t
+
+measures cross-paradigm alignment. 
+
+CKA-derived shared expert ratio. We define normalized sharedness as 
+
+sl,t = clip cinter 
+
+> l,t
+
+cintra  
+
+> l,t
+
++ ϵ , 0, 1
+
+!
+
+, ¯sl = 1
+
+|T | 
+
+X
+
+> t∈T
+
+sl,t . (26) The shared expert proportion of layer l is 
+
+ρsh  
+
+> l
+
+= ρmin + ( ρmax − ρmin )σ
+
+ ¯sl − τTcka 
+
+
+
+, (27) where ρmin and ρmax bound the shared-expert proportion, τ is the sharedness threshold, and Tcka is the sigmoid temperature. Given El total experts in layer l, we set 
+
+Esh  
+
+> l
+
+= round( Elρsh  
+
+> l
+
+), Esp  
+
+> l
+
+= El − Esh  
+
+> l
+
+. (28) The allocation is computed once from the dense pilot pretraining steps and then fixed during PRiSE-EEG training. 
+
+Depth-stratified MoE FFN. Let Esh  
+
+> l
+
+and Esp  
+
+> l
+
+denote the shared and specialized expert pools at layer 
+
+l, with |E sh  
+
+> l
+
+| = Esh  
+
+> l
+
+and |E sp  
+
+> l
+
+| = Esp  
+
+> l
+
+. The full expert set is El = Esh  
+
+> l
+
+∪ E sp  
+
+> l
+
+. For input zl = LN( ˜hl),the router produces logits 
+
+al = Router l(zl) ∈ RB×T ×G×El . (29) We use top-κ routing: 
+
+rl,e (zl) = TopKSoftmax( al,e ; κ), e ∈ E l. (30) The depth-stratified expert output is 
+
+DSE l(zl) = X
+
+> e∈E l
+
+rl,e (zl)Fl,e (zl), (31) where Fl,e (·) is the MLP expert. Shared experts are available across all paradigms, while specialized experts provide input-conditioned capacity. Unlike uniform MoE, Esh  
+
+> l
+
+and Esp  
+
+> l
+
+vary with layer depth. 19 B.4 Decoder B.4.1 EEG Reconstructor at Pre-training Stage 
+
+During pre-training, the reconstructor maps the encoder context h to the channel space via a symmetric decoding mechanism employing learnable queries and Transformers. The module reconstructs both waveform samples and spectral targets in xref , with masked patches reconstruction and future patches forecasting objectives. 
+
+B.4.2 Dual-Stream Average Pooling MLP Head at Fine-tuning Stage 
+
+For unified fine-tuning, we append a compact classification head to the encoder context h ∈
+
+RB×T ×G×Dm . We implement a dual-stream architecture that processes representations from two complementary perspectives: (1) a temporal branch that averages over query groups to yield a tensor of shape RB×T ×Dm , which is subsequently flattened and mapped to RB×Dm via an MLP; and (2) a query branch that performs temporal averaging to produce a representation in RB×G×Dm , followed by a corresponding MLP. The resulting features are concatenated, normalized, fused via a linear layer, and projected to task logits. This configuration is designed to surpass the performance of standard average pooling while ensuring greater memory efficiency than fully flattened architectures. 
+
+B.5 Pre-training and Fine-tuning Strategy B.5.1 Pre-training Stage Activation within Tokenizer. During pre-training, to ensure comprehensive optimization of all group priors, we fully activate both static and dynamic group queries. 
+
+Loss Function. We pre-train PRiSE-EEG using a self-supervised framework comprising multiple objectives: 1. Masked Auto-Encoding (MAE): We randomly mask 50% of the input along either temporal patches (MAE-TP) or channels (MAE-CH) and reconstruct the masked targets. 2. Generative Pre-training (GPT): We train an auto-regressive objective to predict the next patch conditioned on previous patches via causal attention. 3. Auxiliary Sequence Routing Loss (Aux): To prevent expert collapse, we impose a load balancing loss that encourages uniform patch distribution across experts. We employ the reconstruction losses formulated as: 
+
+LMAE = 1
+
+|Ω|
+
+X
+
+> i∈Ω
+
+∥ˆxi − xref ,i ∥2 , (32) where Ω denotes the set of masked patch indices, and 
+
+LGPT = 1
+
+C(T − 1) 
+
+> C
+
+X 
+
+> n=1
+> T−1
+
+X
+
+> t=1
+
+∥ˆxn,t +1 − xref ,n,t +1 ∥2 . (33) To balance expert utilization without capacity-based patch dropping, we introduce a router bias term into routing logits, which is updated based on expert load deviation [ 31 ] with a lightweight sequence-wise auxiliary routing loss to stabilize training: 
+
+LAux = N
+
+> N
+
+X
+
+> i=1
+
+fi · Pi, (34) where N is the number of experts, fi is the fraction of patches dispatched to expert i within a batch, and Pi is the average routing probability for expert i. The overall pre-training loss is: 
+
+Lpt = 13 (LMAE-TP + LMAE-CH + LGPT ) + βLAux . (35) where β governs the weight of the expert load balancing constraint. 20 B.5.2 Unified Fine-tuning Stage Activation within Tokenizer. Recognizing that the relevance of specific group priors varies across tasks, we apply differentiable top-k selection over the candidate dynamic groups using Gumbel-Softmax [ 22 ], activating a subset of k groups with their dynamic priors Md. The Gumbel temperature is annealed via an exponential decay to gradually sharpen the selection distribution. 
+
+Loss Function. We fine-tune the shared pre-trained encoder jointly across multiple downstream datasets, equipping each task with a dedicated dual-stream classification head . For a set of K tasks, the joint fine-tuning objective is defined as: 
+
+Lf t =
+
+> K
+
+X
+
+> k=1
+
+Lk 
+
+> cls
+
++ βLAux . (36) Each task employs a weighted cross-entropy loss: 
+
+Lk 
+
+> cls
+
+= − 1
+
+N
+
+> N
+
+X
+
+> i=1
+> Ck
+
+X
+
+> c=1
+
+wkc ykic log( pθ (ykic |xi)) , (37) where N is the batch size, Ck is the number of classes for task k, wkc is the class weight, ykic is the ground truth label, and pθ is the predicted probability. This unified strategy facilitates cross-dataset transfer and enhances data efficiency within a shared encoder. 
+
+C Gradient and Routing Analysis 
+
+We analyze encoder gradients to quantify whether different downstream datasets impose aligned or conflicting updates on the same shared encoder. Let D = {D1, . . . , D M } be the downstream datasets. Starting from a fixed pretrained checkpoint, we attach dataset-specific classification heads and run 
+
+Q consecutive optimization steps for each dataset without updating the checkpoint used for other datasets. Unless otherwise stated, Q = 512 .
+
+C.1 Projected Encoder Gradients 
+
+We partition encoder parameters into semantic groups g ∈ G , such as tokenizer, temporal layers, group layers, or backbone FFNs. At step q for dataset Di, let g(q) 
+
+> g,i
+
+be the flattened encoder gradient of group g. To reduce memory cost, we project gradients into Rd with a fixed CountSketch [ 1 ] projector 
+
+Sg :
+
+v(q) 
+
+> g,i
+
+= Sg g(q) 
+
+> g,i
+
+∈ Rd. (38) The same projector Sg is used for all datasets and steps within group g.
+
+C.2 Mean Gradient Cosine Similarity 
+
+For each group g and dataset Di, we compute the normalized mean update direction 
+
+¯vg,i =
+
+PQq=1 v(q)
+
+> g,i
+
+PQq=1 v(q) 
+
+> g,i 2
+
++ ϵ. (39) The pairwise mean gradient cosine similarity is 
+
+Cg (i, j ) = ⟨¯vg,i , ¯vg,j ⟩ . (40) Positive values indicate aligned average update directions, while negative values indicate conflicting mean directions. When reporting an overall heatmap, we average over groups: 
+
+C(i, j ) = 1
+
+|G| 
+
+X
+
+> g∈G
+
+Cg (i, j ). (41) 21 C.3 Gradient Subspace Affinity 
+
+Mean directions can miss cases where two datasets share dominant update modes but have different average gradients. Therefore, we also compare low-rank gradient subspaces. For group g and dataset 
+
+Di, we stack projected gradients into 
+
+Xg,i =
+
+
+
+(v(1)  
+
+> g,i
+
+)⊤
+
+· · · 
+
+(v(Q) 
+
+> g,i
+
+)⊤
+
+ ∈ RQ×d. (42) Let Ug,i ∈ Rd×k be the top-k PCA basis of Xg,i with orthonormal columns. We use k = 7 by default. For datasets Di and Dj , the subspace affinity is 
+
+Affinity g (i, j ) = 1
+
+k
+
+> k
+
+X
+
+> ℓ=1
+
+σℓ
+
+ U⊤
+
+> g,i
+
+Ug,j 
+
+ , (43) where σℓ(·) is the ℓ-th singular value. Values close to 1 indicate highly overlapping dominant gradient subspaces, while values close to 0 indicate distinct update subspaces. The overall affinity is 
+
+Affinity( i, j ) = 1
+
+|G| 
+
+X
+
+> g∈G
+
+Affinity g (i, j ). (44) 
+
+C.4 Expert Routing Similarity 
+
+To compare gradient geometry with expert specialization, we also compute the cumulative routing distribution of each dataset. Let pi ∈ RE be the normalized count or probability mass assigned to all experts by samples from dataset Di. The routing similarity is 
+
+R(i, j ) = ⟨pi, pj ⟩∥pi∥2∥pj ∥2 + ϵ . (45) Expert routing similarity are then averaged across encoder Transformer layers. Comparing 
+
+Affinity( i, j ) and R(i, j ) shows whether datasets with similar dominant gradient subspaces also induce similar expert usage. 
+
+D Experimental Setup 
+
+D.1 Data Preprocessing 
+
+The preprocessing pipeline utilizes a systematic framework for managing heterogeneous EEG data using MNE-Python [ 17 ]. The pipeline begins with a resampling stage to transform all source signals to fs = 256 Hz, which standardizes patch division and ensures parity with the sampling rates used in baseline models. A band-pass Finite Impulse Response (FIR) filter (1–100 Hz), implemented via an overlap-add method, is applied to attenuate low-frequency noise and high-frequency artifacts. This method ensures filtering consistency across signals of varying durations. A notch filter is then applied at either 50 Hz or 60 Hz to remove power-line interference, with the frequency selected according to a manual review of each dataset’s spectral profile or geographical origin. Then time series are segmented into consecutive 1-second patches. Electrode configurations are then mapped to a standardized 10-10 universal channel set. Additionally, data units are converted from microvolts (μV) to Volts to ensure compatibility with MNE-Python conventions. To optimize data handling, processed EEG signals are serialized in the Parquet format using Zstandard compression for storage efficiency, or Apache Arrow for high-throughput memory mapping. To facilitate large-scale distributed training, the pipeline supports direct dataset access from remote object storage via the S3 protocol. The implementation employs parallel execution to process the multi-terabyte pre-training corpus efficiently. 
+
+D.2 Comparing Baselines 
+
+We evaluate our framework against seven state-of-the-art EEG foundation models: BENDR [ 28 ], BIOT [ 78 ], LaBraM [ 24 ], EEGPT [ 74 ], CBraMod [ 75 ], CSBrain [ 83 ], and REVE [ 46 ]. BENDR [ 28 ]22 (3.97 M parameters) applies a BERT-style objective to a large-scale clinical EEG corpus. BIOT [ 78 ](3.19 M) manages data heterogeneity by tokenizing various biosignals into a unified, sequence-based structure. LaBraM ( 5.82 M ) is pre-trained on 2,500 hours of data with integrated VQ-VAE [ 69 ]modules for dual-domain (frequency/phase) mask learning, EEGPT ( 25 .29 M ) combines dual self-supervised universal representation learning and stabilization mechanisms, and CBraMod [ 75 ](4.92 M ) utilizes criss-cross attention to capture the spatial-temporal separately at the same trans-former layer, leading to refined representation ability. CSBrain [ 83 ] ( 8.86 M ) employs cross-scale spatiotemporal tokenization (CST) and structured sparse attention to obtain robust EEG representa-tions. REVE [ 46 ] ( 69 .19 M ) is characterized by the use of the largest pre-training dataset available and 4D Fourier positional encoding, which is paired with an improved MAE reconstruction objective. In addition, we select two strong supervised methods for comparison, and two supervised methods (EEGNet [ 29 ], EEGConformer [ 61 ]). Among these methods, BENDR, BIOT, LaBraM, CBraMod, CSBrain and REVE exploit fully flatten MLP and fine-tune on different downstream tasks separately during the evaluation. However, EEGPT exploits linear probe to frozen pre-trained backbone, making their framework support the multi-task evaluation with different linear probes. During experiment, we follow their own strategy and open-sourced hyperparameter settings to reproduce them on 12 downstream tasks based on their pre-trained EEG foundation models. 
+
+D.3 Evaluation Strategy 
+
+To partition each dataset, we perform a subject-level split for most of the datasets. Subject-dependent strategy is adopted for SEED and SEED-V to have a comparable metric to other baselines. We also employ a greedy, multi-label stratified splitting algorithm to ensure label distributions remain balanced across the training, validation, and test sets to predefined ratios: • Siena : Subject 0-7, 9-13, 16-17 are assigned to the training, valid, test set correspondingly; • SEED : Following prior research, the 15 trials are divided into three sets in a 9:3:3 ratio, and all sessions are merged together; • SEED-V : Following prior research, the 15 trials are divided into three sets in a 1:1:1 ratio; • PhysioMI : Subject 1-70,71-89, 90-109 are assigned to the training set, valid set, test set corre-spondingly; • Mimul-11 : Stratified splitting is employed to achieve ratios of 0.76, 0.12, and 0.12 for training, validating, and testing; • Workload : Stratified splitting is employed to achieve ratios of 0.72, 0.14, and 0.14 for training, validating, and testing; • HMC : Subjects are randomly split into training, validation, and test sets at a ratio of 103:24:24; • TUEV and TUSL : Owing to the highly imbalanced label distribution in these datasets, the stratified splitting function is employed to create three splits from all the data, approximately aligning with predefined ratios of 0.8, 0.1, and 0.1; • TUAB : The validation and test sets are obtained by equally splitting the original evaluation set by subject, while the training set remains unchanged; • Things-EEG-2 : Split by subject with predefined ratios of 0.6, 0.2, and 0.2; • ADFTD : Stratified splitting is employed to achieve ratios of 0.70, 0.15, and 0.15 for training, validating, and testing. 
+
+D.4 Evaluation Metrics 
+
+To account for class imbalance in the downstream datasets, we utilize the following evaluation metrics: • Balanced Accuracy : the arithmetic mean of recall (sensitivity) across all classes, mitigating the impact of imbalanced class distributions. It is effective for evaluating classification models on datasets with significant disparities in class proportions, which is formulated as: B-Acc = 1
+
+C
+
+> C
+
+X
+
+> i=1
+
+T P i
+
+T P i + F N i
+
+, (46) 23 Table 6: Configurations for model variants. PRiSE-EEG-S PRiSE-EEG-M PRiSE-EEG-B PRiSE-EEG-L PRiSE-EEG-XL #Parameters 9.41 M 27.06 M 41.06 M 78.86 M 125.58 M #Activated Parameters 6.46 M 11.73 M 18.05 M 36.39 M 64.85 M Model Dim 192 256 384 512 640 MoE Expert Dim 256 256 256 256 256 Tokenizer Cross Attention Block 1 2 2 2 2Group MoE Block 3 3 4 6 8Temporal MoE Block 3 3 4 6 8Decoder Block 1 2 2 3 4Batch Size 256 128 128 128 64 Attn. Head 4 4 8 8 8Inference Latency(ms) 12.52 26.87 34.15 46.59 56.17 GFLOPS 1.236 2.679 5.702 11.411 18.010 where C is the number of classes, T P i and F N i denote true positives and false negatives for class 
+
+i.• Weighted F1 : a harmonic mean of precision and recall, weighted by the number of true instances in each class. This metric accounts for class imbalance by assigning higher importance to classes with larger sample sizes, ensuring a more representative evaluation of model effectiveness, which is formulated as Pre i = T P i
+
+T P i + F P i
+
+, Rec i = T P i
+
+T P i + F N i
+
+, (47) W-F1 =
+
+> C
+
+X
+
+> i=1
+
+wi · 2 · Pre i · Rec i
+
+Pre i + Rec i
+
+, (48) where F P i denotes false positives for class i, and wi is the weight of class i based on its support. • AUROC : area under the ROC curve. It reflects the model’s ability to discriminate between classes across all possible decision boundaries, which is formulated as TPR = T P T P + F N , FPR = F P F P + T N , (49) AUROC =
+
+Z 10
+
+TPR (f ) df, f = FPR . (50) • AUC-PR : area under the precision-recall curve. It provides a holistic evaluation of model performance under class imbalance, which is formulated as AUC-PR =
+
+Z 10
+
+Pre (r) dr, r = Rec . (51) • Cohen’s Kappa : the agreement level between predicted and true labels by comparing observed and expected frequencies along the diagonal of a confusion matrix. It is particularly suited for multi-class classification scenarios, which is formulated as 
+
+κ = po − pe
+
+1 − pe
+
+, (52) where po and pe are observed and expected agreement. Among these metrics, AUROC and AUC-PR are used to evaluate binary classification tasks, while Cohen’s Kappa and Weighted F1 are applied to multi-category classification. Together, these metrics provide a robust evaluation framework under class imbalance. 
+
+D.5 Training Settings Data. To facilitate high-throughput loading, all preprocessed samples are converted into the Arrow 
+
+format, which accelerates distributed computation and enables direct data access for the GPU. 
+
+Environment. Experiments are conducted using Python 3.11.13, PyTorch 2.7.1, and CUDA 12.8 on four NVIDIA A100 GPUs for pre-training and one A100 GPU for fine-tuning. We utilize 24 Table 7: Region electrode groupings used in the Prior-Guided Continuous Tokenization. 
+
+Group Electrodes 
+
+Prefrontal FP1, FPZ, FP2, AF9, AF7, AF5, AF3, AF1, AFZ, AF2, AF4, AF6, AF8, AF10 Frontal F9, F7, F5, F3, F1, FZ, F2, F4, F6, F8, F10, FT9, FT7, FC5, FC3, FC1, FCZ, FC2, FC4, FC6, FT8, FT10 Central FC1, FCZ, FC2, C5, C3, C1, CZ, C2, C4, C6, CP1, CPZ, CP2 Parietal TP9, TP7, CP5, CP3, CP1, CPZ, CP2, CP4, CP6, TP8, TP10, P9, P7, P5, P3, P1, PZ, P2, P4, P6, P8, P10 Occipital PO9, PO7, PO5, PO3, PO1, POZ, PO2, PO4, PO6, PO8, PO10, O1, OZ, O2, I1, IZ, I2 Left Temporal T1, T7, T9, FT7, FT9, TP7, TP9 Right Temporal T2, T8, T10, FT8, FT10, TP8, TP10 Midline FPZ, AFZ, FZ, FCZ, CZ, CPZ, PZ, POZ, OZ, IZ Table 8: Network electrode groupings used in the Prior-Guided Continuous Tokenization. 
+
+Group Electrodes 
+
+DMN FP1, FPZ, FP2, AFZ, FZ, FCZ, CZ, CPZ, PZ, POZ, OZ, P5, P7, P6, P8, TP7, TP8, AF1, AF2 ECN AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, F1, F3, F5, F2, F4, F6, FC1, FC3, FC2, FC4, P1, P3, P2, P4, CP1, CP3, CP2, CP4 SN FZ, FCZ, CZ, F1, F2, FC1, FC2, C1, C2, FC3, FC4, C3, C4 DAN F1, F3, F2, F4, P1, P3, P5, P2, P4, P6, PO3, PO4 VAN F10, F8, FT10, FT8, T8, TP8, C6, CP6, P10, P8, P6, T10, TP10 Visual P9, P10, PO9, PO7, PO5, PO3, PO1, POZ, PO2, PO4, PO6, PO8, PO10, O1, OZ, O2, I1, IZ, I2, T10 Somatomotor FC5, FC3, FC1, FC2, FC4, FC6, C5, C3, C1, CZ, C2, C4, C6, CP5, CP3, CP1, CP2, CP4, CP6 Language F9, F7, F5, FT9, FT7, T7, TP7, C5, CP5, P9, P7, P5, T9, TP9 Automatic Mixed Precision (AMP) with the bfloat16 data type to optimize memory usage and employ GradScaler to maintain stability. 
+
+Optimizer. We employ AdamW with a two-phase learning rate scheduler combining linear warm-up and cosine annealing. The warm-up factor is 0.1, and the gradient clipping threshold is 1.0. For MoE load balancing, the expert bias update rate is 1 × 10 −4, and the auxiliary sequence balancing loss coefficient is 1 × 10 −5. For LoRA-based adaptation, the rank ( r) and scaling factor ( α) are set to 8 and 16.0, respectively. 
+
+Pre-training. The pre-training learning rate is 1 × 10 −4, with attention and feedforward dropout rates set to 0.1. We apply a maximum DropPath rate of 0.1, utilizing a linear stochastic depth schedule that increases with layer depth. Training is conducted for 5 epochs, including a 1-epoch warm-up. 
+
+Fine-tuning. The fine-tuning learning rate is 5×10 −5 with a weight decay of 0.05. The process spans 20 epochs, consisting of one initial epoch with a frozen backbone to stabilize classifier initialization, followed by 2 warm-up epochs. PRiSE-EEG is optimized in a unified multi-task setting, where the shared backbone is updated using data from all downstream sets simultaneously. The classification head’s learning rate is five times that of the backbone. The Gumbel selector is activated during this stage with k = 12 and a temperature τ that decays from 1.0 to 0.1. Model selection is based on peak validation performance, with final results reported on the held-out test set for each task. 25 0 -1 -10 -100 -1000 ∞               
+
+> Attention Mask Bias
+> 0.50
+> 0.60
+> 0.70
+> 0.80
+> TUSL
+> 0-1 -10 -100 -1000 ∞
+> Attention Mask Bias
+> 0.30
+> 0.35
+> 0.40
+> 0.45
+> 0.50 SEED-V
+> 0-1 -10 -100 -1000 ∞
+> Attention Mask Bias
+> 0.40
+> 0.50
+> 0.60
+> 0.70
+> 0.80
+> 0.90
+> Workload
+> Balanced Acc. Weighted F1 Cohen's Kappa AUROC AUC-PR
+
+Figure 6: Ablation Study of attention bias strength for static path on TUSL, Workload and SEED-V datasets. Balanced Acc. Weighted F1 Cohen's Kappa 
+
+> 0.40
+> 0.50
+> 0.60
+> 0.70
+> 0.80
+
+TUSL   
+
+> Balanced Acc. Weighted F1 Cohen's Kappa
+> 0.20
+> 0.30
+> 0.40
+> 0.50
+
+SEED-V   
+
+> Balanced Acc. AUROC AUC-PR
+> 0.20
+> 0.40
+> 0.60
+> 0.80
+
+Workload   
+
+> Balanced Acc. Weighted F1 Cohen's Kappa
+> 0.50
+> 0.60
+> 0.70
+> 0.80
+
+HMC  
+
+> Prior at Pretrain Prior at Finetune
+
+Figure 7: Ablation Study of the stage that the neural prior has been introduced on TUSL, SEED-V, HMC and Workload. 
+
+D.6 Model Configurations PRiSE-EEG is developed in five scaling variants, with parameter counts of 9.41 M , 27.06 M , 41.06 M,78.86 M , and 125.58 M . The model scale is primarily adjusted by varying the number of Transformer blocks and the latent embedding dimensionality. The patch size is set to fs = 256 , corresponding to a 1-second temporal duration. For the masked auto-encoding objectives, we employ a 50% masking ratio applied independently to either temporal patches or entire channel sequences. The hidden dimensionality of the dual-stream MLP classification head is 128. Detailed specifications for each model variant are provided in Tab. 6. 
+
+D.7 Electrode Correspondence 
+
+The Prior-Guided Continuous Tokenization incorporates neuroscientific guidance by integrating priors from anatomical regions and functional brain networks. Electrodes from the 10-10 standard montage are partitioned into groups as defined in Tabs. 7 and 8. Specifically, each electrode is assigned to its spatially proximal region of interest (ROI) within the reference atlas. We utilize electrode coordinates registered in MRI space via the MNE-standard montage [ 17 ], with group correspondences visually verified against the Human Brainnetome Atlas [ 13 ] using MRIcroGL [ 51 ]. Within this partition scheme, certain electrodes are assigned to overlapping groups, reflecting their involvement in multiple functional networks or their location at anatomical boundaries. While these groupings provide an initial neuro-informed prior, we acknowledge that these assignments are subject to future refinement as more granular electrophysiological mapping data becomes available. The 26 functional network groupings encompass the Default Mode Network (DMN), Executive Control Network (ECN), Salience Network (SN), Dorsal Attention Network (DAN), Ventral Attention Network (VAN), Somatomotor Network, Visual Network, and Language Network. 
+
+E Extended Results 
+
+E.1 Detailed Experiment Results 
+
+Tab. 9 presents detailed model performance metrics across the default configuration and four al-ternative training strategies. Multi-task unified fine-tuning achieves consistent improvements over single-task training, confirming that pre-trained representations provide a significant performance advantage compared to training from random initialization. Besides, PRiSE-EEG demonstrates strong representation transferability even with a frozen encoder , validating the feature extraction capabilities of the Prior-Guided Continuous Tokenization and the CKA-Calibrated Depth-Stratified Expert Transformer. Conversely, LoRA-based fine-tuning yielded suboptimal results. This perfor-mance degradation is attributed to the structural incompatibility between low-rank adaptation matrices and the sparse, dynamic routing mechanisms of the MoE architecture [ 59 ], which limits the effective adaptation of expert parameters. Table 9: Performance comparison of 5 configurations of PRiSE-EEG on 12 BCI tasks under full-parameter unified , full-parameter single-task , efficient LoRA , freezing backbone and from scratch fine-tuning. 
+
+Dataset Metrics Unified Single-Task LoRA Freezing Scratch Baseline Best SEED 
+
+B-Acc 73.92 ±0.31 72.60 ±0.51 59.26 ±0.30 64.96 ±0.12 58.90 ±0.27 71.92 ±0.39 F1/AUROC 73.29 ±0.22 72.00 ±0.62 58.90 ±0.28 64.66 ±1.04 58.68 ±0.27 71.84 ±0.20 Kappa/AUCPR 61.02 ±0.45 59.10 ±0.52 39.01 ±0.11 47.60 ±0.18 41.00 ±0.16 58.02 ±0.59 
+
+PhysioMI 
+
+B-Acc 65.55 ±0.38 63.53 ±1.01 32.62 ±0.14 41.81 ±1.20 30.08 ±1.26 64.80 ±0.53 F1/AUROC 65.83 ±0.56 63.60 ±0.98 30.99 ±0.27 41.69 ±1.95 29.27 ±1.11 64.84 ±0.94 Kappa/AUCPR 54.78 ±0.69 52.10 ±1.02 10.17 ±0.17 22.40 ±0.91 6.79 ±0.82 53.04 ±0.85 
+
+Workload 
+
+B-Acc 82.47 ±0.30 77.33 ±1.53 59.70 ±0.40 74.96 ±1.85 74.74 ±1.17 74.50 ±1.65 F1/AUROC 89.21 ±0.19 84.03 ±1.32 83.03 ±0.32 83.97 ±1.31 82.77 ±1.10 82.07 ±2.54 Kappa/AUCPR 70.75 ±0.47 68.17 ±1.47 62.66 ±0.43 62.16 ±1.30 61.09 ±0.95 64.67 ±2.21 
+
+TUEV 
+
+B-Acc 75.28 ±0.51 73.60 ±0.98 70.13 ±0.30 71.05 ±2.58 67.05 ±2.83 72.24 ±0.87 F1/AUROC 88.25 ±0.51 87.90 ±0.79 81.87 ±0.57 79.87 ±3.18 79.03 ±1.57 84.97 ±0.33 Kappa/AUCPR 80.90 ±0.62 80.00 ±0.85 73.55 ±0.21 75.00 ±1.99 67.53 ±1.51 75.12 ±0.76 
+
+TUAB 
+
+B-Acc 82.22 ±0.12 81.83 ±0.52 81.11 ±0.31 81.39 ±0.29 78.38 ±1.10 81.75 ±0.65 F1/AUROC 89.93 ±0.31 88.77 ±0.65 89.49 ±0.40 88.24 ±0.55 85.01 ±1.42 89.60 ±1.05 Kappa/AUCPR 90.11 ±0.15 89.03 ±0.61 89.86 ±0.33 89.14 ±1.16 85.16 ±1.18 90.00 ±1.56 
+
+HMC 
+
+B-Acc 74.33 ±0.21 73.03 ±1.35 70.83 ±0.13 71.09 ±0.43 68.57 ±1.79 72.18 ±0.24 F1/AUROC 77.31 ±0.20 76.26 ±1.62 74.24 ±0.21 71.86 ±0.79 69.14 ±1.16 74.16 ±0.27 Kappa/AUCPR 70.69 ±0.19 68.76 ±1.53 66.31 ±0.48 65.18 ±0.96 64.76 ±2.04 66.43 ±0.16 
+
+Siena 
+
+B-Acc 86.89 ±2.31 84.31 ±0.77 79.54 ±0.52 80.81 ±2.46 74.22 ±1.29 83.96 ±0.55 F1/AUROC 89.12 ±2.30 90.30 ±1.94 87.63 ±2.61 88.07 ±2.56 82.90 ±2.17 93.15 ±1.49 Kappa/AUCPR 99.85 ±0.03 99.83 ±0.03 99.81 ±0.05 99.81 ±0.16 99.71 ±0.03 99.84 ±0.04 
+
+TUSL 
+
+B-Acc 79.82 ±1.95 78.33 ±1.59 33.33 ±0.00 61.30 ±2.93 62.44 ±1.75 77.54 ±1.95 F1/AUROC 77.34 ±2.30 76.13 ±2.35 25.71 ±0.03 43.66 ±3.46 54.64 ±1.72 73.63 ±2.70 Kappa/AUCPR 65.45 ±2.31 64.60 ±2.86 00.00 ±0.00 31.30 ±2.01 41.21 ±1.57 65.12 ±3.48 
+
+Mimul-11 
+
+B-Acc 51.33 ±0.24 49.60 ±0.42 40.13 ±0.11 44.00 ±2.11 41.01 ±1.10 50.51 ±0.63 F1/AUROC 58.82 ±0.23 55.23 ±0.55 46.77 ±0.14 48.92 ±1.91 44.59 ±0.97 58.09 ±0.61 Kappa/AUCPR 31.49 ±0.98 29.13 ±1.10 13.37 ±0.28 15.24 ±1.76 12.09 ±2.15 33.63 ±1.80 
+
+Things EEG 2 
+
+B-Acc 65.15 ±0.48 64.14 ±0.91 50.00 ±0.01 55.46 ±1.50 53.38 ±1.75 63.76 ±1.57 F1/AUROC 86.63 ±0.35 75.02 ±0.84 59.97 ±0.10 61.48 ±0.46 57.56 ±1.66 77.54 ±0.70 Kappa/AUCPR 42.82 ±1.19 43.70 ±1.96 15.78 ±0.02 17.21 ±0.34 15.08 ±1.14 40.89 ±1.20 
+
+SEED-V 
+
+B-Acc 47.40 ±0.25 42.27 ±1.52 22.06 ±0.12 29.58 ±0.92 26.30 ±1.51 40.98 ±1.58 F1/AUROC 48.39 ±0.42 42.42 ±1.32 16.61 ±0.19 29.78 ±1.16 25.85 ±1.45 41.18 ±1.46 Kappa/AUCPR 34.84 ±0.45 27.59 ±1.33 2.56 ±0.25 12.01 ±1.09 8.62 ±1.71 25.58 ±1.87 
+
+ADFTD 
+
+B-Acc 58.75 ±0.66 56.43 ±0.95 49.82 ±0.23 51.58 ±1.56 49.46 ±2.40 52.20 ±0.93 F1/AUROC 64.12 ±0.63 59.93 ±1.15 47.26 ±0.38 53.57 ±2.54 54.08 ±2.06 55.29 ±1.50 Kappa/AUCPR 39.41 ±0.79 37.07 ±1.36 28.96 ±0.29 28.71 ±2.51 28.41 ±1.48 31.38 ±1.82 
+
+E.2 Additional Ablation Results 
+
+We first evaluate the sensitivity of the attention bias strength (ranging from 0 to −10 6) within the Prior-Guided Continuous Tokenization, as illustrated in Fig. 6. Compared to the baseline without 27 Table 10: Prior preservation and grouping sanity check. The full PRiSE-EEG prior keeps a clear gap after training, while random learnable grouping shows a weaker structural separation. Variant ∥∆pri ∥/∥Ms∥ ↓ In-group bias ↑ Out-group bias ↓ In-group − out-group ↑        
+
+> Full PRiSE-EEG prior 0.2801 ±0.0517 −0.1638 ±0.0405 −1.0487 ±0.0310 0.8849
+> Random learnable grouping 0.4345 ±0.0892 −0.6911 ±0.0783 −0.8255 ±0.0712 0.1344
+
+Table 11: Comparison with recent tokenizer-centered EEG foundation models. “Reported” follows the original paper when available; “released code” follows the public implementation; “our pipeline” uses the same preprocessing, split cache, seed control, and fine-tuning budget as PRiSE-EEG. Balanced Accuracy is reported.                                 
+
+> Model TUEV SEED-V HMC Workload CodeBrain reported 64 .28 ±0.62 41 .37 ±0.23 –75 .14 ±2.03
+> CodeBrain by released code 63 .19 ±1.06 41 .24 ±0.39 71 .93 ±0.54 75 .25 ±0.33
+> CodeBrain by our pipeline 64 .43 ±1.22 41 .54 ±0.45 72 .06 ±0.48 78 .73 ±0.32
+> TFM-Tokenizer reported 49 .43 ±5.16 –––TFM-Tokenizer by released code 51 .12 ±0.60 35 .50 ±0.18 66 .74 ±0.54 58 .47 ±0.59
+> TFM-Tokenizer by our pipeline 53 .65 ±0.55 36 .31 ±0.28 66 .10 ±0.43 60 .35 ±0.52
+> PRiSE-EEG 75.25 ±0.48 47.34 ±0.23 74.30 ±0.24 82.44 ±0.28
+
+prior guidance (bias = 0), the application of a soft attention bias yields measurable performance gains of 5-10% across the TUSL, Workload, and SEED-V datasets. However, as the bias strength approaches a hard mask configuration, performance across all three datasets progressively declines. Furthermore, enforcing a hard mask (bias = −∞ ) induces training instability during pre-training, as the model fails to optimize the parameters in the layers preceding the tokenizer. This phenomenon is likely attributable to an information bottleneck generated by the sparse attention mask, which obstructs effective gradient propagation. These findings validate the tokenizer design, confirming that a soft, non-zero attention bias is optimal for learning versatile EEG representations. We also investigate the optimal stage for introducing neuroscientific priors. As shown in Fig. 7, incorporating prior knowledge during pre-training results in substantially better downstream performance compared to its introduction during the fine-tuning stage alone. This result underscores the importance of anchoring the model to neuroscientific principles from the onset of the learning process. 
+
+E.3 Prior Preservation and Grouping Sanity Check 
+
+PRiSE-EEG uses static region-network priors only as weak sensor-space biases, and the learnable relaxation term ∆pri is expected to adjust rather than overwrite the initial grouping structure. We therefore measure whether the optimized prior matrix Ms + ∆ pri preserves the coarse in-group/out-group separation after training. In Tab. 10, we report the relative update magnitude ∥∆pri ∥/∥Ms∥,the average in-group bias, the average out-group bias, and the in-group minus out-group gap. We also compare against a random learnable grouping baseline under the same training budget. The learned update remains modest relative to the initial prior matrix, and the in-group/out-group gap is largely preserved. This indicates that the prior relaxation term provides data-driven correction without collapsing the predefined sensor-group structure. 
+
+E.4 Comparison with Recent EEG Tokenizers 
+
+We compare PRiSE-EEG with recent tokenizer-centered EEG foundation models. CodeBrain uses a decoupled temporal-frequency discrete tokenizer with a multi-scale EEGSSM backbone, while TFM-Tokenizer learns single-channel time-frequency motif tokens. In contrast, PRiSE-EEG keeps EEG patches continuous and multi-channel, and combines weak prior-guided tokenization with CKA-calibrated depth-stratified experts. PRiSE-EEG outperforms both discrete-tokenizer baselines on the shared evaluation datasets under the matched pipeline. These results suggest that continuous multi-channel prior-guided tokenization is complementary to discrete EEG vocabularies, and that the proposed depth-stratified expert allocation provides additional cross-paradigm capacity. 28 F Visualization 
+
+F.1 Interpretable Decision Localization 
+
+We apply Grad-CAM [ 55 ] to the SEED, ADFTD, Workload, and Things-EEG-2 datasets to analyze how PRiSE-EEG extracts task-relevant spatial information from EEG signals. Specifically, Grad-CAM is a visualization technique that highlights critical regions in the input data that influence the predictions of model. By computing gradient-based weights from the target class score to the original EEG features, the resulting heatmaps provide intuitive explanations for model decisions. While attention patterns for specific classes may vary across individuals, the averaged Grad-CAM visualization on a standard brain model reflects the general attentional mechanisms learned by our model. In our implementation, we generate heatmaps from the final layer of our dual-stream MLP classifier, allowing us to visualize channel-wise evidence for the model’s decisions. As shown in Fig. 8, apparent lateralization is consistent with previous research on the functional networks of emotion [ 32 ]. For Sad emotion, our framework pays more attention to F7, F8, and P8 electrodes, suggesting that the right frontal and temporal lobes may be dominant in negative emotion. For Neutral emotion, the parietal lobe around P2 and P6 receives strong attention, which is part of the Default Mode Network (DMN). As shown in Fig. 9, the Grad-CAM visualizations for the ADFTD, which involves classifying between Alzheimer’s Disease (AD), Frontotemporal Dementia (FTD), and healthy controls, reveal a striking and neuroscientifically valid double dissociation in the model’s spatial attention. For the classification of AD, PRiSE-EEG assigns the highest importance to electrodes situated over the temporal and parietal lobes. When classifying FTD, the model’s attention shifts decisively to electrodes over the frontal cortex. This learned spatial distinction is profoundly consistent with decades of clinical neurophysiology [ 44 ]. AD is characterized by pathology that predominantly affects posterior cortical areas, leading to classic EEG findings such as decreased alpha-band coherence in the temporal-parietal-occipital regions and general slowing of the background rhythm. In contrast, FTD is defined by progressive degeneration of the frontal and anterior temporal lobes, which can manifest as focal slowing. As presented in Fig. 10, the visualizations for the Workload dataset show that PRiSE-EEG pays greater attention to electrodes Fp2, F7, F8, C4, T8, P8, O2 and F4. This behavior is consistent with core neuroscientific principles of cognition. For instance, the focus of PRiSE-EEG on Fp2, F7, F8 in the non-math state accurately captures activity in the Default Mode Network, which is centered in the prefrontal cortex. When performing calculations, the attention of PRiSE-EEG expands to include frontal, temporal, and parietal electrodes, correctly identifying the engagement of the specialized Fronto-Parietal Network required for mathematical processing [ 71 , 5]. The attention shift demonstrates that the model learns to distinguish between the general resting state and distributed network in the brain required for a demanding cognitive task. In the analysis of the Things-EEG-2 visual target detection task, Grad-CAM visualizations (Fig. 11) show that when a target stimulus is presented, the attention of PRiSE-EEG becomes strongly concentrated on electrodes over the parietal and left frontal lobes. This focal activation is absent for non-target stimuli. This specific spatiotemporal pattern is the well-known hallmark of P3b [ 8], a sub-component of the P300 event-related potential (ERP) [ 47 ]. The P3b is a large, positive-going voltage deflection that peaks approximately 300-600 ms after a subject identifies a rare, task-relevant target stimulus. It is maximally recorded over centro-parietal and parieto-occipital scalp sites and is Sad  Neutral  Happy 
+
+Figure 8: Grad-CAM visualization of PRiSE-EEG on SEED showing the region of model interest for Sad, Neutral and Happy emotion. Red colors indicating high relevance. 29 FTD AD Background Figure 9: Grad-CAM visualization of our PRiSE-EEG on ADFTD dataset showing the region of model interest for Alzheimer’s Disease, Frontotemporal Dementia and healthy control group. Red colors indicating high relevance.  
+
+> (a) Arithmetic (b) Background
+
+Figure 10: Grad-CAM visualization of PRiSE-EEG on Workload dataset showing the region of model interest for Arithmetic and Background status. Red colors indicating high relevance. believed to reflect fundamental cognitive processes such as working memory, allocation of attentional resources, and conscious stimulus evaluation. 
+
+F.2 Latent Feature Clustering via t-SNE 
+
+We use t-SNE [ 70 ], a nonlinear dimensionality reduction technique, to visualize the final classification features from four key datasets (Fig. 12). This allows us to inspect the separability of features and demonstrate the representation ability of our framework. • For the HMC dataset, as shown in Fig. 12a, the five sleep stages form tightly grouped clusters, reflecting high intra-class consistency with physiological patterns, which also confirms the representation ability of PRiSE-EEG to disentangle discriminative features while tolerating noise. • For the ADFTD dataset, the embeddings for AD, FTD, and healthy controls form separable clusters, corroborating the Grad-CAM findings as in Fig. 12b. These clusters are less com-pact than those for sleep staging, which accurately reflects the higher inter-subject variability and more subtle neurophysiological differences inherent in complex neurodegenerative diseases. Nonetheless, the model successfully carves out a feature space that captures these nuanced distinctions. • For the Workload dataset, the two classes, “arithmetic” and “background” form two separated clusters in Fig. 12c. This confirms that the model learns a robust representation that can reliably distinguish between a task-engaged cognitive state and a resting state, mirroring the functional network separation identified in the Grad-CAM analysis. • For the Things-EEG-2 dataset, the “target“ and “non-target“ classes are also well-separated. This is consistent with the model’s ability to detect the activation around VAN, SN and ECN, demonstrating that the presence or absence of this specific neural event creates a powerful, linearly separable feature in the model’s latent space. 
+
+G Scaling Behavior 
+
+In this section, we study the relationship between model performance and training scale, including the model size and pre-training data size. To study the effect of model size, we use five size variants 30 (a) Target (b) Non-Target 
+
+Figure 11: Grad-CAM visualization of PRiSE-EEG on Workload dataset showing the region of model interest for Target and Non-Target status. Red colors indicating high relevance.   
+
+> (a) HMC (b) ADFTD
+> (c) Workload (d) Things-EEG-2
+
+Figure 12: t-SNE visualizations of feature embeddings reduced to 40 dimensions by PCA on different datasets with PRiSE-EEG. t-SNE runs for 1000 iterations in which the perplexity is 30 and the number of samples is 100. of PRiSE-EEG (Fig. 13) and track the impact on both pre-training loss and downstream performance. To study the effect of data size, we vary the pre-training corpus from 140 to 28,000 hours and again evaluate the impact on pre-training loss and downstream performance. Pre-training loss is measured on a held-out validation set of the pre-training data, while downstream performance is measured by the average Balanced Accuracy across the HMC and SEED datasets. 
+
+G.1 For Model Size 
+
+As shown in Fig. 13, our scaling law experiments reveal a clear and predictable relationship between model size and performance. The results on the pre-training loss function show that the scaling law 31 9.41M 27.06M 41.06M 78.86M 125.58M         
+
+> Parameters (M)
+> 0.62
+> 0.64
+> 0.66
+> 0.68
+> 0.70
+> 0.72
+> Pretrain Loss
+> Pretrain Loss
+> 9.41M 27.06M 41.06M 78.86M 125.58M
+> Parameters (M)
+> 0.72
+> 0.73
+> 0.74
+> 0.75
+> Test Balanced Accuracy
+> SEED (B-Acc)
+> 9.41M 27.06M 41.06M 78.86M 125.58M
+> Parameters (M)
+> 0.735
+> 0.740
+> 0.745
+> 0.750
+> Test Balanced Accuracy
+> HMC (B-Acc)
+
+Figure 13: Scaling behavior with model size N and a) Lp; b) HMC balanced accuracy; c) SEED balanced accuracy. Axes are all on a logarithmic scale. 0.005 0.014 0.040 0.12 0.34 1.0           
+
+> Training Data Size (ratio)
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> 1.0
+> 1.1
+> Pretrain Loss
+> Pretrain Loss
+> 0.005 0.014 0.040 0.12 0.34 1.0
+> Training Data Size (ratio)
+> 0.66
+> 0.68
+> 0.70
+> 0.72
+> 0.74
+> 0.76
+> Test Balanced Accuracy
+> SEED (B-Acc)
+> 0.005 0.014 0.040 0.12 0.34 1.0
+> Training Data Size (ratio)
+> 0.68
+> 0.70
+> 0.72
+> 0.74
+> 0.76
+> Test Balanced Accuracy
+> HMC (B-Acc)
+
+Figure 14: Scaling behavior with data partition P and a) Lp; b) SEED balanced accuracy; c) HMC balanced accuracy. Axes are all on a logarithmic scale. of the test Lp with model size ( N ) is: Lp = −0.034 * ln (N) + 0.786 , where R2 is 0.974 . The results on the SEED dataset show that the scaling law of the test balanced accuracy with model size ( N )is: BAcc = 0.010 * ln (N) + 0.699 , where R2 is 0.940 . The results on the HMC dataset show that the scaling law of the test balanced accuracy with model size ( N ) is: BAcc = 0.006 * ln (N) + 0.719 ,where R2 is 0.969 . The consistently high R2 values across both pre-training and downstream tasks confirm a strong, predictable scaling behavior, which demonstrate that the PRiSE-EEG is robustly scalable and will reliably improve with increasing parameters. 
+
+G.2 For Data Size 
+
+In Fig. 14, we provide the results of the scale law experiments on the pre-training loss function ( Lp), SEED, and HMC dataset. The results on the pre-training loss function show that the scaling law of the test Lp with data ratio ( P ) is: Lp = −0.069 * ln (P) + 0.681 , where R2 is 0.945 . The results on the SEED dataset show that the scaling law of the test balanced accuracy with data ratio ( P ) is: 
+
+BAcc = 0.015 * ln (P) + 0.745 , where R2 is 0.945 . The results on the HMC dataset show that the scaling law of the test balanced accuracy with data ratio ( P ) is: BAcc = 0.012 * ln (P) + 0.748 , where 
+
+R2 is 0.964 . The high R2 values across all metrics confirm that PRiSE-EEG’s performance scales predictably and effectively with the volume of pre-training data. This indicates that performance is not yet saturated and will likely continue to improve as more data becomes available. 
+
+H Limitations and Future Work 
+
+First, while PRiSE-EEG scales to 125.58M parameters and 28,000 hours of data, this remains modest compared to the scale of contemporary language and vision foundation models. Furthermore, the inherent low signal-to-noise ratio of EEG data highlights a continual need for more advanced preprocessing techniques and self-supervised paradigms to learn truly robust representations. Second, while our unified fine-tuning strategy is effective, integrating new tasks still requires retraining the model. A significant open challenge for the field is developing a truly universal EEG model that can generalize to novel tasks with zero- or few-shot prompting, similar to the capabilities of large language models. Finally, our current work focuses on robust EEG representation; further research is needed to extend the model to multimodal scenarios such as Video-EEG, Image-EEG, Text-EEG, and fMRI-EEG for broader applicability. 32

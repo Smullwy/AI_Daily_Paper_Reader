@@ -1,0 +1,260 @@
+Title: Conserved Kinematic Representations enable Zero-Shot Decoding in Handwriting BCIs
+
+URL Source: https://arxiv.org/pdf/2605.19048v1
+
+Published Time: Wed, 20 May 2026 00:18:54 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# Conserved Kinematic Representations enable Zero-Shot Decoding in Handwriting BCIs 
+
+Srinivas Ravishankar 1 Virginia de Sa 1, 2  
+
+> 1
+
+Department of Cognitive Science, UC San Diego  
+
+> 2
+
+Halicioglu Data Science Institute, UC San Diego 
+
+srravishankar@ucsd.edu 
+
+Abstract 
+
+While intracortical Brain-Computer Interfaces (iBCIs) that decode imagined handwriting have achieved high com-munication rates for Latin scripts, they rely on observ-ing every character in the alphabet during training. This poses a challenge in scaling to logographic languages (e.g., Chinese, Japanese), where the character set ex-ceeds thousands of classes. The limitation highlights a fundamental question in motor neuroscience: does the motor cortex represent handwriting through the composi-tion of shared kinematic primitives, that can be exploited by decoders? We introduce a computational framework for aligning neural activity to imagined kinematics in large datasets, enabling the training of a zero-shot capable ma-chine learning algorithm for decoding unseen characters. Our model achieves 64% hits@3 retrieval on unseen let-ters, suggesting that neural representations of kinematic strokes are robustly conserved across different character contexts. This study provides a framework for dissect-ing conserved neural dynamics in large-scale intracorti-cal datasets and offers strong evidence for a composi-tional basis of complex motor control. It also establishes a new paradigm for open-vocabulary iBCI communica-tion with minimal recalibration burden on the user, crucial to increasing adoption of neuroprosthetics in logographic languages. 
+
+# Introduction 
+
+Individuals with severe paralysis or speech disorders face significant challenges in communication. Brain-computer interfaces (BCIs) translate brain signals di-rectly into text or speech, bypassing traditional periph-eral systems such as the hands or voice. Handwriting BCIs in particular decode neural activity related to imag-ined writing (mentally tracing penstrokes without overt movement). Such a system was demonstrated by Wil-lett et al. (2021) to achieve state-of-the-art accuracy and allow intuitive, high-throughput communication for those unable to use traditional modes of communication. Fur-thermore, these technologies are poised to offer new modes of interaction for healthy users as well. However, we anticipate key challenges in their adop-tion. Existing methods employ relatively simple machine learning methods to map neural activity to recognized characters, where neural training data must be collected for each character. Although they have been demon-strated in English with a limited character set, it is non-trivial to scale to large-character languages such as Chi-nese or Japanese, which requires ∼ 2500 characters for regular use. This requirement blocks access to these technologies for large segments of the population. b
+
+Figure 1: High performance has been demonstrated when decoding imagined handwriting in English, with a limited character set. Logographic languages may re-quire more sophisticated methods. To address these limitations, we propose to enable zero-shot character decoding in handwriting BCIs to re-duce data demands in existing systems, and extend us-ability to language with large character sets. While benchmarks such as FALCON (Karpowicz et al., 2024) have been proposed to evaluate few-shot and zero-shot generalization to new sessions, a different di-mension of zero-shot generalization has received very limited attention: decoding of new characters unseen during training. Some recent works have explored zero-shot handwrit-ing decoding in Chinese (Qi et al., 2025; Yang et al., 2024), but are limited to slow single-letter writing. The participant was asked to imagine writing with their en-tire arm, and each character took 4 to 9 seconds to write. No existing system supports ballistic continuous handwriting-to-text comparable to the performance pre-viously demonstrated by Willett et al. (2021) while allow-
+
+> arXiv:2605.19048v1 [q-bio.NC] 18 May 2026
+
+ing zero-shot capability. Furthermore, prior work requires supervised single-letter data collection for initial training as well as recal-ibration. Recalibration is a continuous burden on BCI users, arising due to non-stationarity and electrode shift. Neural signals are inherently non-stationary; their statis-tical distribution changes across sessions due to biologi-cal noise or plasticity, impedance fluctuations, and phys-ical electrode shifts relative to the brain tissue. These phenomena render the decision boundaries of the initial classifier increasingly obsolete with time, and necessi-tate the collection of new labeled data to restore accu-racy. It is crucial to minimize recalibration requirements to have a functional BCI for daily use by participants. In this study, we demonstrate a method for hand-writing decoding that is zero-shot capable, and can be trained and recalibrated without any supervised single-letter data collection. This is achieved through kinemat-ics prediction, and building on unsupervised recalibra-tion work introduced for handwriting decoding (Fan et al., 2023). While an imagined logographic dataset is not yet pub-licly available, we demonstrate a proof of concept in this work. We evaluate this method by cutting out all snippets of each character in the training data of an existing En-glish imagined handwriting dataset to simulate the zero-shot setting. 
+
+# Methods 
+
+Dataset 
+
+The neural dataset used in this study was obtained from intra-cortical micro-electrode recordings during imag-ined handwriting by a single participant in a prior study (Willett et al., 2021). Data were collected using 2 Utah arrays implanted in the hand knob area of the precen-tral gyrus, with a total of 192 electrodes over 10 ses-sions and preprocessed in the same manner as the orig-inal work: Multi-Unit threshold crossing rates were com-puted, and binned into 20ms time steps. Data were smoothed with a causal Gaussian filter. Each block of data was mean-subtracted and divided by the standard deviation per electrode. We follow the same training and validation trial split as the original work to train continuous sentence classi-fication models. For our zero-shot character recognition experiments, we use all data across training and valida-tion trials, but ensure that all neural snippets associated with the chosen zero-shot character is excluded. Zero-shot character recognition performance is evaluated on the held-out character snippets from both training and validation trials. 
+
+Architecture 
+
+To create a zero-shot capable system, we propose a two-stage architecture shown in Fig 2. The first stage maps neural data to a velocity sequence of a hypothet-ical pen-tip. While we use a Recurrent Neural Network (RNN) for this stage, the architecture is agnostic to the specific choice of sequence model. The second stage uses a template matching approach to find the most likely candidate, given a library of kinematics sequences for different characters. There are significant challenges that need to be solved to train the kinematics prediction model. Given continuous sentence data, we lack the full ground truth kinematics of the entire sentence (consider the veloc-ity profile for the gaps between characters). Moreover, even for characters where we have approximate ground truth of the participant’s imagined writing, we lack pre-cise frame-wise timing. Due to this variability in timing between the predicted sequence ˆy and the approximate ground truth y, we em-ploy a soft Dynamic Time Warping loss (Cuturi & Blon-del, 2017) to optimize our kinematics model. Unlike element-wise metrics such as Mean Squared Error, DTW aligns sequences by finding the optimal non-linear warping path that minimizes the cumulative alignment cost. However, the classical DTW formula-tion relies on a discrete min operator, which is non-differentiable and unsuitable for gradient-based opti-mization. Soft-DTW addresses this by replacing the hard mini-mum with a generalized softmin 𝛾 operator, defined as: softmin 𝛾 (z1, ... , zk ) = −𝛾 log 
+
+> k
+
+∑︁ 
+
+> i=1
+
+exp (︂ − zi
+
+𝛾 )︂ , (1) where 𝛾 > 0 is a smoothing hyperparameter. As 𝛾 → 0,the objective converges to the exact DTW solution. The loss is computed via dynamic programming; let Δi,j =
+
+‖ ˆyi − yj ‖2 represent the local cost between time steps 
+
+i and j. The cumulative soft cost matrix R is derived recursively: 
+
+Ri,j = Δi,j + softmin 𝛾 (Ri−1, j , Ri,j−1, Ri−1, j−1). (2) After the entire cumulative cost matrix R is computed, the final Soft-DTW loss is simply the value in the bottom-right cell of the matrix Rn,m, where n is the length of se-quence ˆy and m is the length of sequence y. The Soft-DTW loss computed above is fully differentiable with respect to the inputs, enabling end-to-end training via standard backpropagation. However, note that the dynamic programming solu-tion scales quadratically with sequence length. Thus, Figure 2: Two-stage pipeline to enable zero-shot character recognition. The first stage (kinematics prediction) pre-dicts a velocity sequence of a hypothetical pen-tip corresponding to the observed neural data. The second stage (template matching) ranks a character template dictionary using a DTW-based distance measure, enabling zero-shot recognition. naively optimizing long continuous sentence data with partial ground truth poses challenges due to both com-putational tractability and poor learning signals from partial alignment. The solution is to extract character-level snippets from the continuous sentence data, to re-duce computational complexity and to make the learning problem well-behaved. Here we describe a simple novel method to extract such snippets from continuous sentence data, allowing kinematics training. We use models already employed for continuous character recognition in the handwriting decoding task, described below: Prior work (Fan et al., 2023) used recurrent mod-els trained using Connectionist Temporal Classification (CTC) to decode handwriting from neural data. More generally, CTC is used to map input features X to la-bel sequences Y without requiring explicit frame-level alignment. CTC extends the vocabulary V with a ‘blank’ token 𝜖 , predicting a probability distribution over V ∪ { 𝜖 }
+
+at each time step. A many-to-one mapping function ℬ recovers the final sequence by merging repeated characters and remov-ing blanks. The network is trained to minimize the nega-tive log-likelihood of the ground truth Y by marginalizing over all valid alignment paths 𝜋 :
+
+ℒCTC = − ln ∑︁  
+
+> 𝜋 ∈ℬ −1(Y)
+> T
+
+∏︁ 
+
+> t=1
+
+p(𝜋 t | t, X ) (3) This summation is computed efficiently via the forward-backward algorithm, enabling end-to-end dif-ferentiability. However, CTC-trained models cannot traditionally be used for segmentation due to so-called ‘peaky’ behav-ior, which has been previously discussed in Zeyer et al. (2021). The model produces a sharp probability peak when a character is recognized, but does not explicitly denote the duration of any character. A causal model produces a peak at the end of each recognized label, when it accumulates sufficient evidence to distinguish it from other characters. A non-causal model, such as a bidirectional RNN, will instead produce such a peak at some arbitrary time within the span of a class. In this work, we introduce a simple method to use causal CTC models to achieve segmentation. Consider a continuous sentence writing example, in which the par-ticipant imagines writing the word ‘candy’. The example is illustrated in Fig 4. Neural data is usually fed to a re-current model trained with CTC loss. In this example, we call it the forward model. As mentioned previously, the model produces a sharp probability peak for each target character that has been recognized. At all other times, the probability of the special ‘blank’ character 𝜑 is highest. When a character peak is observed, we know only that the character was recognized due to some seg-ment of input before this peak, due to the causal nature of the model. Thus, the forward model recognizes the ends of character segments, but does not indicate their beginnings. Next, we train a second recurrent model with the CTC loss. This model is architecturally identical to the forward model, but is trained on temporally reversed neural in-puts as well as character targets. We refer to this model as the ‘mirror-RNN’. As shown in Figure 4, during infer-ence time, we feed the neural data to the model reversed in time. Since the mirror-RNN is also a causal model, the probability peaks of the characters indicate the ending of 
+
+reversed character segments. We have thus identified the beginning of the characters in the input. The forward and mirror models produce the ends and starts of each character respectively, and we extract neural snippets corresponding to each character using these intervals. Note that the models might produce dif-ferent outputs since their inference is run unconstrained by each other (eg. in Fig 4, ‘n’ is not produced by the mir-ror model). Thus, we obtain snippets only for the char-acters that both models produce, which are considered high-confidence outputs. We can thus train and recalibrate our kinematics de-coder without the need for any single-letter data collec-tion. We now describe the architecture of the kinematics prediction model. 
+
+Figure 3: Kinematics prediction model architecture The kinematics prediction model and training is illus-trated in Figure 3. Each example consists of a neural snippet of size Ne × T , and the template trajectory of the character associated with the snippet. The model is a sequence model, which in this case is a Gated Re-current Unit (GRU) layer introduced in Cho et al. (2014). The sequence model takes as input a window of neu-ral data (of size Ne × W ). The output of the kinematics model is the instantaneous velocity (a 2d vector contain-ing cartesian velocities Vx and Vy ) corresponding to the middle of the neural window. The window size W is in-tentionally chosen to be much smaller than the size of any letter’s neural snippet seen during training. This is to ensure that the sequence model does not overfit to the trajectories observed during training, and can gen-eralize in a zero-shot setting. Upon sliding the window through the neural snippet, we obtain a predicted kine-matic profile of size 2 × T .In our experiments we found that symmetric con-text around the target resulted in best decoding perfor-mance. Thus we used a bidirectional GRU, at the cost of introducing a latency of W /2. Since W is kept small, the effective latency introduced here is ∼ 80 ms for the results reported below. To demonstrate proof of concept, we extract all snip-pets of neural data corresponding to each letter from existing neural data collected in Willett et al. (2021) for training, and evaluate zero-shot recognition using a tem-plate matching approach. Many letters have distractors that have similar kine-matic profiles, requiring fine-grained kinematics predic-tion. Note that this is a hard version of the problem, since a realistic setting can use contextual information and a language model to improve performance. 
+
+Evaluation 
+
+To measure kinematics decoding performance for any individual letter, we can inspect the soft-DTW loss be-tween the predicted kinematics profile and the ground-truth template. This metric is independent of other tra-jectories in the language set. To evaluate the final recognition performance for these characters, we compute a template matching accuracy. Given a dictionary of characters for which we have approximate ground-truth velocity templates 
+
+{y1, y2... ym}, and the predicted velocity profile ˆy from our kinematics model, we can compute and rank each candidate using a DTW-based distance to the predicted velocity profile. 
+
+di = DTW ( ˆ y, yi )
+
+We compute hits@1 (accuracy) and hits@3 metrics based on whether the ground truth is in the top-1 or top-3 ranked candidates respectively. 
+
+Implementation 
+
+Both the forward and mirror classification models used an identical architecture. Following Fan et al. (2023) and Willett et al. (2021), we used a single RNN common across all sessions, but employed day-specific linear projections to align cross-session neural data. Both for-ward and mirror models were trained using the CTC loss. The kinematics model trained a day-specific single-layer RNN with 512 hidden units. The input window length WFigure 4: Method to extract character-level snippets from neural data. The forward-RNN is a regular character recognition RNN trained using CTC, and produces peaks when character ends are recognized. We train a second ‘Mirror-RNN’ with reversed inputs and outputs. This model produces peaks at the start of characters, providing intervals for snippet extraction. was chosen to be 7 for all reported decoding models, with time bins of 20ms. Soft-DTW loss was computed using 𝛾 of 1e−5.All models were trained with a batch size of 64 , using the Adam optimizer and an L2 weight decay of 1e−5.The learning rate was set to a maximum of 1e−3, with a scheduler for linear warmup. For results with clustering analyses, data was first projected using Principal Component Analysis (PCA) to 
+
+50 dimensions, and t-distributed Stochastic Neighboring Embeddings (t-SNE) projections are computed using a perplexity of 30 . All experiments were conducted on a single A6000 GPU. 
+
+# Results 
+
+Extracted neural snippets cluster along character 
+
+We first evaluate the snippets extracted by our novel method. As a sanity check, we inspect if the neu-ral snippets associated with each character cluster to-gether. Variable-sized snippets are resampled to the same length, and projected to 2 dimensions using PCA and t-SNE, as described in the previous section. Pro-jected snippets are shown in Figure 5, with each char-acter denoted by a unique color. We observe that the extracted neural snippets clearly cluster by character. More accurately, the snippets cluster by kinematic pro-files, with character snippets that have similar trajecto-ries closer together. 60 40 20 0 20 40 60 
+
+> t-SNE 1
+> 40
+> 20
+> 0
+> 20
+> 40
+> 60
+> t-SNE 2
+> t-SNE (resample, L=50, PCA-50)
+> Char '
+> Char ,
+> Char >
+> Char a
+> Char b
+> Char c
+> Char d
+> Char f
+> Char g
+> Char h
+> Char i
+> Char j
+> Char k
+> Char l
+> Char m
+> Char n
+> Char o
+> Char p
+> Char q
+> Char r
+> Char s
+> Char t
+> Char u
+> Char v
+> Char w
+> Char x
+> Char y
+
+Figure 5: Extracted neural snippets in one session clus-ter by character, validating our simple method to extract character snippets. 
+
+Predicted kinematics for zero-shot snippets can be correctly recognized 
+
+Next, we inspect whether the kinematics of a single held-out letter can be well predicted, as well as how this per-formance varies across sessions. We consider a ran-dom letter ‘b’ for this analysis. As shown in Fig 6, we achieve up to 74% recognition accuracy in the best ses-sion. This result demonstrates that our framework can achieve zero-shot recognition, with performance rela-tively stable across sessions. The performance drop in the last session might be attributed to the low number of trials (and consequently extracted snippets) in it for training the kinematics decoder. Figure 6: Session-wise zero-shot recognition of the let-ter ‘b’ The velocity traces can integrated over time to visual-ize reconstructed trajectories. Some representative ex-amples of single-trial predicted kinematics are shown in Fig 7, demonstrating highly recognizable shapes. This might allow human recognition of the kinematics even if the template matching stage fails. 
+
+Figure 7: Three representative examples of predicted trajectories from single-trials of zero-shot letter ‘b’, pro-gressing from blue to red. Many of the predictions form human-recognizable trajectories. 
+
+DTW optimal path shows consistent differences between template and real trajectories 
+
+With the DTW loss, we can visualize the optimal path that minimizes differences between the predicted kine-matics and the velocity template. These optimal paths are shown in blue in Figure 8. Each path is read from the bottom left to the top right, and indicates at every timestep how much of the prediction and the template are ‘consumed’ respectively in the matching process up to that timestep. When the optimal path moves diago-nally, both the predicted kinematics and the template for that timestep are matched, indicating good alignment. If the optimal path moves vertically upwards, it indicates that multiple samples of the template are matched to the same point in the predicted velocity profile. We observe that all paths (a) are consistent with each other, indicating that the participant imagines writing the letter with stereotyped kinematics, and (b) consistently diverge from the diagonal, confirming that the approxi-mate ground truth does not accurately capture the imag-ined velocity profile. This provides an opportunity for fu-ture work to update the ground truth template and repeat kinematics training, iterating until convergence. 
+
+Figure 8: Optimal warping paths between predicted and template kinematics for various trials of the letter ‘b’. The predictions are internally consistent with one another, as well as consistently deviating from the diagonal. 
+
+Character recognition performance varies across letters 
+
+The zero-shot classification performance across all let-ters in the dataset is shown in Figure 9. We obtain an average of 41.88% hits@1, and 64.35% hits@3 across all held-out characters in this dataset. However, we ob-serve significant differences in decoding performance across letter trajectories. We identify two factors that may play a role in causing these large variations in performance. First, the kine-matic vectors of the held-out letter must be spanned by the kinematic vectors of all other letters, to effectively learn to predict the held-out trajectory. Some charac-ters may have velocities that are not well-represented in the rest of the characters. This corresponds to a failure in the first stage (kinematics prediction). Second, some letters might have harder distractors than others. This corresponds to failures in the second stage (template matching). We inspect a scatter plot of performance post-Stage 1 (Soft-DTW loss) and post-Stage 2 (Hits@1). A strong correlation would suggest that variability in performance a b c d e f g h i j k l m n o p q r s t u v w x y z
+
+> Zero-shot Character
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Decoding performance
+> Metric
+> Hits@1
+> Hits@3
+
+Figure 9: Mean decoding performance (hits@1 and hits@3) and standard error over sessions across held-out char-acters. We find that zero-shot decoding performance varies significantly between characters. is driven by Stage 1 failures, while weak correlation would suggest Stage 2 failures. As shown in Figure 10, we discover an interesting result : both sources of er-ror contribute to this variability, but at different regimes of Hits@1. We observe a tighter correlation between fi-nal performance and Stage 1 performance in the worst performing characters. However, certain letters like ‘p’ and ‘h’ are very well decoded in Stage 1, but are likely impacted by difficult distractors in Stage 2. To investigate further, we inspect the normalized con-fusion matrix for zero-shot character recognition, shown in Figure 11. We observe that character pairs with sim-ilar kinematic trajectories are indeed confused more of-ten, such as (‘a’, ‘c’) , (‘e’, ‘c’) , (‘h’, ‘n’) , and 
+
+(‘g’, ‘s’) . While ‘j’ achieved the lowest decoding accuracy and appears to be uniformly confused with all characters, we find that a very limited number of snip-pets (3 to 13 across sessions) were extracted, potentially leading to high-variance evaluation. 
+
+Kinematics prediction exhibits lower cross-session stability than character classification 
+
+We observed a significant divergence in cross-session generalization between the continuous kinematics de-coding task and the CTC-based models that perform discrete character classification from prior work. For character classification, aligning neural activity via day-specific linear projections was sufficient to stabilize per-formance, enabling a single, shared RNN decoder to op-erate effectively across all sessions (Fan et al., 2023; Willett et al., 2021). In contrast, this alignment strategy proved inadequate for kinematics prediction. As shown in Figure 12 on an example letter, training separate, day-specific RNNs outperformed a shared RNN. This discrepancy suggests that the neural represen-tation of continuous motor kinematics exhibits greater inter-session variability than features governing discrete character identity. While the decision boundaries for classification appear to be linearly alignable across days, the precise dynamic relationship between neu-ral activity and hand velocity likely undergoes complex, non-linear drift, requiring day-specific model adaptation. 
+
+# Discussion 
+
+This work is meant to highlight the need for zero-shot character recognition capability in handwriting BCIs, and investigate whether the neural basis of handwriting can facilitate the same. We provide a proof-of-concept demonstration that a shared kinematics representation is robustly conserved across diverse character contexts and can be leveraged to achieve zero-shot recognition. To do so, we introduce a novel method to train and automatically recalibrate a kinematics model without the need for supervised single-letter data collection. We use the CTC-trained model that a subject would employ for their everyday BCI use, to extract snippets of neu-ral data associated with each character from any given day’s neural data. Our framework thus facilitates the training of a kinematics decoder that can adapt to im-perfect ground truth kinematic profiles. We validated our snippet extraction procedure by demonstrating that neural snippets cluster by motor tra-jectory. Our framework provides DTW-based optimal 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6  
+
+> Soft-DTW loss
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> Hits@1 accuracy  a
+> b
+> c
+> d
+> e
+> fg
+> h
+> i
+> j
+> k
+> l
+> m
+> n
+> o
+> p
+> q
+> r
+> s
+> t
+> u
+> v
+> w
+> x
+> y
+> z
+> Stage 2 vs Stage 1 performance
+
+Figure 10: Comparing character-wise performance after full pipeline vs performance of Stage 1 (Kinematics pre-diction) alone, as measured by Hits@1 and Soft-DTW loss respectively. In the bottom-right quadrant most let-ters appear limited by Stage 1 performance (kinematics prediction), while errors in Stage 2 (template matching) contribute to the lower-than-expected performance for certain letters in the left half (eg. p, h). frame-wise alignment between kinematics and neural recordings in large datasets, without the need for a slow supervised experimental paradigm. We reported 41.88% hits@1 and 64.35% hits@3 mean recognition performance across all held-out char-acters in the chosen dataset, demonstrating conserved kinematics representations across characters. Upon vi-sualization, decoded character trajectories were human recognizable in many cases. Interestingly, we observed divergence in cross-session stability between continuous kinematics predic-tion and discrete character classification. This highlights a distinction in how different aspects of motor behavior are maintained in the cortex over time. Our findings may be explained by two competing hypotheses: (a) While the neural manifolds governing abstract, cat-egorical features such as character identity are suffi-ciently stable to be aligned via simple linear transfor-mations, the fine-grained representations of continuous hand velocity are subject to more complex, non-linear representational drift. This discrepancy could reflect the hierarchical organization of motor control (Merel et al., 2019). High-level movement intentions and discrete mo-tor programs appear robustly preserved and linearly ac-cessible across days. In contrast, it is possible that a b c d e f g h i j k l m n o p q r s t u v w x y z
+
+> Predicted Character
+> abcdefghijklmnopqrstuvwxyz
+> True Character
+> Character Recognition Confusion Matrix (a-z)
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> Percentage
+
+Figure 11: Normalized confusion matrix across held-out characters with different motor patterns, which confirms that errors occur primarily in pairs of letters with similar velocity profiles. t5.2019.05.08 
+
+> t5.2019.11.25
+> t5.2019.12.09
+> t5.2019.12.11
+> t5.2019.12.18
+> t5.2019.12.20
+> t5.2020.01.06
+> t5.2020.01.08
+> t5.2020.01.13
+> t5.2020.01.15
+> Session
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Decoding performance
+> Day-specific RNN
+> Shared RNN
+
+Figure 12: Day-specific kinematics decoders (RNNs) trained separately on each day’s neural data outperform a shared RNN with day-specific linear projections, which suffices for character classification models, suggesting more representational drift for low-level kinematics. lower-level dynamic execution signals are continuously adapting to fluctuations in background network states or even ongoing motor consolidation, rendering simple lin-ear alignment strategies inadequate. (b) An alternative hypothesis is that this divergence is driven less by functional adaptation and more by the physical limitations of the recording interface. High-level categorical information is typically represented by widespread, redundant population activity, allowing it to be reliably decoded even if individual channels drop out. However, precisely decoding low-level kinematics depends on the exact firing rates of specific local neu-rons. Therefore, continuous decoding is far more sus-ceptible to minor hardware disruptions, including micro-movements of the implanted array, local gliosis, or neu-ronal death at the electrode interface, all of which might manifest as non-linear representational drift. In either case, from a translational perspective, the method described in this work can specifically address these complex, non-linear representational shifts. By fa-cilitating the recalibration of the kinematics decoder as the participant uses their character recognition BCI, we can accommodate the day-to-day volatility of continu-ous motor representations. Our work demonstrates that while continuous trajectory decoding is inherently more susceptible to inter-session drift than discrete classifi-cation, unsupervised daily recalibration strategies can effectively provide a pathway toward robust, long-term continuous BCI control. Our work is closely related to recent efforts (Chen et al., 2026; Qi et al., 2025) that employ state-dependent linear decoding of imagined handwriting. Qi et al. (2025) explicitly identifies states that affect tuning properties of individual neurons in the MC, in order to learn a unique decoder per state. However, such approaches require manual estimation of the number of stable states, which may itself change over sessions. Our method is a gen-eralization of such approaches, learning non-linear re-current mappings directly in a data-driven manner. A limitation of this work is that it still requires approxi-mate ground-truth kinematics of a set of letters. Acquir-ing such approximate ground-truth can be challenging when the participant has already experienced significant paralysis. However, one approach to address this chal-lenge could exploit letters (such as ‘c’ ) with limited vari-ability in writing styles across the population. A few such letters could be used to bootstrap a kinematics decoder, using it to infer approximate ground truth for other letters. Future work will address this direction. Finally, we emphasize the need for principled datasets collected specifically to evaluate zero-shot symbol recognition in handwriting decoding. Although our of-fline demonstration serves as a proof of concept, the development of dedicated datasets will be critical for driving new methods in zero-shot generalization. Apply-ing our framework to a non-character dataset presents a compelling direction for future research. Such a dataset would provide a unique opportunity to inves-tigate whether the neural representations of continuous kinematics vary depending on the presence or absence of underlying semantic meaning. 
+
+# References 
+
+Chen, J., Xu, T., Xiong, X., Yang, X., Wang, Y., & Qi, Y. (2026). Surrogate deep neural networks reveal hier-archical handwriting encoding in the human motor cortex. Cell Reports , 45 (1). Cho, K., Van Merriënboer, B., Bahdanau, D., & Ben-gio, Y. (2014). On the properties of neural machine translation: Encoder-decoder approaches. arXiv preprint arXiv:1409.1259 .Cuturi, M., & Blondel, M. (2017). Soft-dtw: A differen-tiable loss function for time-series. International con-ference on machine learning , 894–903. Fan, C., Hahn, N., Kamdar, F., Avansino, D., Wilson, G., Hochberg, L., Shenoy, K. V., Henderson, J., & Wil-lett, F. (2023). Plug-and-play stability for intracortical brain-computer interfaces: A one-year demonstra-tion of seamless brain-to-text communication. Ad-vances in neural information processing systems ,
+
+36 , 42258–42270. Karpowicz, B. M., Ye, J., Fan, C., Tostado-Marcos, P., Rizzoglio, F., Washington, C., Scodeler, T., de Lu-cena, D., Nason-Tomaszewski, S. R., Mender, M. J., et al. (2024). Few-shot algorithms for consistent neural decoding (falcon) benchmark. Advances in Neural Information Processing Systems , 37 , 76578– 76615. Merel, J., Botvinick, M., & Wayne, G. (2019). Hierarchi-cal motor control in mammals and machines. Nature communications , 10 (1), 5489. Qi, Y., Zhu, X., Xiong, X., Yang, X., Ding, N., Wu, H., Xu, K., Zhu, J., Zhang, J., & Wang, Y. (2025). Human motor cortex encodes complex handwriting through a sequence of stable neural states. Nature Human Behaviour , 1–12. Willett, F. R., Avansino, D. T., Hochberg, L. R., Hen-derson, J. M., & Shenoy, K. V. (2021). High-performance brain-to-text communication via hand-writing. Nature , 593 (7858), 249–254. Yang, X., Xiong, X., Li, X., Lian, Q., Zhu, J., Zhang, J., Qi, Y., & Wang, Y. (2024). Reconstructing multi-stroke characters from brain signals toward generalizable handwriting brain-computer interfaces. IEEE Trans-actions on Neural Systems and Rehabilitation Engi-neering .Zeyer, A., Schlüter, R., & Ney, H. (2021). Why does ctc result in peaky behavior? arXiv preprint arXiv:2105.14849 .
