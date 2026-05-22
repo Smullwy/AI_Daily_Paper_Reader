@@ -1,0 +1,649 @@
+Title: Neuroscience-inspired Staged Representation Learning with Disentangled Coarse- and Fine-Grained Semantics for EEG Visual Decoding
+
+URL Source: https://arxiv.org/pdf/2605.16923v3
+
+Published Time: Fri, 22 May 2026 00:31:12 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# Neuroscience-inspired Staged Representation Learning with Disentangled Coarse- and Fine-Grained Semantics for EEG Visual Decoding 
+
+## Xiang Gao, Hui Tian ∗, Yanming Zhu, Xuefei Yin and Alan Wee-Chung Liew 
+
+School of Information and Communication Technology, Griffith University, Parklands Drive, Southport, 4222, QLD, Australia 
+
+A R T I C L E I N F O 
+
+Keywords :EEG visual decoding dual-level coarse-to-fine semantics semantic latent channels 
+
+A B S T R A C T 
+
+Decoding visual information from electroencephalography (EEG) signals remains a fundamental challenge in brain-computer interfaces and medical rehabilitation. Existing EEG visual decoding methods mainly focus on learning a single global EEG embedding for cross-modal alignment, but they largely overlook the staged and hierarchical characteristics of human visual processing. To address this limitation, we propose a neuroscience-inspired staged representation learning framework that reformulates EEG visual decoding as a stage-specific representation decomposition problem. The proposed framework organizes EEG representation learning into three complementary phases, including low-level visual representation learning, high-level semantic representation learning, and integrative information fusion. To strengthen semantic modeling, we further introduce a multimodal dual-level semantic learning mechanism that separates coarse label-level semantics from fine image-level visual-semantic information. In addition, semantic latent channels are introduced as computa-tional representation channels generated from observed visual EEG signals, expanding the channel-level semantic representation space for structured semantic abstraction and cross-modal alignment. Extensive experiments on the THINGS-EEG benchmark demonstrate that the proposed method achieves superior performance under subject-dependent zero-shot evaluation and improved exact retrieval under subject-independent zero-shot evaluation. Additional analyses, including layer-wise retrieval, temporal accumulation, expanded multi-image retrieval, and ablation studies, further support the effectiveness of the staged decomposition and structured semantic modeling strategy. These results suggest that explicitly modeling staged perceptual, semantic, and integrative representations provides an effective neuroscience-inspired framework for EEG-based visual decoding. 
+
+## 1. Introduction 
+
+Decoding visual information from electroencephalog-raphy (EEG) signals is a central task in brain-computer interface research [24, 8], with broad implications for neu-rorehabilitation [31], visual cognition [3], and brain-inspired artificial intelligence [18, 4]. By learning mappings between neural activity and visual content, EEG visual decoding pro-vides a useful framework for understanding how the human brain represents perceptual and semantic information, while also supporting the development of practical systems that in-fer visual intent or cognitive states from brain signals. Most existing EEG visual decoding methods therefore aim to learn informative neural representations that can be aligned with visual or semantic features, thereby enabling the recovery of visual information from brain activity. Recent progress in EEG-based visual decoding has been largely driven by cross-modal alignment. Existing methods mainly improve EEG embeddings for alignment with visual or multimodal semantic features through noise-aware pri-ors, multimodal feature enrichment, semantic consistency regularization, graph-based modeling, or vision-language supervision [25, 30, 29, 16, 1, 5, 7, 22]. These studies have improved the quality of EEG representations and advanced EEG-based visual retrieval and recognition. Nevertheless, 
+
+> ∗
+
+Corresponding author  
+
+> hui.tian@griffith.edu.au
+
+(H. Tian) 
+
+> ORCID
+
+(s): 0000-0002-7952-571X (H. Tian) 
+
+despite their differences in encoder design, auxiliary super-vision, and optimization objectives, many existing methods still share a similar end goal. They mainly seek to learn a more discriminative final EEG representation for cross-modal matching, while richer priors or supervision are typi-cally incorporated within a largely unified embedding frame-work rather than being organized into explicitly structured stages. However, human visual perception is not a single-stage process. Neuroscientific evidence suggests that visual infor-mation is processed progressively and hierarchically, evolv-ing from early perceptual analysis to higher-level semantic abstraction and subsequent information integration [6, 10, 11, 14, 27]. This perspective reveals two important limita-tions that remain insufficiently addressed in existing EEG visual decoding methods. First, low-level perceptual cues, high-level semantic information, and final decision-oriented representations are often compressed into a single shared embedding, rather than being modeled in an explicitly staged manner. As a result, the progressive transformation from perceptual processing to semantic understanding is not di-rectly reflected in the learned EEG representations. Second, although semantic supervision has been increasingly intro-duced, it is still often incorporated without explicitly distin-guishing coarse label-level semantics from fine image-level semantics. This may obscure the complementary roles of category-level abstraction and instance-level discrimination, both of which are important for robust EEG visual decoding. 
+
+Gao et al.: Preprint submitted to Elsevier Page 1 of 17 
+
+> arXiv:2605.16923v3 [cs.CV] 21 May 2026
+
+In addition, prior EEG visual decoding methods rarely explore whether semantic modeling can benefit from ex-plicitly structured channel-level representations. This issue is relevant because neuroscientific evidence suggests that EEG channel involvement is not functionally uniform, and that channel specialization may provide useful inductive guidance for representation learning [15]. Although such evidence does not directly transfer from language compre-hension to visual decoding, it motivates the broader idea that semantic information in EEG may be better modeled with an explicitly designed channel-level representation space, rather than relying solely on the observed channels and a single undifferentiated global embedding. Motivated by these observations, we propose a staged representation learning framework for EEG visual decod-ing, guided by neuroscientific evidence. Instead of treat-ing EEG visual decoding as a single global embedding alignment problem, the proposed framework reformulates it as a stage-specific representation decomposition prob-lem. Specifically, EEG representation learning is organized into three complementary phases, including low-level visual representation learning, high-level semantic representation learning, and integrative information fusion. This design allows perceptual cues, fine image-level visual-semantic in-formation, and coarse label-level semantics to be modeled in distinct but coordinated representation spaces. To fur-ther strengthen semantic modeling, we introduce a mul-timodal dual-level semantic learning mechanism that sep-arates coarse label-level semantics from fine image-level semantics. We also introduce semantic latent channels as a learnable channel-structured latent basis for semantic ab-straction, rather than as additional physiological electrodes. The whole framework is jointly optimized through a multi-level objective, enabling stage-specific supervision before final cross-modal alignment. Extensive experiments on the THINGS-EEG benchmark [9] demonstrate the effectiveness of the proposed framework under both subject-dependent and subject-independent zero-shot evaluation settings. Ad-ditional analyses, including layer-wise retrieval, temporal accumulation, expanded multi-image retrieval, and ablation studies, further support the effectiveness of the staged de-composition and structured semantic modeling strategy. The main contributions are summarized as follows: 
+
+• We reformulate EEG visual decoding as a stage-specific representation decomposition problem, where low-level perceptual representation learning, high-level semantic representation learning, and integrative information fusion are jointly optimized within a unified cross-modal learning framework. 
+
+• We design a multimodal dual-level semantic learning mechanism that separates coarse label-level seman-tics from fine image-level visual-semantic informa-tion. The coarse branch is supervised by text fea-tures derived from image labels, while the fine branch is supervised by high-level image features, enabling structured semantic alignment beyond conventional global embedding learning. 
+
+• We introduce semantic latent channels as compu-tational representation channels generated from ob-served visual EEG signals. These latent channels ex-pand the channel-level semantic representation space and provide a structured basis for coarse semantic abstraction and fine image-level semantic interaction. 
+
+• We conduct extensive experiments on the THINGS-EEG benchmark under both subject-dependent and subject-independent zero-shot settings, demonstrat-ing the effectiveness of the proposed framework for EEG visual decoding. Additional analyses, including layer-wise retrieval, temporal accumulation, expanded multi-image retrieval, and ablation studies, further support the effectiveness of the staged design and the proposed semantic modeling strategy. 
+
+## 2. Related Work 
+
+2.1. EEG Decoding via Cross-Modal Alignment 
+
+Recent progress in EEG-based visual decoding has been largely driven by cross-modal alignment, where EEG rep-resentations are learned to match visual embeddings for retrieval or recognition. Early large-scale evidence was pro-vided by Du et al. [5], who jointly modeled brain, visual, and linguistic features to bridge EEG signals and semantic representations. Song et al. [21] further showed that self-supervised contrastive learning can learn transferable EEG representations for natural image recognition. These studies established cross-modal representation learning as a dom-inant paradigm for EEG visual decoding. Building on this paradigm, many recent methods have focused on improv-ing the quality of EEG representations or the effectiveness of the alignment objective. Wu et al. [25] introduced an uncertainty-aware blur prior to alleviate the effect of noisy neural responses. Zhang et al. [30] incorporated multimodal priors such as texture and depth to enrich visual alignment, while Zhang et al. [29] leveraged wavelet-domain modeling and semantic-aware contrastive supervision to improve cate-gory discrimination. Chen et al. [1] strengthened visual-EEG matching through semantic consistency regularization, and Shi et al. [20] modeled frequency-aware temporal structure and differentiable cluster assignment for more discrimina-tive EEG embeddings. Although these approaches differ in architectural design and supervision strategy, they largely remain within a cross-modal alignment paradigm that em-phasizes learning a stronger final EEG representation for matching. 
+
+2.2. Semantic and Generative Extensions 
+
+Beyond improving alignment architectures directly, a related line of work enhances EEG visual decoding with richer supervision signals or auxiliary multimodal priors. Ferrante et al. [7] distilled knowledge from CLIP to transfer vision-language semantics into EEG representations. Song et al. [22] further introduced language-guided contrastive learning, highlighting the value of textual semantics for natural image recognition from EEG. Rajabi et al. [19]   
+
+> Gao et al.: Preprint submitted to Elsevier Page 2 of 17
+
+showed that human-aligned image priors can improve visual decoding from brain signals, and Ma and Ruotsalo [17] explored cognition-supervised alignment between EEG re-sponses and visual saliency. These studies suggest that richer supervision beyond raw visual features can improve the semantic quality of learned EEG representations. In parallel, generative approaches have extended EEG visual decoding from recognition-oriented retrieval to image reconstruction. Zeng et al. [28] proposed a diffusion-based framework for EEG-to-image reconstruction. Li et al. [16] combined EEG embeddings with guided diffusion for both decoding and reconstruction, and Xiao et al. [26] modeled 3D geometric structure together with nonstationarity for EEG decoding and visual reconstruction. Although these methods broaden the task scope and enrich the forms of supervision, they still largely center on a single final EEG latent representation or a dominant end-stage alignment objective, rather than explic-itly modeling how perceptual and semantic representations evolve across stages. 
+
+2.3. Neuroscience-Inspired Modeling and Gaps 
+
+Despite their differences in encoder design, auxiliary priors, and training objectives, most existing methods still center on learning a stronger final EEG representation for cross-modal matching. Low-level perceptual cues, image-level semantics, and label-level conceptual information are usually compressed into one shared embedding, or are only coupled indirectly through auxiliary losses. As a result, the progressive nature of human visual processing is rarely mod-eled explicitly in EEG visual decoding. This limitation is important because neuroscientific studies suggest that visual perception unfolds progressively and hierarchically. Felle-man and Van Essen [6] described the distributed hierarchical organization of the primate visual cortex, while Goodale and Milner [10] proposed the influential two-visual-pathway hypothesis. Recent EEG and neuroimaging studies further show that object-related visual information is represented dynamically over time [11], and ERP research indicates that EEG responses reflect different cognitive processes across temporal stages [14, 27]. These findings motivate a representation learning formulation in which perceptual, semantic, and integrative information are modeled as related but distinct components, rather than being collapsed into a single final embedding. Another limitation is that existing EEG visual decoding methods rarely consider whether semantic modeling can benefit from explicitly structured channel-level representa-tions. Neuroscientific evidence suggests that EEG channel involvement is not functionally uniform, and that frontal and temporal regions can contribute differently to semantic processing in language-comprehension tasks [15]. However, such evidence should not be interpreted as a direct physio-logical mapping for visual decoding. Instead, it motivates a more general computational hypothesis: semantic infor-mation in EEG may be more effectively modeled when the representation space provides a structured channel-level basis for semantic abstraction, rather than relying only on the observed visual channels and a single undifferentiated global embedding. Motivated by these gaps, we propose a neuroscience-inspired staged representation learning framework for EEG visual decoding. The framework is not intended to reproduce the biological visual system directly. Rather, it uses neuro-scientific evidence as design motivation for organizing EEG representation learning into low-level visual learning, high-level semantic learning, and integrative fusion. Within this formulation, dual-level semantic modeling and semantic la-tent channels are introduced to support structured alignment with both image-level and label-level semantics. 
+
+## 3. Proposed Method 
+
+The overall architecture of the proposed framework is illustrated in Fig. 1. Motivated by the neuroscience-inspired design considerations discussed in Section 2.3, our method models EEG visual decoding as a staged representation learning problem. The goal is not to impose a strict bi-ological correspondence between model components and neural processing stages, but to use staged organization as an inductive bias for decomposing EEG representations into perceptual, semantic, and integrative components. Specifi-cally, the framework progressively transforms neural signals from low-level perceptual representations to higher-level semantic representations and finally to an integrated EEG representation for cross-modal alignment. Here, the staged design refers to a structured decomposition of representa-tion learning and supervision, rather than sequential phase-by-phase optimization. The framework consists of three phases that are jointly optimized end-to-end through the multi-level objective in Eq. 15: Phase-I learns low-level visual representations from visual-related EEG channels and aligns them with low-level image features; Phase-II 
+
+models high-level semantics through a multimodal dual-level semantic learning mechanism that disentangles coarse label-level semantics and fine image-level semantics; and 
+
+Phase-III integrates the learned perceptual and semantic representations into a unified EEG embedding for final im-age alignment. In addition, to enrich semantic modeling in Phase-II, we introduce semantic latent channels, which are computational representation channels generated from observed visual EEG signals rather than additional physi-ological electrodes. These semantic latent channels expand the channel-level semantic representation space and support more structured cross-modal alignment. The details of the three phases are described in the following subsections. 
+
+3.1. Phase-I: Low-Level Perception 
+
+In Phase-I, our goal is to learn low-level visual repre-sentations from EEG signals and align them with low-level image features. The low-level image features are obtained from the block1 output of the frozen OpenCLIP ResNet50 image encoder. For EEG, we selectively use 17 channels       
+
+> Gao et al.: Preprint submitted to Elsevier Page 3 of 17 \\\
+> Image label
+> Image Encoder
+> CLIP Loss
+> Text Encoder
+> CLIP Loss CLIP Loss CLIP Loss
+> “This is an alpaca ”
+> Adaptive
+> temporal
+> weighting
+
+# + 
+
+> Semantic latent
+> channel
+> augmentation
+> Projection
+> Fusion
+> MLP RST-GAT
+
+# + 
+
+> Adaptive
+> temporal
+> weighting
+> MLP RST-GAT
+
+# +    
+
+> Encoder
+> EEG signal
+> Image
+> Coarse semantic
+> embedding
+> Fine semantic
+> embedding
+> Low-level visual
+> embedding
+> Final EEG
+> embedding
+> Trainable
+> Frozen
+> Final out Block 1 Block 2 Block 3 Block 4
+> Projection Projection
+> MLP
+
+Phase-I: Low-level Perception  Phase-II: High-level Semantics  Phase-II I: Integration 
+
+s
+
+Neuroscience-In spired Staged EEG Representation Learning Figure 1: Overview of the proposed neuroscience-inspired staged EEG representation learning framework. Phase-I learns low-level visual representations from 17 visual-related EEG channels and aligns them with low-level image features. Phase-II introduces semantic latent channels and performs dual-level semantic learning, where coarse semantics are aligned with text features derived from image labels and fine image-level visual-semantic representations are aligned with high-level image features. Phase-III 
+
+integrates the low-level visual representation and the structured semantic representations into a unified EEG embedding for final image alignment. The entire framework is optimized with multi-level CLIP losses to enforce cross-modal consistency across stages. 
+
+that are primarily associated with visual responses 1 [14, 9]. Motivated by evidence that low-level visual responses are concentrated in relatively early temporal windows [10, 11], we introduce a learnable adaptive temporal weighting mech-anism that allows the model to emphasize temporally infor-mative EEG segments during representation learning. Formally, let (𝐞 𝑣 , 𝐯 ) denote a batch of EEG-image pairs, where 𝐞 𝑣 ∈ ℝ𝐵 ×𝐶 1×𝑇 represents 𝐵 EEG samples with 
+
+𝐶 1 = 17 channels and 𝑇 time steps, and 𝐯 ∈  denotes the corresponding images. To emphasize temporally informa-tive EEG segments, we use a learnable temporal weighting module to produce a normalized temporal weight vector 
+
+𝐰 𝑡 ∈ ℝ1× 𝑇 . As summarized in Table 1, this module is imple-mented as Linear (𝑇 → 128) + ReLU + Linear (128 → 𝑇 ) +Softmax. The resulting temporal weights are shared across EEG channels and broadcast along the channel dimension during element-wise reweighting. For low-level EEG visual representation learning, we design a Residual SpatioTemporal Graph Attention Net-work (RST-GAT) to encode the low-level EEG visual rep-resentation 𝐞 1 ∈ ℝ𝐵 ×256 . The term spatiotemporal here refers to graph-based modeling over both EEG channels and temporal indices. Given an EEG representation 𝐱 ∈
+
+ℝ𝐵 ×𝐶 ×𝑇 , RST-GAT models it from two complementary graph views. In the channel-wise graph view, each EEG channel is treated as a graph node, and its 𝑇 -dimensional temporal response is used as the node feature. This allows the 
+
+> 117 channels primarily associated with visual responses: P7, P5, P3, P1, Pz, P2, P4, P6, P8, PO7, PO3, POz, PO4, PO8, O1, Oz, O2 [9].
+
+channel graph to capture dependencies among EEG chan-nels. In the temporal-wise graph view, each temporal index is treated as a graph node, and its 𝐶 -dimensional channel response is used as the node feature. This allows the tem-poral graph to capture dependencies among time steps. The outputs of the graph attention operations are incorporated through residual updates and then mapped to the embedding space through an MLP, as summarized in Table 1. In Phase-I, 𝐶 = 17 , while the same RST-GAT formulation is later applied to the expanded Phase-II representation with 𝐶 =29 . This encoding process is defined as 
+
+𝒆 1 = 𝑓 MLP 
+
+(
+
+𝑓 ST -GAT (𝒆 𝑣 ⊗ 𝒘 𝑡 + 𝒆 𝑣 ) + 𝒆 𝑣 
+
+)
+
+, (1) where ⊗ denotes element-wise multiplication with broad-casting along the channel dimension. Meanwhile, the low-level image feature 𝐯 1 ∈ ℝ𝐵 ×256 
+
+is obtained by projecting the block1 output of the frozen OpenCLIP ResNet50 image encoder through an MLP. To en-courage alignment between the low-level EEG embeddings and the corresponding low-level image features, the Phase-I alignment loss is defined as 
+
+𝐼  
+
+> CLIP
+
+= CLIP _LOSS( 𝒆 1, 𝒗 1). (2) Here, CLIP _LOSS( ⋅, ⋅) denotes a symmetric CLIP-style con-trastive loss. Given two batches of paired embeddings 𝐗 =[𝐱 1, … , 𝐱 𝐵 ]⊤ ∈ ℝ𝐵 ×𝑑 and 𝐘 = [ 𝐲 1, … , 𝐲 𝐵 ]⊤ ∈ ℝ𝐵 ×𝑑 , we first apply 𝐿 2 normalization to obtain ̄ 𝐱 𝑖 and ̄ 𝐲 𝑖 . The pairwise 
+
+Gao et al.: Preprint submitted to Elsevier Page 4 of 17 similarity is computed as 
+
+𝑠 𝑖𝑗 = 𝜆̄ 𝐱 ⊤𝑖 ̄ 𝐲 𝑗 , (3) where 𝜆 = Sof tplus( 𝜌 ) is a learnable positive logit scale. The symmetric CLIP-style contrastive loss is then formulated as 
+
+CLIP _LOSS( 𝐗 , 𝐘 ) = 12
+
+(𝑋 →𝑌 + 𝑌 →𝑋 
+
+) , (4) where 
+
+⎧⎪⎪⎪⎨⎪⎪⎪⎩
+
+𝑋 →𝑌 = − 1
+
+𝐵 
+
+> 𝐵
+
+∑
+
+> 𝑖 =1
+
+log exp( 𝑠 𝑖𝑖 )
+
+∑𝐵 𝑗 =1 exp( 𝑠 𝑖𝑗 ) ,
+
+𝑌 →𝑋 = − 1
+
+𝐵 
+
+> 𝐵
+
+∑
+
+> 𝑖 =1
+
+log exp( 𝑠 𝑖𝑖 )
+
+∑𝐵 𝑗 =1 exp( 𝑠 𝑗𝑖 ) .
+
+(5) 
+
+3.2. Phase-II: High-Level Semantics 
+
+Within the proposed staged framework, Phase-II is de-signed to model the stage at which EEG responses in-creasingly reflect higher-level semantic information. While Phase-I focuses on low-level visual representation learn-ing and Phase-III performs integrative information fusion, Phase-II is responsible for learning structured semantic rep-resentations from EEG signals. To this end, we organize semantic representation learning into two complementary levels. Coarse semantics capture abstract category-level distinctions and are aligned with text features derived from class labels, whereas fine image-level semantics capture more detailed visual-semantic information and are aligned with high-level image features. This dual-level design al-lows the model to account for both category-level seman-tic abstraction and instance-level visual-semantic specificity within a unified framework. To support such structured semantic modeling, we fur-ther introduce semantic latent channels. These channels are not intended to represent additional physiological electrodes. Instead, they define an explicitly introduced latent channel space in Phase-II, which complements the observed visual EEG channels and provides a more suitable representation basis for semantic abstraction. In particular, the semantic la-tent channels are used to support coarse semantic modeling, while the joint representation of visual and latent channels is used to support fine semantic modeling. 
+
+3.2.1. Semantic Latent Channel Augmentation 
+
+Neuroscientific studies suggest that EEG channel in-volvement is not functionally uniform, and that a subset of channels can be selectively associated with semantic processing during language comprehension 2 [15]. However, these findings were obtained in a language-comprehension setting and do not imply that the same channels can be directly treated as semantic channels for visual decoding. In contrast, visual evoked responses are typically recorded most 
+
+> 2Semantic-related channels for language comprehension: Fp1, F3, F7, FC5, FC1, C3, T7, CP5, P7, FT7, F5, TP7 [15].
+
+reliably over posterior and occipital scalp regions associated with the visual pathway [2, 23]. Motivated by this distinction, we do not directly reuse language-related channels in the visual domain. Instead, we introduce semantic latent channels as a learnable latent channel space for semantic abstraction in Phase-II. The choice of 12 latent channels is inspired by prior evidence on semantic-related channel specialization, but it should be understood as a design choice for structuring semantic representation learning rather than as a claim of one-to-one physiological correspondence. Importantly, these semantic latent channels are not in-troduced as additional physiological electrodes or uncon-strained free channels. Rather, they are initialized from the observed visual EEG through a learnable channel projection applied independently at each time step. Given the visual EEG signal 𝐞 𝑣 ∈ ℝ𝐵 ×17× 𝑇 , the semantic latent channels are generated as 
+
+𝐞 slc (∶ , ∶, 𝑡 ) = 𝐞 𝑣 (∶ , ∶, 𝑡 )𝐖 ⊤ 
+
+> slc
+
++ 𝟏 𝐵 𝐛 ⊤
+
+> slc
+
+, 𝑡 = 1 , … , 𝑇 , (6) where 𝐖 slc ∈ ℝ12×17 , 𝐛 slc ∈ ℝ12 , and 𝟏 𝐵 ∈ ℝ𝐵 ×1 
+
+denotes an all-one vector used to broadcast the bias across the batch dimension. In this way, 𝐞 slc ∈ ℝ𝐵 ×12× 𝑇 remains grounded in the observed visual EEG while expanding the representation space available for semantic modeling. In the proposed framework, the semantic latent channels gener-ated by Eq. 6 mainly support coarse semantic abstraction, while their interaction with the observed visual channels also contributes to finer image-level semantic learning in Section 3.2.2. 
+
+3.2.2. Dual-Level Semantic Learning Mechanism 
+
+In Phase-II, our goal is to learn structured high-level semantic representations from EEG signals. To reflect the hierarchical nature of semantic processing, we design a multimodal dual-level semantic learning mechanism that organizes EEG semantics into two complementary branches. The coarse semantic branch focuses on abstract category-level semantics and is aligned with text features derived from image labels. The fine semantic branch focuses on more detailed image-level visual-semantic information and is aligned with high-level image features. In this way, Phase-II models semantic abstraction and semantic specificity in a coordinated manner, rather than relying on a single undiffer-entiated semantic representation. Motivated by evidence that semantic processing be-comes more prominent in relatively later temporal stages of EEG responses [14, 6, 27], we introduce a separate learn-able temporal weighting module for Phase-II to adaptively highlight temporally informative signals for semantic repre-sentation learning. This module has the same architecture as the Phase-I temporal weighting module summarized in Table 1, but uses independent parameters, allowing semantic representation learning to emphasize temporal evidence dif-ferently from low-level visual representation learning. After semantic latent channel initialization, the EEG signals are   
+
+> Gao et al.: Preprint submitted to Elsevier Page 5 of 17
+
+expanded into a joint channel representation, ̈
+
+𝐞 = [ 𝐞 𝑣 ∣ 𝐞 slc ] ∈ ℝ𝐵 ×29× 𝑇 ,
+
+where 𝐞 𝑣 ∈ ℝ𝐵 ×17× 𝑇 denotes the 17 observed visual-related EEG channels and 𝐞 slc ∈ ℝ𝐵 ×12× 𝑇 denotes the proposed 12 semantic latent channels generated from 𝐞 𝑣 through the learnable channel projection described in Section 3.2.1. An RST-GAT encoder, similar to that used in Phase-I, is then applied to the joint channel representation: ̈
+
+𝐞 2 = 𝑓 ST -GAT 
+
+(̈
+
+𝐞 ⊗̈ 𝐰 𝑡 +̈ 𝐞 ) +̈ 𝐞 , (7) where ⊗ denotes element-wise multiplication with broad-casting along the channel dimension, and ̈ 𝐰 𝑡 ∈ ℝ1× 𝑇 
+
+denotes the normalized temporal weight vector produced by the Phase-II temporal weighting module. For notational convenience, we partition the encoded joint representation as ̈ 𝐞 2 = [ ̈ 𝐞 𝑣 ∣̈ 𝐞 slc ], where ̈ 𝐞 𝑣 and ̈ 𝐞 slc denote the encoded components corresponding to the observed visual channels and the semantic latent channels, respectively. Based on the encoded joint representation, we construct two semantic branches. For the coarse semantic branch ,we use the encoded semantic-latent-channel component ̈ 𝐞 slc 
+
+to model abstract category-level semantics. Rather than col-lapsing the temporal dimension, we first apply temporal weighting to emphasize semantically informative time steps and then vectorize the weighted representation: ̃
+
+𝐞 coarse = vec (̈ 𝐞 slc ⊙̈ 𝐰 𝑡 
+
+) , (8) ̂
+
+𝐞 coarse = 𝑓 coarse 
+
+(̃ 𝐞 coarse 
+
+) , (9) where ⊙ denotes element-wise temporal reweighting with broadcasting along the channel dimension, and 𝑓 coarse (⋅)
+
+denotes the coarse semantic projection head summarized in Table 1, which maps the weighted and vectorized semantic-latent-channel representation to a 1024 -dimensional embed-ding. The resulting coarse representation ̂ 𝐞 coarse ∈ ℝ𝐵 ×1024 
+
+is aligned with the text semantic representation 𝐭 coarse ∈
+
+ℝ𝐵 ×1024 extracted from the pretrained CLIP text encoder. The corresponding alignment loss is 
+
+𝐼𝐼 
+
+> CLIP
+
+-c = CLIP _LOSS( ̂𝐞 coarse , 𝐭 coarse ). (10) For the fine semantic branch , we use the full encoded joint representation ̈ 𝐞 2 to capture fine image-level visual-semantic information from interactions between observed visual EEG channels and semantic latent channels. The representation is obtained by ̂
+
+𝐞 f ine = 𝑓 f ine 
+
+(vec( ̈𝐞 2)) , (11) where 𝑓 f ine (⋅) denotes the fine semantic projection head summarized in Table 1, which maps the vectorized joint representation to a 1024 -dimensional embedding ̂ 𝐞 f ine ∈
+
+ℝ𝐵 ×1024 . The embedding is then aligned with the fine image-level visual-semantic representation 𝐯 f ine ∈ ℝ𝐵 ×1024 ob-tained from the projected block3 output of the frozen Open-CLIP ResNet50 image encoder. The corresponding align-ment loss is 
+
+𝐼𝐼 
+
+> CLIP
+
+-f = CLIP _LOSS( ̂𝐞 f ine , 𝐯 f ine ). (12) Through these two branches, Phase-II explicitly sepa-rates abstract label-level semantics from finer image-level semantics, while preserving their interaction within a shared joint channel representation. This design provides structured semantic supervision for the subsequent integration stage in Phase-III. 
+
+3.3. Phase-III: Integrative Information Fusion 
+
+Within the proposed staged framework, Phase-III per-forms integrative information fusion by combining the low-level visual representation learned in Phase-I with the struc-tured semantic representations learned in Phase-II. While Phase-I captures early perceptual information and Phase-II models higher-level semantics at both coarse and fine levels, Phase-III integrates these complementary represen-tations into a unified EEG embedding for final cross-modal alignment. This design is motivated by neuroscientific evi-dence suggesting that higher-level cognition arises from the progressive integration of multiple information pathways [6, 11, 10]. Specifically, we first combine the low-level visual rep-resentation 𝐞 1 from Phase-I with the fine semantic repre-sentation ̂ 𝐞 f ine from Phase-II, and map the concatenated feature to a unified embedding space through an MLP. This step preserves both early perceptual cues and more detailed image-level visual-semantic information. We then incorporate the coarse semantic representation ̂ 𝐞 coarse as additive category-level semantic guidance. In this way, the final EEG representation jointly reflects perceptual detail, fine semantic specificity, and coarse semantic abstraction. Formally, the integrative information fusion is defined as 
+
+𝐞 EEG = 𝑓 MLP ([ 𝐞 1 ∣̂ 𝐞 f ine ]) + ̂ 𝐞 coarse , (13) where [⋅|⋅] denotes concatenation. The resulting represen-tation 𝐞 EEG ∈ ℝ𝐵 ×1024 is aligned with the final image embedding 𝐯 image ∈ ℝ𝐵 ×1024 extracted from the final output of the frozen OpenCLIP ResNet50 image encoder through 
+
+𝐼𝐼𝐼  
+
+> CLIP
+
+= CLIP _LOSS( 𝐞 EEG , 𝐯 image ). (14) The overall training objective is defined as the weighted sum of the losses from the three phases: 
+
+total = 𝛼 1𝐼  
+
+> CLIP
+
++𝛼 2
+
+(𝐼𝐼 
+
+> CLIP
+
+-c + 𝐼𝐼 
+
+> CLIP
+
+-f
+
+)+𝛼 3𝐼𝐼𝐼 
+
+> CLIP
+
+, (15) where 𝛼 1, 𝛼 2, and 𝛼 3 balance the contributions of the three phases, and are set to 0.1, 0.2, and 0.5, respectively. 
+
+## 4. Experiments 
+
+4.1. Experimental Setup 
+
+4.1.1. Benchmark Dataset 
+
+The benchmark dataset THINGS-EEG [9] was employed for all experiments. THINGS-EEG is currently the largest publicly available EEG dataset for brain decoding, and it has become a widely recognised benchmark in recent top-tier conference and journal publications, particularly in the con-text of zero-shot learning settings. The dataset was designed   
+
+> Gao et al.: Preprint submitted to Elsevier Page 6 of 17
+
+to capture rich and generalisable neural representations of visual-semantic concepts, thereby providing a challenging and comprehensive testbed for evaluating model general-isation across subjects and unseen categories. Data were collected using a Rapid Serial Visual Presentation paradigm, in which visual stimuli were presented in rapid succession while EEG signals were recorded. The dataset contains neu-ral responses from 10 participants, each exposed to a broad spectrum of object categories encompassing diverse visual and semantic domains. The training set consists of 1,654 object classes, each represented by 10 different images, with each image presented four times in a randomised sequence. This yields a total of 66,160 EEG samples. The test set 
+
+contains 200 held-out classes, each represented by a single image repeated 80 times, resulting in 16,000 EEG samples. All stimuli were presented in a randomised order to reduce habituation and expectancy effects. In addition to the stan-dard benchmark setting, we further consider an expanded multi-image evaluation protocol based on the same 200 unseen classes to provide a more comprehensive assessment of fine-grained retrieval, as detailed in Section 4.4. We evaluate the proposed method under two standard settings. 
+
+• Subject-dependent 200-way zero-shot classifica-tion . The model is trained on the training set and evaluated on the test set of the same subject. 
+
+• Subject-independent 200-way zero-shot classifica-tion . The model is trained entirely on the training sets of other subjects and evaluated on the test set of the target subject. 
+
+4.1.2. Baselines and Evaluation Metrics 
+
+We compare our method with nine representative EEG visual decoding approaches evaluated on the same THINGS-EEG benchmark, including Wu et al. [25] (CVPR’25), Zhang et al. [30] (AAAI’25), Jing et al. [13] (KBS’25), Zhang et al. [29] (IJCAI’25), Shi et al. [20] (MICCAI’25), Li et al. [16] (NeurIPS’24), Song et al. [21] (ICLR’24), Chen et al. [1] (arXiv’24), and Du et al. [5] (TPAMI’23). These methods cover several representative directions in EEG visual decoding, including cross-modal alignment, se-mantic regularization, wavelet-domain modeling, diffusion-based decoding, graph-based modeling, and vision-language supervision. For fair comparison, all baseline results are taken from the corresponding papers or official released results reported under the standard THINGS-EEG 200-way zero-shot protocol. Following the standard evaluation protocol used in prior work, we report Top-1 and Top-5 accuracy under both subject-dependent and subject-independent 200-way zero-shot settings. These metrics provide a consistent basis for comparing decoding performance across methods on the THINGS-EEG benchmark. 
+
+4.1.3. Key Implementation Details 
+
+The detailed architectural specification of the proposed framework is summarized in Table 1. All experiments were carried out on a single NVIDIA GeForce RTX 4090 GPU, with the framework implemented in PyTorch. For EEG sig-nal preprocessing, we follow the standard pipeline described in [21, 25]. For visual feature extraction, we employ the pretrained OpenCLIP ResNet50 image encoder [12], keep-ing its parameters fixed throughout training. The model is optimized using AdamW with a learning rate of 1×10 −4 and a batch size of 1024. Training is conducted for 40 epochs, and the random seed is fixed to 42. Unless otherwise stated, the same hyperparameter configuration is used for both subject-dependent and subject-independent experiments. 
+
+4.2. Main Results 
+
+4.2.1. Subject-Dependent Zero-Shot Evaluation 
+
+Table 2 presents the 200-way zero-shot classification results under the subject-dependent setting. Our method achieves the best Top-1 accuracy on all 10 subjects, with an average of 55.0% , surpassing the strongest prior baseline, Wu et al. [25] (CVPR), by 4.1 absolute points over its 50.9% average, corresponding to a relative improvement of 8.1% .The gains are consistent across subjects, with particularly large margins on Sub01 (+7.3) and Sub09 (+7.4), indicat-ing improved robustness on more challenging participants. Compared with recent alignment-based models, including Chen et al. [1] (arXiv) (37.2%), Shi et al. [20] (MICCAI) (30.6%), Zhang et al. [29] (IJCAI) (33.4%), Zhang et al. [30] (AAAI) (35.6%), and Li et al. [16] (NeurIPS) (27.1%), our approach improves the average Top-1 accuracy by 17.8 
+
+to 26.5 percentage points, highlighting the advantage of staged learning and channel-level modeling over conven-tional global embedding alignment. For Top-5 accuracy, our method again ranks first, achiev-ing an average of 84.2% . This exceeds Zhang et al. [30] (AAAI) at 80.2% and Wu et al. [25] (CVPR) at 79.7% by 4.0 
+
+and 4.5 percentage points, respectively. Our method achieves the best Top-5 performance on 8 out of 10 subjects and remains competitive on the remaining two subjects, namely Sub01 and Sub04, while consistently outperforming Wu et al. [25] (CVPR) across all subjects. 
+
+4.2.2. Subject-Independent Zero-Shot Evaluation 
+
+Table 3 presents the 200-way zero-shot classification results under the subject-independent setting. Under this more challenging evaluation protocol, our method achieves the best average Top-1 accuracy of 13.2%, outperform-ing the strongest prior baseline, Wu et al. [25] (CVPR), which achieves 12.4%, by 0.8 percentage points on average. Notably, our framework outperforms all prior methods on several subjects, including Sub01, Sub02, Sub05, Sub06, and Sub10, and remains on par with the strongest base-line on Sub04 and Sub09. Compared with Li et al. [16] (NeurIPS) at 11.8% and Song et al. [21] (ICLR) at 6.2%, our method improves the average Top-1 accuracy by 1.4 and 7.0 percentage points, respectively. These results suggest that the proposed staged learning framework and channel-level augmentation strategy improve exact cross-subject retrieval performance. For Top-5 accuracy, our method achieves an average of 32.3%, which remains competitive   
+
+> Gao et al.: Preprint submitted to Elsevier Page 7 of 17
+
+Table 1 
+
+Architecture and hyper-parameters of the proposed neuroscience-inspired staged EEG representation learning framework. 
+
+Module Setting 
+
+EEG input Phase-I uses visual EEG 𝒆 𝑣 ∈ ℝ𝐵 ×17× 𝑇 ; Phase-II uses expanded EEG ̈ 𝒆 = [ 𝒆 𝑣 ∣ 𝒆 slc ] ∈ ℝ𝐵 ×29× 𝑇 , with 
+
+𝑇 = 175 
+
+Channel partition 17 visual-related EEG channels + 12 semantic latent channels Visual-related channels {P7, P5, P3, P1, Pz, P2, P4, P6, P8, PO7, PO3, POz, PO4, PO8, O1, Oz, O2 }
+
+Backbone structure Three-phase RST-GAT framework consisting of Phase-I low-level visual representation learning, Phase-II dual-level semantic representation learning, and Phase-III integrative information fusion Semantic latent channel SLCInitLinear : Linear (17 → 12) applied at each time step to generate 𝒆 slc ∈ ℝ𝐵 ×12× 𝑇 from visual EEG Phase-I input 𝒆 𝑣 ∈ ℝ𝐵 ×17×175 
+
+Phase-II input ̈ 𝒆 = [ 𝒆 𝑣 ∣ 𝒆 slc ] ∈ ℝ𝐵 ×29×175 
+
+Adaptive temporal weighting One learnable temporal weighting module for Phase-I and one independent module for Phase-II: Linear (𝑇 → 128) + ReLU + Linear (128 → 𝑇 ) + Softmax Channel graph (Phase-I) Fully connected directed graph over 17 visual channels, i.e., all pairs (𝑖, 𝑗 ) with 𝑖 ≠ 𝑗 
+
+Channel graph (Phase-II) Fully connected directed graph over 29 expanded EEG channels, i.e., all pairs (𝑖, 𝑗 ) with 𝑖 ≠ 𝑗 
+
+Temporal graph Fully connected directed graph over temporal indices 𝑡 ∈ [0 , 𝑇 − 1] , i.e., all pairs (𝑖, 𝑗 ) with 𝑖 ≠ 𝑗 
+
+GNN backbone GATConv from torch_geometric.nn 
+
+Phase-I channel GAT GATConv : in = 𝑇 , out = 𝑇 , heads = 1 , concat = False 
+
+Phase-I temporal GAT GATConv : in = 17 , out = 17 , heads = 1 , concat = False 
+
+Phase-II channel GAT GATConv : in = 𝑇 , out = 𝑇 , heads = 1 , concat = False 
+
+Phase-II temporal GAT GATConv : in = 29 , out = 29 , heads = 1 , concat = False 
+
+Residual update For each phase, 𝑥 ′ = 𝑥 + GAT(Attn( 𝑥 )) 
+
+Phase-I encoder Flatten + Linear (17 ⋅ 175 → 256) + GELU + LayerNorm, producing low-level EEG embedding 
+
+𝒆 1 ∈ ℝ𝐵 ×256 
+
+Phase-II fine encoder Flatten + Linear (29 ⋅ 175 → 1024) + GELU + LayerNorm, producing fine semantic embedding ̂
+
+𝒆 f ine ∈ ℝ𝐵 ×1024 
+
+Phase-II coarse encoder Attention-weighted flatten over refined semantic-latent-channel features + Linear (12 ⋅ 175 → 1024) 
+
++ Residual(GELU + Linear + Dropout (0 .1) ) + LayerNorm, producing coarse semantic embedding ̂
+
+𝒆 coarse ∈ ℝ𝐵 ×1024 
+
+Phase-III information fusion Concatenate [𝒆 1 ∣̂ 𝒆 f ine ] + Linear (256 + 1024 → 1024) 
+
+Output embedding Final EEG embedding 𝒆 EEG = 𝑓 MLP ([ 𝒆 1 ∣̂ 𝒆 f ine ]) + ̂ 𝒆 coarse ∈ ℝ𝐵 ×1024 
+
+Low-level image feature block1 output of the frozen OpenCLIP ResNet50 image encoder projected to 256 -d by an MLP High-level image feature block3 output of the frozen OpenCLIP ResNet50 image encoder projected to 1024 -d by an MLP Text feature OpenCLIP text encoder output for class labels, 𝐭 coarse ∈ ℝ𝐵 ×1024 
+
+Final image embedding Final output of the frozen OpenCLIP ResNet50 image encoder, 𝐯 image ∈ ℝ𝐵 ×1024 , for Phase-III alignment Image feature projector 1 Linear (256 → 256) + ReLU + Linear (256 → 256) 
+
+Image feature projector 3 Linear (1024 → 1024) + ReLU + Linear (1024 → 1024) 
+
+Image feature normalization 𝐿 2 normalization on projected image features Temperature Learnable logit scale initialized as log(1∕0 .07) ; Softplus applied 
+
+with Li et al. [16] (NeurIPS) at 33.7% and Wu et al. [25] (CVPR) at 33.4%, while substantially outperforming Song et al. [21] (ICLR) at 21.4% and Du et al. [5] (TPAMI) at 7.0%. Overall, these results indicate that the proposed method provides the strongest exact retrieval performance under subject-independent evaluation while maintaining competitive broader retrieval capability. 
+
+4.2.3. Discussion on the Standard Benchmark 
+
+A clear performance gap remains between the subject-dependent and subject-independent settings, which is con-sistent with the well-recognized challenge of cross-subject EEG generalization. EEG signals are highly subject-specific and are influenced by multiple factors, including individ-ual differences in brain anatomy, electrode placement, and neural response patterns. As a result, subject-independent decoding is substantially more difficult than within-subject decoding. Against this background, the proposed framework exhibits two notable characteristics. First, it achieves the 
+
+Gao et al.: Preprint submitted to Elsevier Page 8 of 17 Table 2 
+
+Subject-dependent Top-1 and Top-5 accuracy (%) in 200-way zero-shot classification. 
+
+Metrics Methods Sub01 Sub02 Sub03 Sub04 Sub05 Sub06 Sub07 Sub08 Sub09 Sub10 Avg. 
+
+Top-1 Accuracy Du et al. [5] (TPAMI) 6.1 4.9 5.6 5.0 4.0 6.0 6.5 8.8 4.3 7.0 5.8 Song et al. [21] (ICLR) 13.2 13.5 14.5 20.6 10.1 16.5 17.0 22.9 15.4 17.4 16.1 Li et al. [16] (NeurIPS) 25.6 22.0 25.0 31.4 12.9 21.3 30.5 38.8 34.4 29.1 27.1 Chen et al. [1] (arXiv) 32.6 34.4 38.7 39.8 29.4 34.5 34.5 49.3 39.0 39.8 37.2 Shi et al. [20](MICCAI) 32.0 25.5 34.0 37.0 22.0 27.0 28.5 43.0 26.5 30.5 30.6 Zhang et al. [29] (IJCAI) 33.0 28.0 33.5 36.0 26.0 30.5 34.0 43.0 31.5 38.5 33.4 Zhang et al. [30] (AAAI) 31.4 31.4 38.2 40.4 24.4 34.8 34.7 48.1 37.4 35.6 35.6 Jing et al. [13] (KBS) 32.6 32.5 35.0 39.8 26.5 34.7 36.5 48.3 37.8 36.6 36.0 Wu et al. [25] (CVPR) 41.2 51.2 51.2 51.1 42.2 57.5 49.0 58.6 45.1 61.5 50.9 Ours 48.5 56.0 53.5 54.0 44.0 60.0 51.5 64.0 52.5 66.0 55.0 
+
+Top-5 Accuracy Du et al. [5] (TPAMI) 17.9 14.9 17.4 15.1 13.4 18.2 20.4 23.7 14.0 19.7 17.5 Song et al. [21] (ICLR) 39.5 40.3 42.7 52.7 31.5 44.0 42.1 56.1 41.6 45.8 43.6 Li et al. [16] (NeurIPS) 60.4 54.5 62.4 60.9 43.0 51.1 61.5 72.0 51.5 63.5 58.1 Chen et al. [1] (arXiv) 63.7 69.9 73.5 72.0 58.6 68.8 68.3 79.8 69.6 75.3 69.9 Shi et al. [20](MICCAI) 63.0 59.0 69.0 57.0 46.0 47.5 59.5 74.5 57.5 66.0 59.9 Zhang et al. [29] (IJCAI) 58.5 56.5 61.0 68.0 48.0 62.5 62.5 73.5 58.5 69.0 61.8 Zhang et al. [30] (AAAI) 79.7 77.8 85.7 85.8 66.3 78.8 81.0 88.6 79.4 79.3 80.2 Jing et al. [13] (KBS) 77.9 78.9 85.4 85.1 73.4 78.2 80.4 83.7 84.0 80.7 80.8 Wu et al. [25] (CVPR) 70.5 80.9 82.0 76.9 72.8 83.5 79.9 85.8 76.2 88.2 79.7 Ours 74.0 87.5 88.0 80.0 79.5 88.0 83.0 89.0 81.5 91.0 84.2 
+
+Table 3 
+
+Subject-independent Top-1 and Top-5 accuracy (%) in 200-way zero-shot classification. (Note that some methods in Table 2 were designed exclusively for the subject-dependent setting. “–” indicates that subject-wise results were not reported in the corresponding paper.) 
+
+Metrics Methods Sub01 Sub02 Sub03 Sub04 Sub05 Sub06 Sub07 Sub08 Sub09 Sub10 Avg. 
+
+Top-1 Accuracy Du et al. [5] (TPAMI) 2.3 1.5 1.4 1.7 1.5 1.8 2.1 2.2 1.6 2.3 1.8 Song et al. [21] (ICLR) 7.6 5.9 6.0 6.3 4.4 5.6 5.6 6.3 5.7 8.4 6.2 Li et al. [16] (NeurIPS) 10.5 7.1 11.9 14.7 7.0 11.1 16.1 15.0 4.9 20.5 11.8 Shi et al. [20](MICCAI) – – – – – – – – – – 12.4 Wu et al. [25] (CVPR) 11.5 15.5 9.8 13.0 8.8 11.7 10.2 12.2 15.5 16.0 12.4 Ours 13.0 16.5 8.0 14.5 10.0 14.0 9.5 11.5 14.5 20.5 13.2 
+
+Top-5 Accuracy Du et al. [5] (TPAMI) 8.0 6.3 5.9 6.7 5.6 7.2 8.1 7.6 6.4 8.5 7.0 Song et al. [21] (ICLR) 22.8 20.5 22.3 20.7 18.3 22.2 19.7 22.0 17.6 28.3 21.4 Li et al. [16] (NeurIPS) 26.8 24.8 33.8 39.4 23.9 35.8 43.5 40.3 22.7 46.5 33.7 
+
+Shi et al. [20](MICCAI) – – – – – – – – – – 30.3 Wu et al. [25] (CVPR) 29.7 40.0 27.0 32.3 33.8 31.0 23.8 32.2 40.5 43.5 33.4 Ours 32.0 41.5 22.0 34.5 31.5 31.5 27.0 30.5 32.0 40.0 32.3 
+
+strongest average Top-1 accuracy under both evaluation settings, indicating that the staged representation learning strategy is effective for learning discriminative EEG rep-resentations. Second, although performance decreases un-der the more challenging subject-independent setting, the proposed method still maintains competitive Top-5 retrieval performance while preserving the best average Top-1 ac-curacy. These results suggest that explicitly modeling low-level perception, high-level semantics, and integrative fusion provides a useful representation framework for both within-subject decoding and cross-subject generalization. 
+
+4.3. Additional Analyses 
+
+In addition to the main results, we conduct several addi-tional analyses under the standard 200-way zero-shot pro-tocol to better understand the behavior of the proposed 
+
+Gao et al.: Preprint submitted to Elsevier Page 9 of 17 Table 4                                                                               
+
+> Layer-wise retrieval accuracy (%) of different representation levels in subject-dependent 200-way zero-shot evaluation.
+> Metrics Representations Sub01 Sub02 Sub03 Sub04 Sub05 Sub06 Sub07 Sub08 Sub09 Sub10 Avg.
+> Top-1 Accuracy Phase-I 30.0 28.5 25.0 24.0 23.5 35.0 27.5 31.0 25.0 30.0 27.9 Phase-II(fine) 49.5 47.5 50.5 49.5 43.0 47.5 45.5 51.0 43.0 44.0 47.1 Phase-III 48.5 56.0 53.5 54.0 44.0 60.0 51.5 64.0 52.5 66.0 55.0 Top-5 Accuracy Phase-I 62.0 58.0 61.0 54.5 47.0 67.5 55.5 65.0 57.5 65.0 59.3 Phase-II(fine) 77.0 80.5 79.5 83.5 75.5 84.5 76.5 81.5 74.5 82.5 79.5 Phase-III 74.0 87.5 88.0 80.0 79.5 88.0 83.0 89.0 81.5 91.0 84.2
+
+framework. We examine the retrieval performance of rep-resentations learned at different stages, analyze the contri-bution of the Phase-II semantic branches, provide qualita-tive retrieval examples, and investigate how discriminative information accumulates over time. These analyses are in-tended to complement the main quantitative comparison and provide further evidence for the effectiveness of the staged decomposition and structured semantic modeling strategy. 
+
+4.3.1. Layer-Wise Retrieval Analysis 
+
+Table 4 provides a layer-wise evaluation of the represen-tations learned at different stages of the proposed framework. The Phase-I representation, which mainly captures low-level perceptual information, achieves the lowest average retrieval accuracy, with 27.9% Top-1 and 59.3% Top-5. When the model progresses to Phase-II, the fine semantic representation improves the average performance to 47.1% Top-1 and 79.5% Top-5, indicating that high-level seman-tic learning substantially enhances discriminative capability beyond shallow visual similarity. The final fused representa-tion in Phase-III further improves the average performance to 55.0% Top-1 and 84.2% Top-5. Although the improve-ment is not strictly monotonic for every individual subject and metric, the average results show a clear hierarchical progression from Phase-I to Phase-II and then to Phase-III. This trend provides quantitative evidence that the proposed framework learns a hierarchy of complementary EEG rep-resentations rather than relying on a single undifferentiated embedding space. In particular, the results suggest that low-level perceptual representation, fine-grained semantic mod-eling, and their subsequent integration with coarse semantic information make distinct contributions, and that their fusion yields the strongest overall retrieval performance. 
+
+4.3.2. Phase-II Semantic Branch Analysis 
+
+To further evaluate the proposed coarse semantic branch, we analyze the alignment between the coarse EEG semantic representations learned from the 12 semantic latent chan-nels and the corresponding text embeddings. Specifically, the features derived from the semantic latent channels are projected by the coarse semantic branch to obtain ̂ 𝐞 coarse , and retrieval is then performed against the target text embeddings extracted from the pretrained CLIP text encoder. Across the 10 subjects, the projected embeddings from the semantic la-tent channels achieve an average Top-1 / Top-5 text retrieval accuracy of 10.35% / 29.55%. Although these values remain substantially lower than the final image retrieval results, they nevertheless indicate that the coarse branch captures non-trivial label-level semantic information directly from EEG signals. This result suggests that the semantic latent channels do more than enlarge the feature space, and instead provide a useful representation basis for coarse semantic abstraction. This interpretation is further supported by the ablation results in Table 6. When the proposed semantic latent chan-nels are replaced with original language-related channels, or when the coarse semantic branch is removed, the overall decoding performance decreases. Taken together, these re-sults suggest that the coarse semantic branch provides useful complementary semantic supervision in Phase-II, while the proposed semantic latent channels offer a more suitable channel-level representation space for such modeling. To further illustrate the behavior of Phase-II, Fig. 2 provides a branch-wise qualitative example. The example shows that the fine semantic branch mainly contributes to instance-level discrimination by promoting visually and se-mantically relevant candidates, whereas the coarse semantic branch provides category-level semantic guidance through text alignment. In the final fusion stage, the low-level rep-resentation is integrated with the fine and coarse semantic representations, leading to a more reliable Top-1 prediction and highlighting the complementary roles of fine image-level visual-semantic discrimination and coarse category-level semantic support. 
+
+4.3.3. Qualitative Retrieval Examples 
+
+We further provide qualitative retrieval examples in Fig. 3 to better understand the retrieval behavior of the pro-posed framework. In successful cases, the correct stimulus image is retrieved at Top-1, indicating that the learned EEG representation can be effectively aligned with the corre-sponding visual embedding. These examples suggest that the proposed framework captures sufficiently discriminative concept-level information to support accurate cross-modal retrieval. We also analyze more challenging cases in which the ground-truth image is not retrieved at Top-1 but still appears within the Top-5 results. Such cases remain informative because they indicate that the learned EEG representation often preserves substantial semantic relevance even when     
+
+> Gao et al.: Preprint submitted to Elsevier Page 10 of 17 antelope
+> Top -1
+> antelope desk
+> brace
+> Top -3Top -4
+> Top -1
+> backscratcher
+> Top -2
+> Low -level Perception
+> GT:antelope
+> Input EEG query
+> High -level semantic -coarse branch
+> chaps antelope
+> Top -1Top -2
+> High -level semantic -fine branch
+
+Semantic prior 
+
+> text -aligned class prior
+> GT rank = 1
+
+Figure 2: A branch-wise qualitative example illustrating the complementary roles of the fine semantic branch and the coarse semantic branch in the proposed staged framework. For the EEG query corresponding to the class antelope , the low-level perception stage retrieves visually similar but semantically ambiguous candidates, while the fine semantic branch ranks the ground-truth image at Top-1. Meanwhile, the coarse semantic branch provides a text-aligned class prior that ranks the target class antelope at the top of the semantic ranking. In the final fusion stage, the low-level representation is integrated with the fine and coarse semantic representations, yielding the correct Top-1 retrieval result. This example highlights the complementary contribution of fine image-level visual-semantic discrimination and coarse category-level guidance. p-5 Stimuli  Top -1 Top -2 Top -3 Top -4 Top -5Stimuli  Top -1 Top -2 Top -3 Top -4 Top -5
+
+Figure 3: Qualitative retrieval examples on the standard 200-way THINGS-EEG test set, including top-1 successful cases (left) and challenging cases where the ground-truth image appears within the top-5 results (right). For each row, the query stimulus is shown in the leftmost column, followed by the top-5 retrieved images from left to right. The green box marks the ground-truth image among the retrieved results. 
+
+the exact ranking is not optimal. In other words, the fail-ure is frequently not a complete semantic mismatch, but rather an instance-level ranking ambiguity among visually or semantically related candidates. As shown in Fig. 3, these ranking errors are often associated with similarities in global shape, texture, object parts, or overall category-level appear-ance. This observation suggests that the proposed framework already captures meaningful semantic structure, while the remaining errors mainly reflect the continuing difficulty of fine-grained instance discrimination under the standard 200-way zero-shot setting. 
+
+Gao et al.: Preprint submitted to Elsevier Page 11 of 17 Figure 4: Temporal accumulation analysis of retrieval perfor-mance under the standard 200-way zero-shot setting. Solid lines denote Top-1 accuracy computed from EEG signals accumulated from 0 to 𝑡 , while dashed lines denote accuracy computed from the complementary interval from 𝑡 to 1000 ms. Results are shown for the Phase-I low-level representation, the Phase-II fine semantic representation, and the Phase-III fused representation. When 𝑡 is small, the complementary interval still covers most of the trial duration, whereas its length progressively shrinks as 𝑡 increases. The results suggest that discriminative information is mainly accumulated in the early-to-middle period and is more effectively exploited by the semantic and fused representations. 
+
+4.3.4. Temporal Accumulation Analysis 
+
+Fig. 4 presents the cumulative temporal-window analysis from 0 to 1000 ms for the Phase-I, Phase-II, and Phase-III representations. Several important observations can be drawn from the results. First, higher-level representations consistently outperform lower-level ones across nearly all temporal ranges, with the Phase-III representation achiev-ing the strongest overall performance, followed by Phase-II, while Phase-I remains the weakest. This indicates that deeper and more structured representations are more ef-fective at converting accumulated temporal evidence into discriminative EEG embeddings. Second, retrieval performance increases rapidly as the temporal boundary expands from the early stage to the intermediate stage, particularly before approximately 300– 400 ms. This trend suggests that a substantial portion of task-relevant information is accumulated during the early-to-middle period of the EEG response. After this range, the performance gains become much smaller and gradually approach a plateau, indicating that extending the temporal window further provides only limited additional benefit. Third, the complementary interval analysis in Fig. 4 further supports this interpretation. When only the later interval [𝑡, 1000] is retained, retrieval performance generally decreases as 𝑡 increases and the available temporal range shrinks, suggesting that discriminative information is not uniformly distributed across the trial. Instead, the results indicate that the early-to-middle temporal period contains the most informative evidence, while later temporal seg-ments provide more limited additional contribution when considered in isolation. Overall, these results are consistent with the rationale of the proposed staged framework. They suggest that low-level perceptual information emerges early, while higher-level semantic and integrated representations are better able to exploit the accumulated temporal evidence over the course of the EEG response, leading to stronger retrieval perfor-mance. 
+
+4.4. Expanded Zero-Shot Retrieval Evaluation 
+
+4.4.1. Expanded Multi-image Evaluation Protocol 
+
+While the conventional 200-way zero-shot protocol pro-vides a standard benchmark for fair comparison, its gallery contains only one image per unseen class and therefore mainly reflects coarse class-level discrimination. Such a setting is insufficient to fully evaluate our hierarchical de-coding framework, which explicitly models the progressive transformation of EEG signals from early visual represen-tations to higher-level semantic representations. To provide a more comprehensive assessment, we further construct an expanded multi-image evaluation protocol based on the same 200 unseen test classes used in prior work. Specifically, for each of the 200 held-out classes, we re-tain the original test image and additionally sample 11 more images from the corresponding THINGS image database using a fixed random seed of 42, resulting in an expanded gallery of 2,400 images (200 classes × 12 images per class). Importantly, the EEG queries remain unchanged: we still use the original EEG test samples corresponding to the original 200 test images as queries, and evaluate whether the learned representations can retrieve relevant targets from the enlarged image space. In this way, the task becomes substantially more challenging, as the model must not only distinguish the correct class from 199 distractor classes, but also resolve ambiguity among multiple visual instances within the same class. Based on this expanded gallery, we evaluate retrieval performance at multiple representation levels, including the low-level branch ( Phase-I ), the high-level fine-grained branch ( Phase-II ), and the final fused representation ( Phase-III ). We report both category-level retrieval and global exact-image retrieval . The former measures whether the retrieved results contain images from the target class in the presence of distractors from all other classes, while the latter further requires the retrieval of the exact target image from the enlarged gallery. This protocol therefore enables a more fine-grained evaluation of both category discrimination and instance-level matching. 
+
+4.4.2. Quantitative Results on the Expanded Gallery 
+
+The quantitative results are reported in Table 5. Several important observations can be drawn from this more chal-lenging evaluation. First, although retrieval becomes sub-stantially harder when the gallery is expanded from the stan-dard one-image-per-class setting to a 2,400-image search space, the proposed framework still preserves meaningful retrieval capability across both category-level retrieval and global exact-image retrieval. This indicates that the learned                                                                                                                                                                                                                       
+
+> Gao et al.: Preprint submitted to Elsevier Page 12 of 17 Table 5
+> Expanded multi-image zero-shot retrieval results (%) on the 200 ×12 test gallery. We report category-level retrieval accuracy and global exact-image retrieval accuracy for Phase-I, Phase-II, and Phase-III representations.
+> Metrics Stages Sub01 Sub02 Sub03 Sub04 Sub05 Sub06 Sub07 Sub08 Sub09 Sub10 Avg.
+> Category-level retrieval Top-1 Phase-I 1.0 1.5 0.5 1.5 0.0 0.5 0.5 1.5 1.5 1.5 1.0 Phase-II 6.5 5.0 8.5 10.5 5.0 8.0 6.5 11.5 10.0 5.5 7.7 Phase-III 9.0 13.0 18.0 20.5 11.5 22.0 17.5 22.5 15.0 21.5 17.1 Category-level retrieval Top-5 Phase-I 7.5 4.0 6.0 6.0 3.0 5.0 3.5 5.0 3.5 4.0 4.8 Phase-II 19.0 18.0 21.5 23.5 14.0 24.0 24.5 24.5 20.0 16.5 20.6 Phase-III 28.5 35.5 40.5 43.5 34.5 43.0 40.5 45.5 36.0 46.5 39.4 Category-level retrieval Top-10 Phase-I 9.0 7.5 9.5 11.5 9.5 9.5 7.0 10.5 8.5 7.0 9.0 Phase-II 25.5 28.5 32.0 34.0 23.0 38.0 32.5 34.5 28.0 32.0 30.8 Phase-III 39.0 49.5 51.0 57.0 48.5 55.5 54.5 57.5 49.0 61.5 52.3 Global retrieval Top-1 Phase-I 0.0 0.0 0.0 0.5 0.0 0.0 0.0 0.0 0.5 0.5 0.2 Phase-II 1.0 0.5 1.0 2.0 1.0 1.0 0.0 1.5 1.0 0.0 0.9 Phase-III 3.0 4.5 8.0 5.0 4.5 8.0 5.5 9.0 5.0 6.5 5.9 Global retrieval Top-5 Phase-I 1.0 1.0 1.0 0.5 0.5 1.0 0.0 1.0 0.5 0.5 0.7 Phase-II 4.0 2.5 4.5 4.0 3.5 5.5 4.5 4.5 4.5 1.5 3.9 Phase-III 15.0 16.5 18.5 17.0 17.0 24.5 20.5 28.5 15.0 23.5 19.6 Global retrieval Top-10 Phase-I 1.0 1.5 1.0 1.0 1.0 1.5 0.5 1.5 1.0 1.0 1.1 Phase-II 6.5 5.5 6.5 10.5 6.5 9.5 9.5 9.0 8.5 7.5 8.0 Phase-III 19.0 26.0 28.0 29.0 24.0 34.5 30.0 38.0 23.0 34.5 28.6
+
+EEG representations are not limited to coarse class discrim-ination under the simplified benchmark, but retain discrimi-native value in the presence of substantial within-class visual variation. Second, the three representation levels exhibit a clear hierarchical progression. The Phase-I representation yields the weakest performance across all metrics, indicating that low-level perceptual representations alone are insufficient for resolving the increased ambiguity introduced by mul-tiple instances per class. The Phase-II representation sub-stantially improves both category-level retrieval and global exact-image retrieval, suggesting that high-level semantic learning already provides a more discriminative represen-tation space than shallow perceptual alignment. The Phase-III representation further and consistently outperforms both 
+
+Phase-I and Phase-II on all reported metrics, showing that the final fused representation is not merely a larger em-bedding, but a more effective integration of complementary perceptual and semantic information. Third, the observed stage-wise gains provide stronger evidence for the rationale of the proposed framework than the standard benchmark alone. In particular, category-level retrieval mainly reflects whether the learned EEG repre-sentation can preserve class-discriminative structure un-der enlarged visual variability, whereas global exact-image retrieval additionally tests whether the representation can resolve fine-grained instance ambiguity within the target class. The consistent improvement from Phase-I to Phase-II and then to Phase-III across both evaluation perspectives suggests that the proposed framework progressively trans-forms EEG signals from shallow perceptual representations into more structured and discriminative semantic represen-tations, and finally into a unified embedding that is better suited for fine-grained retrieval. Overall, the expanded multi-image evaluation supports the central claim of this work that EEG visual decod-ing benefits from explicitly staged representation learning. Rather than relying on a single undifferentiated embed-ding space, the proposed framework forms a hierarchy of complementary EEG representations whose integration yields the strongest performance under a substantially more demanding retrieval setting. 
+
+4.4.3. Qualitative Retrieval Refinement Analysis 
+
+To further understand the retrieval dynamics across rep-resentation levels, we provide a qualitative example in Fig. 5. For the EEG query corresponding to the class wok , the retrieval results exhibit a clear progressive refinement across stages. The Phase-I representation is dominated by visu-ally similar yet semantically ambiguous candidates, sug-gesting that it is primarily driven by low-level perceptual resemblance. The Phase-II representation narrows the can-didate set toward more category-relevant objects, reflecting a stronger semantic concentration. Finally, the Phase-III rep-resentation ranks the correct class at Top-1, illustrating how the proposed staged framework progressively transforms shallow visual similarity into more discriminative category-level semantic identification. The accompanying SSIM values further support this interpretation. Earlier-stage retrieval results tend to have                         
+
+> Gao et al.: Preprint submitted to Elsevier Page 13 of 17 GT: w ok
+> SSIM: 0.353 | GT rank: 1
+> fork
+> 0.298
+> pickax
+> 0.270
+> fork
+> 0.324
+> seagull
+> 0.339
+> Layer1 Candidates
+> GT: w ok
+> Query Layer3 Refined
+> pickax
+> 0.441
+> fork
+> 0.413
+> Final Top -1
+> wok
+> 0.095
+> Input EEG query Avg SSIM@4: 0.574 |GT rank: 15 Avg SSIM@2: 0.571 |GT rank: 8
+> Progressive refinement: Avg SSIM 0.574 →0.571 →0.353 |GT rank: 15 →8→1
+
+Figure 5: Qualitative retrieval refinement example on the expanded multi-image gallery. For the EEG query corresponding to the class wok , the retrieval results show progressive refinement across the three stages. The Phase-I representation retrieves visually similar but semantically ambiguous candidates, the Phase-II representation narrows the results toward more category-relevant objects, and the Phase-III fused representation retrieves the target class at Top-1. The accompanying SSIM values, computed with respect to the query stimulus, suggest that earlier-stage retrieval is more influenced by low-level structural similarity, whereas the final fused representation appears less dominated by superficial visual resemblance and more guided by semantically discriminative information. For visualization clarity, more candidates are displayed at earlier stages and fewer at later stages (Phase-I: top-4, Phase-II: top-2, Phase-III: top-1), emphasizing the progressive concentration of retrieval results rather than providing a strictly matched top-𝑘 quantitative comparison. 
+
+relatively higher structural similarity to the query image, whereas the Phase-III retrieval places less emphasis on su-perficial visual resemblance and more on semantically dis-criminative information. For visualization clarity, we display more candidates at earlier stages and fewer at later stages (Phase-I: top-4, Phase-II: top-2, Phase-III: top-1), so as to emphasize the progressive concentration of retrieval results rather than to provide a strictly top-𝑘 -matched quantitative comparison. Overall, this qualitative example provides intuitive sup-port for the progressive refinement behavior of the proposed framework. Rather than producing a single undifferentiated embedding, the model forms a hierarchy of representations with complementary roles: early-stage features preserve per-ceptual similarity, high-level features enhance semantic dis-crimination, and the final fused representation integrates both to achieve the most accurate retrieval. 
+
+4.5. Ablation Study 
+
+To validate the rationale behind each design of our framework, we conduct the following ablation experiments: 
+
+• Ours-All : The full version of our proposed method with all components enabled. This setting serves as the reference model for evaluating the contribution of each individual design. 
+
+• xC-Ori-12 : The proposed 12 semantic latent channels (i.e., 𝐞 slc in Section 3.2.1) are removed and replaced with 12 real language-related semantic EEG channels. This ablation is designed to test whether the proposed learnable semantic latent channels provide a more effective semantic carrier than directly reusing real language-related channels. 
+
+• xC-Ori-12-xC : Based on xC-Ori-12 , the coarse se-mantic branch is further disabled, i.e., Eq. 9 and Eq. 10 are removed. This setting is used to examine whether coarse semantic supervision still contributes when the proposed semantic latent channels are replaced by real language-related channels. 
+
+• xC-xSLC : The 12 semantic latent channels are re-moved, and only the 17 visual EEG channels are re-tained. In this case, the coarse semantic branch in Eq. 9 is computed using features derived from the retained visual channels. This ablation is used to evaluate the net benefit of semantic latent channel augmentation beyond using only the observed visual EEG channels. 
+
+• xP-xPhaseI : Phase-I is disabled. This setting is de-signed to assess the contribution of low-level visual representation learning to the overall staged frame-work. 
+
+• xP-xPhaseII : Phase-II is disabled. This ablation is used to evaluate the overall importance of struc-tured semantic representation learning in the proposed framework. 
+
+• xP-PhaseII-xF : The fine semantic branch in Phase-II is disabled, i.e., Eq. 11 and Eq. 12 are removed. This setting is designed to test the contribution of fine image-level semantic modeling within Phase-II. 
+
+• xP-PhaseII-xC : The coarse semantic branch in Phase-II is disabled, i.e., Eq. 9 and Eq. 10 are removed. This ablation is used to assess the role of coarse label-level semantic supervision within Phase-II. 
+
+Gao et al.: Preprint submitted to Elsevier Page 14 of 17 Table 6                                                                                                                                                                                             
+
+> Ablation studies on subject-dependent Top-1 and Top-5 accuracy (%).
+> Metrics Variants Sub01 Sub02 Sub03 Sub04 Sub05 Sub06 Sub07 Sub08 Sub09 Sub10 Avg.
+> Top-1 Accuracy Ours-All 48.5 56.0 53.5 54.0 44.0 60.0 51.5 64.0 52.5 66.0 55.0
+> xC-Ori-12 45.5 51.5 46.5 51.0 42.5 55.5 42.0 61.5 47.0 59.5 50.3 xC-Ori-12-xC 43.0 48.0 47.5 50.5 41.5 54.5 42.0 59.5 43.5 60.0 49.0 xC-xSLC 45.0 53.5 51.0 52.5 45.5 57.0 50.5 67.0 51.0 61.0 53.4 xP-xPhaseI 45.5 52.5 50.0 50.0 45.5 56.0 48.0 64.0 49.0 63.5 52.4 xP-xPhaseII 46.0 45.0 50.5 50.5 42.0 54.5 47.0 54.5 42.5 54.5 48.7 xP-PhaseII-xF 47.0 44.0 45.5 47.0 38.0 55.0 44.5 57.5 42.0 57.0 47.8 xP-PhaseII-xC 51.0 55.0 51.0 49.5 45.5 59.0 50.5 63.5 49.5 66.5 54.1 Top-5 Accuracy Ours-All 74.0 87.5 88.0 80.0 79.5 88.0 83.0 89.0 81.5 91.0 84.2
+> xC-Ori-12 77.5 81.0 84.0 83.5 76.0 81.5 80.0 89.5 81.5 89.5 82.4 xC-Ori-12-xC 73.5 81.5 81.0 83.0 75.5 82.0 77.5 86.0 79.5 86.0 80.6 xC-xSLC 75.5 84.5 87.5 80.5 77.0 85.0 81.0 89.0 83.5 88.0 83.2 xP-xPhaseI 70.5 85.0 84.5 77.5 76.5 84.5 80.5 89.0 83.5 86.5 81.8 xP-xPhaseII 78.0 80.5 79.0 77.0 72.5 81.5 77.0 83.0 78.0 86.0 79.3 xP-PhaseII-xF 76.0 81.5 82.5 82.5 71.5 83.5 76.5 85.0 79.0 86.0 80.4 xP-PhaseII-xC 73.5 84.5 87.0 80.5 78.5 86.0 82.5 90.0 80.0 90.5 83.3
+
+4.5.1. Subject-Dependent Ablation 
+
+We conduct ablation studies in the subject-dependent 200-way zero-shot setting. Table 6 summarises the contribu-tion of each component. The full model ( Ours-All ) attains the highest Top-1/Top-5 averages of 55.0% /84.2% . Replac-ing the proposed semantic latent channels with the real 12 language-related semantic channels ( xC-Ori-12 ) reduces Top-1 to 50.3% (-4.7) and Top-5 to 82.4% (-1.8), indicating that the semantic latent channels provide a stronger seman-tic carrier for visual EEG. Removing the coarse semantic branch on top of this replacement ( xC-Ori-12-xC ) further drops performance to 49.0% /80.6% (Top-1/Top-5), showing that coarse label-level supervision contributes to robustness beyond fine-grained cues. When the semantic latent chan-nels are removed but only the 17 visual channels are kept (xC-xSLC ), the model performs reasonably ( 53.4% /83.2% ), yet lags behind Ours-All by 1.6/1.0 points (Top-1/Top-5), confirming the net gain brought by semantic latent channel augmentation. Eliminating the low-level phase ( xP-xPhaseI ) leads to 52.4% /81.8% , evidencing the necessity of early-stage low-level alignment for stabilizing mid-/late-stage learning. Removing the dual-level semantic phase altogether ( xP-xPhaseII ) causes a larger degradation to 48.7% /79.3% ,underscoring the central role of Phase-II. Within Phase-II, disabling the fine semantic branch ( xP-PhaseII-xF ) yields 
+
+47.8% /80.4% , whereas disabling the coarse semantic branch (xP-PhaseII-xC ) gives 53.0% /83.3% . Thus, the fine seman-tic branch is the primary driver for Top-1 discrimination (largest drop when removed), while the coarse semantic 
+
+branch improves calibration/recall (clear Top-5 gain), and their combination with Phase-I features (Phase-III fusion) delivers the best overall accuracy and consistency. Overall, these results support the rationale of the pro-posed staged design. Phase-I helps anchor low-level visual information, Phase-II contributes structured semantic mod-eling through dual-level supervision and semantic latent channels, and Phase-III integrates these complementary rep-resentations into a unified EEG embedding. Their combina-tion achieves the best average performance among the ab-lation variants in the subject-dependent setting, confirming the effectiveness of the proposed framework and its semantic modeling strategy. 
+
+4.5.2. Subject-Independent Ablation 
+
+In the more challenging inter-subject setting, the full model still achieves the strongest average performance in Table 7, reaching 13.2%/32.3% in Top-1/Top-5. Overall, these results suggest that the proposed framework remains effective under subject shift, although the contribution of each component becomes more variable across subjects than in the subject-dependent setting. Replacing the proposed semantic latent channels with real language-related semantic channels (xC-Ori-12) re-duces the average Top-1 accuracy to 12.2%, while Top-5 remains close to the full model at 32.0%. This sug-gests that the learned semantic latent channels provide a more effective semantic carrier for exact cross-subject discrimination. When the coarse semantic branch is further removed on top of this replacement (xC-Ori-12-xC), the average performance drops further to 11.3%/31.9% in Top-1/Top-5, indicating that coarse semantic supervision still provides useful complementary support when combined with a weakened semantic carrier. When the semantic latent channels are entirely removed and only the visual channels are retained (xC-xSLC), performance remains competitive at 12.3%/31.5%, but still lags behind the full model, supporting the overall benefit of semantic latent channel augmentation.                                                                                                                                                                                               
+
+> Gao et al.: Preprint submitted to Elsevier Page 15 of 17 Table 7
+> Ablation studies on subject-independent Top-1 and Top-5 accuracy (%) in 200-way zero-shot.
+> Metrics Variants Sub01 Sub02 Sub03 Sub04 Sub05 Sub06 Sub07 Sub08 Sub09 Sub10 Avg.
+> Top-1 Accuracy Ours-All 13.0 16.5 8.0 14.5 10.0 14.0 9.5 11.5 14.5 20.5 13.2
+> xC-Ori-12 11.5 16.0 7.0 14.0 10.0 12.5 9.0 11.0 13.5 17.5 12.2 xC-Ori-12-xC 11.0 16.0 6.0 12.5 9.5 11.5 8.0 10.5 12.0 15.5 11.3 xC-xSLC 14.0 16.0 5.5 14.0 13.0 11.5 10.0 11.5 11.5 15.0 12.3 xP-xPhaseI 15.0 14.5 4.0 14.0 12.0 14.5 2.0 10.0 13.5 17.5 11.7 xP-xPhaseII 10.5 12.5 5.5 14.0 8.0 13.0 7.5 10.0 13.0 15.0 10.9 xP-PhaseII-xF 12.0 14.0 7.5 12.0 7.0 11.5 7.0 8.5 10.5 14.5 10.5 xP-PhaseII-xC 13.0 15.5 5.5 14.5 9.0 11.0 7.5 8.0 9.5 16.0 11.0 Top-5 Accuracy Ours-All 32.0 41.5 22.0 34.5 31.5 31.5 27.0 30.5 32.0 40.0 32.3
+> xC-Ori-12 34.0 43.0 22.0 32.0 26.0 33.0 23.0 33.0 31.5 42.0 32.0 xC-Ori-12-xC 33.5 41.5 23.0 32.0 30.5 32.5 22.0 30.5 31.0 42.5 31.9 xC-xSLC 31.5 40.0 20.0 31.0 32.0 33.5 24.0 32.0 30.5 40.5 31.5 xP-xPhaseI 34.5 38.5 15.0 35.0 31.5 35.5 18.5 29.5 29.0 44.5 31.2 xP-xPhaseII 29.5 36.5 18.5 31.0 23.0 33.0 21.0 27.5 30.0 41.5 29.2 xP-PhaseII-xF 27.5 41.5 18.5 30.0 24.5 28.5 17.5 26.5 26.0 41.0 28.2 xP-PhaseII-xC 32.5 40.0 17.0 32.5 28.0 30.0 24.5 33.0 27.5 41.0 30.6
+
+Phase-level ablations further show that semantic model-ing remains particularly important in the inter-subject sce-nario. Disabling Phase-I (xP-xPhaseI) yields 11.7%/31.2%, whereas removing Phase-II altogether (xP-xPhaseII) causes a larger degradation to 10.9%/29.2%, suggesting that the se-mantic stage contributes more substantially to cross-subject generalization. Within Phase-II, removing the fine semantic branch (xP-PhaseII-xF) leads to the weakest overall perfor-mance at 10.5%/28.2%, indicating that fine semantic dis-crimination plays a major role in exact retrieval under subject shift. In contrast, removing the coarse semantic branch (xP-PhaseII-xC) gives 11.0%/30.6%, which is clearly better than removing the fine branch but still below the full model, suggesting that the coarse branch mainly provides comple-mentary support for broader semantic recall and retrieval stability. Overall, the subject-independent ablation results suggest that cross-subject generalization benefits most from the joint effect of semantic latent channels, fine semantic refine-ment, and multi-stage integration, while the coarse semantic branch provides complementary support rather than being the primary driver of exact discrimination. 
+
+4.6. Model Complexity Analysis 
+
+As shown in Table 8, the proposed model contains 10.6M parameters, with 12.2 MMACs and 24.5 MFLOPs. Although it is not the smallest architecture among the com-pared methods, its computational cost remains moderate and substantially lower than heavier models such as Zhang et al. [30]. More importantly, the proposed method achieves superior retrieval performance without incurring the highest computational burden, suggesting a favorable trade-off be-tween model complexity and effectiveness.                         
+
+> Table 8
+> Comparison of model complexity.
+> Methods Parameters (M) MMACs MFLOPs
+> Du et al. [5] 2.7 1.4 2.7 Song et al. [21] 2.5 4.4 9.1 Li et al. [16] 2.5 9.4 19.3 Zhang et al. [29] 3.7 20.1 40.9 Zhang et al. [30] 13.5 54.0 108.8 Wu et al. [25] 4.1 4.1 8.2 Ours 10.6 12.2 24.5
+
+## 5. Conclusion 
+
+This work presents a neuroscience-inspired staged frame-work for EEG-based visual decoding by organizing EEG representation learning into low-level visual representation learning, high-level semantic representation learning, and integrative information fusion. Rather than treating EEG decoding as a single global alignment problem, the pro-posed framework shows that explicitly staged representation learning can improve within-subject decoding performance and strengthen exact cross-subject retrieval. By introducing dual-level multimodal semantic learning and semantic la-tent channels, the proposed method enhances the seman-tic representational capacity of EEG signals and supports more structured cross-modal alignment. Experiments and ablation studies on the THINGS-EEG benchmark confirm the effectiveness of the proposed design and highlight the complementary roles of low-level perception, structured semantic modeling, and integrative fusion. Overall, this study suggests that incorporating staged processing insights into EEG representation learning is a promising direction for improving EEG visual decoding. Future work may further strengthen cross-subject robustness and investigate closer   
+
+> Gao et al.: Preprint submitted to Elsevier Page 16 of 17
+
+links between computational stages and interpretable neural dynamics. 
+
+## CRediT authorship contribution statement 
+
+Xiang Gao: Conceptualization, Methodology, Software, Formal analysis, Investigation, Writing – original draft, Vi-sualization. Hui Tian: Validation, Supervision, Conceptu-alization. Yanming Zhu: Supervision, Conceptualization, Visualization, Methodology, Writing – review & editing. 
+
+Xuefei Yin: Supervision, Conceptualization, Methodology, Writing – review & editing. Alan Wee-Chung Liew: Super-vision, Conceptualization, Methodology. 
+
+## Data Availability 
+
+The dataset used in this study, THINGS-EEG, is publicly available online. It can be accessed at https://osf.io/3jk45/ overview .
+
+## Declaration of Competing Interest 
+
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper. 
+
+## References 
+
+[1] Chen, H., He, L., Liu, Y., Yang, L., 2024. Visual neural decod-ing via improved visual-eeg semantic consistency. arXiv preprint arXiv:2408.06788 . [2] Creel, D.J., 2019. Visually evoked potentials. Handbook of clinical neurology 160, 501–522. [3] De La Torre-Ortiz, C., Ruotsalo, T., 2024. Perceptual visual similarity from eeg: Prediction and image generation, in: ACM MM, pp. 11146– 11155. [4] Ding, Y., Udompanyawit, C., Zhang, Y., He, B., 2025. Eeg-based brain-computer interface enables real-time robotic hand control at individual finger level. Nature Communications 16, 1–20. [5] Du, C., Fu, K., Li, J., He, H., 2023. Decoding visual neural repre-sentations by multimodal learning of brain-visual-linguistic features. IEEE TPAMI 45, 10760–10777. [6] Felleman, D.J., Van Essen, D.C., 1991. Distributed hierarchical processing in the primate cerebral cortex. Cerebral Cortex (New York, NY: 1991) 1, 1–47. [7] Ferrante, M., Boccato, T., Bargione, S., Toschi, N., 2024a. Decoding eeg signals of visual brain representations with a clip based knowl-edge distillation, in: ICLR 2024 Workshop on Learning from Time Series For Health. [8] Ferrante, M., Boccato, T., Bargione, S., Toschi, N., 2024b. Decoding visual brain representations from electroencephalography through knowledge distillation and latent diffusion models. Computers in Biology and Medicine 178, 108701. [9] Gifford, A.T., Dwivedi, K., Roig, G., Cichy, R.M., 2022. A large and rich eeg dataset for modeling human visual object recognition. NeuroImage 264, 119754. [10] Goodale, M.A., Milner, A.D., 1992. Separate visual pathways for perception and action. Trends in Neurosciences 15, 20–25. [11] Graumann, M., Ciuffi, C., Dwivedi, K., Roig, G., Cichy, R.M., 2022. The spatiotemporal neural dynamics of object location representa-tions in the human brain. Nature Human Behaviour 6, 796–811. [12] Ilharco, G., Wortsman, M., Wightman, R., Gordon, C., Carlini, N., Taori, R., Dave, A., Shankar, V., Namkoong, H., Miller, J., Hajishirzi, H., Farhadi, A., Schmidt, L., 2021. Openclip. doi: 10.5281/zenodo. 5143773 .[13] Jing, H., Ma, Y., Yang, P., Hua, H., Zheng, N., 2025. Pinpointing visual content: Disentangled features in multimodal model for eeg representation learning and decoding. Knowledge-Based Systems , 114212. [14] Kappenman, E.S., Farrens, J.L., Zhang, W., Stewart, A.X., Luck, S.J., 2021. Erp core: An open resource for human event-related potential research. NeuroImage 225, 117465. [15] Kroczek, L.O., Gunter, T.C., Rysop, A.U., Friederici, A.D., Hartwigsen, G., 2019. Contributions of left frontal and temporal cortex to sentence comprehension: Evidence from simultaneous tms-eeg. Cortex 115, 86–98. [16] Li, D., Wei, C., Li, S., Zou, J., Liu, Q., 2024. Visual decoding and reconstruction via eeg embeddings with guided diffusion. NeurIPS 37, 102822–102864. [17] Ma, J., Ruotsalo, T., 2024. Cognition-supervised saliency detection: Contrasting eeg signals and visual stimuli, in: ACM MM, pp. 7744– 7753. [18] Pereira, F., Lou, B., Pritchett, B., Ritter, S., Gershman, S.J., Kan-wisher, N., Botvinick, M., Fedorenko, E., 2018. Toward a universal decoder of linguistic meaning from brain activation. Nature Commu-nications 9, 963. [19] Rajabi, N., Ribeiro, A.H., Vasco, M., Taleb, F., Björkman, M., Kragic, D., 2025. Human-aligned image models improve visual decoding from the brain, in: ICML. [20] Shi, E., et al., 2025. Brainalign: Eeg-vision alignment via frequency-aware temporal encoder and differentiable cluster assigner, in: MIC-CAI, Springer. pp. 98–108. [21] Song, Y., Liu, B., Li, X., Shi, N., Wang, Y., Gao, X., 2024. Decoding natural images from eeg for object recognition, in: ICLR. [22] Song, Y., Wang, Y., He, H., Gao, X., 2025. Recognizing natural images from eeg with language-guided contrastive learning. IEEE Transactions on Neural Networks and Learning Systems . [23] Thigpen, N.N., Kappenman, E.S., Keil, A., 2017. Assessing the in-ternal consistency of the event-related potential: An example analysis. Psychophysiology 54, 123–138. [24] Wilson, H., Chen, X., Golbabaee, M., Proulx, M.J., O’Neill, E., 2024. Feasibility of decoding visual information from eeg. Brain-Computer Interfaces 11, 33–60. [25] Wu, H., Li, Q., Zhang, C., He, Z., Ying, X., 2025. Bridging the vision-brain gap with an uncertainty-aware blur prior, in: CVPR, pp. 2246– 2257. [26] Xiao, X., Wei, K., Zhong, J., Wei, X., Yan, J., 2025. Eeg decoding and visual reconstruction via 3d geometric with nonstationarity mod-elling, in: ICASSP, IEEE. pp. 1–5. [27] Xu, L., Xu, M., Jung, T.P., Ming, D., 2021. Review of brain encoding and decoding mechanisms for eeg-based brain–computer interface. Cognitive Neurodynamics 15, 569–584. [28] Zeng, H., Xia, N., Qian, D., Hattori, M., Wang, C., Kong, W., 2023. Dm-re2i: A framework based on diffusion model for the reconstruc-tion from eeg to image. Biomedical Signal Processing and Control 86, 105125. [29] Zhang, E., et al., 2025a. Category-aware eeg image generation based on wavelet transform and contrast semantic loss, in: IJCAI. [30] Zhang, K., He, L., Jiang, X., Lu, W., Wang, D., Gao, X., 2025b. Cognitioncapturer: Decoding visual stimuli from human eeg signal with multimodal information, in: AAAI, pp. 14486–14493. [31] Zhang, S., Ding, Y., Jiang, M., Tang, N., Chew, E., Ang, K.K., Guan, C., 2025c. Cat-net: A co-adaptive transfer learning network for bci-assisted neurorehabilitation, in: ICASSP, IEEE. pp. 1–5. 
+
+Gao et al.: Preprint submitted to Elsevier Page 17 of 17

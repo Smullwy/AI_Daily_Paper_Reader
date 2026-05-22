@@ -1,0 +1,1064 @@
+Title: Brain alignment of reasoning and action representations from vision-language and action models during naturalistic gameplay
+
+URL Source: https://arxiv.org/pdf/2605.19352v1
+
+Published Time: Wed, 20 May 2026 00:39:02 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# Brain alignment of reasoning and action representations from vision-language and action models during naturalistic gameplay 
+
+Subba Reddy Oota 1, Anant Khandelwal 2, Khushbu Pahwa 3, Satya Sai Srinath Namburi 4
+
+Tanmoy Chakraborty 5, Bapi S. Raju 6, Manish Gupta 71Independent, 2Microsoft Research, Bangalore, India, 3AWS AI Labs, Amazon, 4GE HealthCare, USA 
+
+> 5
+
+IIT Delhi, India, 6IIIT-Hyderabad, India, 7Microsoft, Hyderabad, India 
+
+subbareddyoota@gmail.com, tanchak@iitd.ac.in, raju.bapi@iiit.ac.in, gmanish@microsoft.com 
+
+Abstract 
+
+Understanding how humans and artificial intelligence systems predict and plan by interacting with their environment is a fundamental challenge at the intersec-tion of neuroscience and machine learning. Most brain-encoding studies focus on aligning artificial models with brain activity during language comprehension or passive visual processing, while interactive brain-alignment studies have to date been largely limited to reinforcement-learning (RL) agents and theory-based models. To address this gap, we study brain alignment of representative models from two foundation-model families, namely vision-language models (VLMs) and large-action models (LAMs), using fMRI recordings from participants playing nat-uralistic Atari-style video games. Specifically, we examine how action-focused and reasoning-focused prompts shape model’s internal representations and align with fMRI brain activity. First, we find that both VLMs and LAMs exhibit significantly exhibit voxel-wise encoding performance than RL baselines, with the advantage holding even under matched feature dimensionality. Second, prompt-driven gains scale with the cortical processing hierarchy: the largest improvements appear in frontal-parietal and motor-planning regions, while early visual cortex gains roughly half as much. Third, variance partitioning reveals a qualitatively different rep-resentational organization: VLM is prompt-symmetric (12.5% unique action vs. 13.6% unique reasoning), whereas LAM is prompt-asymmetric (27% unique action vs. -5% unique reasoning), with the asymmetry strongest in frontal-motor cortex. Together, these results demonstrate that action-specialized fine-tuning reorganizes multimodal representations toward action-relevant neural computations even when whole-brain prediction accuracy is statistically equivalent between VLM and LAM. 
+
+1 Introduction 
+
+Recent research has demonstrated that representations extracted from language models can accurately predict human brain activity evoked during language comprehension (Toneva & Wehbe, 2019; Schrimpf et al., 2021; Oota et al., 2024b), as well as during visual (Schrimpf et al., 2018; Wang et al., 2019, 2022; Conwell et al., 2022) and multimodal narrative understanding (Subramaniam et al., 2024; Nakagi et al., 2024; Oota et al., 2025b), suggesting parallels between artificial and brain language representations. Beyond passive language and visual tasks, several studies have also aligned human brain activity recorded during interactive gameplay (e.g., playing Atari-style video games) with deep reinforcement learning models (Tomov et al., 2023; Haberland et al., 2026), showing that features from these models relate to brain activity when humans choose actions and make goal-directed decisions. However, interactive brain-alignment studies remain largely limited to reinforcement 
+
+Preprint. 
+
+> arXiv:2605.19352v1 [q-bio.NC] 19 May 2026
+
+Figure 1: Brain-alignment pipeline for naturalistic Atari gameplay. Participants played Atari-style video games during fMRI recording, producing TR-aligned brain responses (top row). The same gameplay frames were processed by two foundation-model families: Vision-language models (VLMs) and Large-action models (LAMs), conditioning on action-plan or goal-reasoning prompts (bottom). Voxel-wise encoding models trained on per model per prompt representations, X VLM and XLAM , predict held-out fMRI activity, and brain alignment is measured as the Pearson correlation between predicted and actual responses. By comparing brain alignment between human brain and model interactive game processing, we test whether internal representations more closely capture the world-modeling computations that underlie human adaptive behavior. learning agents (Van Hasselt et al., 2016) and theory-based models (Tsividis et al., 2021), which are optimized for reward-based action learning and encode primarily action-related features. As a result, they may capture brain activity linked to decision-making while missing the richer structure through which humans represent objects, relationships, and future outcomes. World models, originally proposed in cognitive science to explain how humans predict and plan by maintaining structured internal representations of the environment (Ritchie, 1944; Johnson-Laird, 1983; Ha & Schmidhuber, 2018), have recently become an important framework for evaluating modern AI systems. Recent advances in AI have raised interest in whether modern vision-language models (VLMs) and large-action models (LAMs) acquire such internal world models (Waytowich et al., 2024; Wang et al., 2025b; Xie et al., 2026). Concretely, this asks whether their representations encode objects, goals, and environmental dynamics in ways that support reasoning, prediction, and adaptation. This question is especially important in interactive game environments, where agents must combine perception, rule understanding, multi-step reasoning, and decision-making, making gameplay a useful testbed beyond static benchmarks. Successful behavior in humans is thought to rely not only on simple reactive responses, but also on richer internal representations of objects, events, goals, and causal dynamics that enable flexible behavior in new situations. Whether modern AI models acquire analogous representations is therefore an important open question, particularly for VLMs and LAMs, which are increasingly deployed as general-purpose interactive agents and may encode richer perceptual, semantic, and action-oriented structure than traditional reinforcement learning policies. Aligning these models with human fMRI during gameplay, therefore, offers a principled way to assess not only how well they act, but also whether their internal representations more closely capture the world-modeling computations that underlie human adaptive behavior. In this paper, we investigate whether representations from VLMs and LAMs, elicited using action-focused and reasoning-focused prompts, align with human fMRI responses recorded during naturalistic Atari-style gameplay. Hence, we ask the following research questions (RQs): (1) Do VLM and LAM representations align with human brain activity during naturalistic gameplay, and does this alignment differ across action-focused and reasoning-focused prompting conditions? (2) How do action and reasoning prompts gains in voxel-wise encoding performance distribute across the cortical hierarchy, from early visual to higher-order frontal-parietal regions? (3) What is the unique contribution of action- versus reasoning-prompts to brain encoding, and does this decomposition differ between VLMs and LAMs? To address these questions, we systematically investigate both VLMs and LAMs under reasoning-focused and action-focused prompting conditions, alongside a no-prompt baseline, and quantify brain alignment across all three settings. Using brain recordings from 32 participants playing naturalistic Atari-style video games (Tomov et al., 2023), we measure the brain alignment of two classes of 2foundation models: vision-language models (VLMs) and large-action models (LAMs). Specifically, as shown in Fig. 1, we evaluate two VLMs: Qwen-2.5-VL (Qwen Team, 2025) and InternVL3 (Chen et al., 2024), and two LAMs: UI-TARS-7B-DPO (Qin et al., 2025; Wang et al., 2025a) and OS-Atlas-Pro-7B (Wu et al., 2024). Both models process visual game frames together with text prompts, enabling interactive reasoning over gameplay. We additionally probe Qwen3.5 (Team, 2026), a thinking-mode model that produces explicit chain-of-thought traces, to probe whether the model’s generated reasoning aligns with brain activity differently than its action output. We further compare all models against two baselines, EMPA (Tsividis et al., 2021) and D-DQN (Van Hasselt et al., 2016). Our findings lead to four insights. (1) Both VLMs and LAMs significantly outperform RL baselines (EMPA, D-DQN) in voxel-wise brain encoding, even at matched feature dimensionality; prompting further improves alignment in both. (2) Prompt-driven gains scale with the cortical hierarchy: largest in frontal-parietal/motor-planning regions (middle frontal gyrus (MFG), supplementary motor area (SMA), inferior frontal gyrus (IFG), angular gyrus (AG)), roughly half as large in early visual cortex. (3) At matched prompts, VLMs and LAMs achieve statistically equivalent whole-brain prediction, but variance partitioning reveals a qualitatively different representational organization: VLMs are prompt-symmetric while LAMs are action-asymmetric, with reasoning becoming redundant in frontal-motor cortex, a dissociation invisible at the level of raw accuracy. (4) In Qwen3.5, generated reasoning-trace representations are substantially less brain-aligned than action-output representations, a gap that persists after controlling for readout position, motivating further investigation of reasoning-trace structure in thinking-mode models. Together, our results extend brain-alignment research from passive language and visual processing to interactive gameplay, and provide the first systematic brain alignment evaluation of modern VLMs and LAMs in this setting. By contrasting reasoning-focused and action-focused prompts, we operationalize a distinction central to world-model frameworks: the separation between understanding the environment and committing to actions within it. Our findings show that this distinction maps onto qualitatively different representational structures in VLMs and LAMs, dissociations revealed only through variance decomposition. This work opens new directions for studying how foundation models encode the structured, predictive representations that underlie adaptive behavior. Detailed related work on brain alignment, foundation models, and RL models of decision-making is in App. A. 
+
+2 Dataset 
+
+We use the naturalistic Atari-style video game dataset introduced by Tomov et al. (2023), which contains fMRI recordings of 32 healthy participants (15 female, 17 male; ages 19-36; all right-handed). Each participant completed a single ∼2.5-hour session and played six Atari-style video games during fMRI across six scanner runs. Each run contained three blocks, and each block consisted of three levels of a single game; the levels were replayed for a fixed 1-minute duration (nine levels per game total). The runs included a 10-second fixation at the beginning and end, and each run lasted 566 s. For each participant, the fMRI scan was acquired at TR (Repetition Time) = 2 s, producing 283 time points per functional run. Each game contains three levels of increasing difficulty, providing natural units for finer-grained analyses (e.g., early vs. late levels within a game); in this work, we aggregate across levels and focus on cross-game generalization. The dataset is already preprocessed and projected onto the surface space (“fsaverage6”). We use the multimodal parcellation of the human cerebral cortex based on the Glasser Atlas (which consists of 180 regions of interest in each hemisphere) to report the ROI (region of interest) analysis for the brain maps (Glasser et al., 2016). We perform the ROI analysis for the Atari video game dataset considering the following language, visual and motor processing regions: angular gyrus (AG), inferior frontal gyrus triangularis (IFGtriang), inferior frontal gyrus opercularis (IFGoperc), middle frontal gyrus (MFG), inferior occipital gyrus (IOG), middle occipital gyrus (MOG), superior occipital gyrus (SOG), calcarine fissure (CAL), lingual gyrus (LING), cuneus (CUN) and supplementary motor area (SMA), based on the prior work (Tomov et al., 2023). We show the flatmap with these labeled ROIs, in Appendix Fig. 7 and list the detailed sub-ROIs of these ROIs in App. B. 33 Methodology 
+
+We use two classes of foundation models for representation extraction: vision-language models (VLMs) and large-action models (LAMs). Both process visual frames together with text prompts. 
+
+VLMs. (i) Qwen2.5-VL-7B-Instruct (Qwen Team, 2025) (28 layers, hidden dim 3584): instruction-tuned on large-scale image–text, video-text data with a dynamic-resolution vision encoder. (ii) InternVL3-8B (Chen et al., 2024) (32 layers, dim 4096): a different architecture and training corpus, used to test VLM cross-family generalization (does not share Qwen-VL backbone with our LAMs). 
+
+LAMs. (i) UI-TARS-7B- DPO (Qin et al., 2025; Wang et al., 2025a): fine-tuned from Qwen2-VL on ∼50B tokens of GUI/game-interaction trajectories (SFT+DPO). (ii) OS-Atlas-Pro-7B (Wu et al., 2024): separately trained from Qwen2-VL on a large GUI grounding corpus. Both LAMs share the Qwen2-VL backbone (28 layers, dim 3584). Combined with Qwen2.5-VL (matched at 28 layers, dim 3584), this enables a within-family VLM-vs-LAM contrast that isolates action-affordance and planning supervision while holding architecture, temporal window, and readout fixed. 
+
+Baseline Models. We derive TR-aligned regressors from two Atari-gameplay models. From 
+
+EMPA (Tomov et al., 2023), eight per-frame regressors: four continuous: surprise (next-state prediction error), spriteKL (belief revision over sprite dynamics), R_GG (expected reward under the current goal-graph), num_effects (interaction-effect count), and four binary theory-revision flags: (replan , theory_change , newEffects , interaction_change ). Frame values are averaged within each TR and trimmed by 5 TRs per run edge, yielding a (T, 8) matrix per subject. From DDQN (Van Hasselt et al., 2016) (25M-step agent), we extract per-episode action sequences and compute normalized action distributions per run. More details about EMPA features reported in App. C. 
+
+VLM and LAM Feature Extraction . To compute model-derived predictors for each gameplay frame, we extract hidden-state representations from both VLMs and LAMs. Let xt denote the RGB frame at time t and p a text prompt (action or reasoning). To match the temporal structure of the computational-agent regressors (EMPA, DDQN), at each time step t we form a sliding window of the k most recent frames, Xt =  xt−k+1 , xt−k+2 , . . . , xt
+
+, left-padded by x1 when t < k . The k
+
+frames are passed as a multi-image sequence alongside p, exploiting the model’s native multi-image input. We run model.generate() with deterministic decoding and hidden-state outputs enabled, extracting the last-token hidden state at every transformer layer to yield a per-frame embedding 
+
+Et ∈ R(L+1) ×d over all L + 1 layers (including the embedding layer). 
+
+Episode-level features. For an episode with T TRs, we slide the window across the episode and stack per-TR embeddings into E = {Et}Tt=1 ∈ RT ×(L+1) ×d. This tensor serves as the predictor matrix for voxel-wise encoding, placing VLM and LAM features on the same temporal footing as EMPA and DDQN. Full notation, chat-template serialization, and per-layer indexing are in App. H. 
+
+Prompt variants. To probe different forms of model reasoning, we use two prompt templates. The action prompt paction asks the model to commit to a next action and briefly justify the choice (considering threats, goals, and optimal path); the reasoning prompt preasoning asks the model to describe the game’s objective and the player’s current goal. Full prompt templates are provided in App. D. For each prompt pk ∈ { paction , p reasoning }, we compute E(k) 
+
+> t
+
+separately and treat the resulting representations as distinct feature sets for downstream voxel-wise encoding. 
+
+4 Experimental Setup 
+
+Voxel-wise encoding model. To perform voxel-wise encoding, we train an fMRI encoding model using bootstrap ridge regression (Tikhonov & Arsenin, 1977) to predict the fMRI recording associated with each voxel as a function of the stimulus representations obtained from the language models. Before the bootstrap ridge regression, we first z-score each feature channel separately for training and testing. This is done to match the features to the fMRI responses, which were also z-scored for training and testing. Formally, at the time step t, we encode the stimuli as Xt ∈ RN ×D and brain region voxels Yt ∈ RN ×V , where N is the number of training examples, D denotes the dimension of the concatenation of delayed 4 TRs, and V denotes the number of voxels. To find the optimal regularization parameter for each feature space, we use a range of regularization parameters that is explored using cross-validation. The main goal of each fMRI encoding model is to predict brain responses associated with each brain voxel given a stimulus. Following prior work, we train encoding 48-dim 64-dim 1024-dim         
+
+> Feature Dimension
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> Average PCC (r)
+> *
+> 0.2143 0.2179
+> 0.2524 0.2590
+> 0.2713 0.2637
+> Dimensionality Impact: No-Prompt Brain Encoding
+> EMPA (0.1620)
+> DDQN (0.0969)
+> VLM
+> LAM VLM
+> (Reas+Act)
+> LAM
+> (Reas+Act)
+> VLM
+> NoPrompt
+> LAM
+> NoPrompt
+> EMPA DDQN
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> Average PCC (r)  0.358 0.348
+> 0.271 0.264
+> 0.162
+> 0.097
+> **
+> **
+> Whole-Brain Voxelwise Encoding: All Conditions
+
+Figure 2: Whole-brain voxel-wise encoding performance. (left) Effect of feature dimensional-ity under the no-prompt condition: VLM (orange) and LAM (green) features evaluated at three dimensionalities (8, 64, 1024), compared against the RL baselines EMPA (gray dashed, r=0.162) and DDQN (light blue dashed, r=0.097). * indicates significant pairwise gain from 8 to 64 dim (paired t-test, p < 0.05 ); the 64 →1024 transition is non-significant, indicating saturation. At every dimensionality tested, both VLM and LAM significantly exceed both RL baselines. (right) All condi-tions: Whole-brain alignment for prompted (average across Reasoning and Action) and no-prompt 
+
+VLM and LAM, compared to EMPA and DDQN baselines. * denote significant pairwise differences between bracketed conditions (paired t-test, p < 0.05 ). Error bars: mean ± SEM across subjects. models using representations from all layers and report results for the best-performing layer per model, since the optimal layer for brain alignment can vary across architectures and training objectives. The detailed hyperparameter settings and statistical significance tests are provided in App. E and G. 
+
+Train-test setup. We train subject-specific encoding models using leave-one-out cross-validation. For each subject, data from five games are concatenated to form the training set, and data from the remaining game are used as the test set. This process is repeated across six folds, such that each game served once as the held-out test set. This evaluation protocol provides a generic test of cross-game generalization and reduces the risk of information leakage during test-time inference. 
+
+Evaluation metrics. We evaluate our models using Pearson Correlation Coefficient (PCC), which is a standard metric to evaluate brain alignment (Jain & Huth, 2018; Schrimpf et al., 2021; Goldstein et al., 2022). Let TR be the number of time repetitions in the test set. Let Y = {Yi}T R i=1 and ˆY = { ˆYi}T R i=1 
+
+denote the actual and predicted value vectors for a single voxel, respectively. Thus, Y and ˆY ∈ RT R .PCC is then calculated as correlation between the model’s predictions ˆY and neural recordings Y .For computing brain alignment, we select the voxels whose PCC is ≥ 0.05, in line with previous works (Tomov et al., 2023). Implementation details are in App. E. 
+
+Variance partitioning. Using a variance partitioning approach (de Heer et al., 2017; LeBel et al., 2021), we test whether action- and reasoning-based prompts carry overlapping or distinct brain-relevant information, and whether LAMs, which are fine-tuned on action-specific environments reshapes this decomposition. Implementation details are in App. J. 
+
+5 Results 
+
+[RQ1]: VLMs and LAMs exceed RL baselines under no-prompt conditions, with additional gains from prompting. 
+
+To test whether VLMs and LAMs achieve higher voxel-wise encoding performance than classical RL baselines, and to isolate this from confounds of prompting and feature dimensionality, we evaluate two settings. First, a no-prompt setting in which VLMs and LAMs receive only gameplay frames without text instruction; this isolates representational quality from prompt-induced effects and offers fair comparison with EMPA and DDQN, neither of which uses language input. Within this setting, we additionally vary feature dimensionality (8, 64, 1024) to rule out that any encoding gain simply reflects VLMs and LAMs having more features than the RL baselines. Second, a prompted setting in which the same models additionally receive text-prompt instructions (full templates in App. D), quantifying the gain from explicit prompting. Across both settings, VLM and LAM representations significantly outperform RL baselines, with prompting providing additional gains. 5VLM: Qwen2.5VL VLM: InternVL3 LAM: UI-TARS LAM: OSAtlas     
+
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> Average PCC (r)
+> 0.366
+> 0.323 0.327
+> 0.283
+> Whole Brain: Reasoning Generation
+> VLM: Qwen2.5VL VLM: InternVL3 LAM: UI-TARS LAM: OSAtlas
+> 0.341
+> 0.311
+> 0.338
+> 0.294
+> Whole Brain: Action Generation
+> Model Comparison: Reasoning vs Action Brain Encoding
+
+Figure 3: Whole-brain alignment across two VLMs and two LAMs under reasoning and action prompts. Average Pearson correlation across participants and voxels per model. Left: reasoning prompts. Right: action prompts (hatched). Orange: VLMs; Green: LAMs. Darker shades denote the primary model in each family (Qwen2.5-VL, UI-TARS); lighter shades denote the secondary model (InternVL3, OS-Atlas). Error bars denote mean ± SEM across subjects. 
+
+VLMs and LAMs outperform RL baselines under “ no-prompt ” conditions. As shown in Fig. 2 (left), both VLM and LAM representations significantly outperform the classical baselines in whole-brain voxel-wise encoding. Specifically, VLM ( no-prompt ) achieves r=0.264 and LAM ( no-prompt )reaches r=0.271, compared to EMPA (r=0.162) and DDQN (r=0.097). The advantage is consistent across all three feature dimensionalities tested. Crucially, even when VLM and LAM features are reduced to 8 dimensions to match EMPA’s feature count, they continue to significantly show higher brain alignment than both RL baselines (VLM r=0.214, LAM r=0.218), ruling out feature count as the source of the gain. Performance saturates between 64-dim and 1024-dim, suggesting that the gain over RL baselines reflects what the features encode rather than feature dimensionality alone. Together, these results indicate that contemporary multimodal architectures learn richer latent representations of dynamic game environments than traditional task-optimized RL systems. 
+
+Effect of Action and Reasoning prompts. We next examine whether explicit prompting further improves brain alignment by eliciting higher-level reasoning states from the same models. Under action and reasoning prompts, as shown in Fig. 2 (right), VLM and LAM achieve significantly higher encoding performance than their no-prompt counterparts (paired t-test, p<0.05): VLM reaches r=0.358 and LAM reaches r=0.348. This shows that adding task-framed text instructions improves brain alignment beyond what gameplay frames alone provide. Prompted VLM and LAM achieve comparable whole-brain alignment, with the difference between them not reaching significance. We further investigate representational differences masked by encoding accuracy using variance partitioning in Section 5. 
+
+Generalization across model families. To verify that the prompted-alignment effect is not specific to a single VLM or LAM, we replicate the whole-brain analysis on a second model from each family: InternVL3-8B (VLM) and OS-Atlas-Pro-7B (LAM). Fig. 3 shows that all four models achieve substantial brain alignment under both reasoning and action prompts, with all four significantly exceeding the RL baselines (EMPA, DDQN). Within the VLM family, both Qwen2.5-VL (reasoning r=0.366, action r=0.341) and InternVL3 (reasoning r=0.323, action r=0.310) show a small reasoning-leaning pattern. Within the LAM family, both UI-TARS (reasoning r=0.327, action r=0.338) and OS-Atlas (reasoning r=0.283, action r=0.294) show a small action-learning pattern, suggesting that the action-leaning signature is strongest in the LAM trained with the most action-trajectory supervision. For the remainder of the paper, we focus our ROI-level (RQ2) and variance-partitioning (RQ3) analyses on Qwen2.5-VL and UI-TARS as representative members of each family; corresponding results for InternVL3 and OS-Atlas are reported in App. J. 
+
+[RQ2]: Prompt-driven alignment gains scale with the cortical hierarchy. ROI analysis provides clear functional ordering of prompt effects. For this analysis, we group the 11 ROIs into two functional clusters: a higher-order cluster spanning frontal-parietal and motor-planning cortex (AG, IFGtriang, IFGoperc, MFG, SMA) and an early-visual cluster (SOG, IOG, MOG, CAL, CUN, LING). Although prompting improves brain alignment across every examined region relative to the no-propmt baseline, the magnitude of the improvement, i.e., the prompt gain 
+
+∆r= rprompted -rno-prompt , is systematically larger in higher-order association and motor-planning cortex than in early visual areas (Fig. 4); LAM: Appendix Fig. 8). Averaged across both model families 6AG   
+
+> IFGtriang
+> MFG
+> IFGoperc
+> SOG
+> IOG
+> MOG
+> CAL
+> CUN
+> LING
+> SMA
+> Brain Region (ROI)
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> Average PCC (r)
+> 0.38
+> 0.36
+> 0.24
+> R:**
+> A:**
+> 0.38
+> 0.37
+> 0.22
+> R:*
+> A:*
+> 0.49
+> 0.47
+> 0.28
+> R:*
+> A:*
+> 0.39
+> 0.37
+> 0.23
+> R:**
+> A:*
+> 0.32
+> 0.31
+> 0.21
+> R:**
+> A:**
+> 0.30
+> 0.29
+> 0.22
+> R:*
+> A:**
+> 0.35
+> 0.33
+> 0.21
+> R:**
+> A:**
+> 0.32
+> 0.31
+> 0.21
+> R:**
+> A:**
+> 0.32
+> 0.31
+> 0.20
+> R:**
+> A:**
+> 0.29
+> 0.28
+> 0.21
+> R:*
+> A:**
+> 0.46
+> 0.45
+> 0.27
+> R:*
+> A:*
+> VLM: Prompt vs No-Prompt - Brain Alignment per ROI
+> VLM-Reasoning VLM-Action VLM-NoPrompt
+
+Figure 4: Brain alignment averaged across participants and voxels per ROI for prompted vs. no-prompt VLM representations. Average Pearson correlation between predicted and observed fMRI responses across 11 ROIs for VLM-Reasoning (solid), VLM-Action (hatched), and VLM-NoPrompt (light). Error bars denote mean ± SEM across subjects. Markers denote paired comparisons against no-prompt (R: Reasoning, A: Action; *p < 0.05, **p < 0.01). Both prompted conditions show higher alignment than no-prompt across all ROIs. Similar plot for LAM in Appendix Fig. 8. (VLM and LAM) and both prompt types (action and reasoning), MFG shows the largest gain ( ∆ r = +0.189), followed by SMA (+0.182), IFGtriang and IFGoperc (both +0.149), and AG (+0.123). These regions overlap with the prefrontal areas that Tomov et al. (2023) identified as theory-coding sites in the same dataset using EMPA, suggesting that prompt-driven alignment recruits the same higher-order regions that support theory-based RL. Early visual ROIs cluster at roughly half this magnitude: MOG (+0.114), CUN/SOG/CAL (+0.098 to +0.104), IOG (+0.075), and LING (+0.057). The ordering, frontal-parietal > occipital, mirrors the hierarchical pattern Tomov et al. (2023) reported, where theory representations were prefrontal while theory updating extended into occipital cortex. Grouped, SMA gains +0.182, the frontal-parietal cluster (AG, IFGtriang, IFGoperc, MFG) gains +0.153 on average, and the six early visual ROIs gain only +0.091. All prompt -vs-no-prompt contrasts are significant (paired t-test, q <0.05, where q denotes the Benjamini–Hochberg adjusted p-value; see Sec. 4), indicating that this ordering reflects a robust effect rather than noise. Critically, at the level of raw prediction accuracy, LAMs and VLMs are statistically indistinguishable across all ROIs (paired t-test, FDR-corrected). At the Action prompt, all contrasts are very far from significance ( q > 0.9 in every ROI). At the Reasoning prompt, the smallest q-value across ROIs is 0.08 (above 0.05 significance threshold). The action-specialized fine-tuning therefore does not shift the alignment ceiling above what the base VLM achieves. What it changes is subtler: a within-LAM 
+
+asymmetry in which action prompt is more effective. Across most frontal and occipital ROIs, action prompts equal or slightly exceed reasoning prompts for LAMs (IFGtriang, MFG, IFGoperc, and several occipital regions; see Appendix Fig. 8). For VLMs, the pattern reverses: Reasoning prompts are consistently slightly dominant across most ROIs (Fig. 4). Notably, SMA is the one frontal ROI where LAM-Reasoning and LAM-Action have similar brain alignment (0.44 vs. 0.43). But this tie is misleading: surprisingly, in Sec 5, we show that action prompts actually dominate SMA once shared variance is removed. Neither within-model effect reaches region-level significance, indicating that any dissociation between VLMs and LAMs is representational rather than visible in raw prediction accuracy, a possibility we test directly with variance partitioning in [RQ3] in Sec 5. 
+
+Spatial visualization. Group-averaged across subjects per-voxel prompt gains, rprompted -rno-prompt ,under both reasoning (App. I Fig. 9a) and action (App. I Fig. 9b) prompts, reveal a consistent spatial pattern: large positive gains (red) concentrated in frontal-parietal and motor-planning cortex (MFG, SMA, IFG, AG), substantially smaller gains in mid-level visual regions, and a mixture of positive and negative gains within early visual cortex (CAL) and mid-level visual (SOG). The spatial pattern recapitulates the ROI-level ordering and clarifies that the small ROI-mean gains in early visual regions reflect heterogeneous voxel-level effects rather than uniform improvement, consistent with 7Shared   
+
+> (Action & Reasoning)
+> Unique
+> Action
+> Unique
+> Reasoning
+> 0.05
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> Variance Explained ( R2)
+> 0.071
+> (+74%)
+> 0.082
+> (+78%)
+> 0.012
+> (+12%)
+> 0.028
+> (+27%) 0.013
+> (+14%)
+> -0.005
+> (-5%)
+> *
+> *
+> Whole Brain
+> VLM (Qwen2.5-VL)
+> LAM (UI-TARS-7B-DPO)
+> Shared
+> (Action & Reasoning)
+> Unique
+> Action
+> Unique
+> Reasoning
+> 0.044
+> (+81%)
+> 0.047
+> (+84%)
+> 0.005
+> (+8%)
+> 0.014
+> (+24%) 0.006
+> (+10%)
+> -0.004
+> (-8%)
+> ~
+> AG (Angular Gyrus)
+> VLM (Qwen2.5-VL)
+> LAM (UI-TARS-7B-DPO)
+> Shared
+> (Action & Reasoning)
+> Unique
+> Action
+> Unique
+> Reasoning
+> 0.057
+> (+83%)
+> 0.068
+> (+80%)
+> 0.009
+> (+13%)
+> 0.029
+> (+34%)
+> 0.003
+> (+4%)
+> -0.012
+> (-14%)
+> ~
+> SMA (Supplementary Motor Area)
+> VLM (Qwen2.5-VL)
+> LAM (UI-TARS-7B-DPO)
+> Variance Partitioning: Action vs Reasoning Prompts
+
+Figure 5: Variance partitioning of action vs. reasoning prompts. R2 decomposed into shared variance and prompt-unique components for VLM (Qwen2.5-VL, orange) and LAM (UI-TARS-7B-DPO, green), averaged across participants. Numbers above bars show absolute R2 and (in parentheses) percentage of joint explained variance. VLM unique variance is balanced across prompts; LAM is action-asymmetric, with negative unique-reasoning variance in whole brain and SMA. Brackets: VLM-vs-LAM comparison on unique reasoning, * p < 0.05 , ∼ marginal ( p < 0.10 ). Error bars: mean ± SEM across subjects. 
+
+Figure 6: Spatial visualization confirms the VLM/LAM dissociation. Group-averaged across subjects per-voxel difference maps (r Reasoning - r Action )these regions being driven primarily by direct visual-input encoding rather than prompt-conditioned representations. 
+
+[RQ3]: Variance partitioning reveals prompt-symmetric alignment in VLMs but action-dominant brain alignment in LAMs. 
+
+Although VLM and LAM achieve comparable raw prediction accuracy at matched prompts (Sec-tion 5), this equivalence may mask differences in what the two models encode. To probe this, we apply variance partitioning to decompose the brain variance explained by Reasoning and Action prompts into shared and prompt-unique components, separately for each model. For this, we use standard variance partitioning approach discussed in Section 4. Fig. 5 presents the shared variance between action and reasoning prompts for the VLM and LAM models, averaged across all subjects. As shown in Fig. 5. for VLM, the two prompts contributed statistically indistinguishable unique variance ( uAction = 0.012 (12.5% of explained variance), uReasoning = 0.013 (13.6% of explained variance); paired t-test p = 0.75) over a large shared component (0.071, 73.9% of explained variance), indicating prompt-invariant brain alignment. In contrast, the LAM exhibits a significant asymmetry: Action prompts contributed substantially more unique variance than Reasoning prompts ( uAction =0.028 (27%) vs uReasoning = -0.005 (-4.8%); p = 0.032), while the shared component remained high (0.082, 78.4%). This dissociation is regionally specific. In AG, VLM shows balanced prompt effects (8.5% action vs. 10.5% reasoning), whereas LAM shifts toward action-dominant representations, with uAction = 24.1% of variance and uReasoning = −7.6% . In SMA, the contrast is strongest: VLM remains balanced (12.7% action vs. 4.4% reasoning), whereas the LAM devotes one-third of explainable variance to action ( uAction = 33.8%, with uReasoning =−13 .8% ). At the whole-brain level, the LAM’s unique-Reasoning variance is significantly lower than VLM’s (p = 0.044), falling to negative values specifically in frontal-motor cortex (MFG, p = 0.044; SMA, 8p = 0.08; MOG, p = 0.07). Negative uReasoning values indicate that adding reasoning features on top of action features hurts prediction. One interpretation is that LAM’s action supervision produces representational structure that subsumes what a Reasoning prompt provides, rendering the Reasoning signal redundant or noise-like in frontal-motor regions. We further observe that the asymmetry scales with the cortical hierarchy, largest in frontal/motor regions (MFG, SMA: 
+
+∼-0.012) and smallest or absent in primary visual cortex (LING: ≈0). Together, these results reveal a clear dissociation: VLM representations are prompt-symmetric (12.5% vs. 13.6% unique variance), whereas LAM representations are prompt-asymmetric and action-dominated (27.0% vs. -4.8% unique variance). This suggests that action-specialized fine-tuning reorganizes model representations toward motor-control and policy-relevant neural computations, despite similar overall predictive accuracy. 
+
+Spatial visualization confirms the VLM/LAM dissociation. To complement the ROI-level variance partitioning, we visualize the per-voxel difference in encoding performance between Reasoning and Action prompts as a group-averaged flatmap across subjects r Reasoning - r Action (Fig. 6). For VLM (Fig. 6a), positive differences (red, r Reasoning > rAction ) dominate dorsal stream and lateral occipital cortex, with localized negative differences in early visual cortex. For LAM (Fig. 6b), the same difference map is markedly more balanced and shifted toward Action, with widespread negative differences (blue, r Action > rReasoning ) across early visual and ventral stream regions alongside scattered Reasoning-leaning voxels in dorsal regions. The convergence across three independent analyses: ROI-level prompt comparisons (Fig. 4), variance-partitioning components (Fig. 5), and per-voxel difference maps (Fig. 6) - provides triangulating evidence for the same dissociation: VLM representations are prompt-symmetric, whereas LAM representations are action-leaning, despite statistically equivalent raw prediction accuracy. More detailed shared and unique variance analyses across remaining ROIs are reported in App. J Fig. 10. Our findings demonstrate that shared variance increases from early visual to higher visual areas, reflecting the hierarchical nature of visual processing. 
+
+Cross-family generalization. To test whether the prompt-symmetric VLM vs action-asymmetric LAM pattern generalizes beyond the Qwen-VL family, we additionally ran variance partitioning on InternVL3 (cross-family VLM) vs OS-Atlas-Pro (Qwen2-VL-based LAM). The qualitative pattern is preserved: at whole-brain, OS-Atlas shows substantially more uAction variance than uReasoning 
+
+(0.080 vs. 0.017), while InternVL3 is approximately prompt-symmetric (0.060 vs. 0.065). ROI analyses (AG, SMA) show the same OS-Atlas action-asymmetry, with InternVL3 shifting slightly toward Reasoning-leaning representations in higher-order cortex. Detailed analysis is in App. J.1. 
+
+[Additional analysis]: Alignment using generated reasoning traces of thinking-mode models. 
+
+Beyond prompt-conditioned representations from VLMs and LAMs (RQ1-RQ3), we conduct a preliminary study to examine whether the generated reasoning traces of thinking-mode models align with brain activity. Recent vision-language models such as Qwen3.5 (Team, 2026), positioned as “native multimodal agents,” produce explicit reasoning sequences between <think> and </think> 
+
+tags before generating a final answer. We exploit this thinking-mode capability to extract two distinct embeddings for each gameplay frame context: one from the reasoning span and one from the action output (see the Qwen3.5 prompt template in App. D. Specifically, we run generation with thinking enabled and extract two readouts from the resulting sequence: (i) the last-token hidden state at the end of the reasoning trace (before </think> ), referred to as the Reasoning last-token readout; and (ii) the last-token hidden state at the end of the full generation (after </think> ), referred to as the Final-answer last-token readout . To enable a consistent internal comparison, we apply the same generation-based feature extraction procedure used for Qwen2.5-VL and UI-TARS. Note that this comparison places Qwen3.5’s generated reasoning content alongside VLM/LAM’s prompt-conditioned encodings, related but distinct measurements. Across subjects, we observe a substantial asymmetry in Qwen3.5. The final-answer readout (r=0.355) shows higher brain alignment than the Reasoning last-token readout (r=0.173). For reference, prompt-conditioned VLM and LAM achieve r ≈0.35 for both Action and Reasoning prompts, indicating that Qwen3.5’s final answer output is comparably brain-aligned to prompt-conditioned multimodal models, while its reasoning trace is substantially weaker. To further examine whether this gap in Qwen3.5 reasoning alignment reflects the content of the reasoning trace or merely the readout position, we compare mean-pooled readouts across the same spans. The Qwen3.5 Reasoning mean-pooled readout improves to r = 0 .236 ± 0.0186 , but remains substantially lower than the reasoning prompt-conditioned representations of VLMs and LAMs. The persistence of this gap under matched 9pooling suggests that the asymmetry is not solely a readout-position artifact. Why explicit reasoning traces show weaker brain alignment than the model’s eventual action commitment - whether due to the content of the reasoning trace, residual positional effects, or trace-length variability - remains an open question. Together, these observations document a substantial reasoning-action asymmetry in thinking-mode brain alignment and motivate further investigation of how reasoning-trace structure interacts with brain alignment in such models. 
+
+6 Conclusion 
+
+We evaluate how VLMs and LAMs align with human brain activity during Atari-style gameplay using voxel-wise encoding on an fMRI dataset. Comparing two VLMs and two LAMs against RL baselines yields four key findings. First , both VLMs and LAMs substantially outperform RL baselines, even after matching feature counts, showing that multimodal foundation models encode more brain-relevant information than traditional task-optimized RL agents. Second , prompt-driven gains are strongest in higher-order frontal-parietal and motor-planning regions such as MFG, SMA, IFG, and AG, with smaller gains in early visual cortex. This suggests prompts improve representations related to goals, planning, and decision-making, likely reflecting multiple-demand network activity rather than language alone (Duncan, 2010; Fedorenko et al., 2024). Third , although VLMs and LAMs achieve similar whole-brain prediction accuracy, variance partitioning reveals distinct internal organization. VLMs show balanced contributions from Action and Reasoning prompts, whereas action-tuned LAMs are strongly action-dominant, especially in frontal-motor regions. This indicates that action fine-tuning already captures much of the information reasoning prompts provide. Fourth ,in a preliminary extension, Qwen3.5 reasoning-trace representations align less with brain activity than final action outputs ( r = 0 .236 vs. r = 0 .355 ), suggesting that explicit chain-of-thought reasoning does not necessarily improve brain alignment. Together, these findings extend brain-alignment research from passive perception to interactive gameplay and uncover representational differences between VLMs and action-tuned models that emerge only through variance decomposition. 
+
+References 
+
+Richard Antonello, Javier S Turek, Vy Vo, and Alexander Huth. Low-dimensional structure in the space of language representations is reflected in brain responses. Advances in Neural Information Processing Systems , 34:8332–8344, 2021. Cordell M Baker, Joshua D Burks, Robert G Briggs, Andrew K Conner, Chad A Glenn, Kathleen N Taylor, Goksel Sali, Tressie M McCoy, James D Battiste, Daniel L O’Donoghue, et al. A connec-tomic atlas of the human cerebrum—chapter 7: the lateral parietal lobe. Operative Neurosurgery ,15(suppl_1):S295–S349, 2018. Charlotte Caucheteux and Jean-Rémi King. Brains and algorithms partially converge in natural language processing. Communications Biology , 5(1):134, 2022. Catherine Chen, Tom Dupré la Tour, Jack Gallant, Dan Klein, and Fatma Deniz. The cortical representation of language timescales is shared between reading and listening. bioRxiv , pp. 2023–01, 2023. Zhe Chen, Jiannan Wu, Wenhai Wang, Weijie Su, Guo Chen, Sen Xing, Muyan Zhong, Qinglong Zhang, Xizhou Zhu, Lewei Lu, et al. Internvl: Scaling up vision foundation models and aligning for generic visual-linguistic tasks. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 24185–24198, 2024. Colin Conwell, Jacob S Prince, Kendrick N Kay, George A Alvarez, and Talia Konkle. What can 1.8 billion regressions tell us about the pressures shaping high-level visual representation in brains and machines? bioRxiv , pp. 2022–03, 2022. Botos Csaba, Sreejan Kumar, Austin Tudor David Andrews, Laurence Hunt, Chris Summerfield, Joshua B Tenenbaum, Rui Ponte Costa, Marcelo G Mattar, and Momchil Tomov. Reason to play: Behavioral and brain alignment between frontier lrms and human game learners. arXiv preprint arXiv:2605.08019 , 2026. 10 Wendy A de Heer, Alexander G Huth, Thomas L Griffiths, Jack L Gallant, and Frédéric E Theunissen. The hierarchical cortical organization of human speech processing. Journal of Neuroscience , 37 (27):6539–6557, 2017. Fatma Deniz, Anwar O Nunez-Elizalde, Alexander G Huth, and Jack L Gallant. The representation of semantic information across human cerebral cortex during listening versus reading is invariant to stimulus modality. Journal of Neuroscience , 2019. Rutvik H Desai, Usha Tadimeti, and Nicholas Riccardi. Proper and common names in the semantic system. Brain Structure and Function , 228(1):239–254, 2023. Dota Tianai Dong and Mariya Toneva. Interpreting multimodal video transformers using brain recordings. In ICLR 2023 Workshop on Multimodal Representation Learning: Perks and Pitfalls ,2023a. Dota Tianai Dong and Mariya Toneva. Vision-language integration in multimodal video transformers (partially) aligns with the brain. arXiv preprint arXiv:2311.07766 , 2023b. John Duncan. The multiple-demand (md) system of the primate brain: mental programs for intelligent behaviour. Trends in cognitive sciences , 14(4):172–179, 2010. Evelina Fedorenko, Anna A Ivanova, and Tamar I Regev. The language network as a natural kind within the broader landscape of the human brain. Nature Reviews Neuroscience , 25(5):289–312, 2024. Matthew F Glasser, Timothy S Coalson, Emma C Robinson, Carl D Hacker, John Harwell, Essa Yacoub, Kamil Ugurbil, Jesper Andersson, Christian F Beckmann, Mark Jenkinson, et al. Amulti-modal parcellation of human cerebral cortex. Nature , 536(7615):171–178, 2016. Ariel Goldstein, Zaid Zada, Eliav Buchnik, Mariano Schain, Amy Price, Bobbi Aubrey, Samuel A Nastase, Amir Feder, Dotan Emanuel, Alon Cohen, et al. Shared computational principles for language processing in humans and deep language models. Nature Neuroscience , 25(3):369–380, 2022. David Ha and Jürgen Schmidhuber. Recurrent world models facilitate policy evolution. Advances in neural information processing systems , 31, 2018. Sabine Haberland, Hannes Ruge, and Holger Frimmel. Encoding neural representations of time-continuous stimulus-response transformations in the human brain with advanced deep neural networks. Imaging Neuroscience , 2026. Shailee Jain and Alexander G Huth. Incorporating context into language encoding models for fmri. In NIPS , pp. 6629–6638, 2018. Philip Nicholas Johnson-Laird. Mental models: Towards a cognitive science of language, inference, and consciousness . Number 6. Harvard University Press, 1983. Amanda LeBel, Shailee Jain, and Alexander G Huth. Voxelwise encoding models show that cerebellar language representations are highly conceptual. Journal of Neuroscience , 41(50):10341–10355, 2021. Juliette Millet, Charlotte Caucheteux, Yves Boubenec, Alexandre Gramfort, Ewan Dunbar, Christophe Pallier, Jean-Remi King, et al. Toward a realistic model of speech processing in the brain with self-supervised learning. Advances in Neural Information Processing Systems , 35:33428–33443, 2022. Camille K Milton, Vukshitha Dhanaraj, Isabella M Young, Hugh M Taylor, Peter J Nicholas, Robert G Briggs, Michael Y Bai, Rannulu D Fonseka, Jorge Hormovas, Yueh-Hsin Lin, et al. Parcellation-based anatomic model of the semantic network. Brain and Behavior , 11(4):e02065, 2021. Yuko Nakagi, Takuya Matsuyama, Naoko Koide-Majima, Hiroto Yamaguchi, Rieko Kubo, Shinji Nishimoto, and Yu Takagi. Unveiling multi-level and multi-modal semantic representations in the human brain using large language models. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , pp. 20313–20338, 2024. 11 Subba Reddy Oota, Jashn Arora, Veeral Agarwal, Mounika Marreddy, Manish Gupta, and Bapi Surampudi. Neural language taskonomy: Which nlp tasks are the most predictive of fmri brain activity? In Proceedings of the 2022 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies , pp. 3220–3237, 2022a. Subba Reddy Oota, Jashn Arora, Vijay Rowtula, Manish Gupta, and Raju S Bapi. Visio-linguistic brain encoding. In COLING , pp. 116–133, 2022b. Subba Reddy Oota, Emin Çelik, Fatma Deniz, and Mariya Toneva. Speech language models lack important brain-relevant semantics. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 8503–8528. Association for Computational Linguistics, 2024a. URL https://aclanthology.org/2024.acl-long.462 .Subba Reddy Oota, Manish Gupta, and Mariya Toneva. Joint processing of linguistic properties in brains and language models. Advances in Neural Information Processing Systems , 36, 2024b. Subba Reddy Oota, Akshett Rai Jindal, Ishani Mondal, Khushbu Pahwa, Satya Sai Srinath Namburi GNVV, Manish Shrivastava, Maneesh Kumar Singh, Bapi Raju Surampudi, and Manish Gupta. Correlating instruction-tuning (in multimodal models) with vision-language processing (in the brain). In The Thirteenth International Conference on Learning Representations , 2025a. Subba Reddy Oota, Khushbu Pahwa, mounika marreddy, Maneesh Kumar Singh, Manish Gupta, and Bapi Raju Surampudi. Multi-modal brain encoding models for multi-modal stimuli. In The Thirteenth International Conference on Learning Representations , 2025b. Yujia Qin, Yining Ye, Junjie Fang, Haoming Wang, Shihao Liang, Shizuo Tian, Junda Zhang, Jiahao Li, Yunxin Li, Shijue Huang, et al. Ui-tars: Pioneering automated gui interaction with native agents. arXiv preprint arXiv:2501.12326 , 2025. Team Qwen Team. Qwen2.5-vl, January 2025. URL https://qwenlm.github.io/blog/qwen2. 5-vl/ .A. D. Ritchie. The nature of explanation. by k. j. w. craik. (cambridge university press. 1943. pp. viii + 123. price 6s.). Philosophy , 19(73):173–174, 1944. doi: 10.1017/S0031819100004733. Martin Schrimpf, Jonas Kubilius, Ha Hong, Najib J Majaj, Rishi Rajalingham, Elias B Issa, Kohitij Kar, Pouya Bashivan, Jonathan Prescott-Roy, Franziska Geiger, et al. Brain-score: Which artificial neural network for object recognition is most brain-like? BioRxiv , pp. 407007, 2018. Martin Schrimpf, Idan Asher Blank, Greta Tuckute, Carina Kauf, Eghbal A Hosseini, Nancy Kan-wisher, Joshua B Tenenbaum, and Evelina Fedorenko. The neural architecture of language: Integrative modeling converges on predictive processing. Proceedings of the National Academy of Sciences , 2021. V Subramaniam, C Wang, A Barbu, G Kreiman, and B Katz. Revealing vision-language integration in the brain with multimodal networks. In International Conference on Machine Learning .International Conference on Machine Learning (ICML), 2024. Qwen Team. Qwen3.5: Accelerating productivity with native multimodal agents, February 2026. URL https://qwen.ai/blog?id=qwen3.5 .Andre ˘ı Nikolaevich Tikhonov and VIAK Arsenin. Solutions of ill-posed problems. (No Title) , 1977. Momchil S Tomov, Pedro A Tsividis, Thomas Pouncy, Joshua B Tenenbaum, and Samuel J Gershman. The neural architecture of theory-based reinforcement learning. Neuron , 111(8):1331–1344, 2023. Mariya Toneva and Leila Wehbe. Interpreting and improving natural-language processing (in machines) with natural language-processing (in the brain). Advances in Neural Information Processing Systems , 32, 2019. Pedro A Tsividis, Joao Loula, Jake Burga, Nathan Foss, Andres Campero, Thomas Pouncy, Samuel J Gershman, and Joshua B Tenenbaum. Human-level reinforcement learning through theory-based modeling, exploration, and planning. arXiv preprint arXiv:2107.12544 , 2021. 12 Greta Tuckute, Jenelle Feather, Dana Boebinger, and Josh H McDermott. Many but not all deep neural network audio models capture brain responses and exhibit correspondence between model stages and brain regions. Plos Biology , 21(12):e3002366, 2023. Aditya Vaidya, Shailee Jain, and Alexander Huth. Self-supervised models of audio effectively explain human cortical responses to speech. In International Conference on Machine Learning , pp. 21927–21944. PMLR, 2022. Hado Van Hasselt, Arthur Guez, and David Silver. Deep reinforcement learning with double q-learning. In Proceedings of the AAAI conference on artificial intelligence , volume 30, 2016. Aria Wang, Michael Tarr, and Leila Wehbe. Neural taskonomy: Inferring the similarity of task-derived representations from brain activity. Advances in Neural Information Processing Systems ,32:15501–15511, 2019. Aria Y Wang, Kendrick Kay, Thomas Naselaris, Michael J Tarr, and Leila Wehbe. Natural language supervision with a large and diverse dataset builds better models of human high-level visual cortex. 
+
+BioRxiv , pp. 2022–09, 2022. Haoming Wang, Haoyang Zou, Huatong Song, Jiazhan Feng, Junjie Fang, Junting Lu, Longxiang Liu, Qinyu Luo, Shihao Liang, Shijue Huang, et al. Ui-tars-2 technical report: Advancing gui agent with multi-turn reinforcement learning. arXiv preprint arXiv:2509.02544 , 2025a. Xinyu Wang, Bohan Zhuang, and Qi Wu. Are large vision language models good game players? In 
+
+The Thirteenth International Conference on Learning Representations , 2025b. Nicholas R Waytowich, Devin White, MD Sunbeam, and Vinicius G Goecks. Atari-gpt: Bench-marking multimodal large language models as low-level policies in atari games. arXiv preprint arXiv:2408.15950 , 2024. Zhiyong Wu, Zhenyu Wu, Fangzhi Xu, Yian Wang, Qiushi Sun, Chengyou Jia, Kanzhi Cheng, Zichen Ding, Liheng Chen, Paul Pu Liang, et al. Os-atlas: A foundation action model for generalist gui agents. arXiv preprint arXiv:2410.23218 , 2024. Yunfei Xie, Yinsong Ma, Shiyi Lan, Alan Yuille, Junfei Xiao, and Chen Wei. Play to generalize: Learning to reason through game play. ICLR , pp. arXiv–2506, 2026. 
+
+# Overview of Appendix Sections 
+
+• App. A: Related Work • App. B: Detailed sub-ROIs of language, visual and auditory regions • App. C: Baseline Models Features • App. D: Prompt Templates for Brain Encoding Models • App. E: Hyperparameter Details • App. F: Details of explained variance partitioning • App. G: Statistical significance • App. H: Detailed Feature Extraction • App. I: VLM and LAM: Prompt-driven alignment gains scale with the cortical hierarchy • App. J: Variance Partitioning Results • App. K: Limitations 
+
+A Related Work 
+
+Foundation models and brain alignment. Our work also relates to a growing literature that investigates the alignment between human brains and language models. A number of studies have used text-based language models have been shown to predict both text- and speech-evoked brain responses with high fidelity (Jain & Huth, 2018; Deniz et al., 2019; Toneva & Wehbe, 2019; Caucheteux & King, 2022; Antonello et al., 2021; Oota et al., 2022a, 2024b). Advances in Transformer-based 13 speech models have similarly motivated work on speech-evoked brain alignment (Millet et al., 2022; Vaidya et al., 2022; Tuckute et al., 2023; Oota et al., 2024a; Chen et al., 2023). More recently, multimodal Transformers have been tested under both unimodal (Dong & Toneva, 2023a; Oota et al., 2022b, 2025a) and multimodal naturalistic stimuli (Dong & Toneva, 2023b; Nakagi et al., 2024; Oota et al., 2025b). Our work is complementary: we apply recent foundation models, specifically vision-language and large-action models, to study brain alignment during interactive Atari-style gameplay, with a particular focus on how action and reasoning prompt-conditioned representations differ across the cortical hierarchy. 
+
+Reinforcement learning, world models, and brain alignment during interactive behavior. Acomplementary line of work has aligned brain activity recorded during interactive gameplay with deep reinforcement-learning (RL) agents and theory-based models (Tomov et al., 2023; Haberland et al., 2026). Notably, Tomov et al. (2023) introduced the naturalistic Atari-style fMRI dataset and find that theory-based RL representations (Tsividis et al., 2021) in prefrontal cortex, showing that EMPA outperforms model-free baselines such as DDQN (Van Hasselt et al., 2016) in predicting frontal activity during gameplay. These studies demonstrate that features from RL agents map onto neural activity associated with decision-making and goal-directed control. However, because RL agents are optimized primarily for reward-based action learning, their representations tend to encode action-relevant features and may miss the richer perceptual, semantic, and predictive structure humans use to represent objects, dynamics, and future outcomes during gameplay. World models, structured internal representations of the environment that support prediction and planning, were originally proposed in cognitive science (Ritchie, 1944; Johnson-Laird, 1983) and later formalized in deep-RL (Ha & Schmidhuber, 2018). Recent work has begun probing whether modern foundation models, particularly VLMs and LAMs, acquire analogous internal world models when interacting with games and GUIs (Waytowich et al., 2024; Wang et al., 2025a; Xie et al., 2026), but these evaluations focus on behavioral benchmarks (task success, generalization) rather than neural alignment. Our work bridges these two lines: we systematically evaluate the brain alignment of modern VLMs and LAMs on the same Atari-style fMRI dataset previously used to study theory-based RL (Tomov et al., 2023), comparing them directly against EMPA and DDQN baselines and probing how reasoning- and action-focused prompts shape brain-relevant representations across the cortical hierarchy. 
+
+Concurrent work. Independently and concurrently, Csaba et al. (2026) evaluate whether frontier large reasoning models (LRMs) on human-like game learning, showing that off-the-shelf LRMs match human learning trajectories and predict BOLD activity substantially better than deep-RL and theory-derived baselines (DDQN, EfficientZero, HRR). Our study is complementary: rather than evaluating reasoning models as autonomous learners, we contrast two open-weight families, general-purpose VLMs and action-specialized LAMs, under matched architecture, using prompt-conditioned variance partitioning to expose a prompt-symmetric (VLM) versus action-asymmetric (LAM) representational dissociation invisible at raw encoding accuracy. Both works find that modern foundation models surpass classical RL and theory-based baselines in interactive brain alignment, while answering distinct questions: human-like learning of frontier LRMs, versus the representational reorganization induced by action-specialized fine-tuning. 
+
+B Detailed sub-ROIs of frontal-parietal, visual, and motor regions 
+
+The data covers eleven brain regions of interest (ROIs) in the human brain with the following sub-divisions: (i) angular gyrus (AG): PFm, PGs, PGi, TPOJ2, TPOJ3, (ii) inferior frontal gyrus triangularis (IFGtriang): 44, 45, IFJa, IFSp, (iii) inferior frontal gyrus opercularis (IFGoperc): 6r, 6v, FOP1, FOP4, (iv) middle frontal gyrus (MFG): 55b, (v) inferior occipital gyrus (IOG): V8, VVC, VMV3, VMV2, VMV1, (vi) middle occipital gyrus (MOG): LO1, LO2, LO3, V3CD, MT, MST, FST, V4t, (vii) superior occipital gyrus (SOG): V7, V3a, V3b, V3cd, (viii) calcarine fissure (CAL): V1, V2, (ix) lingual gyrus (LING): VMV1, VMV2, VMV3, (x) cuneus (CUN): V3, POS1, V6, and supplementary motor area (SMA): SFL, 6ma, 6mp, SCEF (Baker et al., 2018; Milton et al., 2021; Desai et al., 2023). Fig. 7 shows flattened cortical surfaces for frontal-parietal, visual- and motor-selective regions displayed on the ‘fsaverage’ surface, used as the mask for all participants. 14 Figure 7: Flattened cortical surfaces for language-, visual- and motor-selective regions displayed on the ‘fsaverage’ surface, used as the mask for all participants. 
+
+C Baseline Models Features 
+
+We derived TR-aligned regressors from two computational models of Atari gameplay. For EMPA (To-mov et al., 2023), we extracted eight per-frame regressors. Four are continuous: surprise (the agent’s prediction error on the observed next state), spriteKL (KL divergence between the agent’s prior and updated beliefs about sprite dynamics, indexing belief revision over object behavior), R_GG 
+
+(expected reward under the current goal-graph theory), and num_effects (count of distinct interaction effects observed at the current timestep). Four are binary indicators of theory revision: replan_flag 
+
+(the agent re-planned its policy), theory_change_flag (the agent’s theory of game rules changed), 
+
+newEffects_flag (a previously-unseen interaction effect was observed), and interaction_change_flag 
+
+(beliefs about an interaction between two object types changed). Concatenating these episodes within each level in instance order and averaging frame values within each TR over the level’s expected start/end window, then trimming 5 TRs from each run edge to match fMRI preprocessing, yielding a (T, 8) feature matrix per subject. For DDQN (25M-step agent) (Van Hasselt et al., 2016), we loaded dqn_regressors_25M.bson and extracted per-episode action sequences as (keycode, frame_idx, timestamp) tuples, mapping pygame keycodes to action labels and computing normalized action distributions per run for behavioral comparison against human and EMPA policies. 
+
+D Prompt Templates for Brain Encoding Models 
+
+Action Prompt Action Plan: 
+
+“You are controlling the avatar in this game. Look at the current game state. What is your immediate next action and why? Consider threats, goals, and optimal path.” 
+
+15 Reasoning Prompt Reasoning: 
+
+“Analyze this game step by step: What objects do you see? What are the spatial relationships? What are the possible threats or goals? What action would you recommend and why?” 
+
+Qwen3.5 Prompt Reasoning prompt (with thinking enabled): 
+
+"Analyze this game frame step by step: What objects/entities do you see? What are the spatial relationships? What are the possible threats or goals? What action would you recommend and why? IMPORTANT: Be brief. Keep your private reasoning under 800 tokens, then end the reasoning block and give a one-line final answer." 
+
+E Hyperparameter Details 
+
+We use the HuggingFace transformers interface to load the pretrained VLM and LAM models and their corresponding processors, and use 40-core GPU with 128GB-RAM with half precision (FP16) as compute. We used bootstrap ridge-regression with the following parameters: MSE loss function, and L2-decay (λ) varied from 10 1 to 10 3; best λ was chosen by tuning on validation data that comprised a randomly chosen 10% subset from train set used only for hyper-parameter tuning. 
+
+F Details of explained variance partitioning 
+
+Using a variance partitioning approach (de Heer et al., 2017; LeBel et al., 2021), we test whether action- and reasoning-based prompts carry overlapping or distinct brain-relevant information, and whether LAMs, which are fine-tuned on action-specific environments reshapes this decomposition. In particular, we decomposed each model’s joint R2 into three components: variance shared between action and reasoning prompts, variance uniquely explained by action prompt, and variance uniquely explained by reasoning prompt (Vaidya et al., 2022; Deniz et al., 2019). For each subject, we fit three voxel-wise encoding models: one using the concatenated action and reasoning representations as joint predictors (yielding R2
+
+> joint
+
+), one using only action representations ( R2
+
+> action
+
+), and one using only reasoning representations ( R2 
+
+> reasoning
+
+). We then computed each component’s contribution following standard variance-partitioning formulations: R2 
+
+> joint
+
+− R2 
+
+> reasoning
+
+for unique action, R2 
+
+> joint
+
+− R2
+
+> action
+
+for unique reasoning, and R2 
+
+> action
+
++ R2 
+
+> reasoning
+
+− R2 
+
+> joint
+
+for shared variance. We performed this analysis separately for two VLMs (Qwen2.5-VL, and InternVL3-8B) and LAMs (UI-TARS-7B-DPO and OS-Atlas-Pro-7B) on all 32 subjects, and evaluated each component at both whole-brain and ROI levels. 
+
+G Statistical significance 
+
+To determine if normalized predictivity scores are significantly higher than chance, we use block permutation tests. We employ the standard implementation of a block permutation test for fMRI data, which is to split the fMRI data into blocks of 10 contiguous TRs and permute the order of these blocks, while maintaining the original order of the TRs within each block. By permuting predictions 5000 times, we create an empirical distribution for chance performance, from which we estimate the 16 p-value of the actual performance. To estimate the statistical significance of performance differences, such as between the model’s predictions and chance or quantized model predictions and chance, we utilized the Wilcoxon signed-rank test, applying it to the mean normalized predictivity for the participants. In all cases, we denote significant differences with an asterisk *, indicating cases where p≤ 0.05 .
+
+H Detailed Feature Extraction 
+
+Let xt denote the RGB frame at time t (converted to a PIL image in our implementation), and let p
+
+denote a text prompt that specifies the type of reasoning or description to elicit from the VLM (e.g., action, reasoning). To match the temporal structure of the computational-agent regressors (EMPA, DDQN), we do not condition on an isolated frame: instead, at each time step t we form a sliding window of the k most recent frames 
+
+Xt =  xt−k+1 , xt−k+2 , . . . , xt
+
+, (1) with left-padding by x1 when t < k . We then build a multimodal chat-style input in which the k
+
+frames are passed as an ordered sequence of image content items alongside the prompt: 
+
+input t = <image> = xt−k+1 , ; . . . , ; <image> = xt, ; <text> = p, (2) which is serialized using the model’s chat template (with an added generation marker) and tokenized by the model-specific processor. This exploits Qwen2.5-VL’s native multi-image input and gives the model access to short-term motion and velocity cues, rather than a single static observation. 
+
+Forward pass and hidden states. We run a single forward pass with hidden-state outputs enabled (no sampling is required for feature extraction). Denote the total number of transformer blocks by L
+
+and the hidden dimension by d. Because the input now contains k interleaved visual token streams plus the prompt tokens, the resulting sequence length St is larger than in the single-frame case but the output structure is unchanged: the model returns a tuple of hidden states 
+
+ H(0)  
+
+> t
+
+, H(1)  
+
+> t
+
+, . . . , H(L)
+
+> t
+
+, (3) where H(0)  
+
+> t
+
+∈ RSt×d is the embedding-layer output and H(ℓ) 
+
+> t
+
+∈ RSt×d is the token-level hidden state after transformer layer ℓ.
+
+Frame-level feature vector. To obtain a fixed-length representation per layer, we select the hidden state of the last token in the sequence. For each layer ℓ ∈ 0, . . . , L , we define: 
+
+e(ℓ) 
+
+> t
+
+= H(ℓ) 
+
+> t
+
+[St, :] ∈ Rd. (4) Because of full causal self-attention over the interleaved multi-image context, the last-token state aggregates information from all k frames in Xt together with the prompt, and is therefore anchored at time t but conditioned on its recent history. We concatenate the per-layer vectors into a tensor: 
+
+Et = e(0)  
+
+> t
+
+; e(1)  
+
+> t
+
+; . . . ; e(L)
+
+> t
+
+ ∈ R(L+1) ×d. (5) 
+
+Episode-level features. For an episode with T frames, we slide the window across the episode and compute one feature tensor per time step, stacking them into: 
+
+E = {Et}Tt=1 ∈ RT ×(L+1) ×d. (6) These tensors serve as candidate predictors for downstream encoding models, enabling analyses of how neural predictivity varies across network depth while placing VLM/LAM features on the same sequential footing as the EMPA state-trajectory regressors and DDQN action sequences. 
+
+I VLM and LAM: Prompt-driven alignment gains scale with the cortical hierarchy 
+
+We repeat the ROI analysis on LAMs under Action, Reasoning, and no-prompt settings (Fig. 8). As with VLMs, prompting improves alignment in every ROI ( q < 0.05 , FDR-corrected), with the largest 17 gains in higher-order frontal-parietal areas: MFG (Reasoning/Action r = 0 .44 /0.46 vs. no-prompt 
+
+r = 0 .30 ), AG ( 0.36 /0.37 vs. 0.27 ), IFGtriang ( 0.35 /0.37 vs. 0.25 ), and IFGoperc ( 0.36 /0.37 vs. 
+
+0.25 ). Across these ROIs, Action prompts are consistently, if slightly, higher than Reasoning, the opposite of the VLM pattern, suggesting LAM policy representations engage association cortices involved in structured reasoning rather than purely motor mappings. SMA is the one frontal exception: Reasoning ( r = 0 .44 ) and Action ( r = 0 .43 ) are essentially tied, both well above no-prompt 
+
+(r = 0 .30 ); read alongside the variance partitioning analysis below, this tie reflects strong prompt redundancy: Action and Reasoning prompts converge onto the same motor-planning structure in SMA. AG   
+
+> IFGtriang
+> MFG
+> IFGoperc
+> SOG
+> IOG
+> MOG
+> CAL
+> CUN
+> LING
+> SMA
+> Brain Region (ROI)
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> Average PCC (r)
+> 0.36
+> 0.37
+> 0.25
+> R:**
+> A:**
+> 0.35
+> 0.37
+> 0.22
+> R:*
+> A:*
+> 0.44
+> 0.46
+> 0.27
+> R:*
+> A:*
+> 0.36
+> 0.37
+> 0.22
+> R:*
+> A:**
+> 0.30
+> 0.31
+> 0.21
+> R:**
+> A:**
+> 0.29
+> 0.29
+> 0.22
+> R:**
+> A:**
+> 0.33
+> 0.33
+> 0.22
+> R:**
+> A:**
+> 0.30
+> 0.31
+> 0.21
+> R:**
+> A:**
+> 0.30
+> 0.31
+> 0.21
+> R:**
+> A:**
+> 0.27
+> 0.27
+> 0.22
+> R:*
+> A:**
+> 0.44
+> 0.43
+> 0.26
+> R:*
+> A:*
+> LAM: Prompt vs No-Prompt - Brain Alignment per ROI
+> LAM-Reasoning LAM-Action LAM-NoPrompt
+
+Figure 8: Brain alignment averaged across participants and voxels per ROI for prompted vs. no-prompt LAM representations. Average Pearson correlation between predicted and observed fMRI responses across 11 ROIs for LAM-Reasoning (solid), LAM-Action (hatched), and LAM-NoPrompt (light). Error bars denote mean ± SEM across subjects. Markers denote paired comparisons against no-prompt (R: Reasoning, A: Action; *p < 0.05, **p < 0.01, ***p < 0.001). Both prompted conditions show higher alignment than no-prompt across all ROIs. 
+
+Figure 9: Voxel-wise difference in brain alignment between prompted and no-prompt VLM representations. Group-averaged across subjects cortical flatmap (both hemispheres, ‘fsaverage’) showing per-voxel differences in Pearson correlation, rprompted -rno-prompt , for Qwen2.5-VL under (a) reasoning prompts and (b) action prompts. Red voxels indicate higher alignment under the prompted condition; blue voxels indicate higher alignment under no-prompt. 
+
+J Variance Partitioning Results 
+
+Supplementary Fig. 10 extends the variance partitioning from Fig. 5 to the remaining 9 ROIs. Three patterns hold consistently across regions. 
+
+The reasoning-redundancy asymmetry scales with the cortical hierarchy. LAM’s unique-reasoning variance is negative in every non-primary-visual ROI, while VLM’s remains positive 18 throughout. The magnitude of this asymmetry follows the cortical processing hierarchy: largest in frontal-motor regions (MFG: −12% , SMA: −14% of joint variance, with MFG reaching significance), intermediate in lateral frontal-parietal cortex (AG: −8% , IFGtriang: −9% , IFGoperc: −10% ), and smallest in early visual cortex. LING is the only ROI where the asymmetry vanishes ( +2% for both models), consistent with primary visual cortex being driven mainly by the shared visual-input component rather than by prompt-specific computations. 
+
+LAM unique-action variance is consistently 2–4× larger than VLM’s (18% –34% vs. 5% –14% 
+
+across ROIs), following the same hierarchical ordering: SMA ( 34% ) and MFG ( 30% ) at the top, and primary visual ROIs (LING 18% , CAL 21% ) at the bottom. The action-uniqueness ordering thus mirrors the reasoning-redundancy ordering, both peaking in motor-planning cortex. 
+
+Shared variance dominates in both models (73% –87% of joint explained variance across all ROIs), indicating that most prompt-driven brain prediction reflects representations the two prompts engage in common. The VLM/LAM dissociation therefore does not lie in this shared bulk but in how each model allocates the residual prompt-unique variance: VLM splits it roughly evenly between action and reasoning, while LAM concentrates it on action, with reasoning becoming actively redundant in higher-order cortex. 
+
+J.1 Cross-family variance partitioning: OS-Atlas-Pro vs InternVL3 
+
+To test whether the action-asymmetric vs prompt-symmetric dissociation observed within the Qwen-VL family (Section 5) generalizes to other architectures, we ran variance partitioning, comparing OS-Atlas-Pro-7B (Qwen2-VL-based LAM) and InternVL3-8B (InternLM-based VLM, cross-family). Because OS-Atlas and InternVL3 differ in architecture family, this comparison cannot isolate fine-tuning effects from architectural effects. We therefore treat it as supporting evidence of cross-family generalization rather than a controlled within-family contrast. Figure 11 shows the explained variance across whole-brain, AG, and SMA. The qualitative dissociation is preserved across all three regions: • Whole-brain: OS-Atlas shows strong action-asymmetry ( uAction = 0.080, uReasoning = 0.017); InternVL3 is approximately prompt-symmetric ( uAction = 0.060, uReasoning = 0.065). • AG: OS-Atlas action-asymmetric ( 0.074 vs. 0.042); InternVL3 Reasoning-leaning ( 0.059 vs. 0.081). • SMA: OS-Atlas action-asymmetric ( 0.076 vs. 0.046); InternVL3 Reasoning-leaning (0.060 vs. 0.076). The shared component is comparable between the two models in all three regions (0.11-0.13 at whole-brain, 0.04 at AG and SMA), indicating both models capture similar overlapping information. The dissociation manifests in the unique-variance components: action-tuning preferentially carves Action-relevant structure into the LAM representation, while the VLM’s representation distributes variance more evenly between prompt conditions or shifts toward Reasoning in higher-order cortex. The cross-family preservation of the dissociation supports the interpretation that the within-family Qwen2-VL pattern reflects a general property of action-tuned vs general-purpose multimodal foundation models, not a quirk specific to the Qwen2-VL → UI-TARS fine-tuning step. 
+
+K Limitations 
+
+Our study has several limitations that scope its claims and motivate future work. One possible limitation our study lies in matched-architecture VLM-vs-LAM comparison is restricted to the Qwen-VL family (Qwen2.5-VL; UI-TARS-7B-DPO and OS-Atlas-Pro-7B, both Qwen2-VL-based); InternVL3-8B is included only as a cross-family VLM, since no comparable InternVL-based LAM is publicly available. Our LAMs are also GUI/desktop-trained rather than physical-embodiment or game-specific. Cross-family LAM evaluation and comparison with embodied models (e.g., OpenVLA-class) are left for future work. Second limitation lies in our extension to thinking-mode foundation models is preliminary in three respects: (i) we test only a single model (Qwen3.5), and the observed asymmetry between reasoning-trace and final-answer representations may not generalize to other thinking-mode models such as DeepSeek-R1 or Qwen3 variants. (ii) the prompt and extraction setup for Qwen3.5 differ from those used for VLM/LAM extraction: Qwen3.5 was given only the Reasoning prompt, with both readouts (reasoning-span last-token and final-answer last-token) drawn from the same generation; (iii) reasoning-trace length varies across TRs, introducing 19 Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20  
+
+> R2
+> 0.071
+> (+74%)
+> 0.082
+> (+78%)
+> 0.012
+> (+12%)
+> 0.028
+> (+27%) 0.013
+> (+14%)
+> -0.005
+> (-5%)
+
+*
+
+*
+
+Whole Brain 
+
+VLM 
+
+LAM 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning  
+
+> 0.044
+> (+81%)
+> 0.047
+> (+84%)
+> 0.005
+> (+8%)
+> 0.014
+> (+24%) 0.006
+> (+10%)
+> -0.004
+> (-8%)
+
+~
+
+AG (Angular Gyrus) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning 
+
+> 0.057
+> (+83%)
+> 0.068
+> (+80%)
+> 0.009
+> (+13%)
+> 0.029
+> (+34%)
+> 0.003
+> (+4%)
+> -0.012
+> (-14%)
+
+~
+
+SMA (Supplementary Motor) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> R2
+> 0.060
+> (+79%)
+> 0.079
+> (+82%)
+> 0.009
+> (+11%)
+> 0.029
+> (+30%)
+> 0.007
+> (+9%)
+> -0.012
+> (-12%)
+
+*
+
+MFG (Middle Frontal) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning  
+
+> 0.036
+> (+73%)
+> 0.048
+> (+83%)
+> 0.006
+> (+13%)
+> 0.015
+> (+27%) 0.007
+> (+14%)
+> -0.005
+> (-9%)
+
+IFGtriang (IFG triangularis) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning  
+
+> 0.036
+> (+74%)
+> 0.048
+> (+82%)
+> 0.006
+> (+13%)
+> 0.016
+> (+27%) 0.006
+> (+12%)
+> -0.006
+> (-10%)
+
+IFGoperc (IFG opercularis) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20  
+
+> R2
+> 0.032
+> (+80%)
+> 0.035
+> (+85%)
+> 0.002
+> (+5%)
+> 0.010
+> (+24%) 0.006
+> (+15%)
+> -0.004
+> (-10%)
+
+~
+
+~
+
+MOG (Middle Occipital) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning  
+
+> 0.023
+> (+82%)
+> 0.024
+> (+84%)
+> 0.003
+> (+10%)
+> 0.006
+> (+22%) 0.002
+> (+9%)
+> -0.002
+> (-6%)
+
+SOG (Superior Occipital) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning  
+
+> 0.033
+> (+81%)
+> 0.037
+> (+82%)
+> 0.006
+> (+14%)
+> 0.010
+> (+22%) 0.002
+> (+4%)
+> -0.002
+> (-4%)
+
+IOG (Inferior Occipital) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20  
+
+> R2
+> 0.023
+> (+83%)
+> 0.025
+> (+85%)
+> 0.003
+> (+10%)
+> 0.006
+> (+21%) 0.002
+> (+7%)
+> -0.002
+> (-6%)
+
+CAL (Calcarine / V1-V2) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning  
+
+> 0.026
+> (+82%)
+> 0.027
+> (+87%)
+> 0.004
+> (+12%)
+> 0.007
+> (+23%) 0.002
+> (+6%)
+> -0.003
+> (-11%)
+
+~
+
+CUN (Cuneus) 
+
+Shared 
+
+(A & R) 
+
+Unique 
+
+Action 
+
+Unique 
+
+Reasoning  
+
+> 0.030
+> (+84%)
+> 0.035
+> (+80%)
+> 0.005
+> (+14%)
+> 0.008
+> (+18%) 0.001
+> (+2%)
+> 0.001
+> (+2%)
+
+LING (Lingual) 
+
+Variance Partitioning Across All ROIs (n=5): Action vs Reasoning Prompts Figure 10: Variance partitioning of action vs. reasoning prompts. R2 decomposed into shared variance and prompt-unique components for VLM (Qwen2.5-VL, orange) and LAM (UI-TARS-7B-DPO, green), averaged across participants. Numbers above bars show absolute R2 and (in parentheses) percentage of joint explained variance. VLM unique variance is balanced across prompts; LAM is action-asymmetric, with negative unique-reasoning variance across ROIs. Brackets: VLM-vs-LAM comparison on unique reasoning, * p < 0.05 , ∼ marginal ( p < 0.10 ). Error bars: mean ± SEM across subjects. residual confounds that our matched mean-pooling controls only partially. Future work will focus on systematic evaluation across multiple thinking-mode models with controlled trace-length and matched prompts. Lastly, our study compares the internal representations of the foundation models with the brain activity during naturalistic gameplay, characterizing how each system encodes the state of the game, the perceptual content and the structure relevant to the decision. However, we do not directly relate model representations to human behavioral choices, for example, button-press latencies, action selection at each time step, or trial-by-trial reaction times. Such behavioral analyses 20 Shared 
+
+> (Action & Reasoning)
+> Unique
+> Action
+> Unique
+> Reasoning
+> 0.02
+> 0.00
+> 0.02
+> 0.04
+> 0.06
+> 0.08
+> 0.10
+> 0.12
+> 0.14
+> Variance Explained ( R2) 0.1105
+> 0.1280
+> 0.0599
+> 0.0804
+> 0.0649
+> 0.0174
+
+Whole Brain 
+
+InternVL3 
+
+OSAtlas 
+
+> Shared
+> (Action & Reasoning)
+> Unique
+> Action
+> Unique
+> Reasoning
+> 0.0380
+> 0.0423
+> 0.0588
+> 0.0738
+> 0.0809
+> 0.0424
+
+AG (Angular Gyrus) 
+
+InternVL3 
+
+OSAtlas   
+
+> Shared
+> (Action & Reasoning)
+> Unique
+> Action
+> Unique
+> Reasoning
+> 0.0404 0.0410
+> 0.0599
+> 0.0759 0.0757
+> 0.0455
+
+SMA (Supplementary Motor Area) 
+
+InternVL3 
+
+OSAtlas 
+
+Variance Partitioning: OSAtlas vs InternVL3 Figure 11: Brain alignment averaged across participants and voxels, using the best-performing layer for LAMs: OS-Atlas and VLMs (InternVL3). Green: LAM, Orange: VLM, * at a particular bar indicates that the model’s prediction performance is significantly better than baselines. could test whether brain-aligned representations also predict moment-to-moment human gameplay decisions, providing a complementary axis of model–human comparison. We consider this as a natural extension to the current study. 21

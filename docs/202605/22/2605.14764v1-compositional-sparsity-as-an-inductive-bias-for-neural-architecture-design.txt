@@ -1,0 +1,355 @@
+Title: Compositional Sparsity as an Inductive Bias for Neural Architecture Design
+
+URL Source: https://arxiv.org/pdf/2605.14764v1
+
+Published Time: Fri, 15 May 2026 01:19:28 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+Hongyu Lin 1 Antonio Briola 1 Yuanrong Wang 1 Tomaso Aste 1
+
+# Abstract 
+
+Identifying the structural priors that enable Deep Neural Networks (DNNs) to overcome the curse of dimensionality is a fundamental challenge in machine learning theory. Existing literature sug-gests that effective high-dimensional learning is driven by compositional sparsity, where target functions decompose into constituents supported on low-dimensional variable subsets. To inves-tigate this hypothesis, we combine Information Filtering Networks (IFNs), which extract sparse dependency structures via constrained informa-tion maximisation, with Homological Neural Net-works (HNNs), which map the inferred topol-ogy into fixed-wiring sparse neural graphs. We formalise the design principles underlying this construction and present an interpretable pipeline in which abstraction emerges through hierarchi-cal composition. HNNs are orders of magnitude sparser than standard DNNs and require only min-imal hyperparameter tuning. On synthetic tasks with known sparse hierarchies, HNNs recover the underlying compositional structure and remain stable in regimes where dense alternatives de-grade as dimensionality increases. Across a broad suite of real-world datasets, HNNs consistently match or outperform dense baselines while using far fewer parameters, exhibiting lower variance and showing reduced sensitivity to hyperparame-ters. 
+
+# 1. Introduction 
+
+Despite their remarkable empirical success, our understand-ing of Deep Neural Networks (DNNs) remains incomplete, particularly in regimes where classical learning theory pre-dicts fundamental limitations (Zhang et al., 2017; Marcus, 2018). In the absence of structural assumptions on the tar-get function, approximation and estimation errors for broad 
+
+> 1Department of Computer Science, University College Lon-don, London, United Kingdom. Correspondence to: Hongyu Lin
+> <hongyu.lin.18@ucl.ac.uk >.
+> Preprint. May 15, 2026.
+
+classes of functions on Rp grow exponentially with the am-bient dimension p, reflecting the curse of dimensionality (Poggio et al., 2017; Danhofer et al., 2025). A growing body of theoretical and empirical work has recently focused on identifying which forms of structure are implicitly ex-ploited by modern architectures to escape this worst-case scenario (Beneventano et al., 2024; Poggio, 2024; Danhofer et al., 2025). One recurring conclusion is that functions arising in real data admit sparse dependency patterns, where only small subsets of variables directly interact (Wang et al., 2023a; Briola et al., 2023; Lin et al., 2024; Aste, 2025a). Moreover, these interactions are typically organised through hierarchical compositions across scales (Poggio et al., 2017; Poggio, 2025; Danhofer et al., 2025). From this point of view, the central issue in high-dimensional learning con-cerns the ability to capture, represent and exploit sparse, multi-scale interaction structures without incurring combi-natorial complexity (Aste, 2025a; Danhofer et al., 2025). Recent theoretical work sharpens this view by arguing that compositional structure, together with symmetries and the reuse of intermediate representations, provides a concrete mechanism by which deep models can avoid worst-case scaling and generalise in regimes where unstructured alter-natives fail (Vig & Belinkov, 2019; Murty et al., 2022; Petty et al., 2024; Lindsey et al., 2025; Danhofer et al., 2025). From this standpoint, the key question is not whether com-positional sparsity is beneficial, but how to instantiate it as an inductive bias without relying on extensive architec-tural trial-and-error (Elsken et al., 2019; Wang et al., 2023a; Briola et al., 2023; Briola, 2024). In real-world data, the relevant groups of interacting variables are unknown, and the space of possible higher-order interactions grows com-binatorially with dimension (Aste, 2025a;b). Standard deep learning workflows address this challenge implicitly through architecture and hyperparameter search over depth, width, and connectivity (Feurer & Hutter, 2019; He et al., 2021), sometimes followed by pruning and compression (LeCun et al., 1989; Hassibi & Stork, 1992; Hinton et al., 2015; Han et al., 2015; Frankle & Carbin, 2019). As a consequence, empirical performance can be highly sensitive to the tun-ing protocol and available computational budget, obscuring whether observed gains reflect appropriate inductive bias or extensive search over model configurations (Grinsztajn et al., 2022). 1
+
+> arXiv:2605.14764v1 [cs.LG] 14 May 2026 Compositional Sparsity as an Inductive Bias for Neural Architecture Design
+
+Our Approach This paper takes an alternative approach, moving from heuristic design toward architectures whose topology is deterministically induced from estimated data dependencies. We employ Information Filtering Networks 
+
+(IFNs) (Mantegna, 1999; Aste et al., 2005; Tumminello et al., 2005; Barfuss et al., 2016; Massara et al., 2016; Mas-sara & Aste, 2019; Briola & Aste, 2022; 2023; Wang et al., 2023b) to extract sparse dependency structures by optimis-ing an information retention objective under strict topologi-cal constraints, yielding hierarchies of overlapping higher-order interactions that enhance interpretability. Building on this structure, we leverage Homological Neural Networks 
+
+(HNNs) (Wang et al., 2023a; Briola et al., 2023; Briola, 2024; Briola et al., 2025), which are sparse feedforward models that map the inferred IFN topology into fixed-wiring sparse neural graphs. This construction enforces a hier-archical interaction structure, with abstraction increasing systematically with network’s depth. At each layer, higher-order units aggregate signals from lower-order constituents that co-occur in the data-induced dependency topology. Be-cause the wiring is inferred from observations, structural design and parameter learning are decoupled: the architec-ture is fixed by the dependency structure, while parameters are optimised end-to-end. Under matched parameter bud-gets, HNNs often achieve better empirical performance than dense multilayer perceptron (MLP) baselines on structured tasks. The resulting pipeline is interpretable, stable, and operates in a minimal-tuning regime, enabling a rigorous evaluation of whether structural priors, rather than extensive hyperparameter optimisation, drive performance. From an architectural perspective, HNNs are related to broader work on sparse neural networks, where restricting connectivity serves as an inductive bias to improve generalisation and scalability (Mostafa & Wang, 2019; Frankle & Carbin, 2019; Evci et al., 2020; Ebli et al., 2020). 
+
+Empirical Validation We validate this approach in two complementary settings, treating HNNs as a data-driven construction, rather than an arbitrary architectural choice. First, on synthetic problems with known sparse hierarchies, we demonstrate that when the true interaction topology is provided via an oracle, the corresponding HNN consistently outperforms all baselines, confirming that the architecture can effectively exploit compositional sparsity when avail-able. We then show that IFN-estimated structures, while imperfect, capture sufficient dependency information to maintain substantial performance advantages over dense architectures, particularly as dimensionality increases. Sec-ond, across a broad suite of real-world tabular regression datasets where ground-truth structure is unknown, we as-sess whether data-driven HNNs yield consistent gains under shared hyperparameters. Across both settings, the resulting architectures remain stable in regimes where dense DNN baselines degrade, achieving competitive or superior perfor-mance with far fewer trainable parameters, lower variance, reduced sensitivity to hyperparameters, and slow degrada-tion in high-dimensional, low-sample regimes. 
+
+Paper Organisation Section 2 introduces the background on compositional structure and IFNs, and reviews the con-struction of Maximally Filtered Clique Forests . Section 3 presents the methodology, describing how data-driven de-pendency structures are translated into sparse neural archi-tectures and how Homological Neural Networks are con-structed and trained. Section 4.1 evaluates the approach on synthetic data with known interaction structure, allowing controlled analysis of scalability and robustness in high-dimensional regimes. Section 4.2 reports results on the OpenML-CTR23 (Fischer et al., 2023) benchmark, assess-ing performance on real-world tabular regression tasks un-der a minimal-tuning protocol. Finally, Section 5 concludes with a discussion of the main findings and directions for future work. 
+
+# 2. Background and Preliminaries 
+
+2.1. Compositional Structure and Approximation 
+
+We adopt the standard assumption that high-dimensional targets admit sparse, compositional structure, in which only small subsets of variables interact directly and higher-order effects are formed by hierarchical composition (Poggio et al., 2017). Let’s consider functions of the form 
+
+f (x1, . . . , x p) = h(g1(xU1 ), . . . , g m(xUm )) , (1) where each Ui ⊂ { 1, . . . , p } indexes a (typically small) subset of variables, xUi ∈ R|Ui| denotes the corresponding sub-vector, each gi : R|Ui| → R models an interaction, and 
+
+h : Rm → R combines these components. Under standard smoothness assumptions on gi and h, approximation results show that achieving a given error depends on the maxi-mal interaction order max i |Ui|, rather than the ambient dimension p, thereby mitigating the curse of dimensionality (Mhaskar et al., 2016; Poggio et al., 2017; Poggio, 2024). In this work, we focus on data-driven mechanisms for esti-mating such interaction structure and incorporating it into neural architectures. 
+
+2.2. Information Filtering Networks 
+
+Information Filtering Networks (IFNs) provide a framework for extracting sparse dependency structures from multivari-ate and high-dimensional data (Tumminello et al., 2005; Aste, 2025a). IFNs build a dependency graph G = ( V, E ),where V = {1, . . . , p } indexes the variables and E ⊂ V ×V
+
+denotes the set of edges, by retaining the most informa-tive relationships while satisfying explicit topological con-2Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+straints such as tree (Chow & Liu, 1968) or chordal graph (Blair & Peyton, 1993). These constraints act as a form of structural regularisation (Srebro, 2003), controlling model complexity and improving robustness in high-dimensional settings. A key feature of IFNs is that sparsification is achieved through a global optimisation criterion rather than through penalizing dense structures such as through ℓ1-regularised likelihood estimation (Banerjee et al., 2008). As a result, the retained structure concentrates the strongest dependencies compatible with the chosen constraints, yield-ing networks that are globally sparse but locally dense, with an interpretable and stable structure (Aste, 2025a). 
+
+Maximally Filtered Clique Forest (MFCF) The Max-imally Filtered Clique Forest (MFCF) (Massara & Aste, 2019) is a type of Markov Random Field (Kindermann & Snell, 1980; Koller & Friedman, 2009) within the IFN family, obtained by restricting the admissible models to de-composable chordal graphs (Blair & Peyton, 1993; Massara & Aste, 2019). MFCF represents higher-order dependen-cies through a set of overlapping maximal cliques linked by separators, forming a clique forest. Starting from a single node, at each iteration, MFCF con-siders expanding the current decomposable graph by intro-ducing a new maximal clique (Lauritzen, 1996; Massara & Aste, 2019). Each candidate update is characterised by a pair (C, S ), where C denotes the proposed clique formed by adding a new variable to an existing separator and S ⊂ C.The separator must be contained in at least one current clique, ensuring that the resulting graph remains decompos-able. The quality of such an update is evaluated using the local gain function 
+
+∆( C, S ) = I(XC ) − I (XS ), (2) where I(·) is an information measure computed from the data. Only expansions with positive gain are accepted, which ensures that each added clique captures additional statistical dependence not already captured by its separator 
+
+S.To control graph complexity and interpretability, MFCF relies on a minimum of two user-defined parameters. A 
+
+gain threshold determines whether a candidate expansion is accepted. A maximal clique size (K) can be imposed to limit the highest interaction order retained by MFCF for sparsity control. MFCF provides a data-driven approximation to the full de-pendency structure by retaining the most informative higher-order interactions compatible with the model class. Al-though MFCF is not the only approach to structure estima-tion, it complements widely used methods such as neighbor-hood selection (Meinshausen & B ¨uhlmann, 2006), graphi-cal lasso (Friedman et al., 2008), and constrained precision matrix estimators (Cai et al., 2011). In contrast to these ap-proaches, MFCF emphasises topological sparsification and higher-order interactions rather than edge regularisation. 
+
+# 3. Methodology 
+
+We now describe how a dependency structure inferred from data is translated into a sparse neural architecture. 
+
+3.1. Dependency Matrix and Dependency Graph Construction 
+
+In this paper, we use IFNs, generated via MFCF construc-tion, from a pairwise dependency measure M ∈ Rp×p,where Mij quantifies the statistical dependence between variables Xi and Xj . Depending on the task, M may be computed using standard dependency measures such as cor-relations, or using label-aware variants that condition on the training targets (Guyon & Elisseeff, 2003; Koller & Friedman, 2009). All dependency estimates are computed exclusively on training data and remain fixed throughout training, avoiding information leakage (Hastie et al., 2009). The dependency matrix M serves as input to MFCF. In all experiments, we instantiate MFCF using squared lin-ear correlations Mij = corr( Xi, X j )2 computed on the training fold, unless otherwise specified by a label-aware variant. More general dependency measures, such as Mu-tual Information (Cover & Thomas, 2006), could equally be used within the same framework. Here we adopt linear correlations to keep the structural inference step simple, and to avoid introducing additional modelling assumptions or hyperparameters. Applying MFCF to the dependency matrix produces a clique forest that captures the dominant dependency structure in the data. Throughout this work, we fix the maximal clique size to K = 4 (Massara et al., 2016). This choice is not tuned for performance, but reflects a structural modelling assumption that limits interaction order to control combinatorial growth and computational cost. The resulting clique forest defines the connectivity structure of our neural architecture. 
+
+3.2. From Clique Forests to Network Layers IFN Higher-order Interactions The MFCF returns a col-lection of maximal cliques C, each representing a set of variables involved in a data-supported dependency. From these cliques, we construct a hierarchy of higher-order inter-action units by including, for each clique C ∈ C , all k-way variable subsets with k ≤ K. Each such subset α ⊆ C
+
+defines a k-way interaction among the variables in α.This construction ensures that whenever a k-way interac-tion is included, all of its lower-order interactions are in-cluded as well. Such hierarchical organisation reflects a stan-3Compositional Sparsity as an Inductive Bias for Neural Architecture Design    
+
+> Figure 1. Pipeline for constructing a HNN from data. Input features Xare first used to estimate a dependency matrix and construct a MFCF, yielding a decomposable clique tree. The clique structure induces a hierarchy of cliques, which is lifted into a sparse feed-forward neural architecture where units correspond to cliques of increasing order and connections follow incidence. A readout unit aggregates the resulting representations to produce the final prediction.
+
+dard assumption in compositional modelling, namely that higher-order interactions are built from their lower-order constituents (Poggio et al., 2017). We denote by H(k) the set of unique k-way interaction units induced by the maximal cliques, i.e., all distinct subsets 
+
+α with |α| = k and α ⊆ C for some C ∈ C . The full collection of interaction units used to construct the network is H = SKk=1 H(k). If the same subset α appears in multi-ple maximal cliques, it corresponds to a single unit in the network. 
+
+Interaction Layers and Inclusion-based Wiring As shown in Figure 1, for each k ∈ { 1, . . . , K }, we instan-tiate one layer with one unit per α ∈ H (k). A unit α ∈ H (k)
+
+receives inputs only from units in the preceding layer that correspond to subsets of α. These constraints impose a strong inductive bias toward sparse, compositional interac-tions: variables are allowed to interact only when they are in the same clique supported by the inferred dependency struc-ture. As a consequence, the resulting networks are sparse by construction, with the number of trainable parameters scaling with the number of incidence relations rather than quadratically in the ambient dimension. Moreover, the ar-chitecture is fully specified prior to training: the MFCF fully determines the set of maximal cliques and all connectivity masks. Architectural design is therefore decoupled from parameter optimisation, and training proceeds by learning only the nonzero weights end-to-end using the standard gradient-based methods (Rumelhart et al., 1986; Kingma & Ba, 2015). 
+
+3.3. Layer-wise Computation and Parameterisation 
+
+Let h(k) ∈ R|H (k)| denote the vector of activations at inter-action order k. The network is evaluated in a feed-forward manner (Rumelhart et al., 1986; Hornik et al., 1989) from lower to higher orders. For k ≥ 2, activations are computed as 
+
+h(k) = σ
+
+
+
+W (k)h(k−1) + b(k)
+
+, (3) where σ(·) is a fixed element-wise nonlinearity (Goodfel-low et al., 2016). The bias vector b(k) ∈ R|H (k)| is un-constrained. The weight matrix W (k) ∈ R|H (k)|×|H (k−1) |
+
+is sparsely parameterised according to the interaction hier-archy: an entry W (k) 
+
+> ij
+
+is trainable if and only if the order-
+
+(k−1) interaction indexed by j is a subset of the k-way interaction indexed by i. All other entries are fixed to zero and excluded from optimisation. 
+
+3.4. All-Layer Readout Mechanism 
+
+Unlike conventional feed-forward architectures which typ-ically form predictions from the last hidden layer (Good-fellow et al., 2016), HNNs aggregate information from all interaction layers. This design is inspired by layer-wise aggregation mechanisms explored in other deep learning settings, where intermediate representations are combined to mitigate information loss across depth (Lee et al., 2015; Xu et al., 2018; Hamilton, 2020). For each interaction order k ≥ 2, we attach a readout that maps the corresponding activations to a scalar. In this work, we adopt a simple linear form, 
+
+r(k) = a(k)⊤h(k) + c(k), (4) where a(k) ∈ R|H (k)| and c(k) ∈ R are trainable parameters. The scalars {r(k)}Kk=2 are then combined through a readout operator R to produce prediction: 
+
+ˆy = R
+
+
+
+r(2) , . . . , r (K)
+
+. (5) 4Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+In this work, we choose a linear instantiation, 
+
+ˆy =
+
+> K
+
+X
+
+> k=2
+
+βk r(k) + d, (6) with learned coefficients {βk} and bias d.This all-layer readout complements the feed-forward in-teraction hierarchy by providing a direct aggregation path from each interaction order to the output. While information propagates upward from lower to higher-order interactions through incidence-based connections, the readout explicitly preserves contributions from all interaction orders. This is particularly important when gain thresholding in MFCF suppresses weak dependencies, as some lower-order inter-actions may not participate in any higher-order interactions. In such cases, lower-order representations are not propa-gated to deeper layers and would have no direct influence on the output. We adopt a linear readout by design, as it pre-serves an additive decomposition across interaction orders and maintains a clear correspondence between interaction order and predictive contribution. More expressive non-linear readouts are possible, but may entangle interaction orders and obscure this compositional structure. 
+
+# 4. Experiments 
+
+We evaluate HNNs on both synthetic data and well-known tabular regression benchmarks. Synthetic experiments al-low to assess whether models can exploit known interac-tion structures under controlled conditions, while real-world benchmarks test whether the same inductive biases remain effective when the underlying structure is unknown. In Sec-tion 4.1, we present both quantitative and qualitative analy-ses comparing HNNs with baseline models across multiple dimensional settings with known data-generating processes. In Section 4.2, we evaluate HNNs on the OpenML-CTR23 tabular regression benchmark suite (Fischer et al., 2023) to assess robustness and predictive performance relative to the baselines. 
+
+HNN Variants Across all experiments, we study a family of HNNs that share the same architectural template and training procedure, and differ in how the dependency matrix used by MFCF is constructed, which in turn determines the resulting interaction hierarchy and parameter count. We consider two data-driven instantiations: • HNN ( MARGINAL ). The dependency matrix is con-structed using squared Pearson correlations computed on the training fold, followed by MFCF with maxi-mal clique size K = 4 . This is the simplest and most standard instantiation of the pipeline, serving as the primary structural baseline. • HNN ( M-S). This median-split variant is label-aware in the sense that training targets are used to stratify the data. We split the training set at the empirical median of the target, compute squared Pearson correlations separately on each split, apply MFCF ( K = 4 ) inde-pendently, and construct a single HNN from the union of the resulting interaction hierarchies. Since the union retains interactions discovered in both splits, this vari-ant typically yields a larger interaction hierarchy and a larger parameter count than the marginal construc-tion, and is designed to capture regime-dependent in-teractions under potential distribution shift (Qui ˜nonero-Candela et al., 2009; Zliobait ˙e, 2010; Gama et al., 2014). 
+
+Synthetic-only Structure-controlled Baselines In addi-tion to the two data-driven HNN variants, the synthetic setting enables models that isolate the role of correct wiring from sparsity and model capacity: • HNN ( ORACLE ). The HNN structure is fixed to the ground-truth interactions used to generate the target (Appendix A), and is therefore not constrained by the MFCF maximal clique size K = 4 .• HNN ( RAND ORACLE ). Connectivity is randomised while preserving the oracle layer-wise sparsity pattern and parameter budget, isolating the effect of correct structural alignment from sparsity alone. • MLP-HNN. A dense baseline that preserves the hierar-chical depth and readout structure of an HNN while re-placing incidence-based sparse connectivity with fully connected layers. • MLP (PM-HNN) and MLP (PM-ORACLE ). Single-layer MLP baselines with trainable parameter counts matched to HNN ( MARGINAL ) and HNN ( ORACLE ), respectively. These baselines are designed as controlled diagnostics. To-gether, they disentangle the effects of (i) correct interaction alignment (HNN ( ORACLE ) vs.HNN ( RAND ORACLE )), (ii) sparsity versus dense (HNN vs. MLP-HNN), and (iii) archi-tectural structure versus raw capacity (parameter-matched MLPs), enabling a clean interpretation of performance dif-ferences in the synthetic setting. 
+
+Baselines We compare HNNs against standard dense mul-tilayer perceptrons (MLPs) (Goodfellow et al., 2016) and tree ensembles, namely Random Forests (Breiman, 2001) and XGBoost (Chen & Guestrin, 2016). We report both fixed-architecture MLPs and (when applicable) parameter-matched MLPs to control for model capacity. 5Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+Training Protocol Unless otherwise stated, all neural models are trained using Adam (Kingma & Ba, 2015), with ReLU activations (Nair & Hinton, 2010). HNNs addition-ally employ layer normalisation (Ba et al., 2016) as part of their architectural design. No dataset-specific or variant-specific hyperparameter tuning is performed. A full descrip-tion of optimisation settings and architectural hyperparame-ters is provided in Appendix B. Predictive performance is evaluated using rankings induced by test R2, within each test fold, ranking models by R2 is equivalent to ranking by MSE, since the total target variance is fixed. We aggregate ranks across folds and datasets to compare heterogeneous regimes in which absolute error scales are not directly comparable. Throughout, the MFCF maximum clique size is fixed to K = 4 and treated as a capacity control parameter, in order to isolate the effect of data-driven wiring. 
+
+4.1. Synthetic Data 
+
+Our synthetic experiments are based on a data generation process with known interaction structure. Feature vectors are sampled from a sparse Gaussian graphical model (Lau-ritzen, 1996), where conditional independencies are speci-fied by an Erd ˝os-R ´enyi random graph (Erd ˝os & R ´enyi, 1959; Janson et al., 2011), inducing realistic correlations without explicitly fixing higher-order dependencies. Targets are gen-erated as sums of nonlinear functions acting on variable subsets supported by cliques of the underlying dependency graph. Whenever a higher-order interaction is present, all of its lower-order subsets are also included, yielding tar-gets with explicit hierarchical compositional structure and heterogeneous interaction orders. This construction allows us to study the effect of architectural inductive bias under controlled sparsity and noise while retaining realistic depen-dencies between inputs. Full details of the data generation procedure are provided in Appendix A. Importantly, the maximal clique size K constrains only the maximal clique size admitted by MFCF and the resulting network archi-tecture, without restricting the interaction orders used to generate the synthetic targets. We vary both the feature dimension p and the sample size 
+
+n, spanning regimes from well-specified to highly under-determined (p/n ∈ [0 .01 , 3]) . Because MFCF relies on pairwise dependence estimates, we highlight a data-rich regime ( p/n ≤ 0.05 ) in which dependence estimation is reliable across the full range of feature dimensions consid-ered ( p ∈ [50 , 5000] ). We report results in this regime in the main text; the full sweep over p/n ∈ [0 .01 , 3] is provided in Appendix C.                                     
+
+> Table 1. Test R2performance ranking on synthetic data in the data-rich regime ( p/n ≤0.05 ) for p∈[50 ,5000] .For each
+> (p, n )configuration, results are averaged over 30 independent runs and ranks are then aggregated across configurations. Lower rank indicates better performance. Parameter ranges report the number of trainable parameters across p.MODEL MEAN RANK (↓)PARAMS
+> HNN ( ORACLE )1.00 1.3K–49.7K HNN ( M-S)2.08 3.8K–144K HNN ( MARGINAL )3.33 2.2K–93.9K HNN ( RAND ORACLE )4.41 1.4K–49.7K MLP-HNN 5.33 35.0K–59.9M MLP (2 ×128) 5.50 79.1K–578K MLP (PM-HNN) 6.67 2.2K–94.1K MLP (PM-ORACLE )7.67 1.3K–50.1K XGB OOST 9.00 –RANDOM FOREST 10.00 –
+
+4.1.1. R ESULTS AND INTERPRETATION 
+
+We begin by focusing on the data-rich regime ( p/n ≤
+
+0.05 ), where the interaction structure inferred from pair-wise dependencies is reliable across the considered fea-ture dimensions. Table 1 reports aggregated test R2 rank-ings for p ∈ [50 , 5000] . HNN ( M-S) is the strongest data-driven variant (mean rank 2.08 ), consistently outper-forming HNN ( MARGINAL ) and all dense MLP baselines. Parameter-matched MLPs (MLP (PM-HNN) and MLP (PM-ORACLE )) remain substantially worse than their cor-responding HNN variants, indicating that the performance gains cannot be explained by parameter count alone, but instead arise from the interaction-structured wiring imposed by the inferred hierarchy. Structure-controlled baselines further clarify the role of data-aligned connectivity. The randomised oracle (HNN ( RAND ORACLE )) preserves the oracle’s sparsity pattern and pa-rameter budget but performs significantly worse, showing that sparsity alone is insufficient without correct wiring. Conversely, MLP-HNN removes sparsity, while preserving hierarchical depth and readout, resulting in a much larger parameter count yet worse performance, showing that dense capacity does not recover the benefits of structured connec-tivity. Beyond this data-rich regime, we evaluate all methods across a broader range of dimension-to-sample ratios, in-cluding highly underdetermined settings ( p/n ∈ [0 .01 , 3] ). The full set of results over this range is reported in Ap-pendix C. Figure 2 illustrates how test R2 evolves with p/n for rep-resentative feature dimensions ( p ∈ {50 , 1000 , 5000 }). Across all three dimensions, dense MLP baselines exhibit a rapid degradation as p/n increases, with performance col-lapsing sharply in low-sample regimes. This effect becomes more pronounced as p grows, highlighting the sensitivity of unstructured architectures to dimensionality when data 6Compositional Sparsity as an Inductive Bias for Neural Architecture Design             
+
+> Figure 2. Mean test R2as a function of the dimension-to-sample ratio p/n for three representative feature dimensions ( p∈{50 ,1000 ,5000 }). For readability, we plot a subset of baselines here; full results across all methods are reported in Appendix C. Each curve shows the mean test R2across runs at fixed p/n , with error bars indicating ±SEM.
+
+are scarce (Wainwright, 2019). Tree-based methods show greater robustness than dense MLPs but quickly plateau at near-zero test R2, failing to benefit from additional samples in higher-dimensional settings. In contrast, the HNN ( M-S) degrades substantially more slowly as p/n increases and maintains a clear separation from both dense MLP and tree-based baselines across all dimensions. The HNN ( ORACLE ) forms an upper envelope throughout, confirming that when the correct interaction structure is known, the hierarchical architecture can exploit it uniformly across regimes. The relatively small and stable gap between the HNN ( ORACLE ) and HNN ( M-S) curves suggests that the data-driven construction captures a substan-tial fraction of the useful interaction structure, particularly in high-dimensional, low-sample settings. To further disentangle the effect of architectural structure from model capacity, Figure 3 focuses on a representative high-dimensional setting with p = 1000 and compares a HNN ( MARGINAL ) to a single-layer dense MLP with a matched number of trainable parameters. Despite having comparable capacity, the HNN consistently attains higher test R2 and exhibits substantially greater stability as p/n 
+
+increases. This confirms that the observed performance gains cannot be attributed to parameter count alone, but in-stead arise from the data-aligned sparsity and compositional structure imposed by the inferred architecture (Poggio et al., 2017; Belkin et al., 2019). 
+
+4.2. OpenML-CTR23 Tabular Regression Benchmark 
+
+We complement the controlled synthetic experiments with evaluations on the OpenML-CTR23 (Fischer et al., 2023) curated tabular regression benchmark. OpenML-CTR23 is a suite of real-world regression tasks designed for systematic comparison under standardised splits and evaluation, follow-        
+
+> Figure 3. Mean test R2as a function of the dimension-to-sample ratio p/n for p= 1000 . We compare HNN ( MARGINAL ) with a single-layer dense MLP whose number of trainable parameters is matched to that of the HNN ( MARGINAL ), together with the HNN ( ORACLE ). Results are averaged over tasks and random seeds, with error bars indicating ±SEM.
+
+ing similar design principles to widely used OpenML bench-mark suites (Tschalzev et al., 2024). It contains a diverse set of datasets spanning a broad range of sample sizes and feature dimensions, and has been adopted in recent work on tabular regression and foundation models (Holzm ¨uller et al., 2024; Ma et al., 2024; Wu & Bergman, 2025). In contrast to the synthetic setting, the underlying interaction structure is unknown and can vary substantially across datasets. We use the official OpenML cross-validation split provided with each task (Van Rijn et al., 2014; Fischer et al., 2023). For each fold, the training portion is further split into a train-ing and validation set by randomly holding out 20% of the training data, while the test fold is kept strictly untouched. 7Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+All preprocessing steps (e.g., scaling and normalisation) are fitted exclusively on the training subset and then applied unchanged to the validation and test data, in accordance with standard best practices to prevent information leakage (Hastie et al., 2009; Kaufman et al., 2012). This protocol ensures reproducibility and a fair comparison across models. 
+
+Minimal Tuning Regime All neural models are trained using a fixed set of shared hyperparameters across datasets, with no dataset-specific architecture search. The choice of this experimental protocol is intentional: the goal is to assess whether data-driven structural priors alone can yield compet-itive performance under a constrained tuning budget, rather than maximising benchmark scores through extensive hy-perparameter optimisation. Exact optimisation settings and architectural hyperparameters are reported in Appendix B. 4.2.1. R ESULTS AND INTERPRETATION 
+
+Table 2 reports aggregated test R2 ranks on the OpenML-CTR23 benchmark. Under the shared minimal-tuning proto-col, the HNN ( M-S) achieves a mean rank of 3.77 , outper-forming all MLP baselines and ranking competitively with tree-based methods. In particular, it substantially improves over the strongest dense MLP (2 ×256), which attains a mean rank of 4.01 , as well as over the single-hidden-layer MLP (1 ×512) with a rank of 4.54 . The HNN ( MARGINAL )performs slightly worse, with a mean rank of 4.37 . Model ranking for each dataset can be found in Appendix D.                        
+
+> Table 2. OpenML-CTR23 test R2performance ranking across datasets. For each dataset, models are ranked by mean test R2
+> over the provided folds and repeats; ranks are then averaged across datasets. Lower rank indicates better performance. MODEL MEAN RANK (↓)PARAMS (RANGE )XGB OOST 3.14 –HNN ( M-S)3.77 0.1 K–13.9 K
+> RANDOM FOREST 3.91 –MLP (2 ×256) 4.01 67.6 K–114.9 K
+> MLP (2 ×128) 4.31 17.4 K–41.1 K
+> HNN ( MARGINAL )4.37 0.1 K–8.6 K
+> MLP (1 ×512) 4.54 3.6 K–98.3 K
+
+The comparison with dense MLPs is particularly informa-tive. Despite using one-to-two orders of magnitude more trainable parameters than HNNs, MLPs consistently obtain worse average ranks. This indicates that, in the limited-tuning regime considered here, architectural inductive bias plays a more decisive role than raw model capacity (Pog-gio, 2024), consistent with prior findings that unstructured neural networks often underperform on tabular data without extensive tuning or architectural specialisation (Grinsztajn et al., 2022; Shwartz-Ziv & Armon, 2022). As expected on OpenML-CTR23, tree-based ensemble methods remain strong baselines (Fischer et al., 2023; Wu & Bergman, 2025). XGBoost achieves the best overall average rank ( 3.14 ), followed closely by Random Forests (3.91 ). Notably, the gap between XGBoost and the HNN (M-S) is small relative to the separation between either of these methods and standard MLPs, indicating that HNNs substantially narrow the performance gap between neural and tree-based models under matched evaluation conditions. Among HNN variants, the median-split construction out-performs the marginal alternative. This likely reflects the difficulty of estimating reliable dependency structures from noisy real-world data using simple correlation estimates. By conditioning dependencies on the target, the median-split ap-proach emphasises interactions that are more stable across outcome regimes, leading to improved robustness across datasets. Similar advantages of label-aware or stratified de-pendency estimation have been reported in prior work on tabular representation learning (Choromanski et al., 2022; Ivanov et al., 2024). Overall, these results suggest that explicitly modelling fea-ture interactions can yield strong performance on tabular regression tasks when tuning resources are limited. Rather than competing directly with heavily optimised ensemble methods, HNNs offer a complementary approach that trades extensive hyperparameter search for a principled, data-driven architectural bias, while maintaining competitive performance across a wide range of real-world regression tasks. 
+
+# 5. Conclusion 
+
+We establish compositional sparsity as a data-induced struc-tural inductive bias for learning in high-dimensional regimes by coupling Information Filtering Networks (via MFCF) with Homological Neural Networks. This yields sparse neural architectures whose structure is determined by data dependencies. Our approach separates structure discovery from parameter optimisation and induces hierarchical in-teraction layers with an all-layer readout. Across synthetic benchmarks with controlled interaction structure, the HNNs recover oracle-level topology and degrade substantially more slowly than dense MLP baselines as the dimension-to-sample ratio increases, demonstrating improved robustness in underdetermined settings. On the OpenML-CTR23 re-gression suite, HNNs remain competitive with strong tree en-sembles and consistently outperform standard MLPs while using one to two orders of magnitude fewer trainable pa-rameters under a shared minimal-tuning protocol. A cur-rent limitation is that structure estimation relies on simple correlation measures, which may miss nonlinear or regime-dependent interactions in noisy or small-sample settings, motivating future work on richer dependency measures and adaptive structure inference. 8Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+# References 
+
+Aste, T. Information filtering networks: Theoretical founda-tions, generative algorithms, and real-world applications. 
+
+Journal of Physics: Complexity , 2025a. Also available as arXiv:2505.03812. Aste, T. Probabilistic Data-Driven Modeling . Cambridge University Press, 2025b. Aste, T., Di Matteo, T., and Hyde, S. T. Complex networks on hyperbolic surfaces. Physica A: Statistical Mechanics and its Applications , 346(1–2):20–26, 2005. Ba, J. L., Kiros, J. R., and Hinton, G. E. Layer normalization. 
+
+arXiv preprint arXiv:1607.06450 , 2016. Banerjee, O., El Ghaoui, L., and d’Aspremont, A. Model selection through sparse maximum likelihood estimation for multivariate gaussian or binary data. Journal of Ma-chine Learning Research , 9:485–516, 2008. Barfuss, W., Massara, G. P., Di Matteo, T., and Aste, T. Par-simonious modeling with information filtering networks. 
+
+Physical Review E , 94(6):062306, 2016. Belkin, M., Hsu, D., Ma, S., and Mandal, S. Reconciling modern machine-learning practice and the classical bias– variance trade-off. Proceedings of the National Academy of Sciences , 116(32):15849–15854, 2019. Beneventano, P., Pinto, A., and Poggio, T. How neural networks learn the support is an implicit regularization effect of SGD. arXiv preprint arXiv:2406.11110 , 2024. Blair, J. R. S. and Peyton, B. An introduction to chordal graphs and clique trees. In Graph Theory and Sparse Matrix Computation , pp. 1–29. Springer, 1993. Breiman, L. Random forests. Machine Learning , 45(1): 5–32, 2001. Briola, A. Deep Complex Networks: Applications in Finan-cial Systems Modeling . PhD thesis, University College London, 2024. Briola, A. and Aste, T. Dependency structures in cryptocur-rency market from high to low frequency. Entropy , 24 (11):1548, 2022. Briola, A. and Aste, T. Topological feature selection. In 
+
+Topological, Algebraic and Geometric Learning Work-shops 2023 , pp. 534–556. PMLR, 2023. Briola, A., Wang, Y., Bartolucci, S., and Aste, T. Homo-logical convolutional neural networks. arXiv preprint arXiv:2308.13816 , 2023. Briola, A., Bartolucci, S., and Aste, T. HLOB: Information persistence and structure in limit order books. Expert Systems with Applications , 266:126078, 2025. Cai, T. T., Liu, W., and Luo, X. A constrained ℓ1 mini-mization approach to sparse precision matrix estimation. 
+
+Journal of the American Statistical Association , 106(494): 594–607, 2011. Chen, T. and Guestrin, C. XGBoost: A scalable tree boost-ing system. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pp. 785–794, 2016. Choromanski, K. et al. Rethinking attention for tabular data. 
+
+arXiv preprint , 2022. Chow, C. K. and Liu, C. N. Approximating discrete proba-bility distributions with dependence trees. IEEE Transac-tions on Information Theory , 14(3):462–467, 1968. Cover, T. M. and Thomas, J. A. Elements of Information Theory . Wiley, 2 edition, 2006. Danhofer, D. A., D’Ascenzo, D., Dubach, R., and Poggio, T. A. Position: A theory of deep learning must include compositional sparsity. In International Conference on Machine Learning (ICML) Position Paper Track , 2025. Also available as arXiv:2507.02550. Ebli, S., Defferrard, M., and Spreemann, G. Simplicial neural networks. In Advances in Neural Information Processing Systems , volume 33, pp. 9360–9371, 2020. Elsken, T., Metzen, J. H., and Hutter, F. Neural architecture search: A survey. Journal of Machine Learning Research ,20(55):1–21, 2019. Erd ˝os, P. and R ´enyi, A. On random graphs. Publicationes Mathematicae , 6:290–297, 1959. Evci, U., Gale, T., Menick, J., Castro, P. S., and Elsen, E. Rigging the lottery: Making all tickets winners. In 
+
+Proceedings of the 37th International Conference on Ma-chine Learning , volume 119 of Proceedings of Machine Learning Research , pp. 2949–2961, 2020. Feurer, M. and Hutter, F. Hyperparameter optimization. In 
+
+Automated Machine Learning , pp. 3–33. Springer, 2019. Fischer, S. F., Feurer, M., and Bischl, B. OpenML-CTR23: A curated tabular regression benchmarking suite. In Au-toML Conference 2023 Workshop , 2023. Frankle, J. and Carbin, M. The lottery ticket hypothesis: Finding sparse, trainable neural networks. In Interna-tional Conference on Learning Representations , 2019. 9Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+Friedman, J., Hastie, T., and Tibshirani, R. Sparse inverse covariance estimation with the graphical lasso. Biostatis-tics , 9(3):432–441, 2008. Gama, J., Zliobait ˙e, I., Bifet, A., Pechenizkiy, M., and Bouchachia, A. A survey on concept drift adaptation. 
+
+ACM Computing Surveys , 46(4):44, 2014. Goodfellow, I., Bengio, Y., and Courville, A. Deep Learning .MIT Press, 2016. Grinsztajn, L., Oyallon, E., and Varoquaux, G. Why do tree-based models still outperform deep learning on tabular data? In Advances in Neural Information Processing Systems , volume 35, 2022. Guyon, I. and Elisseeff, A. An introduction to variable and feature selection. Journal of Machine Learning Research ,3:1157–1182, 2003. Hamilton, W. L. Graph Representation Learning . Morgan & Claypool, 2020. Han, S., Pool, J., Tran, J., and Dally, W. Learning both weights and connections for efficient neural networks. In Advances in Neural Information Processing Systems ,volume 28, pp. 1135–1143, 2015. Hassibi, B. and Stork, D. G. Second order derivatives for network pruning: Optimal brain surgeon. In Advances in Neural Information Processing Systems , volume 5, pp. 164–171, 1992. Hastie, T., Tibshirani, R., and Friedman, J. The Elements of Statistical Learning . Springer, 2009. He, X., Zhao, K., and Chu, X. AutoML: A survey of the state-of-the-art. Knowledge-Based Systems , 212:106622, 2021. Hinton, G., Vinyals, O., and Dean, J. Distilling the knowledge in a neural network. arXiv preprint arXiv:1503.02531 , 2015. Holzm ¨uller, D., Grinsztajn, L., and Steinwart, I. Better by default: Strong pre-tuned MLPs and boosted trees on tab-ular data. In Advances in Neural Information Processing Systems , volume 37, pp. 26577–26658, 2024. Hornik, K., Stinchcombe, M., and White, H. Multilayer feedforward networks are universal approximators. Neu-ral Networks , 2(5):359–366, 1989. Ivanov, S. et al. Tabular deep learning: A survey. arXiv preprint , 2024. Janson, S., Łuczak, T., and Ruci ´nski, A. Random Graphs .Wiley, 2011. Kaufman, S., Rosset, S., and Perlich, C. Leakage in data mining: Formulation, detection, and avoidance. ACM Transactions on Knowledge Discovery from Data , 6(4): 1–21, 2012. Kindermann, R. and Snell, J. L. Markov Random Fields and Their Applications . American Mathematical Society, 1980. Kingma, D. P. and Ba, J. Adam: A method for stochastic optimization. In International Conference on Learning Representations , 2015. Koller, D. and Friedman, N. Probabilistic Graphical Mod-els: Principles and Techniques . MIT Press, 2009. Lauritzen, S. L. Graphical Models . Oxford University Press, 1996. LeCun, Y., Denker, J. S., and Solla, S. A. Optimal brain damage. In Advances in Neural Information Processing Systems , volume 2, pp. 598–605, 1989. Lee, C.-Y., Xie, S., Gallagher, P., Zhang, Z., and Tu, Z. Deeply-supervised nets. In Proceedings of the Eighteenth International Conference on Artificial Intelligence and Statistics , 2015. Lin, H., Ren, M., Barucca, P., and Aste, T. Granger causal-ity detection with kolmogorov-arnold networks. arXiv preprint arXiv:2412.15373 , 2024. Lindsey, J., Gurnee, W., Ameisen, E., Chen, B., Pearce, A., Turner, N. L., Citro, C., Abrahams, D., Carter, S., Hosmer, B., et al. On the biology of a large language model. Transformer Circuits Thread, 2025. Ma, J., Thomas, V., Hosseinzadeh, R., Kamkari, H., Labach, A., Cresswell, J. C., Golestan, K., Yu, G., Volkovs, M., and Caterini, A. L. TabDPT: Scaling tabular foundation models. arXiv preprint arXiv:2410.18164 , 2024. Mantegna, R. N. Hierarchical structure in financial markets. 
+
+The European Physical Journal B , 11(1):193–197, 1999. Marcus, G. Deep learning: A critical appraisal. arXiv preprint arXiv:1801.00631 , 2018. Massara, G. P. and Aste, T. Learning clique forests. arXiv preprint arXiv:1905.02266 , 2019. Massara, G. P., Di Matteo, T., and Aste, T. Network filter-ing for big data: Triangulated maximally filtered graph. 
+
+Journal of Complex Networks , 5(2):161–178, 2016. Meinshausen, N. and B ¨uhlmann, P. High-dimensional graphs and variable selection with the lasso. The An-nals of Statistics , 34(3):1436–1462, 2006. 10 Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+Mhaskar, H. N., Liao, Q., and Poggio, T. Deep versus shallow networks: An approximation theory perspective. 
+
+Analysis and Applications , 14(6):829–848, 2016. Mostafa, H. and Wang, X. Parameter efficient training of deep convolutional neural networks by dynamic sparse reparameterization. In Proceedings of the 36th Interna-tional Conference on Machine Learning , volume 97 of 
+
+Proceedings of Machine Learning Research , pp. 4646– 4655, 2019. Murty, S., Sharma, P., Andreas, J., and Manning, C. D. Characterizing intrinsic compositionality in transformers with tree projections. arXiv preprint arXiv:2211.01288 ,2022. Nair, V. and Hinton, G. E. Rectified linear units improve restricted boltzmann machines. In Proceedings of the 27th International Conference on Machine Learning , 2010. Petty, J., Steenkiste, S., Dasgupta, I., Sha, F., Garrette, D., and Linzen, T. The impact of depth on compositional generalization in transformer language models. In Pro-ceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies , pp. 7239–7252, 2024. Poggio, T. Compositional sparsity of learnable functions. Technical report, Center for Brains, Minds and Machines, 2024. CBMM Memo. Poggio, T. On efficiently computable functions, deep net-works and sparse compositionality. Technical report, Cen-ter for Brains, Minds and Machines, 2025. Poggio, T., Mhaskar, H., Rosasco, L., Miranda, B., and Liao, Q. Why and when can deep-but not shallow-networks avoid the curse of dimensionality: A review. International Journal of Automation and Computing , 14(5):503–519, 2017. Qui ˜nonero-Candela, J., Sugiyama, M., Schwaighofer, A., and Lawrence, N. D. (eds.). Dataset Shift in Machine Learning . MIT Press, 2009. Rumelhart, D. E., Hinton, G. E., and Williams, R. J. Learn-ing representations by back-propagating errors. Nature ,323:533–536, 1986. Shwartz-Ziv, R. and Armon, A. Tabular data: Deep learning is not all you need. Information Fusion , 81:84–90, 2022. Srebro, N. Maximum likelihood bounded tree-width markov networks. In Proceedings of the Nineteenth Conference on Uncertainty in Artificial Intelligence , pp. 504–511, 2003. Tschalzev, A., Marton, S., L ¨udtke, S., Bartelt, C., and Stuck-enschmidt, H. A data-centric perspective on evaluating machine learning models for tabular data. In Advances in Neural Information Processing Systems , volume 37, pp. 95896–95930, 2024. Tumminello, M., Aste, T., Di Matteo, T., and Mantegna, R. N. A tool for filtering information in complex systems. 
+
+Proceedings of the National Academy of Sciences , 102 (30):10421–10426, 2005. Van Rijn, J. N., Bischl, B., Torgo, L., Gao, B., Umaashankar, V., Fischer, S., Winter, P., Wiswedel, B., Berthold, M. R., and Vanschoren, J. OpenML: Networked science in ma-chine learning. ACM SIGKDD Explorations Newsletter ,15(2):49–60, 2014. Vig, J. and Belinkov, Y. Analyzing the structure of atten-tion in a transformer language model. arXiv preprint arXiv:1906.04284 , 2019. Wainwright, M. J. High-Dimensional Statistics: A Non-Asymptotic Viewpoint . Cambridge University Press, 2019. Wang, Y., Briola, A., and Aste, T. Homological neural networks: A sparse architecture for multivariate complex-ity. In Topological, Algebraic and Geometric Learning Workshops 2023 , pp. 228–241. PMLR, 2023a. Wang, Y., Briola, A., and Aste, T. Topological portfolio selection and optimization. In Proceedings of the Fourth ACM International Conference on AI in Finance , pp. 681– 688, 2023b. Wu, Y. and Bergman, D. L. Zero-shot meta-learning for tabular prediction tasks with adversarially pre-trained transformer. arXiv preprint arXiv:2502.04573 , 2025. Xu, K., Li, C., Tian, Y., Sonobe, T., Kawarabayashi, K.-i., and Jegelka, S. Representation learning on graphs with jumping knowledge networks. In International Confer-ence on Machine Learning , 2018. Zhang, C., Bengio, S., Hardt, M., Recht, B., and Vinyals, O. Understanding deep learning requires rethinking gen-eralization. In International Conference on Learning Representations , 2017. Zliobait ˙e, I. Learning under concept drift: An overview. Technical Report arXiv:1010.4784, arXiv, 2010. 11 Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+# A. Synthetic Data Generation 
+
+We generate i.i.d. samples {(Xt, y t)}nt=1 with sparse Gaussian features and nonlinear targets constructed from a known interaction structure. The data-generating process is defined as follows. 
+
+Step 1: Erd˝ os-R´ enyi dependency graph and precision matrix 
+
+We first sample an undirected Erd ˝os-R ´enyi graph G = ( V, E ) with vertex set V = {1, . . . , p }. Each edge (i, j ), 1 ≤ i < j ≤ p, is included independently with probability 
+
+πedge = 8
+
+p ,
+
+so that the expected node degree remains O(1) as the dimension p increases. We construct a symmetric precision matrix Θ ∈ Rp×p whose off-diagonal support matches the edge set of G. For each 
+
+(i, j ) ∈ E, we assign a nonzero off-diagonal entry Θij = Θ ji with random sign and magnitude. All remaining off-diagonal entries are set to zero. Diagonal entries are chosen sufficiently large to ensure that Θ is symmetric positive definite. The resulting precision matrix defines a sparse Gaussian graphical model whose conditional independencies are induced by G.
+
+Step 2: Gaussian features 
+
+We form the covariance matrix Σ = Θ −1 and independently sample 
+
+Xt ∼ N (0 , Σ) , t = 1 , . . . , n. 
+
+Step 3: Interaction structure induced by the graph 
+
+Using the dependency graph G, we identify all subsets of variables of size at least two that form cliques in G. Each subset defines a multi-variable interaction. Whenever a higher-order interaction is included, all of its lower-order subsets are also included. This ensures that higher-order effects always appear together with their lower-order components, consistent with the compositional structure assumed in the main text. We denote the resulting collection of interaction sets by H. No explicit bound is imposed on the maximum interaction order present in the data; the highest-order interactions are determined entirely by the random graph realisation. 
+
+Step 4: Nonlinear target construction 
+
+For each interaction α ∈ H , we draw a coefficient βα ∼ Unif([ −1, 1]) and independently select a nonlinearity fα uniformly from the family 
+
+F =
+
+n
+
+sin , cos , tanh , 2σ(·) − 1, z 7 → z2 
+
+> 1+ |z|
+
+, z 7 → z3 
+
+> 1+ z2
+
+, z 7 → max ( z, 0) , z 7 → exp  − 12 (z/s )2o
+
+,
+
+where σ denotes the logistic sigmoid and s > 0 is a randomly sampled width parameter for the Gaussian bump. Given a sample Xt, each interaction contributes 
+
+fα
+
+X
+
+> i∈α
+
+Xt,i 
+
+!
+
+.
+
+The target variable is defined as 
+
+yt = X
+
+> α∈H
+
+βα fα
+
+X
+
+> i∈α
+
+Xt,i 
+
+!
+
++ εt, εt ∼ N (0 , 0.52).
+
+Remark (data vs. model). The interaction structure present in the synthetic targets is not constrained by the model-side parameter K used by MFCF or HNN construction. The parameter K only limits the maximum interaction order retained when constructing the neural architecture and does not affect the data-generating process. 12 Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+# B. Training Procedure and Hyperparameters 
+
+This section summarises the training procedures and hyperparameter settings used across all experiments. Unless stated otherwise, the same optimisation strategy and stopping criteria are used for synthetic experiments and the OpenML-CTR23 benchmark. 
+
+B.1. Shared Settings (all neural models) 
+
+All neural models are trained using the Adam optimiser with learning rate 10 −3. ReLU activations are used in all hidden layers. Training minimises mean squared error (MSE), with test performance reported in terms of R2. Early stopping is applied based on validation loss with a patience of 200 epochs and a minimum improvement threshold of εes = 10 −4.Validation splits are drawn exclusively from the training data. Training is performed on GPU when available, otherwise on CPU. GPU experiments were conducted on NVIDIA RTX 3090, RTX 4070 Ti, and RTX 4090 cards. No model architecture or hyperparameter choices depend on the specific GPU used. 
+
+B.2. HNN-specific Settings 
+
+For all HNN variants, the dependency matrix used to construct the MFCF is computed from the training data using squared linear correlation. The HNN ( MARGINAL ) variant uses the squared Pearson correlation matrix. The HNN ( M-S) variant uses the same correlation measure aggregated via median-split label stratification, as described in the main text (Section 4). MFCF is run with zero gain threshold, minimum clique size of one, maximum clique size K = 4 . Within the HNN, layer normalisation is used but no dropout is applied. All HNN variants use an all-layer readout. 
+
+B.3. Synthetic Experiments 
+
+For synthetic experiments, neural models are trained for up to 30 ,000 epochs with batch size 1,024 , subject to early stopping. Each configuration is evaluated over multiple independent runs with different random seeds. All optimisation settings, activation functions, and stopping criteria follow the shared protocol described above. Tree-based baselines are trained using fixed configurations. Random Forest models use 400 trees with parallel execution enabled. XGBoost models use the squared-error objective with 600 estimators, maximum depth 6, learning rate 0.05 ,subsampling ratio 0.8, and column subsampling ratio 0.8.
+
+B.4. OpenML-CTR23 Benchmark 
+
+For the OpenML-CTR23 regression benchmark, we use the official train/test splits provided for each fold and repeat. Within each training fold, an internal validation set is created by randomly holding out 20% of the training data. Neural models are trained for up to 30 ,000 epochs with batch size 512 , subject to early stopping. MLP baselines use architectures with either two hidden layers of width 128 or 256 , or a single hidden layer of width 512 .All MLPs share the same optimiser, stopping criteria, and activation functions as HNNs. Tree-based baselines follow the same fixed configurations used in the synthetic experiments. 
+
+# C. Additional Synthetic Results 
+
+Table 3 reports aggregated test R2 rankings across the full sweep of synthetic configurations, spanning feature dimensions 
+
+p ∈ [50 , 5000] and dimension-to-sample ratios p/n ∈ [0 .01 , 3] . This range includes highly underdetermined settings in which accurate estimation of pairwise dependencies becomes increasingly difficult. Across this full regime, HNN variants remain consistently competitive and substantially outperform dense MLP and tree-based baselines. In particular, HNN ( M-S) maintains strong performance across a wide range of p/n values, indicating that incorporating target-aware information during structure construction improves robustness when sample sizes are limited. The HNN ( ORACLE ) continues to define an upper envelope throughout, as expected. The randomised oracle baseline (HNN (RAND ORACLE )) performs competitively in some regimes, reflecting the benefit of preserving interaction order and sparsity independently of data-driven estimation. We emphasise that this baseline is included solely as a control and should not be 13 Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+interpreted as evidence that random wiring is preferable to data-aligned structure. Overall, while absolute performance naturally degrades in highly underdetermined regimes, the relative advantage of structured, interaction-aware architectures persists well beyond the data-rich setting highlighted in the main text. For clarity of presentation and interpretability, we therefore focus the main analysis on the regime p/n ≤ 0.05 , where dependence estimation is reliable across feature dimensions and conclusions regarding architectural inductive bias can be drawn most cleanly. 
+
+Table 3. Test R2 performance ranking on synthetic data across the full sweep p ∈ [50 , 5000] and p/n ∈ [0 .01 , 3] . For each (p, n )
+
+configuration, results are averaged over 30 independent runs; ranks are then aggregated across configurations. Lower rank indicates better performance. Parameter count ranges are reported in thousands (K) or millions (M). MODEL MEAN RANK (↓) PARAMS 
+
+HNN ( ORACLE ) 1.35 1.3K–122K HNN ( M-S) 3.14 3.8K–461K HNN ( RAND ORACLE ) 3.33 1.3K–122K MLP-HNN 4.07 35K–375M HNN ( MARGINAL ) 5.03 2.2K–235K MLP (2 ×128) 5.90 79K–1.35M RANDOM FOREST 6.76 –XGB OOST 7.95 –MLP (PM-HNN) 8.33 2.2K–235K MLP (PM-ORACLE ) 9.17 1.3K–120K 
+
+14 Compositional Sparsity as an Inductive Bias for Neural Architecture Design 
+
+# D. OpenML-CTR23 Full Results 
+
+Table 4 reports per-dataset test R2 rankings on the OpenML-CTR23 benchmark together with the corresponding number of trainable parameters for neural models. Across a wide range of datasets, HNN variants achieve competitive performance while using substantially fewer parameters than dense MLP baselines, often by one to two orders of magnitude. In many datasets, the HNN ( M-S) attains top-three ranks while remaining considerably smaller than MLPs. Overall, these results are consistent with the view that the observed performance differences arise from the structured inductive bias imposed by the architecture, rather than from increased model capacity. 
+
+Table 4. OpenML-CTR23 per-dataset test R2 ranks with model parameter count. For each dataset, models are ranked by mean test R2
+
+averaged over all provided cross-validation folds and repeats. Each cell reports rank (number of trainable parameters) , where rank 1 denotes the best-performing model on that dataset. Tree-based models are reported with rank only. DATASET MLP (2 ×128) MLP (2 ×256) MLP (512) HNN (MARGINAL )HNN (M-S) RF XGB MONEYBALL 6 (26 K) 5 (85 K) 7 (38 K) 1 (3 K) 2 (5 K) 4 3QSAR F ISH TOXICITY 3 (18 K) 4 (68 K) 5 (4 K) 7 (173) 6 (213) 1 2ABALONE 4 (18 K) 5 (69 K) 3 (6 K) 2 (361) 1 (515) 6 7AIRFOIL SELF -N OISE 5 (17 K) 4 (68 K) 3 (4 K) 6 (126) 7 (148) 2 1AUCTION VERIFICATION 6 (19 K) 5 (70 K) 7 (9 K) 4 (643) 3 (1 K) 2 1BRAZILIAN HOUSES 2 (23 K) 3 (79 K) 7 (26 K) 4 (2 K) 5 (3 K) 1 6CALIFORNIA HOUSING 4 (18 K) 3 (68 K) 7 (5 K) 6 (267) 5 (377) 2 1CARS 2 (19 K) 1 (71 K) 3 (10 K) 5 (690) 4 (1 K) 6 7CONCRETE COMPRESSIVE STRENGTH 5 (18 K) 2 (68 K) 3 (5 K) 7 (267) 6 (398) 4 1CPS 1988 W AGES 2 (18 K) 4 (69 K) 5 (7 K) 3 (455) 1 (720) 7 6CPU A CTIVITY 6 (19 K) 7 (72 K) 5 (12 K) 3 (878) 2 (1 K) 4 1DIAMONDS 5 (20 K) 7 (73 K) 6 (14 K) 2 (1 K) 1 (2 K) 4 3ENERGY EFFICIENCY 4 (18 K) 7 (68 K) 2 (5 K) 6 (267) 5 (361) 3 1FIFA 6 (41 K) 5 (114 K) 7 (97 K) 4 (8 K) 3 (14 K) 2 1FOREST FIRES 4 (20 K) 5 (74 K) 2 (16 K) 1 (1 K) 3 (2 K) 6 7FPS B ENCHMARK 4 (32 K) 5 (98 K) 2 (63 K) 3 (6 K) 1 (8 K) 7 6GEOGRAPHICAL ORIGIN OF MUSIC 6 (32 K) 7 (96 K) 5 (60 K) 4 (5 K) 3 (8 K) 2 1GRID STABILITY 4 (18 K) 3 (69 K) 5 (7 K) 7 (455) 6 (794) 2 1HEALTH INSURANCE 5 (20 K) 4 (73 K) 3 (14 K) 1 (1 K) 2 (2 K) 7 6KIN 8NM 2 (18 K) 1 (68 K) 3 (5 K) 5 (267) 4 (349) 7 6KING COUNTY HOUSING 5 (34 K) 6 (100 K) 4 (69 K) 3 (6 K) 2 (10 K) 7 1MIAMI HOUSING 2 (19 K) 3 (70 K) 7 (9 K) 6 (596) 4 (909) 5 1NAVAL PROPULSION PLANT 5 (19 K) 4 (70 K) 3 (8 K) 6 (549) 7 (632) 2 1PHYSIOCHEMICAL PROTEIN 4 (18 K) 3 (69 K) 5 (6 K) 6 (314) 7 (314) 1 2PUMADYN -32NH 6 (21 K) 5 (74 K) 7 (17 K) 4 (1 K) 3 (3 K) 1 2RED WINE QUALITY 7 (18 K) 6 (69 K) 4 (7 K) 3 (408) 5 (568) 1 2SARCOS 3 (19 K) 1 (72 K) 2 (12 K) 7 (878) 5 (1 K) 6 4SOCMOB 7 (22 K) 5 (76 K) 6 (21 K) 2 (2 K) 1 (3 K) 4 3SOLAR FLARE 2 (20 K) 4 (73 K) 5 (15 K) 1 (1 K) 3 (1 K) 6 7SPACE GA 2 (18 K) 1 (68 K) 3 (4 K) 6 (173) 5 (206) 7 4STUDENT PERFORMANCE (P ORTUGUESE ) 7 (24 K) 5 (81 K) 6 (30 K) 3 (3 K) 2 (4 K) 1 4SUPERCONDUCTIVITY 4 (27 K) 3 (87 K) 6 (42 K) 7 (4 K) 5 (6 K) 2 1VIDEO TRANSCODING 4 (20 K) 1 (72 K) 7 (13 K) 6 (1 K) 3 (2 K) 5 2WAVE ENERGY 3 (23 K) 2 (79 K) 1 (26 K) 5 (2 K) 4 (4 K) 7 6WHITE WINE QUALITY 5 (18 K) 4 (69 K) 3 (7 K) 7 (408) 6 (555) 1 2
+
+15
