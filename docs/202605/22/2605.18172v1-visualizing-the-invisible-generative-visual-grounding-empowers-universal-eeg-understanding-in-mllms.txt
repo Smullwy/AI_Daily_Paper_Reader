@@ -1,0 +1,398 @@
+Title: Visualizing the Invisible: Generative Visual Grounding Empowers Universal EEG Understanding in MLLMs
+
+URL Source: https://arxiv.org/pdf/2605.18172v1
+
+Published Time: Tue, 19 May 2026 02:17:27 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Visualizing the Invisible: Generative Visual Grounding Empowers Universal EEG Understanding in MLLMs 
+
+# Junyu Pan †
+
+Shanghai Jiao Tong University Shanghai, China panjunyu@sjtu.edu.cn 
+
+# Yansen Wang ∗
+
+Microsoft Research Asia Shanghai, China yansenwang@microsoft.com 
+
+# Enze Zhang 
+
+Shanghai Jiao Tong University Shanghai, China zez-626@sjtu.edu.cn 
+
+# Baoliang Lu 
+
+Shanghai Jiao Tong University Shanghai, China bllu@sjtu.edu.cn 
+
+# Weilong Zheng ∗
+
+Shanghai Jiao Tong University Shanghai, China weilong@sjtu.edu.cn 
+
+# Dongsheng Li 
+
+Microsoft Research Asia Shanghai, China dongsli@microsoft.com 
+
+## Abstract 
+
+Leveraging the universal representations of pre-trained Large Lan-guage Models (LLMs) and Multimodal Large Language Models (MLLMs) has emerged as a promising paradigm for enhancing the capability of brain foundation models. Constrained by the se-vere scarcity of visually-evoked EEG datasets, existing foundation models predominantly focus on LLMs and compromise by align-ing neural signals solely with abstract text—a lossy translation that inevitably discards the fine-grained, perceptual details en-coded in brain activity. In this work, we propose Generative Visual 
+
+Grounding ( GVG ), a framework that visualizes the invisible. Rather than forcing neural signals into text, we employ an EEG-to-Image generative model as a "visual translator" to hallucinate instance-specific proxy images for non-visual EEG. This strategy provides structured visual contexts that allow MLLMs to apply their visual priors to interpret clinical states. To validate this core hypothesis, we first establish a robust image-only alignment across two distinct MLLM backbones (GVG-X-Omni and GVG-Janus). This purely vi-sual paradigm is already competitive: even our lightweight discrete instantiation, GVG-X-Omni, matches 1.7B-parameter text-aligned baselines while tuning merely 170M parameters on top of a frozen 7B backbone ( 10 × fewer trainable parameters). Building on this result, we further extend GVG-Janus via a trimodal (Image+Text) alignment. Extensive experiments suggest a consistent multimodal complementarity: textual alignment provides categorical semantic anchors, while visual proxies enrich the neural representations with fine-grained perceptual details. This combination consistently improves over our single-modality variants, enhancing both EEG understanding and visual generative capabilities. At a comparable parameter scale, GVG-Janus remains competitive with NeuroLM and improves over it on several benchmarks. These results suggest that visual proxy grounding can serve as an effective complement to textual alignment for universal EEG understanding. 
+
+## 1 Introduction 
+
+The emergence of Large Language Models (LLMs) and Multimodal Large Language Models (MLLMs) has revolutionized AI [ 1 , 39 , 45 ], inspiring the development of foundation models to learn universal 
+
+> ∗Corresponding authors.
+> †Work done during Junyu’s internship at Microsoft Research Asia.
+
+representations for non-invasive brain signals such as electroen-cephalography (EEG) [ 14 , 21 , 42 , 44 , 51 ]. While the scaling law of EEG foundations [ 4] has revealed a positive correlation between EEG data volume and downstream performance, unlike text or im-ages, high-quality EEG data are expensive to collect and constrained by stringent privacy concerns, resulting in limited data availability that severely restricts the development of higher-performing EEG foundation models. Consequently, further scaling training purely on such limited EEG data inevitably leads to severe overfitting. Recent approaches have attempted to bridge EEG and other modalities, starting from mapping neural signals to the text space [ 20 ,24 , 29 , 33 ]. On the one hand, this alignment unlocks the capabil-ity of multi-task learning, making it possible to utilize all kinds of labels to train a unified decoder. On the other hand, bringing both modalities into the shared representation space harnesses the vast semantic knowledge encapsulated in pre-trained LLMs, thus circumventing the data bottleneck [18]. Nevertheless, the current paradigm of compressing neural sig-nals solely into highly abstracted textual labels is inherently lossy. While text provides explicit semantic anchors and high-level cate-gorical boundaries, it inevitably discards the fine-grained, percep-tual details and spatial topologies encoded in dense brain activity. Because human visual perception is closely coupled with complex cognitive and emotional responses, we hypothesize that augment-ing text alignment with the dense visual representation space of MLLMs may provide a useful complementary signal. While textual representations provide explicit semantic anchors, the continuous visual space may offer a dense perceptual canvas. This complemen-tarity can help preserve the fine-grained spatial topologies and low-level neural dynamics that are often weakened during pure textual compression. By combining abstract textual concepts with visual grounding, we aim to leverage the multimodal (visual-linguistic) priors encoded in MLLMs for both discriminative understanding and generative interpretability. Despite the appeal of this visually-augmented paradigm, opera-tionalizing this strategy faces a severe bottleneck: its strict reliance on paired visual stimuli. First, compared to the billions of text-image pairs used to pre-train MLLMs, visually-evoked EEG datasets are inherently scarce and small-scale. More critically, the vast major-ity of real-world clinical applications—such as sleep staging and   
+
+> 1
+> arXiv:2605.18172v1 [cs.AI] 18 May 2026 Pan et al. EEG
+> Hard to Understand
+> Visual Tokens
+> Easy to Understand What he sees:
+> Translate
+> Emotion:
+> Neutral
+> MLLM
+> MLLM What he feels: Neutral
+
+(a) Core idea of GVG. EEG is translated into a visual-like language so that MLLMs can better interpret neural dynamics with their native visual priors. LaBraM         
+
+> Clip Objective CLIP
+> “Background ”
+> Image for visually-evoked EEG datasets
+> Text for non visually-evoked EEG datasets
+> LaBraM Projection ...
+> R1
+> R2
+> RK
+> Visual Autoregressive Transformer
+> Paired Image
+> LaBraM Visual Autoregressive Transformer
+> Generated Image
+> Stage 1: Alignment between EEG features and image/text features
+> Stage 2: Fin etune VAR with visually-evoked EEG datasets
+> Stage 3: Generate images for non visually-evoked EEG datasets
+> Visually-evoked EEG
+> No Visually-evoked EEG
+> EEG
+
+(b) Training and Generation of AVDE [ 11 ]. For EEG datasets without paired visual stimuli, AVDE generates instance-specific proxy images to provide visual grounding. 
+
+Figure 1: Overview of our core idea and proxy-image strategy. Left: GVG converts EEG into a visual-like language, allowing MLLMs to leverage rich visual priors for understanding neural signals. Right: for non-visual clinical datasets, AVDE synthesizes proxy images that bridge the missing visual modality and enable the same visual grounding pipeline. 
+
+epilepsy detection—are completely blind (recorded purely physi-ologically without any external visual input). This creates a fun-damental dilemma: researchers are often forced to rely on textual alignment for broad clinical applicability, while visual alignment remains largely confined to the small subset of stimulus-driven datasets. Furthermore, even if visually-evoked EEG can be aligned well, we still face a substantial scale mismatch. Unlike the massive corpora available for text or images, EEG datasets remain too limited for MLLMs to acquire fluent EEG-specific representations from scratch. To mitigate this data bottleneck, our core insight is to translate neural dynamics into a modality that MLLMs already model well: vision. By mapping raw brain signals into recognizable visual for-mats, we reduce the burden of learning a new neural language from limited data and instead reuse established visual priors to interpret EEG. Building on this insight, we propose Generative Visual Ground-ing (GVG), a framework that visualizes the invisible. To bridge the scenario gap for purely clinical applications, we employ an EEG-to-Image generative model (e.g., AVDE [ 11 ]) as a visual translator to hallucinate instance-specific proxy images for non-visual EEG. These synthesized visual anchors allow purely physiological, non-visual datasets to be incorporated into the same visual grounding pipeline. Subsequently, to bridge the modality gap without massive parameter tuning, we map these visually grounded EEG signals into discrete image tokens. Specifically, we use the native tokenizers of off-the-shelf MLLMs (X-Omni [ 15 ] and Janus [ 46 ]) as the interface. We train a lightweight Transformer adapter to translate aligned EEG features into the discrete codebook space of the MLLM’s vi-sual encoder, allowing the MLLM to process brain activity through its existing visual token space. These visual tokens can in turn be inspected through the corresponding visual decoder without addi-tional tuning. To systematically validate and scale this paradigm, our exploration proceeds in two progressive stages: (1) Validation via Image-Only Grounding: We first map these visually grounded EEG signals into both discrete MLLM representation spaces using strictly image-only alignment. This step isolates the contribution of the hallucinated proxies. Under this setting, the lightweight GVG-X-Omni matches the 1.7B text-aligned baseline (NeuroLM-XL) while tuning only 170M parameters on top of a frozen 7B backbone (10 ×
+
+fewer trainable parameters). (2) Maximizing Synergy via Trimodal Extension: Motivated by this image-only result, we further extend the high-capacity instantiation (GVG-Janus) with a trimodal (Im-age+Text) alignment. This configuration suggests a multimodal complementarity: explicit textual labels provide categorical seman-tic anchors, while the hallucinated visual proxies supply structural information that text alone does not preserve. In our experiments, trimodal GVG-Janus delivers the strongest overall average per-formance among the compared multitask models, suggesting that generative visual proxies can complement textual semantics for decoding complex neural dynamics. Our main contributions are summarized as follows: 
+
+• Generative Visual Grounding for Blind EEG: We pro-pose an approach that visualizes invisible physiological states. By employing a generative model as a visual trans-lator to hallucinate proxy images for non-visual data, we reduce the framework’s reliance on stimulus-paired EEG and enable purely clinical datasets to participate in a unified visual-aligned pipeline. 
+
+• Modality Translation via Discrete Visual Tokens: By mapping raw EEG signals directly into the discrete visual codebook of off-the-shelf MLLMs, we represent noisy brain-waves in a native visual token space. This token-space trans-lation enables frozen MLLMs to decode neural dynamics using their pre-trained visual priors. 
+
+• Extreme Efficiency and Competitive Performance: For training efficiency, GVG-X-Omni achieves performance competitive with the 1.7B text-aligned baseline (NeuroLM-XL) while tuning only 170M parameters on top of a frozen 
+
+> 2Visualizing the Invisible: Generative Visual Grounding Empowers Universal EEG Understanding in MLLMs
+
+7B backbone and using 10% of the pre-training data vol-ume. For stronger cross-domain synergy, our full-capacity instantiation (GVG-Janus) incorporates hallucinated clin-ical images to deliver strong multitask performance and improves over NeuroLM-XL on several benchmarks at a comparable trainable-parameter scale. 
+
+• Unified Understanding and visual reconstruction: We present a unified framework that combines multi-task EEG understanding with visualization of hidden representations within a single architecture. Rather than optimizing for pixel-perfect synthesis, we use the reconstruction capability as a mechanistic probe to examine the semantic fidelity of the decoded representations. 
+
+## 2 Related Work 2.1 Large Brain Foundation Models 
+
+To transcend the limitations of subject-specific and task-narrow decoding, the field is rapidly converging towards Brain Foundation Models (BFMs). Early endeavors primarily utilized contrastive learn-ing to align signal representations [ 25 , 56 ] or exploited global statis-tics [ 5, 49 ]. Moving beyond contrastive objectives, generative pre-training has become the dominant paradigm. In the realm of masked modeling, LaBraM [ 21 ] introduced vector-quantized tokenization to enable patch-level reconstruction, a strategy further explored by BrainMAE [ 50 ], CBraMod [ 44 ], BrainWave [ 52 ], NeurIPT [ 14 ], ECHO [ 29 ] and Uni-NTFM [ 9]. Parallelly, autoregressive models have demonstrated remarkable scalability; BrainLM [ 6] and Neuro-GPT [ 10 ] validated the efficacy of causal sequence modeling, while recent billion-scale models like EEGPT [ 43 , 53 ], NeuroLM [ 20 ], UniMind [ 33 ] and 𝐸 2-LLM [ 34 ] have pushed the boundaries of multi-task generalization, following the methods of LLaVA [ 30 ]. Furthermore, cross-modal frameworks such as Brant-X [ 55 ] and CEREBRO [ 12 ] have begun to integrate EEG with diverse physiolog-ical signals. Despite these advances, most existing BFMs still learn primarily from the EEG signal itself or from relatively sparse textual supervision. How to leverage the dense visual priors of MLLMs for broader EEG understanding, especially when paired visual stimuli are unavailable, remains underexplored. This motivates our inves-tigation of generative visual grounding as a complementary path toward universal EEG understanding. 
+
+## 2.2 Cross-Modal Alignment between EEG and Vision 
+
+To interpret neural semantic content, research has increasingly focused on bridging the EEG-vision modality gap. Early endeavors, such as Brain2Image [ 23 ] and Palazzo et al. [ 38 ], utilized adversar-ial training to establish a mapping from neural activity to visual features. With the rise of diffusion models, works like DreamDiffu-sion [ 3 ], NEUROIMAGEN [ 27 ], Brain-Diffuser [ 7], Mind-Video [ 8], EEG2Video [ 31 ], MINDEV [ 17 ] and EEGMirror [ 32 ] have advanced this alignment by projecting EEG embeddings into the continuous conditional spaces of pre-trained generative models. However, these approaches primarily frame alignment as a unidirectional transla-tion task optimized for perceptual reconstruction. Mapping EEG solely to continuous generative latents often entangles semantic concepts with low-level textures, limiting utility for discriminative tasks. In contrast, we propose to align EEG signals with discrete visual tokens and treat the visual codebook as a universal seman-tic interface to translate noisy signals into structured codes for generalized understanding. 
+
+## 3 Method 
+
+In this section, we present Generative Visual Grounding (GVG), a unified framework designed to bridge the severe scenario and modality gaps between raw brainwaves and MLLMs for understand-ing and generation tasks. 
+
+## 3.1 Preliminaries: MLLMs’ Backbones 
+
+Our GVG framework is backbone-agnostic and can be instanti-ated with different MLLMs. We validate it on two architectures: X-Omni [15] and Janus-1.3B [46]. X-Omni is a unified multimodal model designed for high-fidelity image generation and understanding. X-Omni comprises three strategic components designed to bridge discrete language tokens and continuous visual signals: a semantic image tokenizer built on SigLIP2-g [ 41 ] that compresses continuous images into a se-quence of discrete tokens of the codebook ( |V | = 16384 ), a unified auto-regressive backbone based on the pre-trained Qwen2.5-7B LLM [ 47 ] augmented with vision-specific blocks, and a diffusion de-coder based on FLUX.1-dev [ 26 ] to reconstruct high-fidelity images from discrete tokens. Janus-1.3B is a lightweight unified vision-language model featur-ing decoupled visual encoding for understanding and generation. It employs SigLIP-Large-Patch16-384[54] for understanding and a VQ-VAE tokenizer ( |V | = 16384 ) for generation, with DeepSeek-LLM-1.3B as the language backbone. Specifically, we leverage their tokenizer to ground EEG fea-tures and supply discrete ground-truth tokens. The unified auto-regressive backbone serves as the core processor for semantic un-derstanding, while the diffusion decoder is dedicated to the visual-ization of the masqueraded tokens. 
+
+## 3.2 Generative Visual Grounding via AVDE 
+
+A critical bottleneck for visual-aligned EEG foundation models is the strict reliance on paired visual stimuli: purely clinical datasets recorded without external visual input cannot seamlessly partici-pate in cross-modal visual pre-training. To overcome this funda-mental limitation, we employ an EEG-to-Image generative model (AVDE [ 11 ]) as a cross-modal "visual translator" to hallucinate instance-specific proxy images for non-visual EEG data. The original AVDE contains two training stages: 1) alignment between EEG features and image features; 2) finetuning VAR [ 40 ]to generate images based on aligned EEG features. To adapt this generative capability for clinical datasets, we introduce a novel dual-modality alignment strategy during the training phase. While visually-evoked EEG is aligned with image features via a hybrid InfoNCE and MSE objective, we align the non-visual clinical EEG with CLIP text features derived from task-specific label descriptions. With the aligned EEG features, we finetune the VAR to autoregres-sively generate discrete VQ-VAE tokens. Because our modified Stage 1 maps textual clinical semantics into the shared CLIP space, the 
+
+> 3
+
+Pan et al. Stage 1 Cross-Modal Alignement via Contrastive Loss 
+
+LaBraM Projector 
+
+EEG EEG Encoder 
+
+.
+
+. .
+
+.
+
+> EEG
+> EEG
+> Image
+> Image
+> Text
+> Text
+
+Contrastive loss 
+
+> Image
+> Encoder
+> Text
+> Encoder
+
+.
+
+.
+
+.
+
+.
+
+> Image Features
+> Text Features
+> Paired Images
+> Paired Text/ Descriptions
+> · Positive
+> · Negative
+> · ...
+
+EEG 
+
+EEG 
+
+Encoder Aligned 
+
+EEG 
+
+Image Token 
+
+Predictor Visual 
+
+Tokenizer 
+
+... ... 
+
+> Predicted Image
+> Tokens
+> True Image
+> Tokens
+> Paired Images
+
+Stage 2 Predict Discrete Image Tokens 
+
+Stage 3 Understanding / Visualization 
+
+EEG 
+
+Encoder 
+
+Image Token 
+
+Predictor 
+
+Aligned EEG 
+
+... 
+
+Adapter  
+
+> .
+> .
+> Predicted Image Tokens
+> Adapted EEG
+
+MLLM 
+
+(e.g., X-Omni 
+
+/Janus) 
+
+Inputs to MLLM 
+
+> Visualization
+
+Visual Decoder 
+
+Label 
+
+> Understanding
+> (Multiple-Choise Generation)
+
+EEG  
+
+> Prompt (E.g.): You should classify the emotional state of the subject who
+> is watching the video.The possible emotions are strictly limited to:
+> Neutral, Negative, Positive.Respond with exactly one word.
+
+CE loss 
+
+Unfreeze Freeze For Visualization For Understanding 
+
+Figure 2: Overview of the Generative Visual Grounding (GVG) Training Framework. The proposed GVG pipeline consists of three stages: cross-modal alignment, image-token prediction, and MLLM-based understanding and visual reconstruction. For non-visual clinical EEG, AVDE generates proxy images to bridge the missing visual modality. We instantiate the framework with GVG-X-Omni and GVG-Janus to study the trade-off between efficiency and multitask performance. 
+
+original visual decoder can then process these text-aligned clinical embeddings to generate meaningful visual tokens. 
+
+## 3.3 Universal Multimodal Integration and Synergistic Decoding 
+
+As illustrated in fig. 2, our method proceeds in three stages. First, following the paradigm of vision-language pre-training, we em-ploy contrastive learning to align EEG representations with the visual feature space as well as text feature space. Subsequently, we introduce a Transformer-based adapter to translate these aligned features into discrete image tokens. This pivotal step converts con-tinuous neural signals into a vision-like format, which serves as a compatible input for the MLLM backbone to execute downstream tasks and visualization. 
+
+Stage 1: Cross-Modal Alignment via Contrastive Loss. To bridge the substantial modality gap between neural signals and visual stimuli, we employ a dual-encoder architecture trained with a pairwise contrastive objective like previous work aligning image features with text features [ 36 , 41 , 54 ]. As for the EEG Encoder, we utilize the pretrained LaBraM [ 21 ] encoder, a large model pre-trained based on EEG, which segments raw EEG into patches pro-cessed by a temporal encoder and enriched with spatiotemporal embeddings to capture global dependencies effectively. And for the visual/text encoder, we keep it the same as the corresponding MLLMs (X-Omni [ 15 ] and Janus [ 46 ]). Given a batch of triplets 
+
+(x𝑖 𝑒𝑒𝑔 , x𝑖 𝑖𝑚𝑔 , t𝑖 ) ∈ R𝐶 𝑒𝑒𝑔 ×𝐿 × R𝐶 𝑖𝑚𝑔 ×𝐻 ×𝑊 × T — comprising contin-uous EEG signals ( 𝐶 𝑒𝑒𝑔 channels 𝐿 ), images ( 𝐶 𝑖𝑚𝑔 channels with spatial resolution 𝐻 × 𝑊 ) and task-specific textual labels from cor-pus T —we extract and project all heterogeneous modalities into a shared D-dimensional latent space: 
+
+h𝑖 𝑒𝑒𝑔 = 𝜙 𝑒𝑒𝑔 (Enc eeg (x𝑖 𝑒𝑒𝑔 )) ∈ R𝐷 , (1) 
+
+h𝑖 𝑖𝑚𝑔 = 𝜙 𝑖𝑚𝑔 (Enc img (x𝑖 𝑖𝑚𝑔 )) ∈ R𝐷 , (2) 
+
+h𝑖 𝑡𝑒𝑥𝑡 = 𝜙 𝑡𝑒𝑥𝑡 (Enc text (t𝑖 )) ∈ R𝐷 , (3) where 𝜙 𝑒𝑒𝑔 , 𝜙 𝑖𝑚𝑔 and 𝜙 𝑡𝑒𝑥𝑡 are learnable projectors. To achieve com-prehensive cross-modal synergy, we formulate a trimodal objective that decomposes into three weighted pairwise alignment terms: 
+
+Ltri = 𝜆 𝑒𝑖 L𝑒𝑖 + 𝜆 𝑒𝑡 L𝑒𝑡 + 𝜆 𝑖𝑡 L𝑖𝑡 , (4) where 𝜆 𝑒𝑖 , 𝜆 𝑒𝑡 and 𝜆 𝑖𝑡 are hyper-parameters scaling the distinct cross-modal interactions. To ensure robust mapping, each pairwise loss L𝑎𝑏 integrates a symmetric InfoNCE contrastive term with a mean squared error (MSE) regression term: 
+
+L𝑎𝑏 = 𝛼 LInfoNCE (h𝑎 , h𝑏 ) + ( 1 − 𝛼 )|| h𝑎 − sg (h𝑏 )|| 22, (5) where 𝛼 ∈ ( 0, 1) acts as a balancing coefficient, and sg (·) denotes the stop-gradient operation. To rigorously isolate the efficacy of visual proxies from textual hints, our Image-only instantiations 
+
+4Visualizing the Invisible: Generative Visual Grounding Empowers Universal EEG Understanding in MLLMs 
+
+(for both GVG-X-Omni and GVG-Janus) optimize strictly the EEG-Image pairwise loss ( L = L𝑒𝑖 ), whereas the full trimodal objective (Eq. 4) is reserved for the full GVG-Janus configuration. This synergistic trimodal formulation operationalizes our core hypothesis by providing two indispensable advantages: (1) Textual Semantic Anchoring: Aligning EEG with explicit categorical text provides strict high-level semantic boundaries, which is critical for stabilizing representation learning on purely clinical datasets where hallucinated visual proxies may contain noise; and (2) Visual Perceptual Supplement: Aligning EEG with the visual space injects the fine-grained structural topologies and dense perceptual details that text inherently discards. 
+
+Stage 2: Predict Discrete Image Tokens. While Stage 1 aligns the continuous feature spaces, X-Omni and Janus fundamentally oper-ate on discrete tokens. To bridge this granularity gap, we translate the aligned EEG representations into the specific discrete visual codebook defined by their pre-trained image tokenizer. During training, this tokenizer processes the paired images to generate ground-truth discrete tokens, serving as the supervisory signal for our EEG decoder. Considering the discrepancy in visual feature spaces across dif-ferent models, we adopt model-specific strategies for image token prediction. Specifically, for X-Omni, we employ a similarity-based prediction mechanism as described below, while for Janus, we uti-lize a learnable classification head for token prediction. With aligned EEG representations, we employ a transformer-based image token predictor. For X-Omni, instead of enforcing rigid classification via a learnable linear head, we guide the predicted features toward the ground-truth semantics in the latent space. Concretely, for the 𝑚 -th position, we compute the similarity be-tween the predicted hidden state ˆh𝑖 𝑚 and the fixed visual codebook to derive a probability distribution: 
+
+𝑃 (𝑞 𝑚 = 𝑘 |h𝑖 
+
+> eeg
+
+) = exp ( ˆh𝑖 𝑚 · v𝑘 /𝜏 )
+
+Í𝐾 𝑗 =1 exp ( ˆh𝑖 𝑚 · v𝑗 /𝜏 ) , (6) where 𝜏 is a temperature hyperparameter, 𝑞 𝑚 is the 𝑚 -th predicted image token, and v𝑘 denotes the 𝑘 -th embedding in the codebook 
+
+V = {v𝑘 }𝐾 𝑘 =1 ∈ R𝐾 ×𝐷 .Distinct from standard sequence generation approaches, we es-chew the autoregressive paradigm in favor of a non-autoregressive (parallel) prediction strategy. We simultaneously predict the entire sequence of image tokens to avoid error accumulation and ensure robust generation. 
+
+Stage 3: Understanding and Visualization. In the final stage, we leverage the dual capabilities of the pre-trained MLLMs for both semantic understanding and generative visualization. Because our EEG-derived representations from Stage 2 are structurally and semantically aligned with the native visual space, they can be seam-lessly routed into two distinct pathways without training any task-specific heads. Understanding: Multiple-Choice Generation.We formulate clas-sification as a constrained multiple-choice generation task. Given task-specific textual instructions and candidate labels formatted as options (A, B, C, ...), the MLLM autoregressively generates a single letter token constrained to the valid option set. We construct the input by concatenating the text prompt with both continuous EEG features and discrete predicted image tokens. Training uses teacher forcing with cross-entropy loss on the target option letter. Visualization: Direct Reconstruction from Tokens. To empiri-cally assess whether the EEG representations are compatible with the native visual token space, we utilize visual reconstruction as a mechanistic probe. Specifically, we bypass the LLM reasoning module and directly route the predicted discrete image tokens to their corresponding visual generation backbones, interfacing with the Flux.1-dev diffusion model for GVG-X-Omni and the native to-kenizer’s visual decoder for GVG-Janus, without any task-specific fine-tuning. The model relies on the predicted discrete image tokens as the structural conditioning to synthesize the visual scenes. This strategy ensures that the reconstruction is generated solely from the discretized visual semantics decoded from brain signals, sup-porting the fidelity of the cross-modal alignment without relying on auxiliary EEG embeddings or intermediate continuous latents. 
+
+## 4 Experiments 4.1 Details 
+
+Datasets. We evaluate on six diverse EEG benchmarks span-ning both visually-evoked and non-visual clinical paradigms. The visually-evoked datasets— SEED (3-class) [ 13 , 58 ], SEED-IV (4-class) [ 57 ], and SEED-VII (7-class) [ 19 ]—record EEG while sub-jects watch emotionally-evoked video clips, providing natural EEG-image pairs via central-frame alignment (4-second windows at 200 Hz, paired with the midpoint video frame). The non-visual clin-ical datasets have no paired visual stimuli and rely entirely on AVDE-generated proxy images for visual alignment: TUEV [ 16 ]targets clinical event detection (6 types including seizure, slowing); 
+
+TUAB [16 ] is a large-scale binary abnormality detection corpus; 
+
+HMC [2] targets 5-class sleep staging (Wake/N1/N2/N3/REM). All datasets follow the same data split as in prior work to ensure fair comparisons. 
+
+Training details. In Stage 1 (trimodal alignment), we assign re-duced sampling weights to non-visual clinical datasets (TUEV: 0.3, TUAB: 0.3, HMC: 0.3 vs. SEED-Series: 1.0) to prevent the noisy AVDE proxy images from dominating the contrastive objective and disrupting the visual alignment learned from high-quality stimulus-paired data. In Stage 2 (image token prediction), we restrict training to visually-evoked EEG datasets, as they provide high-quality vi-sual supervision with precise spatial details, which is critical for learning fine-grained image token representations. In Stage 3 (un-derstanding), we apply balanced sampling across all datasets to ensure that each task contributes equally during multi-task fine-tuning, preventing large-scale datasets from overwhelming smaller ones. 
+
+Model configurations. We instantiate two complementary con-figurations to probe opposite ends of the efficiency-performance trade-off: GVG-Janus (Janus-1.3B backbone) is our full framework with trimodal alignment and AVDE proxy images. By operating at a comparable parameter scale to NeuroLM (1.7B), this configura-tion is designed to test whether generative visual grounding can remain competitive with strong text-aligned baselines under similar parameter budgets in a unified multitask setting. GVG-X-Omni 
+
+(X-Omni/Qwen2.5-7B backbone, ∼170M trainable parameters, 7B 
+
+> 5Pan et al.
+
+Table 1: Performance comparison on five EEG benchmarks with broad public baseline coverage. We report Balanced Accuracy (B-Acc) and Weighted F1 (F1-W). Single-task models use dataset-specific heads; multi-task models share a unified architecture. ‘Alignment’ denotes the cross-modal target space used during training. The best multi-task results are bold; the best overall are underlined . SEED-VII is discussed separately because comparable public baselines with clearly documented evaluation splits remain sparse.                                                                                                                                                                                                        
+
+> Model Multi-Task Trainable Params Alignment SEED SEED-IV TUEV TUAB HMC B-Acc F1-W B-Acc F1-W B-Acc F1-W B-Acc F1-W B-Acc F1-W SPaRCNet ×0.79M -55.96 55.85 29.88 32.05 41.61 70.24 78.69 75.13 47.56 41.08 ContraWR ×1.6M -61.06 61.37 38.38 40.21 43.84 68.93 80.17 80.65 42.42 29.87 CNN-Trans ×3.2M -61.61 61.50 35.21 36.57 40.87 68.54 79.53 78.76 65.73 68.96 FFCL ×2.4M -58.08 57.43 37.81 39.76 39.79 67.83 78.19 77.83 44.27 29.02 ST-Trans ×3.5M -54.79 55.05 36.93 36.95 39.84 68.23 79.66 80.90 25.59 14.28 BIOT ×3.2M -70.97 71.34 36.19 42.76 52.81 74.92 79.59 78.82 68.62 70.91 LaBraM ×5.8M -73.18 73.54 47.63 49.14 64.09 83.12 81.40 81.47 72.86 75.54 NeuroLM-B ✓254M Text 55.54 55.99 ——45.60 71.53 78.26 —67.37 71.26 NeuroLM-L ✓500M Text 60.06 60.48 ——41.32 73.87 78.76 —66.58 68.96 NeuroLM-XL ✓1.7B Text 60.34 60.63 32.30 34.65 46.79 73.59 79.69 78.93 57.61 58.83 GVG-X-Omni (LoRA) ✓170M Image 60.73 61.11 28.05 22.41 44.15 71.35 74.45 74.78 61.20 63.64 GVG-Janus (Full) ✓∼1.7B Image 57.29 56.15 33.04 31.13 48.38 75.72 80.27 80.27 66.18 70.84 GVG-Janus (LoRA) ✓49M Image+Text 65.35 65.66 47.82 49.23 52.44 77.20 80.75 81.04 62.21 60.64
+> GVG-Janus (Full) ✓∼1.7B Image+Text 68.92 68.49 62.50 63.69 59.81 82.05 80.20 80.44 71.61 73.84
+
+frozen): our lightweight instantiation using pairwise image align-ment and the massive frozen X-Omni backbone. By freezing the 7B-parameter LLM and training only ∼170M adapter parameters, this configuration demonstrates the trainable-parameter efficiency 
+
+of our approach—matching billion-parameter text-aligned base-lines (NeuroLM) with a fraction of the trainable parameters and pre-training data. 
+
+## 4.2 Performance on Understanding Tasks 
+
+To rigorously evaluate our framework, we benchmark our models against established specialist models, including SpaRCNet [ 22 ], Con-traWR [ 49 ], CNN-Transformer [ 35 ], FFCL [ 28 ], ST-Transformer [ 37 ], BIOT [ 48 ], LaBraM [ 21 ], and unified multi-task EEG models, Neu-roLM [ 20 ]. The results are detailed in table 1. It is important to note that the specialist baselines use separate dataset-specific classifica-tion heads and are optimized independently for each task, whereas our model performs prompt-based multi-task understanding with a single shared MLLM backbone across all datasets. This unified setting is inherently more constrained, yet GVG-Janus still outper-forms most specialist models, remains close to LaBraM overall, and even surpasses LaBraM on SEED-IV. We focus Table 1 on the five benchmarks with broad public coverage. For SEED-VII, compara-ble public baselines remain sparse and some recent reports do not document sufficiently detailed evaluation splits, so we discuss it separately in the alignment ablation and analysis sections rather than mixing sparse and dense baseline coverage in a single table. 
+
+Efficacy of Image-Only Visual Grounding. To isolate the effect of visual grounding without the influence of textual supervision, we first evaluate our framework under an image-only grounding con-figuration. Both our instantiations (GVG-X-Omni and GVG-Janus) map raw EEG signals into discrete visual image tokens, which are subsequently embedded and fed into the MLLM backbones via Image-only alignment. It is important to contextualize the asymmetry in this compar-ison: the state-of-the-art NeuroLM relies on massive-scale pre-training across 25,000 hours of EEG data, whereas our framework utilizes merely ∼2,500 hours (10 × less). Despite this data disadvan-tage, our lightweight GVG-X-Omni matches NeuroLM-XL (1.7B) on the SEED dataset. One plausible explanation for this efficiency is the bottleneck induced by discrete visual tokenization. Mapping continuous neural dynamics into a pre-trained discrete codebook may suppress part of the high-frequency variability and turn the alignment problem into a more structured token prediction task. While GVG-X-Omni is attractive from the perspective of trainable-parameter efficiency, it still relies on a frozen 7B-parameter back-bone, which increases total memory use and inference cost. By contrast, GVG-Janus operates at a smaller overall scale ( 1.7B total parameters). Evaluated under the same Image-only setting, GVG-Janus maintains competitive representational capacity across do-mains. Considering this trade-off between performance and de-ployment cost, we use GVG-Janus as the main backbone for the subsequent multimodal experiments. 
+
+Maximizing Synergy via Trimodal Extension. Given this trade-off, we next examine the benefits of extending GVG-Janus with a Trimodal (Image+Text) alignment. As shown in Table 1, this multi-modal setting yields the strongest average performance among our multitask configurations and improves over the text-aligned Neu-roLM baselines on several benchmarks. GVG-Janus provides two complementary operating points. In a parameter-efficient regime, GVG-Janus-LoRA leverages both textual anchors and visual details to substantially reduce the learning difficulty. With only 49M train-able parameters, it improves over NeuroLM-XL on SEED, SEED-IV, TUEV, and TUAB, although it remains below the strongest task-specific specialists on several datasets. At full capacity, trimodal GVG-Janus achieves 71.61% on HMC and delivers the strongest average performance among the compared multitask models. We 
+
+> 6Visualizing the Invisible: Generative Visual Grounding Empowers Universal EEG Understanding in MLLMs
+
+Table 2: Visual Reconstruction Quality. We compare AVDE (baseline proxy generator) against our two GVG instantia-tions. Bold: best; underlined: second best. Dataset Method PSNR ↑ SSIM ↑ LPIPS ↓
+
+SEED AVDE 10.17 0.3162 0.5072 
+
+GVG-X-Omni 10.69 0.2943 0.7201 GVG-Janus 10.52 0.2989 0.6372 SEED-IV AVDE 12.47 0.4392 0.5500 GVG-X-Omni 14.80 0.5179 0.6176 GVG-Janus 15.15 0.5767 0.4804 
+
+SEED-VII AVDE 11.78 0.3496 0.6102 GVG-X-Omni 14.41 0.4335 0.6700 GVG-Janus 13.48 0.4149 0.5751 
+
+hypothesize that the degradation of larger text-only models on physiological datasets is related to the low information entropy of sparse label supervision, whereas trimodal supervision—combining explicit textual anchors with dense visual topologies—stabilizes scaling and improves robustness on more complex tasks. 
+
+## 5 Analysis 5.1 Qualitative and Quantitative Visual Verification 
+
+Utilizing visual decoders as mechanistic probes, we visualize the learned representations associated with neural dynamics. To pro-vide a like-for-like evaluation of open-ended, class-unconditional EEG-to-Image generation, we benchmark against the state-of-the-art AVDE, as both methods reconstruct images solely from EEG features without auxiliary categorical text prompts. 
+
+Quantitative Analysis. Table 2 shows that as task complexity scales (SEED to SEED-VII), our GVG instantiations exhibit consis-tent advantages. While AVDE occasionally achieves better LPIPS scores (favoring high-frequency textures), GVG consistently domi-nates in PSNR and SSIM. This reveals a critical paradigm shift: AVDE tends to hallucinate photorealistic but structurally mismatched im-ages, whereas GVG faithfully preserves pixel-level spatial layouts and global structural topologies by anchoring EEG to discrete visual tokens. 
+
+Qualitative Insights. Figure 3 illustrates this structural preserva-tion. While fine-grained micro-textures are naturally attenuated due to EEG’s low spatial resolution, GVG still recovers coarse se-mantic structure and atmospheric cues. For instance, GVG-Janus recovers dominant color palettes and global illumination in the Meadow and Dark Confined scenarios. Similarly, GVG-X-Omni cap-tures the diagonal ridge-like topology in the Snowy Mountain and the horizontal spatial layout in the Pavilion. These reconstructions suggest that GVG can translate part of the latent perceptual content in EEG into interpretable visual patterns. 
+
+Cognitive Plausibility & Limitations. We acknowledge that the synthesized images lack high-frequency micro-details. However, reconstructing a single static snapshot from a continuous EEG win-dow of a subject watching dynamic, emotion-eliciting videos is an 
+
+Table 3: Ablation of Stage 1 alignment strategy. We compare Image-only (EEG ↔Image), Text-only (EEG ↔Text), and Tri-modal (EEG ↔Image ↔Text) alignment. Balanced Accuracy is reported.                             
+
+> Alignment SEED SEED-IV SEED-VII HMC TUAB TUEV Avg Text-only 54.85 25.63 19.03 42.89 80.11 44.41 49.96 Image-only 57.29 33.04 26.64 66.18 80.27 48.38 51.97
+> Trimodal 68.92 62.50 34.87 71.61 80.20 59.81 62.99
+
+inherently ill-posed problem. One possible interpretation is that this abstraction is consistent with the coarse gist-level information emphasized during naturalistic video perception, such as global atmosphere, primary hues, and broad spatial boundaries rather than pixel-perfect detail. Under this view, the reconstructions are better interpreted as coarse visual summaries reflected in the EEG window, rather than literal physical reconstructions of internal percepts. 
+
+## 5.2 Alignment Strategy 
+
+To validate our core hypothesis regarding modality complementar-ity, we conduct a comprehensive ablation study on the Stage 1 align-ment strategy. As presented in Table 3, we compare models trained solely with EEG-Text alignment, solely with EEG-Image alignment, and our proposed synergistic Trimodal (EEG ↔Image ↔Text) align-ment. The results expose a profound hierarchy in cross-modal rep-resentation learning. 
+
+The Insufficiency of Single-Modality Alignment. The Text-only alignment yields the lowest average performance. While it performs adequately on coarse binary tasks, it suffers severe perfor-mance degradation on complex, fine-grained tasks. This empirically confirms that abstract text labels possess low information content, forcing the model to memorize noise rather than learning gener-alizable neural dynamics. Conversely, the Image-only alignment provides a notable boost, particularly on HMC. By providing dense structural topologies, the visual space prevents overfitting. How-ever, lacking explicit categorical guidance, the model struggles to draw sharp decision boundaries in the highly complex visual space. 
+
+The Power of Multimodal Synergy (1+1 > 2). The Trimodal 
+
+alignment substantially exceeds the two single-modality variants, achieving an average accuracy of 62.99%. The gains are strongest on highly complex tasks: on SEED-IV, the accuracy rises from 33.04% (Image-only) to 62.50%. On TUAB, however, Trimodal and Image-only are essentially tied, suggesting that this coarse binary abnor-mality task already benefits strongly from visual grounding alone and leaves limited headroom for additional text anchoring. 
+
+Mechanistic Insights. We attribute these gains to the complemen-tary nature of the two target spaces. In the trimodal framework, the textual modality acts as a robust semantic anchor, explicitly guiding the MLLM toward clear categorical boundaries. Simulta-neously, the visual modality acts as a dense perceptual canvas, supplying the fine-grained spatial topologies and macro-level struc-tural regularizers that text inherently discards. Furthermore, for purely clinical, "blind" datasets (HMC, TUEV), the consistent im-provements indicate that AVDE-generated proxy images provide useful complementary supervision when combined with clinical   
+
+> 7Pan et al.
+> (a) GVG-Janus: Meadow Scenario (b) GVG-Janus: Dark Confined Scenario
+> (c) GVG-X-Omni: Snowy Mountain Scenario (d) GVG-X-Omni: Traditional Pavilion Scenario
+
+Figure 3: Qualitative Results of EEG-based Visual Reconstruction. We visualize the decoding capabilities of our two instantiations. Each subfigure displays three columns: Left: Original Visual Stimulus; Middle: Ground-Truth (GT) Token Reconstruction; Right: EEG-Predicted Reconstruction. Despite the inherent noise in non-invasive EEG, both GVG-X-Omni and GVG-Janus recover the global topological skeleton, color palettes, and semantic atmosphere of the original scenes. Table 4: Stage-wise ablation of the GVG pipeline. We compare removing Stage 1 (cross-modal alignment), removing Stage 2 (discrete image-token prediction), and the full pipeline. Balanced Accuracy is reported on the six benchmarks used throughout the main paper.                             
+
+> Setting SEED SEED-IV SEED-VII HMC TUAB TUEV Avg w/o Stage 1 34.60 24.67 14.57 30.58 67.23 20.75 32.07 w/o Stage 2 63.41 48.23 31.36 59.58 79.87 50.76 55.54
+> Full Pipeline 68.92 62.50 34.87 71.61 80.20 59.81 62.99
+
+text descriptions. We incorporate textual supervision into AVDE training to constrain proxy images to encode meaningful semantics, which facilitates better alignment between EEG features and the visual space. Experimental results verify the effectiveness of this design, showing that semantic-aware proxy generation improves both alignment quality and downstream performance, suggesting that visual grounding and textual alignment are complementary. To further test whether the gains arise from the full three-stage pipeline rather than from the backbone alone, we conduct a stage-wise ablation in Table 4. Removing Stage 1 causes performance to collapse on the multi-class emotion benchmarks, even close to chance level. This result indicates that the MLLM backbone cannot directly exploit raw EEG without an explicit cross-modal bridge. Removing Stage 2 leads to a smaller but still consistent degradation, reducing the average balanced accuracy from 62.99% to 55.54%. The drop is especially visible on SEED-IV, HMC, and TUEV, suggesting that Stage 2 further refines the aligned EEG features into a tokenizer-compatible space that benefits both downstream understanding and the reconstruction pathway. Together, these results support a simple division of labor: Stage 1 is necessary to establish usable cross-modal alignment, while Stage 2 provides an additional and stable refinement of the aligned representation. 
+
+## 6 Conclusion 
+
+In this work, we introduced Generative Visual Grounding (GVG), a framework for integrating continuous brain signals into Multimodal Large Language Models (MLLMs) through generated visual proxies. Rather than relying solely on textual mapping or requiring paired visual stimuli in clinical settings, we use an intermediate generative model to synthesize surrogate visual representations for arbitrary EEG data. This design provides a practical way to connect non-visual EEG with the visual priors of MLLMs. Our systematic evaluations yielded two main takeaways for the BCI community. First, mapping neural signals to the visual modal-ity can be effective and parameter-efficient in our setting. Our image-only, discrete instantiation (GVG-X-Omni) achieves com-petitive performance against the 1.7B text-aligned baseline while tuning 170M parameters on top of a frozen 7B backbone (10 × fewer trainable parameters). Second, multimodal complementarity ap-pears more effective than either text-only or image-only supervi-sion alone within our current framework. By combining explicit text labels with hallucinated visual proxies, GVG-Janus achieves the strongest overall average among the compared multitask models and improves over NeuroLM-XL on several benchmarks. Overall, GVG provides a promising blueprint for developing more universal, scenario-agnostic brain foundation models. Our results support the view that generative visual translation can be a useful complement to textual alignment, while also highlighting the need for further controls to isolate which parts of that gain come specifically from visual proxy semantics. 
+
+> 8
+
+Visualizing the Invisible: Generative Visual Grounding Empowers Universal EEG Understanding in MLLMs 
+
+## References 
+
+[1] Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Floren-cia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, et al . 2023. Gpt-4 technical report. arXiv preprint arXiv:2303.08774 
+
+(2023). [2] Diego Alvarez-Estevez and Roselyne M Rijsman. 2021. Inter-database validation of a deep learning approach for automatic sleep scoring. PloS one 16, 8 (2021), e0256111. [3] Yunpeng Bai, Xintao Wang, Yan-pei Cao, Yixiao Ge, Chun Yuan, and Ying Shan. 2023. Dreamdiffusion: Generating high-quality images from brain eeg signals. 
+
+arXiv preprint arXiv:2306.16934 (2023). [4] Hubert Banville, Yohann Benchetrit, Stéphane d’Ascoli, Jérémy Rapin, and Jean-Rémi King. 2025. Scaling laws for decoding images from brain activity. arXiv preprint arXiv:2501.15322 (2025). [5] Donghong Cai, Junru Chen, Yang Yang, Teng Liu, and Yafeng Li. 2023. Mbrain: A multi-channel self-supervised learning framework for brain signals. In Pro-ceedings of the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining . 130–141. [6] Josue Ortega Caro, Antonio H de O Fonseca, Christopher Averill, Syed A Rizvi, Matteo Rosati, James L Cross, Prateek Mittal, Emanuele Zappala, Daniel Levine, Rahul M Dhodapkar, et al . 2023. BrainLM: A foundation model for brain activity recordings. bioRxiv (2023), 2023–09. [7] Xuhang Chen, Baiying Lei, Chi-Man Pun, and Shuqiang Wang. 2023. Brain diffuser: An end-to-end brain image to brain network pipeline. In Chinese Con-ference on Pattern Recognition and Computer Vision (PRCV) . Springer, 16–26. [8] Zijiao Chen, Jiaxin Qing, and Juan Helen Zhou. 2023. Cinematic mindscapes: High-quality video reconstruction from brain activity. Advances in Neural Infor-mation Processing Systems 36 (2023), 24841–24858. [9] Zhisheng Chen, Yingwei Zhang, Qizhen Lan, Tianyu Liu, Huacan Wang, Yi Ding, Ziyu Jia, Ronghao Chen, Kun Wang, and Xinliang Zhou. 2025. Uni-NTFM: A Unified Foundation Model for EEG Signal Representation Learning. arXiv preprint arXiv:2509.24222 (2025). [10] Wenhui Cui, Woojae Jeong, Philipp Thölke, Takfarinas Medani, Karim Jerbi, Anand A Joshi, and Richard M Leahy. 2024. Neuro-gpt: Towards a foundation model for eeg. In 2024 IEEE International Symposium on Biomedical Imaging (ISBI) .IEEE, 1–5. [11] Sicheng Dai, Hongwang Xiao, Shan Yu, and Qiwei Ye. 2026. Autoregressive Visual Decoding from EEG Signals. arXiv preprint arXiv:2602.22555 (2026). [12] Alexandru Dimofte, Glenn Anta Bucagu, Thorir Mar Ingolfsson, Xiaying Wang, Andrea Cossettini, Luca Benini, and Yawei Li. 2025. Cerebro: Compact encoder for representations of brain oscillations using efficient alternating attention. 
+
+arXiv preprint arXiv:2501.10885 (2025). [13] Ruo-Nan Duan, Jia-Yi Zhu, and Bao-Liang Lu. 2013. Differential entropy feature for EEG-based emotion classification. In 6th International IEEE/EMBS Conference on Neural Engineering (NER) . IEEE, 81–84. [14] Zitao Fang, Chenxuan Li, Hongting Zhou, Shuyang Yu, Guodong Du, Ashwaq Qasem, Yang Lu, Jing Li, Junsong Zhang, and Sim Kuan Goh. 2025. Neuript: Foundation model for neural interfaces. arXiv preprint arXiv:2510.16548 (2025). [15] Zigang Geng, Yibing Wang, Yeyao Ma, Chen Li, Yongming Rao, Shuyang Gu, Zhao Zhong, Qinglin Lu, Han Hu, Xiaosong Zhang, et al . 2025. X-omni: Reinforcement learning makes discrete autoregressive image generative models great again. 
+
+arXiv preprint arXiv:2507.22058 (2025). [16] Amir Harati, Meysam Golmohammadi, Silvia Lopez, Iyad Obeid, and Joseph Picone. 2015. Improved EEG event classification using differential energy. In 
+
+2015 IEEE Signal Processing in Medicine and Biology Symposium (SPMB) . IEEE, 1–4. [17] Shuai Huang, Yongxiong Wang, Huan Luo, Haodong Jing, Chendong Qin, and Jingqun Tang. 2025. MINDEV: Multi-modal Integrated Diffusion Framework for Video Reconstruction from EEG Signals. In Proceedings of the 33rd ACM International Conference on Multimedia . 3350–3359. [18] Minyoung Huh, Brian Cheung, Tongzhou Wang, and Phillip Isola. 2024. The platonic representation hypothesis. arXiv preprint arXiv:2405.07987 (2024). [19] Wei-Bang Jiang, Xuan-Hao Liu, Wei-Long Zheng, and Bao-Liang Lu. 2025. SEED-VII: A Multimodal Dataset of Six Basic Emotions With Continuous Labels for Emotion Recognition. IEEE Transactions on Affective Computing 16, 2 (2025), 969–985. doi:10.1109/TAFFC.2024.3485057 [20] Wei-Bang Jiang, Yansen Wang, Bao-Liang Lu, and Dongsheng Li. 2024. NeuroLM: A universal multi-task foundation model for bridging the gap between language and EEG signals. arXiv preprint arXiv:2409.00101 (2024). [21] Wei-Bang Jiang, Li-Ming Zhao, and Bao-Liang Lu. 2024. Large brain model for learning generic representations with tremendous EEG data in BCI. arXiv preprint arXiv:2405.18765 (2024). [22] Jin Jing, Wendong Ge, Shenda Hong, Marta Bento Fernandes, Zhen Lin, Chaoqi Yang, Sungtae An, Aaron F Struck, Aline Herlopian, Ioannis Karakis, et al . 2023. Development of expert-level classification of seizures and rhythmic and periodic patterns during EEG interpretation. Neurology 100, 17 (2023), e1750–e1762. [23] Isaak Kavasidis, Simone Palazzo, Concetto Spampinato, Daniela Giordano, and Mubarak Shah. 2017. Brain2image: Converting brain signals into images. In 
+
+Proceedings of the 25th ACM international conference on Multimedia . 1809–1817. [24] Jonathan W Kim, Ahmed Alaa, and Danilo Bernardo. 2024. EEG-GPT: exploring capabilities of large language models for EEG classification and interpretation. 
+
+arXiv preprint arXiv:2401.18006 (2024). [25] Demetres Kostas, Stephane Aroca-Ouellette, and Frank Rudzicz. 2021. BENDR: Using transformers and a contrastive self-supervised learning task to learn from massive amounts of EEG data. Frontiers in Human Neuroscience 15 (2021), 653659. [26] Black Forest Labs, Stephen Batifol, Andreas Blattmann, Frederic Boesel, Saksham Consul, Cyril Diagne, Tim Dockhorn, Jack English, Zion English, Patrick Esser, Sumith Kulal, Kyle Lacey, Yam Levi, Cheng Li, Dominik Lorenz, Jonas Müller, Dustin Podell, Robin Rombach, Harry Saini, Axel Sauer, and Luke Smith. 2025. FLUX.1 Kontext: Flow Matching for In-Context Image Generation and Editing in Latent Space. arXiv:2506.15742 [cs.GR] https://arxiv.org/abs/2506.15742 [27] Yu-Ting Lan, Kan Ren, Yansen Wang, Wei-Long Zheng, Dongsheng Li, Bao-Liang Lu, and Lili Qiu. 2023. Seeing through the brain: image reconstruction of visual perception from human brain signals. arXiv preprint arXiv:2308.02510 (2023). [28] Hongli Li, Man Ding, Ronghua Zhang, and Chunbo Xiu. 2022. Motor imagery EEG classification algorithm based on CNN-LSTM feature fusion network. Biomedical signal processing and control 72 (2022), 103342. [29] Chenyu Liu, Yuqiu Deng, Tianyu Liu, Jinan Zhou, Xinliang Zhou, Ziyu Jia, and Yi Ding. 2025. ECHO: Toward Contextual Seq2Seq Paradigms in Large EEG Models. arXiv preprint arXiv:2509.22556 (2025). [30] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2023. Visual in-struction tuning. Advances in neural information processing systems 36 (2023), 34892–34916. [31] Xuan-Hao Liu, Yan-Kai Liu, Yansen Wang, Kan Ren, Hanwen Shi, Zilong Wang, Dongsheng Li, Bao-Liang Lu, and Wei-Long Zheng. 2024. EEG2video: Towards decoding dynamic visual perception from EEG signals. Advances in Neural Information Processing Systems 37 (2024), 72245–72273. [32] Xuan-Hao Liu, Bao-Liang Lu, and Wei-Long Zheng. 2025. Eegmirror: Leveraging eeg data in the wild via montage-agnostic self-supervision for eeg to video decoding. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 18273–18283. [33] Weiheng Lu, Chunfeng Song, Jiamin Wu, Pengyu Zhu, Yuchen Zhou, Weijian Mai, Qihao Zheng, and Wanli Ouyang. 2025. UniMind: Unleashing the Power of LLMs for Unified Multi-Task Brain Decoding. arXiv preprint arXiv:2506.18962 
+
+(2025). [34] Fei Ma, Han Lin, Yifan Xie, Hongwei Ren, Xiaoyu Shen, Wenbo Ding, and Qi Tian. 2026. Eˆ 2-LLM: Bridging Neural Signals and Interpretable Affective Analysis. 
+
+arXiv preprint arXiv:2601.07877 (2026). [35] Wei Yan Peh, Yuanyuan Yao, and Justin Dauwels. 2022. Transformer convolu-tional neural networks for automated artifact detection in scalp EEG. In 2022 44th Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC) . IEEE, 3599–3602. [36] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sand-hini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al .2021. Learning transferable visual models from natural language supervision. In 
+
+International conference on machine learning . PmLR, 8748–8763. [37] Yonghao Song, Xueyu Jia, Lie Yang, and Longhan Xie. 2021. Transformer-based spatial-temporal feature learning for EEG decoding. arXiv preprint arXiv:2106.11170 (2021). [38] Concetto Spampinato, Simone Palazzo, Isaak Kavasidis, Daniela Giordano, Nasim Souly, and Mubarak Shah. 2017. Deep learning human mind for automated visual classification. In Proceedings of the IEEE conference on computer vision and pattern recognition . 6809–6817. [39] Gemini Team, Rohan Anil, Sebastian Borgeaud, Jean-Baptiste Alayrac, Jiahui Yu, Radu Soricut, Johan Schalkwyk, Andrew M Dai, Anja Hauth, Katie Millican, et al . 2023. Gemini: a family of highly capable multimodal models. arXiv preprint arXiv:2312.11805 (2023). [40] Keyu Tian, Yi Jiang, Zehuan Yuan, Bingyue Peng, and Liwei Wang. 2024. Visual autoregressive modeling: Scalable image generation via next-scale prediction. 
+
+Advances in neural information processing systems 37 (2024), 84839–84865. [41] Michael Tschannen, Alexey Gritsenko, Xiao Wang, Muhammad Ferjad Naeem, Ibrahim Alabdulmohsin, Nikhil Parthasarathy, Talfan Evans, Lucas Beyer, Ye Xia, Basil Mustafa, et al . 2025. Siglip 2: Multilingual vision-language encoders with improved semantic understanding, localization, and dense features. arXiv preprint arXiv:2502.14786 (2025). [42] Christopher Wang, Vighnesh Subramaniam, Adam Uri Yaari, Gabriel Kreiman, Boris Katz, Ignacio Cases, and Andrei Barbu. 2023. BrainBERT: Self-supervised representation learning for intracranial recordings. arXiv preprint arXiv:2302.14367 (2023). [43] Guangyu Wang, Wenchao Liu, Yuhong He, Cong Xu, Lin Ma, and Haifeng Li. 2024. Eegpt: Pretrained transformer for universal and reliable representation of eeg signals. Advances in Neural Information Processing Systems 37 (2024), 39249–39280. 9Pan et al. 
+
+[44] Jiquan Wang, Sha Zhao, Zhiling Luo, Yangxuan Zhou, Haiteng Jiang, Shijian Li, Tao Li, and Gang Pan. 2024. Cbramod: A criss-cross brain foundation model for eeg decoding. arXiv preprint arXiv:2412.07236 (2024). [45] Peng Wang, Shuai Bai, Sinan Tan, Shijie Wang, Zhihao Fan, Jinze Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, et al . 2024. Qwen2-vl: Enhancing vision-language model’s perception of the world at any resolution. arXiv preprint arXiv:2409.12191 (2024). [46] Chengyue Wu, Xiaokang Chen, Zhiyu Wu, Yiyang Ma, Xingchao Liu, Zizheng Pan, Wen Liu, Zhenda Xie, Xingkai Yu, Chong Ruan, et al . 2024. Janus: Decoupling visual encoding for unified multimodal understanding and generation. arXiv preprint arXiv:2410.13848 (2024). [47] An Yang, Baosong Yang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Zhou, Cheng-peng Li, Chengyuan Li, Dayiheng Liu, Fei Huang, Guanting Dong, Haoran Wei, Huan Lin, Jialong Tang, Jialin Wang, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Ma, Jin Xu, Jingren Zhou, Jinze Bai, Jinzheng He, Junyang Lin, Kai Dang, Keming Lu, Keqin Chen, Kexin Yang, Mei Li, Mingfeng Xue, Na Ni, Pei Zhang, Peng Wang, Ru Peng, Rui Men, Ruize Gao, Runji Lin, Shijie Wang, Shuai Bai, Sinan Tan, Tianhang Zhu, Tianhao Li, Tianyu Liu, Wenbin Ge, Xiaodong Deng, Xiaohuan Zhou, Xingzhang Ren, Xinyu Zhang, Xipin Wei, Xuancheng Ren, Yang Fan, Yang Yao, Yichang Zhang, Yu Wan, Yunfei Chu, Yuqiong Liu, Zeyu Cui, Zhenru Zhang, and Zhihao Fan. 2024. Qwen2 Technical Report. arXiv preprint arXiv:2407.10671 (2024). [48] Chaoqi Yang, M Westover, and Jimeng Sun. 2023. Biot: Biosignal transformer for cross-data learning in the wild. Advances in Neural Information Processing Systems 36 (2023), 78240–78260. [49] Chaoqi Yang, Cao Xiao, M Brandon Westover, and Jimeng Sun. 2023. Self-supervised electroencephalogram representation learning for automatic sleep staging: model development and evaluation study. JMIR AI 2, 1 (2023), e46769. [50] Yifan Yang, Yutong Mao, Xufu Liu, and Xiao Liu. 2024. Brainmae: a region-aware self-supervised learning framework for brain signals. arXiv preprint arXiv:2406.17086 (2024). [51] Ke Yi, Yansen Wang, Kan Ren, and Dongsheng Li. 2023. Learning topology-agnostic EEG representations with geometry-aware modeling. Advances in Neural Information Processing Systems 36 (2023), 53875–53891. [52] Zhizhang Yuan, Fanqi Shen, Meng Li, Yuguo Yu, Chenhao Tan, and Yang Yang. 2024. Brainwave: A brain signal foundation model for clinical applications. arXiv preprint arXiv:2402.10251 (2024). [53] Tongtian Yue, Shuning Xue, Xuange Gao, Yepeng Tang, Longteng Guo, Jie Jiang, and Jing Liu. 2024. Eegpt: Unleashing the potential of eeg generalist foundation model by autoregressive pre-training. arXiv preprint arXiv:2410.19779 (2024). [54] Xiaohua Zhai, Basil Mustafa, Alexander Kolesnikov, and Lucas Beyer. 2023. Sigmoid loss for language image pre-training. In Proceedings of the IEEE/CVF international conference on computer vision . 11975–11986. [55] Daoze Zhang, Zhizhang Yuan, Yang Yang, Junru Chen, Jingjing Wang, and Yafeng Li. 2023. Brant: Foundation model for intracranial neural signal. Advances in Neural Information Processing Systems 36 (2023), 26304–26321. [56] Xiang Zhang, Ziyuan Zhao, Theodoros Tsiligkaridis, and Marinka Zitnik. 2022. Self-supervised contrastive pre-training for time series via time-frequency con-sistency. Advances in neural information processing systems 35 (2022), 3988–4003. [57] W. Zheng, W. Liu, Y. Lu, B. Lu, and A. Cichocki. 2018. EmotionMeter: A Mul-timodal Framework for Recognizing Human Emotions. IEEE Transactions on Cybernetics (2018), 1–13. doi:10.1109/TCYB.2018.2797176 [58] Wei-Long Zheng and Bao-Liang Lu. 2015. Investigating Critical Frequency Bands and Channels for EEG-based Emotion Recognition with Deep Neural Networks. IEEE Transactions on Autonomous Mental Development 7, 3 (2015), 162–175. doi:10.1109/TAMD.2015.2431497 10

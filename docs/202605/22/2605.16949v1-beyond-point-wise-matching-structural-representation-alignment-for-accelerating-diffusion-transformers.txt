@@ -1,0 +1,462 @@
+Title: Beyond Point-Wise Matching: Structural Representation Alignment for Accelerating Diffusion Transformers
+
+URL Source: https://arxiv.org/pdf/2605.16949v1
+
+Published Time: Tue, 19 May 2026 00:45:52 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# Beyond Point-Wise Matching: Structural Representation Alignment for Accelerating Diffusion Transformers 
+
+Shaodong Xu 1∗ Zhendong Wang 1∗ Litong Gong Zexian Li Wengang Zhou 1
+
+Tiezheng Ge Houqiang Li 1 
+
+> 1
+
+University of Science and Technology of China 
+
+## Abstract 
+
+Recent advances in Diffusion Transformers (DiTs) demonstrate that aligning noisy latent states with well-trained semantic features—as pioneered by Representation Alignment (REPA)—can substantially accelerate training and improve generation fidelity. Subsequent analysis ( e.g. , iREPA) suggests that these gains arise primarily from transferring spatial structure contained in pre-trained vision representations. However, mostly existing alignment methods employ point-wise matching objec-tives or rely on implicit architectural tweaks, which fail to explicitly model the spatial relational geometry inherent in vision foundation models. We argue that such element-wise supervision is insufficient to capture the rich spatial topology of visual representations, and that effective alignment for generation should instead be formulated as an explicit structural constraint. To this end, we propose sREPA, a structural REP resentation Alignment framework to enforce consistency in the relational geometry of feature maps, rather than merely matching individual feature points. By encouraging the model to internalize holistic spatial layouts and struc-tural correlations from pre-trained features, sREPA achieves faster and more stable convergence, along with improved sample quality, compared to state-of-the-art alignment strategies. Our code and models will be released. 
+
+## 1 Introduction 
+
+Denoising generative models [ 12 , 37 , 19 , 14 ] have become the dominant paradigm in high-fidelity visual synthesis [ 29 , 6, 17 , 2, 41 ]. Among them, scaling diffusion transformers has demonstrated remarkable capacity and scalability [ 27 , 22 ]. However, training these models from scratch remains computationally expensive. A central challenge is that the standard denoising objective provides limited direct supervision for learning meaningful visual representations, which may benefit the generation quality. The pioneer work, representation alignment (REPA) is emerged as a powerful technique for accelerat-ing the training of diffusion transformers [ 44 ]. By aligning diffusion internal representations with features extracted from pre-trained self-supervised visual encoders, REPA-style methods achieve improvements in convergence speed and final generation performance [ 18 , 42 , 15 ]. Despite their empirical gains, most existing alignment strategies primarily rely on point-wise regression, which enforces local feature consistency by minimizing distances between individual corresponding tokens in the student and teacher feature maps. A recent study iREPA [ 35 ] provides further insight into the mechanism behind representation alignment, showing that its effectiveness arises primarily from the transfer of spatial structure rather than high-level semantic content. To support this observation, they introduce architectural modifications, including a convolutional projector and spatial normalization, to better preserve spatial 
+
+> ∗Equal contribution. Preprint.
+> arXiv:2605.16949v1 [cs.CV] 16 May 2026 Teacher Token
+> Student Token
+> Representation
+> Alignment
+> Foundation Models ❄Transformer Blocks 🔥
+> ……
+> Previous Works
+> Projector
+> add noise
+> … …
+> a) Overall Pipeline
+> Transformer Blocks 🔥
+> Point to Point
+> Alignment
+> Ours
+> Structure to Structure
+> Alignment
+> b) Image Quality vs Training Iterations
+
+Figure 1: Structural representation alignment improves diffusion model training beyond point-wise alignment. Compared with the standard REPA training framework, the proposed sREPA ,integrates explicit structural supervision to align relational distributions between teacher and student representations, resulting in faster convergence and consistently better generation quality. inductive biases when aligning diffusion representations with pre-trained visual features. Their results demonstrate that enhancing the accessibility of spatial structure indeed leads to improved generative performance. However, despite emphasizing the importance of spatial structure, iREPA still formulates alignment using conventional point-wise matching objectives, where supervision is applied independently to individual feature tokens. Such element-wise alignment fails to explicitly model the relational geometry and global topology encoded in foundation model representations, leaving the structural consistency between feature maps only implicitly enforced. In this paper, we propose sREPA ( structural REP resentation Alignment), a simple yet effective framework that introduces explicit structural supervision into representation alignment. As illus-trated in Figure 1, unlike prior approaches that emphasize isolated token-level matching, sREPA fundamentally shifts the supervision granularity from individual feature points to their pairwise relational structure. Our core insight is that for a generative model to fully exploit the structural priors encoded in a pre-trained vision backbone, it is insufficient to merely align corresponding feature tokens . Instead, the model must internalize the encoder’s underlying structural geometry , i.e. , the relative relationships and global topology that govern how different image regions are organized in the representation space. To this end, the proposed sREPA aligns the student’s internal similarity structure with that of the teacher by matching their similarity distributions, thereby explicitly preserving the relational topology of latent feature maps. We instantiate this principle through two practical variants: sREPA-MSE , a parameter-free formulation that directly regresses pairwise relations, and sREPA-KL , a probabilistic variant that performs distribution-level structural matching. Extensive experimental results with detailed analysis demonstrate that sREPA consistently improves generation quality while significantly accelerating convergence, outperforming existing point-wise alignment strategies. Our contributions can be summarized as follows: • We identify a fundamental limitation of existing representation alignment methods, showing that commonly used point-wise objectives are insufficient for explicitly capturing the spatial relational structure encoded in pre-trained visual encoders. • We propose sREPA, a simple yet effective structural representation alignment framework that introduces structure-aware supervision, explicitly distilling relational topology from vision foundation models into diffusion transformers. • Through extensive experiments, we demonstrate that explicit structural alignment substan-tially improves the utilization of spatial information, resulting in faster and more stable convergence as well as consistently superior generation quality. 22 Related Work 
+
+Visual Generative Models. Diffusion Probabilistic Models (DPMs) synthesize high-fidelity images by iteratively denoising [ 12 , 36 ]. Early DPMs operate directly in pixel space, incurring high com-putational costs. Latent Diffusion Models (LDMs) [ 31 ] mitigate this by performing generation in the compressed latent space of a variational autoencoder. Subsequently, the backbone of diffusion models shifts from U-Nets[ 32 ] to transformers [ 27 ], while SiT [ 22 ] further improved the efficiency by integrating interpolant-based Rectified Flow [ 19 , 20 ]. However, these transformer-based generators typically require massive training iterations to achieve convergence. To mitigate this challenge, masked modeling strategies [ 46 , 7] are introduced to accelerate diffusion training. Despite their effec-tiveness, these methods often require modifications to the model architecture or masking strategies. In contrast, our sREPA possesses significantly faster convergence and superior generation performance while leaving the base model architecture unchanged, demonstrating that superior training dynamics can be reached without structural compromises. 
+
+Representation Learning for Visual Generation. Recent advances in generative modeling have increasingly focused on leveraging the rich semantic priors of pre-trained Vision Foundation Models (VFMs). One popular research direction is aligning VAE. For example, VA-VAE [ 43 ] aligns the latent representations of VAE with pre-trained vision foundation models, significantly improving the final generation performance while preserving their original reconstruction capability. RAE [ 45 ]moves further and directly replaces the original VAE encoder with a discriminative semantic encoder, forming high-dimensional semantically rich and structurally coherent latent spaces and resulting in a better generation capability, which also demonstrates the capability of self-supervised vision foundation models. Another promising paradigm to improve generation quality is to align the internal features of the generators with those of a powerful vision encoder. REPA [ 44 ] pioneers this direction by aligning diffusion features with representations of a frozen teacher, demonstrating significant generation performance gains. A later work iREPA [ 35 ] improves REPA further by encouraging spatial consistency through convolutional projections and spatial normalization. DDT [ 40 ] decouples DiT into an encoder–decoder and applies REPA loss to the encoder. REG [ 42 ] introduces a tunable class token into the DiT sequence and explicitly aligns it with external representations. Our work also belongs to this paradigm; however, our focus is on the analysis of the commonly-used point-wise alignment and further presents a novel structural alignment strategy. 
+
+Knowledge Distillation and Structural Matching. Knowledge Distillation (KD) focuses on trans-ferring knowledge from a teacher model to a student model [ 10 ]. A line of work explores structural distillation strategies that preserve the relational geometry of teacher representations to improve knowledge transfer. Relational Knowledge Distillation (RKD) [ 26 ] introduces distance-wise and angle-wise objectives to transfer relational information, while similarity-preserving distillation [39] matches pairwise similarity matrices between teacher and student activations. Correlation Congru-ence for Knowledge Distillation (CCKD) [ 28 ] further matches teacher-student correlation matrices to transfer inter-instance relational knowledge. Despite these advances in knowledge distillation and relational structure matching, most existing structural alignment methods are developed for discriminative tasks. In contrast, our work focus on integrating explicit structural supervision into the training objectives for generative models, particularly diffusion transformers, to improve training dynamics and generation performance. 
+
+## 3 Method 
+
+In this section, we first review the preliminaries of our work in Section 3.1; then analyze the limitations of existing alignment strategies in Section 3.2; finally, in Section 3.3, we present the formulation of sREPA and its two implementation variants. 
+
+3.1 Preliminaries 
+
+Our base model is mainly SiT [ 22 ], which is highly relevant to diffusion models and flow matching models, which share the same paradigm of transforming a simple prior distribution into a complex data distribution. For simplicity, we mainly review the formula of flow matching. Under the Conditional Flow Matching (CFM) formulation, the commonly-used flow process is a linear interpolation between a data sample x1 ∼ q(x) and a noise sample x0 ∼ N (0, I). Then the intermediate state xt at time 301  
+
+> Cosine Similarity
+> DINOv2 Features Point-wise Alignment (FID:7.9) Point-wise + Structural Alignment (FID:7.2 )
+
+Figure 2: Effectiveness of Spatial Structural Supervision. Comparison of similarity maps on the DINOv2 features and diffusion features of models trained with point-wise alignment and further integrated structural alignment. Point-wise only alignment is insufficient to mimic the token relation-ship of teacher features. Adding explicit structural supervision results in more concentrated token similarity and better image quality, confirming the effectiveness of structural supervision. 
+
+t ∈ [0 , 1] is defined as: 
+
+xt = tx1 + (1 − t)x0, (1) where t = 0 and 1 correspond to pure noise and clean data, respectively. The dynamics of this process are governed by an Ordinary Differential Equation (ODE): 
+
+dxt
+
+dt = vt(xt), (2) where vt(·) is a time-dependent vector field that flows the probability density. To learn the generative flow, a neural network vθ (xt, t ) is trained to approximate the conditional vector field generating the path. Taking the time derivative of xt, the target velocity field is simply 
+
+ut(x|x1) = x1 − x0. The objective function is optimized by minimizing the mean squared error between the model prediction and this target velocity, formulated as: 
+
+LFM (θ) = Et, x0,x1
+
+h
+
+∥vθ (xt, t ) − (x1 − x0)∥2i
+
+, (3) where t ∼ U [0 , 1] . To generate samples, the trained model starts from x0 ∼ N (0, I) and numerically integrates Eq. (2) from t = 0 to 1.
+
+3.2 Motivation From Global Semantics to Spatial Structure. Building upon the flow matching framework, a series of works have achieved state-of-the-art generation performance. Nevertheless, training these models from scratch remains computationally intensive. To mitigate this inefficiency, the pioneer work REPA [ 44 ] aligns the noisy hidden projections of the denoising network with clean representations from pre-trained vision encoders and achieve performance boost. Despite empirical success to some extent, a fundamental research question (RQ) raises: 
+
+RQ-1: What intrinsically drives the effectiveness of representation alignment—global semantics or spatial structure? 
+
+Subsequently, iREPA [ 35 ] provides a comprehensive analysis across 27 different vision encoders and uncovers an inspiring phenomenon: spatial structure rather than global semantics, drives the generation performance intrinsically. To learn the structural features from vision encoders, they introduce two straightforward architecture-level modifications: (1) replacing the commonly-used MLP in projection with a spatial convolution and (2) introducing spatial normalization to amplify the contrast between individual spatial tokens. These architectural tweaks help sharpen the spatial signal within the representations, achieving improved generation quality. This finding motivates us to dive deeper into the fundamental working mechanism of alignment: 
+
+RQ-2: If spatial structure is indeed the key, are commonly-used point-wise alignment capable of fully capturing it? 
+
+The Limitation of Point-wise Alignment. We delve into alignment mechanics to understand the current alignment limitations. Let f and x0 denote the pre-trained visual encoder (teacher) and a clean image, respectively. Let HT = f (x0) ∈ RN ×DT denote the target visual representations, where 
+
+N, D T are the number of tokens and the embedding dimension, respectively. Let HS ∈ RN ×DS
+
+4represent the hidden states of the student, where DS denotes the diffusion embedding dimension. To align the feature dimensions, a trainable projection head gϕ is employed to map the student features to the teacher’s latent space. Most existing methods encourage feature alignment by maximizing the patch-wise similarity, which is equivalent to minimizing the negative cosine similarity averaged over all patches: 
+
+Lpoint = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+ 1 − S cos (gϕ(hSi ), hTi ) , (4) where i denotes the token index, hSi , hTi are the feature vectors of the i-th token, and Scos (·, ·) is the cosine similarity function. According to Eq. (4) , we observe that this loss treats the feature map as an unstructured bag of vectors and operates independently on each spatial location, enforcing local feature consistency while remaining agnostic to the relational topology between tokens. Even if the teacher model possesses a rich understanding of global geometry, the student is strictly penalized only for local deviations, ignoring the rich relational information for coherent image generation. So the point-wise alignment objective essentially falls short of capturing the spatial structural information, which is essential for coherent image generation. 
+
+Explicit Spatial Structural Supervision. We hypothesize that the bottleneck of prior works lies not in the teacher’s representational capability but in the alignment protocol. To validate this, we conduct an experiment by explicit integrate structural supervision into the standard REPA training framework. Specifically, we retain the original point-wise alignment and introduce an auxiliary objective to force the student’s pairwise token relationships (Gram matrix) to regress those of the teacher. We use the SiT-XL/2 model trained for 400k to exhibit similarity visualization results. As shown in Figure 2, we find that the feature maps derived from pure point-wise alignment exhibit low contrast and diffuse attention. In contrast, introducing structural supervision produces more 
+
+concentrated and meaningful similarity maps with better generation FID ( 7.9 → 7.2). This evidence confirms that introducing explicit structural supervision is essential for learning structural representa-tions. Motivated by these observations, we formally propose the structural representation alignment method and detail its formulation in the following section. 
+
+3.3 Structural Representation Alignment 
+
+Based on the above analysis, we propose sREPA , a simple yet effective method for improving diffu-sion transformers by incorporating explicit structural supervision into the representation alignment process. We first normalize the features from the teacher and mapped features from the student to obtain ZT and ZS with L2-normalization. Then, the neighboring similarity distribution is extracted in each token map through the pairwise cosine similarity matrix S ∈ RN ×N :
+
+STij = zTi · (zTj )⊤, S Sij = zSi · (zSj )⊤. (5) After that, we can use the matrix for further structural representation alignment. To prevent trivial solutions where the model minimizes loss by simply predicting itself, we explicitly mask the diagonal elements, considering only the off-diagonal relationships where i̸ = j. Based on the pairwise cosine similarity matrix, we propose the following two variants of sREPA to align the structure distributions between the student and the teacher. 
+
+Variant 1: sREPA-MSE. Our primary strategy is to directly regress the student’s relational structure to imitate the teacher. We minimize the MSE loss between the masked similarity matrices of the student and those of the teacher: 
+
+LMSE struc = 1
+
+N (N − 1) 
+
+> N
+
+X
+
+> i=1
+
+X 
+
+> j̸=i
+
+∥STij − SSij ∥2. (6) This formulation is parameter-free and straightforward. By enforcing the student’s Gram matrix to regress to the teacher’s, sREPA-MSE ensures that the relative geometry of the latent space is well preserved. 5Variant 2: sREPA-KL. Alternatively, structural alignment can be formulated as a distribution matching problem. Instead of regressing raw similarity values, we view the row Si· as a probability distribution over the sequence. We apply the Softmax function to the off-diagonal similarities to obtain the attention distribution for each token i and j:
+
+P Tij = exp( STij /τ t)
+
+P  
+
+> k̸=i
+
+exp( STik /τ t) , P Sij = exp( SSij /τ s)
+
+P  
+
+> k̸=i
+
+exp( SSik /τ s) , (7) where j̸ = i, τt and τs are temperature parameters controlling the sharpness of the distributions. The alignment is then enforced via the Kullback-Leibler (KL) divergence averaged over all tokens: 
+
+LKL struc = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+X 
+
+> j̸=i
+
+P Tij log P Tij 
+
+P Sij 
+
+!
+
+. (8) This variant emphasizes matching the relative importance of neighbors rather than absolute values. Temperatures τs and τt are employed to modulate the entropy of the relational distribution, which we will analyze in Section 4. 
+
+3.4 Training Objective 
+
+The training objective in most of our experiments is formulated as a weighted sum of the standard flow matching loss, the point-wise projection loss, and our proposed structural alignment loss: 
+
+Ltotal = Lflow + λproj Lproj + λstruc Lstruc , (9) where Lstruc represents either the LMSE struc or LKL struc variant. The scalar λproj and λstruc govern the relative importance of the two alignment losses. We provide comprehensive ablations on the choice of structural loss variants and the sensitivity of these balancing weights in Section 4.3. And in Section 4.4, we further verify the compatibility of our sREPA with exisiting works. Overall, the alignment procedure is summarized in Algorithm 1 in the Appendix. 
+
+## 4 Experiments 
+
+In this section, we conduct comprehensive experiments to validate the effectiveness of our sREPA. In particular, we mainly investigate the following research questions: • Effectiveness: Can adding explicit structural guidance improve generation quality and convergence speed of diffusion transformers compared to standard point-wise alignment methods? (Sec. 4.2) • Robustness: Does sREPA consistently maintain its performance advantage across varying model scales and diverse teacher representations? (Sec. 4.3) • Compatibility: Can structure loss serve as a plug-and-play module that provides consistent improvements with other training pipelines? (Sec. 4.4) 
+
+4.1 Setup Implementation Details. We follow the training protocols of REPA [ 44 ] throughout all experiments. Specifically, we use ImageNet [ 4], where each image is preprocessed to the resolution of 256 × 256 
+
+and follows ADM [ 5 ] for other data preprocessing protocols. Each image is then encoded into latent representations z ∈ R32 ×32 ×4 using the pre-trained Stable Diffusion VAE [ 31 ]. The training batch size is 256 with Exponential Moving Average (EMA) following REPA [44]. 
+
+Evaluation Protocol. To systematically evaluate generation quality, we compute a suite of standard quantitative metrics on 50,000 generated samples. We report Fréchet Inception Distance (FID) [ 9], spatial FID (sFID) [ 24 ], Inception Score (IS) [ 33 ], Precision and Recall [16 ]. All metrics are computed using the ADM evaluation protocol, ensuring comprehensive comparison with existing works. Unless otherwise specified, all samples are generated using Euler-Maruyama sampler with 250 steps and without classifier-free guidance [ 11 ]. More setup details about training and evaluation are provided in the Appendix A. 6Table 1: FID comparison on ImageNet 256×256. All results are reported without classifier-free guidance (CFG). Model #Params Iter. FID ↓                                                
+
+> SiT-B/2 130M 400K 33.0 + REPA 130M 400K 24.4
+> + sREPA(Ours) 130M 400K 20.5
+> SiT-L/2 458M 400K 18.8 + REPA 458M 400K 9.7
+> + sREPA(Ours) 458M 400K 8.73
+> SiT-XL/2 675M 400K 17.2 SiT-XL/2 675M 7M 8.3 + REPA 675M 200K 11.1 + REPA 675M 400K 7.9 + REPA 675M 1M 6.4 + iREPA 675M 400K 7.52 + iREPA 675M 1M 6.67
+> + sREPA(Ours) 675M 200K 9.36 + sREPA(Ours) 675M 400K 7.17 + sREPA(Ours) 675M 1M 6.15
+
+Table 2: Comprehensive comparison of different methods on ImageNet 256×256 with classifier-free guidance (CFG).                                                                                           
+
+> Model Epochs FID ↓sFID ↓IS ↑Pre. ↑Rec. ↑
+> Pixel diffusion
+> ADM-U 400 3.94 6.14 186.7 0.82 0.52 VDM ++ 560 2.40 -225.3 --Simple diffusion 800 2.77 -211.8 --CDM 2160 4.88 -158.7 --
+> Latent diffusion
+> LDM-4 200 3.60 -247.7 0.87 0.48 U-ViT-H/2 240 2.29 5.68 263.9 0.82 0.57 MaskDiT 1600 2.28 5.67 276.6 0.80 0.61 SD-DiT 480 3.23 ----DiT-XL/2 1400 2.27 4.60 278.2 0.83 0.57 SiT-XL/2 1400 2.06 4.50 270.3 0.82 0.59 + REPA 80 2.39 4.64 246.8 0.82 0.57 + REPA 200 1.96 4.49 264.0 0.82 0.60
+> + sREPA(Ours) 80 2.25 4.65 257.5 0.83 0.58
+> + sREPA(Ours) 200 1.91 4.50 271.8 0.83 0.60
+
+Figure 3: Samples are generated on ImageNet 256 ×256 with the sREPA (SiT-XL/2 model). Classifier-free guidance is applied with scale w = 4 .0.
+
+4.2 Main Results Accelerating Training Convergence with Improved Performance. As shown in Table 1, sREPA consistently improves generation quality across all model scales (B, L, XL). On the smaller SiT-B/2 backbone, sREPA significantly outperforms the REPA baseline, achieving an FID of 20.5 at 400K iterations. On the SiT-XL/2 scale, sREPA reaches an FID of 7.17 at 400K steps, outperforms REPA (7.9) and iREPA (7.52) counterparts, even surpassing the vanilla SiT (8.3) trained for 7M steps. Furthermore, sREPA outperforms REPA up to 1M iterations, which means our method is not only an early-stage accelerator but consistently remains beneficial in longer training iterations. 
+
+Comparison with State-of-the-art Methods. Table 2 presents a comprehensive comparison against recent state-of-the-art methods with applying classifier-free guidance. Our framework achieves better performance than other methods, highlighting the superior convergence property. We also provide qualitative results of SiT-XL/2 with sREPA in Figure 3, which demonstrate the high-quality generation by applying the structural supervision. We provide more examples to illustrate the superior generation capability of our sREPA in Appendix H. 
+
+4.3 Ablation Study 
+
+In this section, we conduct a systematic analysis to evaluate each component in sREPA. Unless other-wise specified, experiments are performed on SiT-B/2 model with DINOv2-B as target representation. 
+
+Structural Loss Variants. To verify the necessity of explicit structural supervision, we evaluate the two Lstruc variants: MSE-based and KL-based objectives. For a controlled comparison, we maintain the weight of point-wise alignment loss identical to REPA baseline, isolating the impact of the added structural constraints. As shown in Table 3, incorporating structural supervision consistently 7Table 3: Effectiveness of Structural Supervi-sion. Injecting either structural supervision ob-jective outperforms the point-wise baseline. Method Lproj Lstruc Iter. FID ↓ sFID ↓ IS ↑                                                            
+
+> w/o Point-wise Alignment
+> sREPA –MSE 100K 51.4 6.82 26.6 sREPA –KL 100K 48.2 6.65 28.4 sREPA –MSE 400K 25.6 6.30 58.1 sREPA –KL 400K 24.3 6.35 60.5
+> w/ Point-wise Alignment
+> REPA ✓–100K 49.5 7.00 27.5 sREPA ✓MSE 100K 41.3 6.71 35.1
+> sREPA ✓KL 100K 43.4 6.94 33.1 REPA ✓–400K 24.4 6.40 59.9 sREPA ✓MSE 400K 21.4 6.40 67.8 sREPA ✓KL 400K 21.8 6.48 68.2
+
+Table 4: Temperature Analysis. We train all the SiT-B/2 models for 100k iterations here.                                               
+
+> Experiment τtτsFID ↓sFID ↓IS ↑
+> REPA --49.5 7.00 27.5
+> I. Temperature Match (Fix τt= 0 .2)
+> Asymmetric 0.20 0.15 42.5 6.71 33.1 0.20 0.20 42.1 6.60 33.3
+> 0.20 0.40 42.5 6.57 33.2 0.20 0.60 43.7 6.92 32.4
+> II. Global Magnitude Search ( τt=τs)
+> Symmetric 0.10 0.10 43.5 6.61 31.7 0.20 0.20 42.1 6.60 33.3
+> 0.30 0.30 42.9 6.88 33.0 0.50 0.50 44.2 7.04 32.0
+
+outperforms the baseline regardless of the specific loss formulation. Comparing the two variants, we observe that MSE and KL yield comparable performance gains, with MSE variant exhibiting a marginal advantage in final generation quality. We guess that MSE directly enforces alignment on raw similarity magnitudes, avoiding the potential signal dilution caused by the softmax normalization in the KL objective. Consequently, we adopt MSE variant as the default setting for sREPA. Notably, relying solely on structural supervision without point-wise alignment fails to improve the baseline (Table 3 top rows). We claim that point-wise alignment serves as a necessary semantic anchor that grounds features in the absolute latent space; without it, the structural constraints become underdetermined and ambiguous . Our structural supervision is a complement to the previous point-wise alignment. 
+
+Temperature Analysis. The KL-based variant utilizes temperature ( τs, τ t) to modulate the entropy of the relational distribution (Eq. 7). We investigate the optimal configuration through a two-stage empirical strategy: (I) verifying the symmetric temperatures, and (II) searching for the optimal global temperature. The results are reported in Table 4. 
+
+(1) Temperature Matching. Prior literature [ 38 , 23 ] employs an asymmetric temperature strategy (τt < τ s) to obtain high-confidence predictions. However, in Table 4 (Part I), we observe that this asymmetry is counter-productive for generation, indicating a fundamental difference from previous discriminative tasks: structural alignment for generation requires the student to faithfully replicate the teacher’s relational topology. Symmetric temperatures ( τs = τt) ensure that the relative distance ratios between tokens are preserved without distortion. 
+
+(2) Global Temperature Search. Fixing the symmetric constraint, we search for the optimal global temperature. As shown in Table 4 (Part II), τs = τt = 0 .2 achieves the best overall performance. Increasing the temperature further leads to feature distribution over-smoothing, diluting the structural signal. Conversely, an excessively low temperature drives the distribution towards a nearly Dirac delta distribution, weakening the ability to perceive structural relationships. Consequently, we adopt 
+
+τs = τt = 0 .2 as the default setting for the KL variant. 
+
+4.4 Generalization Capability Evaluation 
+
+We further conduct comprehensive experiments to explore the generalization capability of our sREPA in terms of different alignment depths, diverse vision encoders, and compatibility with other methods. Table 5: Ablation study for Alignment Depth. All experiments are conducted on SiT-B/2, trained for 100K iterations.                                       
+
+> Aln. Depth FID ↓sFID ↓IS ↑Pre. ↑Rec. ↑
+> Layer 4 46.2 7.00 30.4 0.47 0.61
+> sREPA 39.3 6.74 37.8 0.51 0.61
+> Layer 6 47.1 7.25 30.1 0.48 0.60
+> sREPA 41.2 7.11 36.3 0.50 0.61
+> Layer 8 51.6 8.07 27.8 0.45 0.59
+> sREPA 45.5 7.58 32.9 0.48 0.60
+
+Alignment Depth. We first investigate the general-ization capability of our approach across different alignment depths (Layer 4, 6, 8), compared with REPA. As shown in Table 5, our method demon-strates consistent improvements over the REPA base-line by substantial gains across all depths. We at-tribute these gains to the explicit spatial structure alignment, which effectively enforces geometric con-sistency between the student and teacher represen-tations and eventually improves generation quality. 8Table 6: Generalization across Diverse Vi-sion Encoders. We employ diverse teacher encoders to demonstrate that sREPA consis-tently enhances generation fidelity regardless of the teacher’s representation variants. All ex-periments are conducted using SiT-B/2 trained for 400k iterations. Method Encoder FID ↓ sFID ↓ IS ↑ Pre. ↑ Rec. ↑                                    
+
+> SiT-B/2 –33.0 6.46 43.7 0.53 0.63 sREPA MAE-L 28.3 6.12 51.8 0.57 0.64 MoCoV3-B 22.9 6.41 62.5 0.60 0.64 I-JEPA-H 22.2 6.65 67.8 0.60 0.65 CLIP-L 21.0 6.41 69.1 0.61 0.64 DINOv3-B 22.1 6.54 67.6 0.59 0.65 DINOv2-B 20.5 6.53 71.2 0.61 0.65
+
+Table 7: Compatibility with existing frame-works. We integrate sREPA into existing frame-work with training from scratch. All experiments are conducted on SiT-B/2 with DINOv2-B as the target representation. Results demonstrate consis-tent improvements across all metrics, verifying the compatibility of sREPA.                                                            
+
+> Method Iter FID ↓sFID ↓IS ↑Pre. ↑Rec. ↑
+> iREPA 400K 21.4 6.77 70.9 0.60 0.65 + Ours 400K 20.3 6.70 73.4 0.61 0.64 REG 100K 36.1 7.74 45.5 0.53 0.61
+> + Ours 100K 30.9 7.24 53.4 0.57 0.61
+> REG 200K 22.1 7.19 72.2 0.60 0.63 + Ours 200K 19.8 6.96 79.0 0.62 0.62 REG 400K 15.2 6.63 94.6 0.64 0.63
+> + Ours 400K 14.4 6.94 98.0 0.65 0.63
+
+Diverse Vision Encoders. To verify that sREPA serves as a robust, encoder-agnostic enhancer for diffusion transformers, we evaluate the performance across a wide range of teacher representations. Specifically, we employ discriminative models DINOv2 [ 25 ], DINOv3 [ 34 ], MoCoV3 [ 3], multi-modal model CLIP [ 30 ], reconstructive model MAE [ 8], and joint-embedding predictive model I-JEPA [ 1 ] as teacher encoders. As shown in Table 6, sREPA yields consistent and significant performance gains over the vanilla SiT baseline across all tested encoders. By synergizing point-wise alignment with distribution-wise coherence, sREPA fully leverages the diverse semantic and structural information embedded within these encoders. This mechanism ensures the effective transfer of rich representations to the diffusion backbone, significantly enhancing generation quality and proving its effectiveness in standard training scenarios. 
+
+Compatibility Study. A key strength of our structural representation alignment is the orthogonality to the standard point-wise alignment objective. Existing frameworks primarily focus on refining point-to-point feature regression and overlook geometric relationships within the feature manifold. Consequently, sREPA can function as a complementary plug-and-play module , injecting explicit structural guidance into existing pipelines without conflicting with their original objectives. To demonstrate this versatility, we integrate sREPA into another two distinct representation alignment frameworks that rely exclusively on point-wise alignment: • iREPA [35 ]: An improved version of REPA that replaces the MLP projector with a convolu-tional layer and incorporates spatial normalization for target patch tokens. • REG [42 ]: A framework that provides discriminative guidance to the model by entangling image latents with the foundation model’s class token. We evaluate compatibility by injecting our structural alignment loss (using the MSE loss variant) into their original objectives and training from scratch. As detailed in Table 7, integrating sREPA consistently boosts the performance of both baselines. Specifically, for iREPA, the integration of structural supervision reduces FID from 21.4 to 20.3. For the stronger baseline REG, which achieves a remarkable performance (FID: 15.2, IS: 94.6) at 400k training iterations, injecting our method yields further gains (FID: 14.4, IS: 98.0). Consistent gains confirm that sREPA captures meaningful geometric dependencies neglected by point-wise constraints inherently. By seamlessly injecting structural supervision, sREPA effectively refines the student’s representational manifold, achieving superior generative fidelity without any architectural modifications. 
+
+## 5 Conclusion 
+
+In this paper, we have presented sREPA, an efficient and compatible structure alignment framework for improving diffusion training. Particularly, we validate that the commonly used point-wise alignment is insufficient for explicitly capturing the spatial structure in vision foundation models. We have shown incoporating explicit structure-aware supervision into different methods can consistently improve the generation performance over the original point-wise alignment method, demonstrating that explicit structural alignment substantially improves convergence speed and generation quality. 9References 
+
+[1] Mahmoud Assran, Quentin Duval, Ishan Misra, Piotr Bojanowski, Pascal Vincent, Michael Rabbat, Yann LeCun, and Nicolas Ballas. Self-supervised learning from images with a joint-embedding predictive architecture. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 15619–15629, 2023. [2] Tim Brooks, Bill Peebles, Connor Holmes, Will DePue, Yufei Guo, Li Jing, David Schnurr, Joe Taylor, Troy Luhman, Eric Luhman, et al. Video generation models as world simulators. OpenAI Blog , 1(8):1, 2024. [3] Xinlei Chen, Saining Xie, and Kaiming He. An empirical study of training self-supervised vision transformers. In Proceedings of the IEEE/CVF international conference on computer vision , pages 9640–9649, 2021. [4] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical image database. In 2009 IEEE conference on computer vision and pattern recognition , pages 248–255. Ieee, 2009. [5] Prafulla Dhariwal and Alexander Nichol. Diffusion models beat gans on image synthesis. Advances in neural information processing systems , 34:8780–8794, 2021. [6] Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim Entezari, Jonas Müller, Harry Saini, Yam Levi, Dominik Lorenz, Axel Sauer, Frederic Boesel, et al. Scaling rectified flow transformers for high-resolution image synthesis. In Forty-first international conference on machine learning , 2024. [7] Shanghua Gao, Pan Zhou, Ming-Ming Cheng, and Shuicheng Yan. Mdtv2: Masked diffusion transformer is a strong image synthesizer. arXiv preprint arXiv:2303.14389 , 2023. [8] Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, and Ross Girshick. Masked autoencoders are scalable vision learners. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 16000–16009, 2022. [9] Martin Heusel, Hubert Ramsauer, Thomas Unterthiner, Bernhard Nessler, and Sepp Hochreiter. Gans trained by a two time-scale update rule converge to a local nash equilibrium. Advances in neural information processing systems , 30, 2017. [10] Geoffrey Hinton, Oriol Vinyals, and Jeff Dean. Distilling the knowledge in a neural network. arXiv preprint arXiv:1503.02531 , 2015. [11] Jonathan Ho and Tim Salimans. Classifier-free diffusion guidance. arXiv preprint arXiv:2207.12598 ,2022. [12] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. Advances in neural information processing systems , 33:6840–6851, 2020. [13] Diederik P Kingma. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 , 2014. [14] Ivan Kobyzev, Simon JD Prince, and Marcus A Brubaker. Normalizing flows: An introduction and review of current methods. IEEE transactions on pattern analysis and machine intelligence , 43(11):3964–3979, 2020. [15] Theodoros Kouzelis, Efstathios Karypidis, Ioannis Kakogeorgiou, Spyros Gidaris, and Nikos Komodakis. Boosting generative image modeling via joint image-feature synthesis. arXiv preprint arXiv:2504.16064 ,2025. [16] Tuomas Kynkäänniemi, Tero Karras, Samuli Laine, Jaakko Lehtinen, and Timo Aila. Improved precision and recall metric for assessing generative models. Advances in neural information processing systems , 32, 2019. [17] Black Forest Labs. Flux. https://github.com/black-forest-labs/flux , 2023. [18] Xingjian Leng, Jaskirat Singh, Yunzhong Hou, Zhenchang Xing, Saining Xie, and Liang Zheng. Repa-e: Unlocking vae for end-to-end tuning with latent diffusion transformers. arXiv preprint arXiv:2504.10483 ,2025. [19] Yaron Lipman, Ricky TQ Chen, Heli Ben-Hamu, Maximilian Nickel, and Matt Le. Flow matching for generative modeling. arXiv preprint arXiv:2210.02747 , 2022. 
+
+10 [20] Xingchao Liu, Chengyue Gong, and Qiang Liu. Flow straight and fast: Learning to generate and transfer data with rectified flow. arXiv preprint arXiv:2209.03003 , 2022. [21] Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. arXiv preprint arXiv:1711.05101 , 2017. [22] Nanye Ma, Mark Goldstein, Michael S Albergo, Nicholas M Boffi, Eric Vanden-Eijnden, and Saining Xie. Sit: Exploring flow and diffusion-based generative models with scalable interpolant transformers. In 
+
+European Conference on Computer Vision , pages 23–40. Springer, 2024. [23] Yunyao Mao, Wengang Zhou, Zhenbo Lu, Jiajun Deng, and Houqiang Li. Cmd: Self-supervised 3d action representation learning with cross-modal mutual distillation. In European Conference on Computer Vision (ECCV) , 2022. [24] Charlie Nash, Jacob Menick, Sander Dieleman, and Peter W Battaglia. Generating images with sparse representations. arXiv preprint arXiv:2103.03841 , 2021. [25] Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. Dinov2: Learning robust visual features without supervision. arXiv preprint arXiv:2304.07193 , 2023. [26] Wonpyo Park, Dongju Kim, Yan Lu, and Minsu Cho. Relational knowledge distillation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 3967–3976, 2019. [27] William Peebles and Saining Xie. Scalable diffusion models with transformers. In Proceedings of the IEEE/CVF international conference on computer vision , pages 4195–4205, 2023. [28] Baoyun Peng, Xiao Jin, Jiaheng Liu, Dongsheng Li, Yichao Wu, Yu Liu, Shunfeng Zhou, and Zhaoning Zhang. Correlation congruence for knowledge distillation. In Proceedings of the IEEE/CVF international conference on computer vision , pages 5007–5016, 2019. [29] Dustin Podell, Zion English, Kyle Lacey, Andreas Blattmann, Tim Dockhorn, Jonas Müller, Joe Penna, and Robin Rombach. Sdxl: Improving latent diffusion models for high-resolution image synthesis. arXiv preprint arXiv:2307.01952 , 2023. [30] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from natural language supervision. In International conference on machine learning , pages 8748–8763. PmLR, 2021. [31] Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn Ommer. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 10684–10695, 2022. [32] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. U-net: Convolutional networks for biomedical image segmentation. In International Conference on Medical image computing and computer-assisted intervention , pages 234–241. Springer, 2015. [33] Tim Salimans, Ian Goodfellow, Wojciech Zaremba, Vicki Cheung, Alec Radford, Xi Chen, and Xi Chen. Improved techniques for training gans. In D. Lee, M. Sugiyama, U. Luxburg, I. Guyon, and R. Garnett, editors, Advances in Neural Information Processing Systems , volume 29. Curran Associates, Inc., 2016. [34] Oriane Siméoni, Huy V Vo, Maximilian Seitzer, Federico Baldassarre, Maxime Oquab, Cijo Jose, Vasil Khalidov, Marc Szafraniec, Seungeun Yi, Michaël Ramamonjisoa, et al. Dinov3. arXiv preprint arXiv:2508.10104 , 2025. [35] Jaskirat Singh, Xingjian Leng, Zongze Wu, Liang Zheng, Richard Zhang, Eli Shechtman, and Saining Xie. What matters for representation alignment: Global information or spatial structure? arXiv preprint arXiv:2512.10794 , 2025. [36] Jiaming Song, Chenlin Meng, and Stefano Ermon. Denoising diffusion implicit models. arXiv preprint arXiv:2010.02502 , 2020. [37] Yang Song, Jascha Sohl-Dickstein, Diederik P Kingma, Abhishek Kumar, Stefano Ermon, and Ben Poole. Score-based generative modeling through stochastic differential equations. arXiv preprint arXiv:2011.13456 , 2020. 
+
+11 [38] Ajinkya Tejankar, Soroush Abbasi Koohpayegani, Vipin Pillai, Paolo Favaro, and Hamed Pirsiavash. Isd: Self-supervised learning by iterative similarity distillation. 2021 IEEE/CVF International Conference on Computer Vision (ICCV) , pages 9589–9598, 2020. URL https://api.semanticscholar.org/ CorpusID:229297747 .[39] Frederick Tung and Greg Mori. Similarity-preserving knowledge distillation. In Proceedings of the IEEE/CVF international conference on computer vision , pages 1365–1374, 2019. [40] Shuai Wang, Zhi Tian, Weilin Huang, and Limin Wang. Ddt: Decoupled diffusion transformer. arXiv preprint arXiv:2504.05741 , 2025. [41] Chenfei Wu, Jiahao Li, Jingren Zhou, Junyang Lin, Kaiyuan Gao, Kun Yan, Sheng-ming Yin, Shuai Bai, Xiao Xu, Yilei Chen, et al. Qwen-image technical report. arXiv preprint arXiv:2508.02324 , 2025. [42] Ge Wu, Shen Zhang, Ruijing Shi, Shanghua Gao, Zhenyuan Chen, Lei Wang, Zhaowei Chen, Hongcheng Gao, Yao Tang, Jian Yang, et al. Representation entanglement for generation: Training diffusion transform-ers is much easier than you think. arXiv preprint arXiv:2507.01467 , 2025. [43] Jingfeng Yao, Bin Yang, and Xinggang Wang. Reconstruction vs. generation: Taming optimization dilemma in latent diffusion models. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 15703–15712, 2025. [44] Sihyun Yu, Sangkyung Kwak, Huiwon Jang, Jongheon Jeong, Jonathan Huang, Jinwoo Shin, and Saining Xie. Representation alignment for generation: Training diffusion transformers is easier than you think. 
+
+arXiv preprint arXiv:2410.06940 , 2024. [45] Boyang Zheng, Nanye Ma, Shengbang Tong, and Saining Xie. Diffusion transformers with representation autoencoders. arXiv preprint arXiv:2510.11690 , 2025. [46] Hongkai Zheng, Weili Nie, Arash Vahdat, and Anima Anandkumar. Fast training of diffusion models with masked transformers. arXiv preprint arXiv:2306.09305 , 2023. 
+
+12 A Implementation Details 
+
+A.1 Training Details 
+
+We follow the same experimental setup as in REPA [ 44 ]. All training experiments are conducted on the ImageNet [ 4 ] training split. For preprocessing, we adopt the protocol from the ADM framework in which images are center-cropped and resized to 256 × 256 resolution. For optimization, we use AdamW [ 13 , 21 ] with a constant learning rate of 1 × 10 −4, (β1, β 2) = (0 .9, 0.999) , and no weight decay. The global batch size is set to 256. During training, we use bfloat16 mixed precision and exponential moving average (EMA) for stable optimization. Following REPA [ 44 ], we use MLP with SiLU activations as the projection. For REG [ 42 ] and iREPA [ 35 ] experiments, we use the official open-source implementation. 
+
+A.2 Evaluation Details 
+
+For image generation evaluation, we strictly follow the ADM setup [ 5]. We report generation quality using Fréchet Inception Distance (gFID) [ 9 ], structural FID (sFID) [ 24 ], inception score (IS) [ 33 ], precision (Pre.) and recall (Rec.) measured on 50K generated images. For sampling, we use the same SDE Euler-Maruyama sampler in REPA and sample for 250 steps. For image decoding, we use the 
+
+stabilityai/sd-vae-ft-ema decoder to convert latent representations into images. 
+
+A.3 Hyperparameters and Computation Resources 
+
+We report the hyperparameters for architecture, interpolants, optimization, and our sREPA experi-ment settings in Table 8. “EM” denotes the Euler–Maruyama solver. All training and evaluation experiments are conducted on a single machine with 8 NVIDIA H200 GPUs. 
+
+## B Algorithm of sREPA 
+
+In this section, we provide the alignment procedure of sREPA in Algorithm 1. The algorithm summarizes how the flow matching loss, projection loss, and structural alignment loss are computed during training. 
+
+Algorithm 1 PyTorch-style Pseudocode of sREPA. 
+
+> # z, z_til: teacher, student features # lam_proj, lam_struc: loss weights # tau_s, tau_t: temperatures for student/teacher def sREPA_loss(z, z_til, mode=’MSE’): # 1. Point-wise Alignment z = F.normalize(z, dim=-1) z_til = F.normalize(z_til, dim=-1) loss_proj = -(z * z_til).sum(dim=-1).mean() # 2. Structural Alignment A = torch.bmm(z, z.transpose(1, 2)) A_til = torch.bmm(z_til, z_til.transpose(1, 2)) mask = torch.eye(A.shape[1]).bool() A = A[:, ~mask].reshape(A.shape[0], A.shape[1], A.shape[1] - 1) A_til = A_til[:, ~mask].reshape(A_til.shape[0], A_til.shape[1], A_til.shape[1] - 1) # 3. Loss Calculation if mode == ’MSE’: loss_struc = F.mse_loss(A, A_til) elif mode == ’KL’: P_t = F.softmax(A.detach() / tau_t, dim=-1) P_s = F.log_softmax(A_til / tau_s, dim=-1) loss_struc = F.kl_div(P_s, P_t, reduction=’batchmean’) return lam_proj * loss_proj + lam_struc * loss_struc
+
+13 Table 8: Hyperparameter settings across different model scales. 
+
+Backbone SiT-B SiT-L SiT-XL 
+
+Architecture 
+
+#Params 130M 458M 675M Input 32 ×32 ×4 32 ×32 ×4 32 ×32 ×4Layers 12 24 28 Hidden dim. 768 1,024 1,152 Num. heads 12 16 16 
+
+Interpolants 
+
+αt 1 − t 1 − t 1 − tσt t t twt σt σt σt
+
+Training obj. v-prediction v-prediction v-prediction Sampler EM EM EM Sampling steps 250 250 250 
+
+Optimization 
+
+Batch size 256 256 256 Optimizer AdamW AdamW AdamW lr 0.0001 0.0001 0.0001 
+
+(β1, β 2) (0.9, 0.999) (0.9, 0.999) (0.9, 0.999) 
+
+sREPA-MSE settings 
+
+λproj 1.0 1.0 1.0 
+
+λstruc 2.0 2.0 2.0 Alignment depth 4 8 8Encoder DINOv2-B DINOv2-B DINOv2-B 
+
+sREPA-KL settings 
+
+λproj 1.0 1.0 1.0 
+
+λstruc 0.5 0.5 0.5 Alignment depth 4 8 8Encoder DINOv2-B DINOv2-B DINOv2-B Training Iteration      
+
+> REPA +  SiTXL /2 sREPA  + SiTXL /2
+> 50K 100K 100K 50K 400K 100K 400K 50K 400K
+
+Figure 4: sREPA improves visual scaling. We observe that sREPA produces higher-quality images at 400K steps compared with the vanilla-REPA and generates more structurally meaningful images even in the early stages of training. Results for both methods are sampled using the same seed, noises, and class labels. 
+
+## C More Experiments 
+
+C.1 Qualitative Evaluation 
+
+We provide more qualitative comparisons between REPA and sREPA in Figure 4. We generate images from the same noises and labels using checkpoints at 50K, 100K, and 400K training iterations, respectively. As shown in Figure 4, sREPA generates more structurally meaningful images during early training stages, demonstrating superior image generation quality compared to the REPA baseline. 14 Table 9: Ablation on Loss Weights. To search for the best loss weights, we report results evaluated on SiT-B/2 trained for 400K iterations. Gray highlights the optimum for each variant. Method λproj λstruc FID ↓ sFID ↓ IS ↑
+
+REPA 0.5 - 24.4 6.40 59.9 sREPA-MSE 0.5 0.5 22.2 6.58 66.7 0.5 1.0 21.7 6.62 68.1 0.5 1.5 21.1 6.52 68.7 0.5 2.0 20.9 6.51 69.7 0.5 2.5 21.7 6.52 67.6 0.5 3.0 21.2 6.52 69.0 0.5 3.5 21.5 6.53 68.4 0.5 4.0 21.4 6.41 67.8 1.0 0.5 21.0 6.42 69.5 1.0 1.0 20.9 6.52 69.9 1.0 1.5 21.5 6.75 68.9 1.0 2.0 20.5 6.53 71.2 
+
+1.0 2.5 20.9 6.50 70.8 1.0 3.0 21.2 6.45 69.7 1.0 4.0 21.2 6.51 69.7 sREPA-KL 0.5 0.3 21.9 6.37 67.0 0.5 0.5 21.8 6.48 68.2 0.5 1.0 22.0 6.54 67.1 0.5 2.0 22.3 6.61 66.8 0.5 4.0 22.7 6.60 65.3 1.0 0.5 21.4 6.47 68.5 
+
+1.0 1.0 21.5 6.44 68.4 1.0 1.5 21.4 6.42 68.2 1.0 2.0 22.0 6.40 66.4 1.0 2.5 21.5 6.41 67.1 1.0 3.0 21.9 6.58 66.7 1.0 4.0 22.0 6.43 66.9 
+
+C.2 Ablation Study on Loss Weights 
+
+We conduct more comprehensive ablations on the hyperparameters λproj and λstruc . Table 9 details the optimization trajectory. All experiments are conducted on SiT-B/2 models trained at 400K iterations. 
+
+MSE Variant. We first fix the λproj = 0 .5 and perform a parameter sweep over λstruc to assess the contribution of structural loss to the overall performance. As shown in Table 9, the integration of structural constraints leads to immediate performance gains, with the optimal results achieved at 
+
+λstruc = 2 .0 (FID: 20.9). Subsequently, fixing λstruc = 2 .0, we find that increasing λproj = 1 .0
+
+further improve generation quality (FID: 20.5). Further increasing the weight of the structural loss will not bring more generation performance. This indicates that the optimal configuration requires a strong structural penalty balanced by a moderate semantic anchor; neither component can be maximized in isolation without disrupting the equilibrium. 
+
+KL Variant. Applying the same searching strategy to the KL formulation, we identify that the KL variant achieve best final performance when ( λproj = 1 .0, λ struc = 0 .5). Although the KL variant obtains a bit worse performance than the MSE variant, both variants outperform the base model SiT-XL and baseline model REPA. 
+
+C.3 Effect of Point-Wise Alignment Strength 
+
+In this section, we further analyze the effect of point-wise alignment strength in the proposed sREPA framework. Specifically, we increase the weight of the point-wise alignment objective in both REPA and sREPA to study whether stronger point-wise supervision alone can further improve performance. 15 Table 10: Effect of point-wise alignment strength. We increase the point-wise alignment strength in REPA and sREPA to demonstrate that the performance gain mainly comes from the structural supervision rather than stronger point-wise alignment. All experiments are conducted using SiT-B/2 trained for 1M iterations. 100K 400K 1M Method λproj λstruc FID ↓ IS ↑ FID ↓ IS ↑ FID ↓ IS ↑                                        
+
+> REPA 1.0 –43.3 32.9 22.3 66.8 17.4 82.1 REPA 3.0 –41.4 35.3 21.6 69.1 17.2 84.2 sREPA 1.0 2.0 39.9 36.6 20.5 71.2 16.5 85.0
+> sREPA 2.0 2.0 40.0 36.2 21.0 69.8 16.8 84.8 sREPA 4.0 2.0 40.2 37.5 21.4 70.3 16.8 84.8
+
+Table 11: Detailed evaluation results of SiT-XL+sREPA at 1M iterations with different classifier-free guidance scale w.Model #Params Iter. w FID ↓ sFID ↓ IS ↑ Prec. ↑ Rec. ↑                                                
+
+> SiT-XL/2 675M 7M 1.500 2.06 4.50 270.3 0.82 0.59 + sREPA 675M 1M 1.300 1.90 4.51 263.2 0.81 0.61 + sREPA 675M 1M 1.325 1.91 4.50 271.8 0.82 0.60 + sREPA 675M 1M 1.350 1.94 4.51 280.4 0.82 0.60 + sREPA 675M 1M 1.375 2.01 4.53 287.6 0.83 0.60 + sREPA 675M 1M 1.400 2.10 4.55 295.6 0.83 0.59
+
+As shown in Table 10, while increasing λproj alone yields only limited gains (i.e., FID 17.4 → 17.2 at 1M), sREPA with λproj = 1 .0, 2.0, 4.0 all perform better than the REPA baselines across all iterations. Besides, further increasing λproj within sREPA does not improve performance, and in fact slightly degrades it. These results suggest that the improvement cannot be explained solely by stronger point-wise supervision and structural supervision consistently provides additional and useful training signals beyond point-wise alignment. 
+
+C.4 Ablation Study on CFG Scale 
+
+We further conduct an ablation study about different classifier-free guidance scales with SiT-XL/2 + sREPA at 400K iterations. The results are shown in Table 11. In our evaluation with CFG, we choose CFG scale w = 1 .325 as the default setting. 
+
+C.5 Experiments on ImageNet 512 × 512 
+
+To further validate the scalability of sREPA with respect to the input image resolution, we conduct additional experiments on ImageNet 512 × 512 . We strictly follow the setup used in our ImageNet 
+
+256 × 256 experiment except an input dimension. We conduct this experiment on SiT/XL-2 model with DINOv2-B as target representation. As shown in Table 12, sREPA continues to provide consistent improvements over REPA under the same training budget. In particular, at 100 epochs, sREPA achieves a FID of 2.29 compared to 2.32 with REPA, while improving IS from 255.7 to 260.3. Similarly, at 80 epochs, sREPA achieves a slightly better FID (2.40 vs. 2.44) and higher IS (254.3 vs. 247.3). These results suggest that explicit structural supervision remains effective at higher resolutions. 
+
+## D Overhead Analysis 
+
+The proposed sREPA incorporates pairwise token matching with quadratic complexity in the token count, therefore, to better support our training efficiency claim, we measure the training throughput and peak GPU memory usage of REPA, sREPA and iREPA. All experiments are conducted using SiT-XL/2 models with the same batchsize setting on 8 Nvidia H200 GPUs. 16 Table 12: System-level comparison on ImageNet 512 × 512 . We use CFG with w = 1 .35 .Model Epochs FID ↓ sFID ↓ IS ↑ Pre. ↑ Rec. ↑                                                                  
+
+> Pixel diffusion
+> VDM ++ -2.65 -278.1 --ADM-G, ADM-U 400 2.85 5.86 221.7 0.84 0.53 Simple diffusion (U-Net) 800 4.28 -171.0 --Simple diffusion (U-ViT, L) 800 4.53 -205.3 --
+> Latent diffusion
+> MaskDiT 800 2.50 5.10 256.3 0.83 0.56 DiT-XL/2 600 3.04 5.02 240.8 0.84 0.54 SiT-XL/2 600 2.62 4.18 252.2 0.84 0.57 + REPA 80 2.44 4.21 247.3 0.84 0.56 + REPA 100 2.32 4.16 255.7 0.84 0.56
+> + sREPA(Ours) 80 2.40 4.24 254.3 0.84 0.54
+> + sREPA(Ours) 100 2.29 4.18 260.3 0.84 0.57
+
+Table 13: Training throughput and peak GPU memory usage of different methods on ImageNet at different resolutions. Method Dataset Throughput (img/s) ↑ Peak GPU Memory (GB) ↓                                    
+
+> REPA ImageNet 256 ×256 2044 27.3 iREPA ImageNet 256 ×256 2200 26.5 sREPA ImageNet 256 ×256 2008 27.3 REPA ImageNet 512 ×512 585 65.5 iREPA ImageNet 512 ×512 520 63.0 sREPA ImageNet 512 ×512 573 67.0
+
+As detailed in Table 13, the results show that the structure alignment loss introduces modest throughput overhead and minimal additional memory cost. Compared with the REPA baseline, sREPA reduces training throughput by only 1.77% on ImageNet 256 × 256 and 2.05% on ImageNet 512 × 512 . The extra memory cost from the Gram matrix is also small: 0.04 GB at 256 resolution and 1.50 GB at 512 resolution, corresponding to only 0.16% and 2.30% increases in peak GPU memory, respectively. These results indicate that the improvement in convergence speed and generation quality remains meaningful in practice, and the trade-off is worthful for diffusion transformer training. 
+
+## E Limitations and Future Work 
+
+Despite the improvements achieved by our method, several limitations remain to be addressed. First, although the overhead analysis in Table 13 shows that sREPA introduces only modest throughput and memory overhead on ImageNet 256 × 256 and 512 × 512 , the structural alignment loss still relies on pairwise token matching with quadratic complexity in the number of tokens. Therefore, its computational cost may become more pronounced when applied to substantially larger token grids, higher-resolution generation, video generation, or other settings with long spatio-temporal sequences. In such scenarios, the pairwise similarity matrix may become a non-negligible bottleneck in both computation and memory. Future work could investigate more scalable structural alignment strategies, such as local relation matching to reduce quadratic overhead while preserving the benefits of structural supervision. Second, although we validate the effectiveness of sREPA on ImageNet 256 × 256 and 512 ×
+
+512 , the current empirical scope remains relatively limited. Due to computational constraints, we do not extend our experiments to larger-scale text-to-image generation or long-video generation tasks. In such settings, accelerating the training of diffusion transformers remains an important and challenging problem. Integrating structural supervision to these more complex generative scenarios is an interesting direction for future work. 17 Figure 5: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with 
+
+w = 4 .0 for the class “Great white shark” (index 2). 
+
+## F Societal Impacts 
+
+F.1 Positive Impacts 
+
+The problem of accelerating diffusion transformer training is practically important. sREPA can improve both convergence speed and final generation quality for the training of diffusion transformers by introducing explicit structural supervision into representation alignment. This may benefit a range of applications built upon visual generative models, such as content creation, data synthesis, and visual asset generation, where high-quality image generation is required. Furthermore, since sREPA is implemented as a loss-level modification and does not require architectural redesign, it can be integrated into existing representation alignment frameworks seamlessly. This could lower the barrier for training diffusion transformer, and may also reduce the energy consumption for training large-scale diffusion models. 
+
+F.2 Negative Impacts 
+
+Despite these benefits, sREPA may also introduce potential societal risks. By improving the quality and training efficiency of image generators, sREPA makes realistic synthetic images easier to produce. Such capability could be misused to create misleading visual content, fabricated media, or other forms of visual misinformation, raising privacy and ethical concerns. 
+
+## G Declaration of LLM usage 
+
+In this work, LLMs were employed only for language-related tasks, including grammar correction, spelling checks, and word choice refinement, to improve the writing fluency of the paper. All scientific content, analyses, and conclusions were conceived, validated, and interpreted by the authors. 
+
+## H More Visualization Results 
+
+We present more visualization results of sREPA in Figure 5-16 with CFG w = 4 .0.18 Figure 6: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with 
+
+w = 4 .0 for the class “loggerhead turtle” (index 33). 
+
+Figure 7: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with 
+
+w = 4 .0 for the class “Maltese dog” (index 153). 
+
+Figure 8: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with 
+
+w = 4 .0 for the class “golden retriever” (index 207). 19 Figure 9: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with 
+
+w = 4 .0 for the class “Border collie” (index 232). 
+
+Figure 10: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with w = 4 .0 for the class “lion” (index 291). 
+
+Figure 11: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with w = 4 .0 for the class “panda” (index 388). 20 Figure 12: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with w = 4 .0 for the class “baseball” (index 429). 
+
+Figure 13: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with w = 4 .0 for the class “castle” (index 483). 
+
+Figure 14: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with w = 4 .0 for the class “fire truck” (index 555). 21 Figure 15: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with w = 4 .0 for the class “cheeseburger” (index 933). 
+
+Figure 16: The visualization results of SiT-XL/2 + sREPA utilize Classifier-Free Guidance (CFG) with w = 4 .0 for the class “volcano” (index 980). 22
