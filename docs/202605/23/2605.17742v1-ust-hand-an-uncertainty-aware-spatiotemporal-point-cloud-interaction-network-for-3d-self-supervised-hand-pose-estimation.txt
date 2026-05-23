@@ -1,0 +1,414 @@
+Title: UST-Hand: An Uncertainty-aware Spatiotemporal Point Cloud Interaction Network for 3D Self-supervised Hand Pose Estimation
+
+URL Source: https://arxiv.org/pdf/2605.17742v1
+
+Published Time: Tue, 19 May 2026 02:05:47 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# UST-Hand: An Uncertainty-aware Spatiotemporal Point Cloud Interaction Network for 3D Self-supervised Hand Pose Estimation 
+
+# Tianhao Han 1, Haoyang Zhang 5,6, Liang Xie 5,6, Haochen Chang 3, Kun Gao 4, Yuan Cheng 1,Pengfei Ren 2*, Erwei Yin 1,5,6*
+
+> 1
+
+# School of Computer Science, Shanghai Jiao Tong University, 
+
+> 2
+
+# Beijing University of Posts and Telecommunications, 3Sun Yat-sen University, 
+
+> 4
+
+# Peking University, 5Defense Innovation Institute, Academy of Military Sciences 
+
+> 6
+
+# Tianjin Artificial Intelligence Innovation Center   
+
+> tianhao jiao@sjtu.edu.cn; rpf@bupt.edu.cn; yinerwei1985@gmail.com
+
+# Abstract 
+
+Manually annotating accurate 3D hand poses is ex-tremely time-consuming and labor-intensive. Existing self-supervised hand pose estimation methods leverage the dis-crepancy between input images and rendered outputs, or multi-view consistency constraints, as the driving force to optimize networks and progressively refine pose accuracy. However, these methods are highly susceptible to noisy pseudo-labels and overlook the importance of fully exploit-ing fine-grained spatial correlations, which undermines the stability of model training. To address these issues, we propose UST-Hand, a self-supervised learning framework that estimates uncertainty distribution of hand pose and constructs a probabilistic point cloud feature space, which enables the complex spatiotemporal relationship modeling. UST-Hand employs a conditional normalizing flow model to capture hand pose distributions and samples diverse hy-potheses, facilitating robust learning under noisy pseudo-labels supervision with enhanced stability. These multi-hypothesis are mapped to a unified probabilistic 3D point cloud space for multi-view and temporal feature interac-tion, comprehensively exploring hand motion patterns and fine-grained spatial correlations. Extensive experiments on three challenging datasets demonstrate that UST-Hand achieves state-of-the-art performance, outperforming exist-ing self-supervised methods by up to 37.8% in Mean Per Vertex Position Error (MPVPE). 
+
+# 1. Introduction 
+
+Reconstructing 3D hands from images is a fundamental task in numerous human-computer interaction applications such 
+
+> *Corresponding Author.
+
+as virtual and augmented reality (AR/VR), action and ges-ture recognition [5], and robotic manipulation [1, 13, 58]. In recent years, various depth-based [29, 44, 45, 48] and RGB-based methods [7, 18, 41, 42, 49, 50, 57, 67] have been pro-posed for 3D hand pose estimation. However, the advance-ment of these methods is primarily driven by the availability of large-scale datasets with accurate 3D annotations, which are usually prohibitively expensive and labor-intensive to acquire. This annotation bottleneck significantly limits the scalability of models and hinders their deployment in di-verse real-world scenarios. To alleviate the reliance on costly 3D annotations, recent research has explored self-supervised learning paradigms. For instance, the pioneering method S 2Hand [12] attempts to supervise hand reconstruction using noisy pseudo-labels produced by an off-the-shelf 2D joint detector, leveraging the discrepancy between input images and rendered out-puts to drive network optimization. Building upon this paradigm, HaMuCo [68] introduces cross-view feature in-teraction and collaborative learning within the 2D visual space to progressively enhance estimation accuracy. However, pseudo-labels from 2D pose estimators in-herently contain significant noise, and their indiscriminate use for supervision results in unstable network training. Moreover, existing methods fail to adequately exploit fine-grained spatial correlations and temporal dynamics, result-ing in an insufficient capture of complex 3D spatial rela-tionships and hand motions. To address the noise problem, we aim to preserve the uncertainty inherent in single-view estimation. By constructing a continuous, shared 3D space capable of capturing complex spatiotemporal relationships, we can leverage multi-view and temporal cues for effective pose disambiguation. In contrast to existing deterministic approaches, this strategy more effectively preserves 3D in-formation, avoids interference caused by noisy 2D pseudo-
+
+> arXiv:2605.17742v1 [cs.CV] 18 May 2026
+
+labels, and facilitates the robust interaction of diverse pose hypotheses within a unified probabilistic feature space. To this end, we propose UST-Hand, an Uncertainty-aware Spatiotemporal point cloud interaction network for 3D hand pose estimation from synchronized and calibrated multi-view video sequences. Unlike previous methods that directly use deterministic pseudo-labels, UST-Hand effec-tively estimates uncertainty distributions and constructs a probabilistic point cloud space to comprehensively model hand motion. Specifically, UST-Hand employs a condi-tional normalizing flow to model the distribution of hand joints and sample diverse hypotheses for each view. This probabilistic formulation explicitly preserves uncertainty information, enabling the network to learn robust represen-tations and significantly improving training stability by pre-venting noisy visual evidence from dominating the learning process. Subsequently, UST-Hand lifts these multi-view 2D hypotheses into a unified probabilistic 3D point cloud space for multi-view and temporal feature fusion. Furthermore, a Spatiotemporal Point Transformer (STPT) is designed as a dynamic interaction module to comprehensively capture fine-grained spatial correlations and temporal dynamics in-herent in complex 3D hand structures and continuous mo-tion trajectories. It leverages neighborhood interaction and iterative refinement to progressively improve hand pose es-timation. By integrating the uncertainty-aware spatiotem-poral disambiguation cue, UST-Hand effectively achieves high-quality 3D hand reconstruction, demonstrating excep-tional robustness even under severely noisy pseudo-labels. Experiments on three challenging multi-view hand pose estimation datasets—HanCo [70], DexYCB [6], and OakInk [62]—show that UST-Hand outperforms existing self-supervised methods by up to 37.8% in Mean Per Vertex Position Error (MPVPE). Remarkably, our approach deliv-ers comprehensive improvements even under the challeng-ing supervision of highly noisy pseudo-labels. More im-pressively, when leveraging pseudo-labels generated by the strongest supervised state-of-the-art (SOTA) models, our method still achieves significantly enhanced estimation ac-curacy. In summary, our contributions are listed as follows: • We propose UST-Hand, a self-supervised learning frame-work that employs conditional normalizing flows to model hand pose uncertainty distributions and sample diverse hypotheses. This enables robust learning un-der noisy pseudo-label supervision with significantly en-hanced training stability. • We introduce a unified probabilistic 3D point cloud fea-ture space for multi-view and temporal interaction, and design a Spatiotemporal Point Transformer (STPT) that leverages neighborhood interaction and iterative refine-ment to comprehensively explore fine-grained spatial cor-relations and hand motion patterns. • Extensive experiments on three challenging benchmarks demonstrate that UST-Hand achieves SOTA performance compared with existing self-supervised methods. 
+
+# 2. Related Work 
+
+3D Hand Pose Estimation with Limited Supervision. 
+
+While fully-supervised 3D hand pose estimation has ad-vanced significantly with large-scale datasets [6, 19, 25, 26, 33, 39, 60, 62, 69, 70], acquiring precise 3D annotations re-mains prohibitively expensive. Consequently, recent efforts have shifted towards limited supervision paradigms [4, 8, 10, 12, 46, 47, 51, 55, 56, 59, 61, 65, 68], leveraging syn-thetic data [10, 59, 61], depth regularizers [4], or biome-chanical constraints [55]. Notably, self-supervised approaches like S 2Hand [12] and HaMuCo [68] utilize 2D pseudo-labels from off-the-shelf detectors, with the latter incorporating multi-view consistency. However, these deterministic methods are highly susceptible to inherent pseudo-label noise and under-utilize fine-grained spatiotemporal correlations. UST-Hand addresses these critical bottlenecks by modeling pose uncer-tainty distributions and establishing a probabilistic 3D point cloud space for robust spatiotemporal interaction. 
+
+Multi-Hypothesis Pose Estimation. Given the inherent ambiguity in the 2D-to-3D lifting process of pose estima-tion, some studies have adopted the strategy of generat-ing multiple hypotheses [2, 3, 9, 14, 17, 22, 31, 32, 34– 38, 40, 53, 54, 64]. Early methods relied on random sam-pling [53], multiple regression heads [2], or VAEs [34, 64]. Recently, normalizing flows have emerged as a power-ful tool for learning complex and ambiguous pose distribu-tions [9, 14, 17, 35]. While methods like Ge et al . [22] re-fine estimated distributions in discrete stages, our approach uniquely employs conditional normalizing flows to sample diverse view-specific hypotheses. We then lift these hy-potheses into a unified probabilistic point cloud space, en-abling stable and effective spatiotemporal disambiguation even under noisy pseudo-label supervision. 
+
+Point Cloud Processing. As a compact spatial representa-tion, point clouds preserve 3D spatial structure while avoid-ing redundant storage. Qi et al . pioneered deep learning for point cloud processing, introducing PointNet [43], which paved the way for subsequent local convolution operators. More recently, Point Transformer [66] uses vector atten-tion for local neighboring points, while Point Cloud Trans-former [24] proposes a neighbor embedding strategy. In 3D hand pose estimation, point-based networks have been utilized for point-wise regression [20, 21], canoni-cal alignment [11, 15], and multi-view frustum intersection (e.g., POEM [63]). In contrast to these deterministic rep-resentations, our work explicitly constructs a probabilistic 3D point cloud space. Furthermore, we design a Spatiotem-poral Point Transformer (STPT) that iteratively integrates distributional uncertainty to comprehensively capture fine-Figure 1. Overview of the UST-Hand framework. The reconstruction consists of two stages: (1) generating confidence-aware 2D features and sampling multi-view hypotheses via conditional normalizing flow (NF) to model uncertainty, and (2) lifting them into a unified probabilistic 3D point cloud space to explore spatiotemporal correlations via a Spatiotemporal Point Transformer (STPT). 
+
+grained spatial correlations and temporal dynamics. 
+
+# 3. Method 
+
+UST-Hand is a self-supervised framework that achieves accurate and robust 3D hand pose estimation by explic-itly modeling uncertainty distributions and leveraging spa-tiotemporal correlations under noisy pseudo-label supervi-sion. The overview of UST-Hand is illustrated in Fig. 1. To effectively decouple the noise inherent in 2D detec-tions from the 3D lifting process, our framework operates in two synergistic stages: probabilistic 2D multi-hypothesis generation and 3D point cloud spatiotemporal interaction. Assuming a set of calibrated multi-view image sequences 
+
+I = {Iv,t }V,T v=1 ,t =1 captured from V views across T frames, UST-Hand aims to reconstruct 3D hand joints J 3D ∈ Rk×3
+
+and vertices V3D ∈ Rm×3, where k = 21 and m = 778 , re-spectively. The supervisory signal relies exclusively on 2D pseudo-labels J 2D pse ∈ Rk×2 generated by an off-the-shelf hand pose detector, making our uncertainty-aware formula-tion essential to prevent deterministic collapse and ensure stable convergence during model training. 
+
+3.1. Heatmap-based Hand Joint Estimation 
+
+To extract comprehensive visual representations from multi-view inputs, we adopt a pre-trained convolutional neural network (CNN) backbone built on residual struc-tures. Hierarchical feature learning is realized through stacked residual blocks, producing multi-level feature maps 
+
+F = {Fi}4
+
+> i=1
+
+. Each block progressively halves the spatial dimension while increasing the channel dimension to cap-ture abstract semantic information. We employ cascaded upsampling modules to restore deep features to higher spatial resolutions in a bottom-up manner, fusing them with corresponding hierarchical features from the encoding phase at each step. After restoring the resolution to 1/8 of the original input size, a 1 × 1 convolutional layer trans-forms the multi-scale feature map Fms into 2D likelihood heatmaps. The output heatmap H encodes the spatial prob-ability distribution of each joint pi ∈ J 2D hm . We compute the joint location and corresponding confidence by: 
+
+pi = X
+
+> hu
+
+X
+
+> hv
+
+(hu, h v ) · ˜Hi(hu, h v ), (1) conf i = max( Hi), (2) where hu, h v represent the horizontal and vertical coordi-nates of Hi, and ˜H is the normalized heatmap ensuring all values sum to 1. The joint confidence c = {conf i}ki=1 
+
+serves as a crucial indicator of pseudo-label quality, guiding subsequent joint-wise feature fusion, multi-view triangula-tion, and training loss weighting. 
+
+3.2. Confidence-aware Feature Interaction 
+
+To mitigate the adverse effects of noisy pseudo-labels, we design a confidence-aware mechanism that adaptively in-tegrates reliability information into cross-view feature in-teractions. We first construct multi-view joint features through two complementary components: (1) spatial-aware joint features Gpose ∈ RV ×k×Dp extracted from the high-resolution feature map F4 using SAIGB [67], providing structural guidance across all views; (2) joint-aligned local features Gjaf ∈ RV ×k×Da obtained via bilinear interpola-tion (BLI) on J 2D hm and Fms . Consequently, the initial graph is formed through feature concatenation: 
+
+Ginit = Gpose ∥ Gjaf 
+
+ ∈ RV ×k×D , D = Dp + Da. (3) To explicitly incorporate uncertainty awareness, we pro-pose a confidence-aware self-attention (CASA) mechanism. Specifically, we augment the initial graph by concatenating it with joint confidence and obtain ˜G = Ginit ∥ c, then we compute the self-attention as: 
+
+Q = Wq ˜G, K = Wk ˜G, V = Wv ˜G, (4) Attn = softmax 
+
+ QK ⊤
+
+√d
+
+
+
+V. (5) By embedding confidence into Q/K/V, tokens associ-ated with low-quality pseudo-labels naturally yield smaller query/key magnitudes and reduced mutual affinity, thereby suppressing their influence. After passing through alternat-ing adaptive-GCN and CASA layers, ˜G evolves into a ro-bust cross-view interactive graph ˜G′. Finally, the fused fea-ture Ffuse is obtained through an MLP, serving as the com-prehensive 2D visual representation. 
+
+3.3. Uncertainty-Aware Multi-Hypothesis Genera-tion 
+
+Unlike previous methods that rely on deterministic pseudo-labels, UST-Hand explicitly models the uncertainty dis-tribution of hand poses to generate diverse hypotheses. We employ a conditional normalizing flow model, Real-NVP [16], which learns a bijective mapping between a la-tent prior z ∼ N (0, I) and 2D joint positions x, conditioned on the cross-view features Ffuse :
+
+x = fθ (z; Ffuse ), z = f −1 
+
+> θ
+
+(x; Ffuse ), (6) where fθ denotes the invertible transformation parameter-ized by θ. The conditional distribution is: 
+
+ˆp(x|Ffuse ) = p(z) det ∂f θ (z, Ffuse )
+
+∂z
+
+> −1
+
+. (7) During training, we utilize the inverse transformation 
+
+f −1 
+
+> θ
+
+to map pseudo-labels into the latent space and maxi-mize the log-likelihood log ˆ p(xpse |Ffuse ). During inference, we sample M instances zr from the prior distribution and one key instance z0 from the mean, generating M + 1 hy-potheses {x0; xr } through fθ . Conceptually, rather than ap-plying standard geometric constraints (e.g., RANSAC), the normalizing flow predicts a soft, continuous reliability dis-tribution for each view. This probabilistic formulation en-sures that partially occluded views are down-weighted but still contribute, while unreliable signals are effectively sup-pressed. This explicitly prevents noisy evidence from dom-inating the subsequent attention-based aggregation, leading to significantly enhanced training stability. 
+
+3.4. Unified Probabilistic 3D Point Cloud Space 
+
+To facilitate comprehensive spatiotemporal reasoning, we construct a unified probabilistic 3D point cloud space that aggregates multi-view information. We perform confidence-weighted Direct Linear Transform (DLT) tri-angulation on the sampled multi-hypothesis keypoints 
+
+{x0; xr }, generating a 3D point cloud P = {PA; PQ} in world coordinates. Here, the anchor point cloud PA, derived from random samples xr , is fixed to preserve distributional uncertainty, while the query point cloud PQ, derived from the mode x0, serves as the refinement target that dynami-cally aggregates information from PA.To embed visual context into this geometric space, we augment the multi-scale feature maps Fms with 2D spatial sine positional encoding to enhance multi-view awareness: 
+
+Fms = Fms + FPE . (8) We project each 3D point to image coordinates (up, v p)
+
+across all views using camera parameters, and gather vi-sual features {Fi}Vi=1 via BLI. These multi-view features are fused through a bottleneck network to produce point-wise features FP. This establishes a unified probabilistic 3D point cloud space jointly representing geometry and visual cues, enabling effective spatiotemporal interaction. 
+
+3.5. Spatiotemporal Point Transformer for Iterative Refinement 
+
+We formulate the anchor point cloud as PA = ( CA, FA)
+
+and the query point cloud as PQ = ( CQ, FQ), where C and 
+
+F denote coordinates and features, respectively. To com-prehensively explore fine-grained spatial correlations and temporal motion patterns, we design STPT that iteratively refines PQ through a dual-stage attention mechanism. 
+
+Spatiotemporal Self-Attention. Our dual-stage attention mechanism processes query sequences of shape (B ×
+
+T, J, D ), where B, T , and J represent batch size, tem-poral window size, and the number of joints, respec-tively. We first model intra-frame geometric relationships via neighborhood-aware spatial attention. For each query point i, we retrieve its k-nearest neighbors and compute: 
+
+Fs 
+
+> Q
+
+= SpatialAttn (CQ,i − CQ,j ), (9) where relative position encoding δs = θ(CQ,i − CQ,j ) en-codes the geometric context between point i and its neigh-borhood j, capturing local structural dependencies. Following spatial attention, features are reshaped to 
+
+(B, T, J, D ) to enable temporal modeling. We inject learn-able frame-wise positional embeddings and apply temporal self-attention along the time axis for each hand joint to cap-tures hand motion patterns across temporal sequences: 
+
+Fst  
+
+> Q
+
+= TemporalAttn (Fs
+
+> Q
+
+). (10) 
+
+Cross-Attention and Iterative Position Refinement. We establish cross-set correspondence between temporally-aware query features Fst  
+
+> Q
+
+and the anchor point cloud PA to leverage distributional uncertainty: 
+
+˜FQ,i = CrossAttn (Fst 
+
+> Q,i
+
+, {FA,j }j∈X i ), (11) where CrossAttn denotes the cross-attention operation with position encoding δ = θ(CQ,i − CA,j ) over the k-nearest neighbors Xi. The refinement can be formulated as: 
+
+˜CQ,i = CQ,i + FFN ( ˜FQ,i ). (12) Through K refinement iterations, STPT progressively improves pose estimation by integrating spatial neighbor-hood information, temporal motion cues, and distributional uncertainty from the anchor point cloud. 
+
+Parametric Output. Upon completing K refinement it-erations, we obtain final query representations ˜FQ and re-fined coordinates ˜CQ. We employ the MANO model [52] to generate explicit 3D hand mesh V3D from the refined joint positions, producing the final pose estimation. 
+
+3.6. Loss Functions 
+
+During the training phase, we strictly use 2D joint locations predicted by an offline detector as pseudo-labels. A custom mean squared error (MSE) loss is adopted to supervise the predicted heatmap Hpred by: 
+
+Lhmap = 1
+
+k
+
+> k
+
+X
+
+> i=1
+
+(Hpred ,i − H pse ,i )2, (13) where the pseudo-label heatmap Hpse ,i is generated from 
+
+J 2D pse ,i through a 2D Gaussian function with σ = 2 .We further supervise the 2D joint locations decoded from the predicted heatmap by: 
+
+Lhm2d = 1
+
+k
+
+> k
+
+X
+
+> i=1
+
+ J 2D hm ,i − J 2D pse ,i 
+
+2 . (14) We utilize a negative log-likelihood loss to control the uncertainty distribution of multi-hypothesis sampling: 
+
+Lnll = − log ˆ p(x|Ffuse ). (15) For the refined query points J 3D query and final hand joint 
+
+J 3D mano , we project them onto the pixel space of each view to get their 2D positions J 2D query and J 2D mano . We then supervise them with an L2 distance loss using 2D pseudo-labels: 
+
+Lproj2d = 1
+
+N
+
+> N
+
+X
+
+> j=1
+
+1
+
+k
+
+> k
+
+X
+
+> i=1
+
+conf i J 2D query ,i − J 2D pse ,i 
+
+> 22
+
+!
+
++ 1
+
+k
+
+> k
+
+X
+
+> i=1
+
+conf i J 2D mano ,i − J 2D pse ,i  
+
+> 22
+
+.
+
+(16) The final loss can be formulated as: 
+
+L = λ0Lhmap + λ1Lhm2d + λ2Lnll + λ3Lproj2d , (17) where λ0, λ 1, λ 2, λ 3 are the tradeoff parameters to balance the loss scale. Specifically, we set λ0 = 0 .001 , λ1 = 10 ,
+
+λ2 = 0 .1, and λ3 = 10 .
+
+# 4. Experiment 
+
+4.1. Datasets and Evaluation Metrics 
+
+HanCo. HanCo [70] provides multi-view hand image se-quences captured at 5Hz by 8 synchronized cameras, of-fering crucial temporal and spatial consistency for unsu-pervised learning. It contains 107,538 temporal instances, yielding 860,304 RGB images in total. 
+
+DexYCB-MV. DexYCB [6] captures hand-object manipu-lations from 8 viewpoints. We adopt the official ’S0’ parti-tion and retain only right-hand observations. By aggregat-ing synchronized multi-view images per temporal instance, we construct DexYCB-MV, comprising 25,387 training, 1,412 validation, and 4,951 testing multi-view samples. 
+
+OakInk-MV. OakInk [62] provides 230K images from a 4-camera setup. Following the official ’SP2’ protocol, we construct OakInk-MV by synchronizing images across all views. For sequences involving two hands ( ∼25%), each hand is processed independently. The dataset yields 58,692 m.v. training samples and 19,909 testing samples. 
+
+Metrics. We evaluate our model using Mean Per Joint Po-sition Error (MPJPE) and Mean Per Vertex Position Error (MPVPE), along with their Procrustes-aligned variants (PA-J/PA-V) [23]. We also report the F-Score [12] at 5mm and 15mm, and the Area Under the Curve (AUC) for the Per-centage of Correct Keypoints (PCK) across 100 uniformly spaced thresholds ranging from 0 to 50mm. 
+
+4.2. Implementation Details 
+
+The implementation is based on PyTorch and executed on dual 24G NVIDIA RTX 4090 GPUs. Training is conducted over 30 epochs using a batch size of 8. Model parame-ters are optimized via the Adam algorithm, starting with a learning rate of 3 × 10 −4 which undergoes a tenfold reduc-tion at epoch 20. Across all multi-view experimental set-tings, ResNet34 [27] serves as the backbone network, with parameters initialized from ImageNet pre-training weights. For temporal processing, we construct a sliding window of length 5 with 1 stride, positioned centrally around each frame in the video sequence. For frames lacking suffi-cient context (at sequence boundaries), we apply replica-tion padding by duplicating the closest available frames. The temporal and batch axes are merged prior to apply-ing temporal self-attention mechanisms, then separated dur-ing attention computation to effectively model hand move-ment dynamics. During training, we employ conventional Table 1. Quantitative results on three multi-view datasets, HanCo, DexYCB-MV, OakInk-MV. The AUC-V and AUC-J are computed on MPVPE and MPJPE respectively, with the thresholds setting to 0-50 mm for all three datasets. 
+
+Methods Hand vertices Hand joints MPVPE ↓ PA-V ↓ AUC-V ↑ F@5 ↑ F@15 ↑ MPJPE ↓ PA-J ↓ AUC-J ↑
+
+> HanCo (8 views)
+
+1 UST-Hand 5.82 4.13 0.884 0.749 0.999 5.19 3.50 0.897 
+
+2 HaMuCo [68] 9.35 5.38 0,813 0.581 0.974 8.73 4.77 0.826 3 Wilor [42] 12.70 5.49 0.746 0.432 0.937 11.80 5.95 0.765 4 UST-Hand w/o hmap. 6.42 4.33 0.872 0.716 0.998 5.80 3.69 0.884 5 UST-Hand w/o proj. 6.14 4.25 0.877 0.716 0.998 5.64 3.80 0.887 6 UST-Hand w/o STPT. 6.05 4.23 0.879 0.712 0.998 5.53 3.66 0.890 DexYCB-MV (8 views)  7 UST-Hand 8.16 4.81 0.837 0.609 0.982 7.84 5.31 0.843 
+
+8 HaMuCo [68] 9.54 5.32 0.810 0.539 0.963 9.25 5.71 0.816 9 Wilor [42] 10.83 5.88 0.787 0.524 0.936 10.52 6.08 0.793 10 UST-Hand w/o hmap. 8.94 5.43 0.825 0.554 0.973 8.76 5.90 0.825 11 UST-Hand w/o proj. 8.70 5.15 0.826 0.574 0.979 8.40 5.59 0.832 12 UST-Hand w/o STPT. 8.78 5.17 0.825 0.571 0.976 8.46 5.69 0.831 OakInk-MV (4 views)  13 UST-Hand 10.02 5.72 0.800 0.511 0.982 8.70 5.58 0.827 
+
+14 HaMuCo [68] 13.04 7.12 0.751 0.433 0.937 12.03 6.90 0.770 15 Wilor [42] 15.66 7.37 0.707 0.429 0.887 15.08 7.49 0.718 16 UST-Hand w/o hmap. 11.75 6.18 0.778 0.487 0.977 10.08 5.99 0.803 17 UST-Hand w/o proj. 10.41 5.77 0.793 0.501 0.981 9.08 5.69 0.820 18 UST-Hand w/o STPT. 10.77 5.86 0.789 0.490 0.980 9.01 5.74 0.818 
+
+data augmentation, including random center offset (within 
+
+±5% ), scaling ( ±6% ), color jittering ( ±30% ), and rotation (±10 ◦). To preserve consistency across time, all frames within the same numbers receive identical augmentation. 
+
+4.3. Quantitative Evaluation 
+
+As shown in Tab. 1, our UST-Hand method (rows #1, #7, #13) achieves state-of-the-art performance across all three datasets under the same multi-view settings. Compared to HaMuCo [68] (rows #2, #8, #14), the previous state-of-the-art self-supervised approach, UST-Hand significantly re-duces MPVPE by 37.8% on HanCo (9.35mm →5.82mm), 14.5% on DexYCB-MV (9.54mm →8.16mm), and 23.2% on OakInk-MV (13.04mm →10.02mm). Similar substantial improvements are observed in MPJPE and other evaluation metrics, with AUC-V gains of 16.2%, 3.3%, and 6.5% re-spectively. To the best of our knowledge, HaMuCo remains the only other method that exploits multi-view data for self-supervised hand pose estimation. We further compare against Wilor [42] (rows #3, #9, #15), a SOTA offline monocular hand pose detector for pro-ducing pseudo labels. Wilor is selected for two key reasons: first, its superior occlusion-handling capability makes it a rigorous benchmark for performance evaluation; second, as an advanced method capable of generating 3D hand meshes, it provides direct and meaningful reference for assessing 3D reconstruction quality. Experimental results show that our method substantially outperforms Wilor in 3D pose estima-tion, demonstrating the effectiveness of our network archi-tecture and training strategy. 
+
+4.4. Ablation Study 
+
+To validate the contribution of each component, we con-duct comprehensive ablation studies on all three datasets, with results presented in rows #4-6, #10-12, and #16-18 of Tab. 1. See the supplement for more details. 
+
+Heatmap Module. The heatmap generation in our first stage provides essential coordinate priors for 2D visual fea-ture interaction and produces joint confidence scores that reflect pseudo-label reliability. These confidence scores guide feature interaction, algebraic triangulation, and loss weighting throughout the network. Removing heatmaps (rows #4, #10, #16) and setting all confidences to 1 leads to MPVPE increases of 10.3%, 9.6%, and 17.3% across the three datasets, confirming that confidence-weighted initial-ization is crucial for handling noisy pseudo-labels. 
+
+Projection Fusion Module. This component connects the 3D probabilistic point cloud with 2D visual observations by fusing the retrieved 2D features into comprehensive 3D vi-sual perception. Ablating this module (rows #5, #11, #17) and simply concatenating 2D features degrades MPVPE by 5.5%, 6.6%, and 3.9%, highlighting the importance of explicitly establishing geometry-vision correspondence for accurate pose refinement. 
+
+STPT Module. As the key component of our second stage, STPT performs information interaction over the point cloud Table 2. Quantitative results (mm) on the HanCo dataset.                                                            
+
+> View Method MPJPE ↓PA-J ↓
+> 2HaMuCo 10.14 5.92 UST-Hand t1 7.18 4.84
+> 4HaMuCo 9.60 5.53 UST-Hand t1 6.01 3.93
+> 6HaMuCo 8.92 5.11 UST-Hand t1 5.67 3.67
+> 8HaMuCo 8.73 4.77 UST-Hand t1 5.38 3.55
+> Table 3. Multi-view inference results under the supervision of 2D pseudo-labels of varying quality on the HanCo dataset.
+> Method MPJPE ↓PA-J ↓
+> Self-Supervised (OpenPose Pseudo-labels):
+> EpipolarTrans [28] 11.2 9.0 LT-Algebraic [30] 10.3 7.8 LT-Volumetric [30] 10.6 8.0 HaMuCo [68] 8.8 5.3 UST-Hand 7.5 5.0
+> Self-Supervised (Wilor Pseudo-labels ):
+> EpipolarTrans [28] 9.3 7.9 LT-Algebraic [30] 8.5 5.7 LT-Volumetric [30] 8.4 5.8 HaMuCo [68] 8.7 4.6 UST-Hand 5.2 3.5
+> Fully-Supervised (2D Ground-truth)
+> EpipolarTrans [28] 6.2 4.2 LT-Algebraic [30] 5.5 3.6 LT-Volumetric [30] 5.8 3.6 HaMuCo [68] 6.0 3.2 UST-Hand 3.7 2.4
+
+to continuously refine hand pose features by exploring com-plex spatial-temporal relationships across multiple views and frames. Without STPT (rows #6, #12, #18), directly estimating MANO parameters from query features causes MPVPE to increase by 4.0%, 7.6%, and 7.5%. This demon-strates the importance of explicit reasoning hand pose over a unified space through spatiotemporal interaction. 
+
+Sparse-view Robustness. To evaluate performance under limited camera setups, we compare HaMuCo against our single-frame variant (UST-Hand t1) across varying view densities on the HanCo dataset, using Wilor pseudo-labels. As shown in Tab. 2, UST-Hand t1 consistently achieves state-of-the-art accuracy under every view configuration. Notably, even without relying on temporal cues, our method  
+
+> Figure 2. The relationship between confidence and joints error.
+> Figure 3. Average 2D pixel error under different view settings.
+> Figure 4. visualization of 2D joint predictions (overlaid on the images) among the ground-truth (GT), offline hand pose detectors (Wilor and OpenPose), the compared method HaMuCo, and UST-Hand on the HanCo dataset. Regions with significant prediction errors are highlighted with red circles.
+
+significantly outperforms HaMuCo in the standard 8-view setting and maintains striking superiority in highly sparse scenarios (yielding MPJPE improvements of 2.96, 3.59, 3.25, and 3.35 mm under 2, 4, 6, and 8 views, respectively). While fewer views inevitably increase geometric ambiguity, our uncertainty-aware formulation effectively avoids deter-ministic collapse, demonstrating exceptional robustness and generalization across diverse multi-view setups. 
+
+4.5. Robustness to Pseudo-Label Quality 
+
+To evaluate robustness under varying pseudo-label qual-ity, we conduct experiments with three supervision set-tings on HanCo, as shown in Tab. 3. We compare against EpipolarTrans [28], Learnable Triangulation (LT) [30], and HaMuCo [68], where EpipolarTrans and LT are adapted Figure 5. The 3D mesh visualization (overlaid in the images) between ground-truth, Wilor, and UST-Hand on (a) HanCo, (b) DexYCB-MV, and (c) OakInk-MV datasets. The regions with significant prediction errors have been circled in red. 
+
+from fully-supervised multi-view human pose estimation to self-supervised settings. Unlike deterministic methods like HaMuCo that tend to overfit to pseudo-label noise, our uncertainty-aware formulation effectively denoises the 2D pseudo-labels. Using low-quality OpenPose detections that lack hand model constraints and exhibit large errors, UST-Hand achieves 7.5 mm MPJPE, outperforming HaMuCo by 14.8%. Notably, even when building upon Wilor with ex-ceptional quality and occlusion robustness, UST-Hand still achieves substantial improvements with 5.3 mm MPJPE, outperforming HaMuCo by 26.4%. Under ground-truth 2D supervision exploring the upper bound, UST-Hand achieves 3.7 mm MPJPE and 2.4 mm PA-MPJPE, surpass-ing HaMuCo by 38.3%. Across all settings, UST-Hand con-sistently achieves the best performance, proving our inher-ent robustness against noisy supervision and the capability to effectively exploit high-quality cues. 
+
+4.6. Qualitative Result 
+
+Fig. 2 presents the confidence visualization results of se-lected hand keypoints for UST-Hand during training and testing on the HanCo dataset. A significant inverse corre-lation between the predicted confidence scores and pose es-timation errors is observed. This demonstrates that UST-Hand effectively learns meaningful keypoint confidences that accurately reflect prediction quality. Fig. 3 compares the average 2D pixel errors across vary-ing view counts. Here, Wilor provides the noisy pseudo-labels for self-supervised training, exhibiting natural error fluctuations as views change. The curves demonstrate that UST-Hand consistently achieves lower errors than the Wilor baseline under all settings. In contrast, HaMuCo degrades severely under sparse views and merely approaches Wilor with dense views. This indicates a tendency for HaMuCo to overfit to noisy supervision, whereas UST-Hand overcomes this limitation, showcasing exceptional robustness. Fig. 4 illustrates a qualitative comparison of 2D hand keypoint predictions on the HanCo dataset. Among the of-fline hand pose detectors, the 2D keypoints generated by OpenPose are highly susceptible to occlusion and image truncation, resulting in substantial noise. While Wilor sig-nificantly improves occlusion robustness and yields more plausible hand poses, substantial errors still remain. In con-trast, by effectively leveraging geometric correction, our method demonstrates superior occlusion handling ability. UST-Hand not only outperforms both the offline detectors and HaMuCo, but also achieves 2D keypoint predictions that are most consistent with the ground truth. Furthermore, Fig. 5 shows the visualization results of 3D hand meshes from 3 different views. The comparative re-sults vividly demonstrate that our method improves the ac-curacy of 3D hand reconstruction. More qualitative results are provided in the Supplementary Material. 
+
+# 5. Conclusion 
+
+This work presents UST-Hand, a self-supervised framework for 3D hand pose estimation from synchronized multi-view video sequences, effectively eliminating costly 3D anno-tations. To overcome training instability caused by noisy pseudo-labels, UST-Hand employs conditional normalizing flows to explicitly model pose uncertainty. Diverse 2D hypotheses are lifted into a unified probabilistic 3D point cloud space, where a Spatiotemporal Point Transformer (STPT) iteratively refines poses. Extensive experiments on three challenging benchmarks demonstrate state-of-the-art performance. Our efficient model supports real-time multi-view and monocular inference, maintaining striking supe-riority across varying camera densities and pseudo-label qualities. Ultimately, this uncertainty-aware probabilistic paradigm offers a promising solution for general articulated object reconstruction under noisy supervision. Acknowledgements This work was supported in part by the grants from the National Natural Science Foundation of China under Grant 62332019, the National Key Research and Development Program of China (2023YFF1203900, 2023YFF1203903), sponsored by the National Natural Sci-ence Foundation of China under Grants (62406039). 
+
+# References 
+
+[1] Huidong Bai, Prasanth Sasikumar, Jing Yang, and Mark Billinghurst. A user study on mixed reality remote collabora-tion with eye gaze and hand gesture sharing. In Proceedings of the 2020 CHI conference on human factors in computing systems , pages 1–13, 2020. 1 [2] Benjamin Biggs, David Novotny, Sebastien Ehrhardt, Han-byul Joo, Ben Graham, and Andrea Vedaldi. 3d multi-bodies: Fitting sets of plausible 3d human models to ambiguous im-age data. Advances in neural information processing sys-tems , 33:20496–20507, 2020. 2 [3] Lennart Bramlage, Michelle Karg, and Crist´ obal Curio. Plausible uncertainties for human pose regression. In Pro-ceedings of the IEEE/CVF International Conference on Computer Vision , pages 15133–15142, 2023. 2 [4] Yujun Cai, Liuhao Ge, Jianfei Cai, and Junsong Yuan. Weakly-supervised 3d hand pose estimation from monocu-lar rgb images. In Proceedings of the European conference on computer vision (ECCV) , pages 666–682, 2018. 2 [5] Haochen Chang, Pengfei Ren, Haoyang Zhang, Liang Xie, Hongbo Chen, and Erwei Yin. Hierarchical-aware orthog-onal disentanglement framework for fine-grained skeleton-based action recognition. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 11252– 11261, 2025. 1 [6] Yu-Wei Chao, Wei Yang, Yu Xiang, Pavlo Molchanov, Ankur Handa, Jonathan Tremblay, Yashraj S Narang, Karl Van Wyk, Umar Iqbal, Stan Birchfield, et al. Dexycb: A benchmark for capturing hand grasping of objects. In Pro-ceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 9044–9053, 2021. 2, 5 [7] Geng Chen, Xufeng Jian, Yuchen Chen, Pengfei Ren, Jingyu Wang, Haifeng Sun, Qi Qi, Jing Wang, and Jianxin Liao. A 3-net: Calibration-free multi-view 3d hand reconstruction for enhanced musical instrument learning. In Proceedings of the Thirty-Fourth International Joint Conference on Arti-ficial Intelligence , pages 10054–10062, 2025. 1 [8] Liangjian Chen, Shih-Yao Lin, Yusheng Xie, Yen-Yu Lin, and Xiaohui Xie. Temporal-aware self-supervised learning for 3d hand pose and mesh estimation in videos. In Proceed-ings of the IEEE/CVF winter conference on applications of computer vision , pages 1050–1059, 2021. 2 [9] Rongyu Chen, Linlin Yang, and Angela Yao. Mhentropy: Entropy meets multiple hypotheses for pose and shape re-covery. In Proceedings of the IEEE/CVF International Con-ference on Computer Vision , pages 14840–14849, 2023. 2 [10] Xingyu Chen, Yufeng Liu, Yajiao Dong, Xiong Zhang, Chongyang Ma, Yanmin Xiong, Yuan Zhang, and Xiaoyan Guo. Mobrecon: Mobile-friendly hand mesh reconstruction from monocular image. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,pages 20544–20554, 2022. 2 [11] Yujin Chen, Zhigang Tu, Liuhao Ge, Dejun Zhang, Ruizhi Chen, and Junsong Yuan. So-handnet: Self-organizing network for 3d hand pose estimation with semi-supervised learning. In Proceedings of the IEEE/CVF international con-ference on computer vision , pages 6961–6970, 2019. 2 [12] Yujin Chen, Zhigang Tu, Di Kang, Linchao Bao, Ying Zhang, Xuefei Zhe, Ruizhi Chen, and Junsong Yuan. Model-based 3d hand reconstruction via self-supervised learning. In 
+
+Proceedings of the IEEE/CVF conference on computer vi-sion and pattern recognition , pages 10451–10460, 2021. 1, 2, 5 [13] Sammy Christen, Muhammed Kocabas, Emre Aksan, Jemin Hwangbo, Jie Song, and Otmar Hilliges. D-grasp: Physically plausible dynamic grasp synthesis for hand-object interac-tions. In Proceedings of the IEEE/CVF Conference on Com-puter Vision and Pattern Recognition , pages 20577–20586, 2022. 1 [14] Vandad Davoodnia, Saeed Ghorbani, Marc-Andr´ e Carbon-neau, Alexandre Messier, and Ali Etemad. Upose3d: Uncertainty-aware 3d human pose estimation with cross-view and temporal cues. In European Conference on Com-puter Vision , pages 19–38. Springer, 2024. 2 [15] Xiaoming Deng, Yuying Zhu, Yinda Zhang, Zhaopeng Cui, Ping Tan, Wentian Qu, Cuixia Ma, and Hongan Wang. Weakly supervised learning for single depth-based hand shape recovery. IEEE Transactions on Image Processing ,30:532–545, 2020. 2 [16] Laurent Dinh, Jascha Sohl-Dickstein, and Samy Ben-gio. Density estimation using real nvp. arXiv preprint arXiv:1605.08803 , 2016. 4 [17] Sai Kumar Dwivedi, Cordelia Schmid, Hongwei Yi, Michael J Black, and Dimitrios Tzionas. Poco: 3d pose and shape estimation with confidence. In 2024 International Conference on 3D Vision (3DV) , pages 85–95. IEEE, 2024. 2[18] Kaixin Fan, Pengfei Ren, Jingyu Wang, Haifeng Sun, Qi Qi, Zirui Zhuang, and Jianxin Liao. Pose-guided temporal en-hancement for robust low-resolution hand reconstruction. In 
+
+Proceedings of the Computer Vision and Pattern Recognition Conference , pages 22627–22637, 2025. 1 [19] Guillermo Garcia-Hernando, Shanxin Yuan, Seungryul Baek, and Tae-Kyun Kim. First-person hand action bench-mark with rgb-d videos and 3d hand pose annotations. In 
+
+Proceedings of the IEEE conference on computer vision and pattern recognition , pages 409–419, 2018. 2 [20] Liuhao Ge, Yujun Cai, Junwu Weng, and Junsong Yuan. Hand pointnet: 3d hand pose estimation using point sets. In 
+
+Proceedings of the IEEE conference on computer vision and pattern recognition , pages 8417–8426, 2018. 2 [21] Liuhao Ge, Zhou Ren, and Junsong Yuan. Point-to-point regression pointnet for 3d hand pose estimation. In Proceed-ings of the European conference on computer vision (ECCV) ,pages 475–491, 2018. 2 [22] Yuting Ge, Chi Xu, and Li Cheng. A coarse-to-fine multi-hypothesis method for ambiguous hand pose estimation. 
+
+IEEE Transactions on Image Processing , 2025. 2 [23] John C Gower. Generalized procrustes analysis. Psychome-trika , 40(1):33–51, 1975. 5 [24] Meng-Hao Guo, Jun-Xiong Cai, Zheng-Ning Liu, Tai-Jiang Mu, Ralph R Martin, and Shi-Min Hu. Pct: Point cloud transformer. Computational visual media , 7(2):187–199, 2021. 2 [25] Shreyas Hampali, Mahdi Rad, Markus Oberweger, and Vin-cent Lepetit. Honnotate: A method for 3d annotation of hand and object poses. In Proceedings of the IEEE/CVF con-ference on computer vision and pattern recognition , pages 3196–3206, 2020. 2 [26] Shreyas Hampali, Sayan Deb Sarkar, and Vincent Lepetit. Ho-3d v3: Improving the accuracy of hand-object annota-tions of the ho-3d dataset. arXiv preprint arXiv:2107.00887 ,2021. 2 [27] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceed-ings of the IEEE conference on computer vision and pattern recognition , pages 770–778, 2016. 5 [28] Yihui He, Rui Yan, Katerina Fragkiadaki, and Shoou-I Yu. Epipolar transformers. In Proceedings of the ieee/cvf con-ference on computer vision and pattern recognition , pages 7779–7788, 2020. 7 [29] Weiting Huang, Pengfei Ren, Jingyu Wang, Qi Qi, and Haifeng Sun. Awr: Adaptive weighting regression for 3d hand pose estimation. In Proceedings of the AAAI Confer-ence on Artificial Intelligence , pages 11061–11068, 2020. 1 [30] Karim Iskakov, Egor Burkov, Victor Lempitsky, and Yury Malkov. Learnable triangulation of human pose. In Proceed-ings of the IEEE/CVF international conference on computer vision , pages 7718–7727, 2019. 7 [31] Nikos Kolotouros, Georgios Pavlakos, Dinesh Jayaraman, and Kostas Daniilidis. Probabilistic modeling for human mesh recovery. In Proceedings of the IEEE/CVF interna-tional conference on computer vision , pages 11605–11614, 2021. 2 [32] Jogendra Nath Kundu, Siddharth Seth, Pradyumna YM, Varun Jampani, Anirban Chakraborty, and R Venkatesh Babu. Uncertainty-aware adaptation for self-supervised 3d human pose estimation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,pages 20448–20459, 2022. 2 [33] Taein Kwon, Bugra Tekin, Jan St¨ uhmer, Federica Bogo, and Marc Pollefeys. H2o: Two hands manipulating objects for first person interaction recognition. In Proceedings of the IEEE/CVF international conference on computer vision ,pages 10138–10148, 2021. 2 [34] Chen Li and Gim Hee Lee. Generating multiple hypotheses for 3d human pose estimation with mixture density network. In Proceedings of the IEEE/CVF conference on computer vi-sion and pattern recognition , pages 9887–9895, 2019. 2 [35] Jiefeng Li, Siyuan Bian, Ailing Zeng, Can Wang, Bo Pang, Wentao Liu, and Cewu Lu. Human pose regression with residual log-likelihood estimation. In Proceedings of the IEEE/CVF international conference on computer vision ,pages 11025–11034, 2021. 2 [36] Mengcheng Li, Hongwen Zhang, Yuxiang Zhang, Ruizhi Shao, Tao Yu, and Yebin Liu. Hhmr: Holistic hand mesh re-covery by enhancing the multimodal controllability of graph diffusion models. In Proceedings of the IEEE/CVF Con-ference on Computer Vision and Pattern Recognition , pages 645–654, 2024. [37] Wenhao Li, Hong Liu, Hao Tang, Pichao Wang, and Luc Van Gool. Mhformer: Multi-hypothesis transformer for 3d human pose estimation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,pages 13147–13156, 2022. [38] Xiaoxuan Ma, Jiajun Su, Yuan Xu, Wentao Zhu, Chunyu Wang, and Yizhou Wang. Vmarker-pro: Probabilistic 3d human mesh estimation from virtual markers. IEEE Trans-actions on Pattern Analysis and Machine Intelligence , 2025. 2[39] Yeonguk Oh, JoonKyu Park, Jaeha Kim, Gyeongsik Moon, and Kyoung Mu Lee. Recovering 3d hand mesh sequence from a single blurry image: A new dataset and temporal un-folding. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 554–563, 2023. 2 [40] Tuomas Oikarinen, Daniel Hannah, and Sohrob Kazerou-nian. Graphmdn: Leveraging graph structure and deep learn-ing to solve inverse problems. In 2021 International Joint Conference on Neural Networks (IJCNN) , pages 1–9. IEEE, 2021. 2 [41] Georgios Pavlakos, Dandan Shan, Ilija Radosavovic, Angjoo Kanazawa, David Fouhey, and Jitendra Malik. Recon-structing hands in 3d with transformers. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 9826–9836, 2024. 1 [42] Rolandos Alexandros Potamias, Jinglei Zhang, Jiankang Deng, and Stefanos Zafeiriou. Wilor: End-to-end 3d hand localization and reconstruction in-the-wild. In Proceedings of the Computer Vision and Pattern Recognition Conference ,pages 12242–12254, 2025. 1, 6 [43] Charles R Qi, Hao Su, Kaichun Mo, and Leonidas J Guibas. Pointnet: Deep learning on point sets for 3d classification and segmentation. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 652–660, 2017. 2 [44] Pengfei Ren, Haifeng Sun, Qi Qi, Jingyu Wang, and Weiting Huang. Srn: Stacked regression network for real-time 3d hand pose estimation. In BMVC , 2019. 1 [45] Pengfei Ren, Haifeng Sun, Jiachang Hao, Qi Qi, Jingyu Wang, and Jianxin Liao. Pose-guided hierarchical graph reasoning for 3-d hand pose estimation from a single depth image. IEEE Transactions on Cybernetics , 53(1):315–328, 2021. 1 [46] Pengfei Ren, Haifeng Sun, Jiachang Hao, Qi Qi, Jingyu Wang, and Jianxin Liao. A dual-branch self-boosting frame-work for self-supervised 3d hand pose estimation. IEEE Transactions on Image Processing , 31:5052–5066, 2022. 2 [47] Pengfei Ren, Haifeng Sun, Jiachang Hao, Jingyu Wang, Qi Qi, and Jianxin Liao. Mining multi-view information: astrong self-supervised framework for depth-based 3d hand pose and mesh estimation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,pages 20555–20565, 2022. 2 [48] Pengfei Ren, Yuchen Chen, Jiachang Hao, Haifeng Sun, Qi Qi, Jingyu Wang, and Jianxin Liao. Two heads are better than one: Image-point cloud network for depth-based 3d hand pose estimation. In Proceedings of the AAAI conference on artificial intelligence , pages 2163–2171, 2023. 1 [49] Pengfei Ren, Chao Wen, Xiaozheng Zheng, Zhou Xue, Haifeng Sun, Qi Qi, Jingyu Wang, and Jianxin Liao. De-coupled iterative refinement framework for interacting hands reconstruction from a single rgb image. In Proceedings of the IEEE/CVF international conference on computer vision ,pages 8014–8025, 2023. 1 [50] Pengfei Ren, Jingyu Wang, Haifeng Sun, Qi Qi, Xingyu Liu, Menghao Zhang, Lei Zhang, Jing Wang, and Jianxin Liao. Prior-aware dynamic temporal modeling framework for se-quential 3d hand pose estimation. In Proceedings of the IEEE/CVF International Conference on Computer Vision ,pages 6476–6487, 2025. 1 [51] Pengfei Ren, Jingyu Wang, Haifeng Sun, Qi Qi, Jing Wang, and Jianxin Liao. Rule meets learning: Confidence-aware multi-view fusion for self-supervised 3d hand pose estima-tion. In Proceedings of the 33rd ACM International Confer-ence on Multimedia , pages 1646–1655, 2025. 2 [52] Javier Romero, Dimitrios Tzionas, and Michael J Black. Em-bodied hands: Modeling and capturing hands and bodies to-gether. arXiv preprint arXiv:2201.02610 , 2022. 5 [53] Akash Sengupta, Ignas Budvytis, and Roberto Cipolla. Hi-erarchical kinematic probability distributions for 3d human shape and pose estimation from images in the wild. In Pro-ceedings of the IEEE/CVF international conference on com-puter vision , pages 11219–11229, 2021. 2 [54] Saurabh Sharma, Pavan Teja Varigonda, Prashast Bindal, Abhishek Sharma, and Arjun Jain. Monocular 3d human pose estimation by generation and ordinal ranking. In Pro-ceedings of the IEEE/CVF international conference on com-puter vision , pages 2325–2334, 2019. 2 [55] Adrian Spurr, Umar Iqbal, Pavlo Molchanov, Otmar Hilliges, and Jan Kautz. Weakly supervised 3d hand pose estimation via biomechanical constraints. In European conference on computer vision , pages 211–228. Springer, 2020. 2 [56] Adrian Spurr, Aneesh Dahiya, Xi Wang, Xucong Zhang, and Otmar Hilliges. Self-supervised 3d hand pose estimation from monocular rgb via contrastive learning. In Proceed-ings of the IEEE/CVF international conference on computer vision , pages 11230–11239, 2021. 2 [57] Haifeng Sun, Xiaozheng Zheng, Pengfei Ren, Jingyu Wang, Qi Qi, and Jianxin Liao. Smr: Spatial-guided model-based regression for 3d hand pose and mesh reconstruction. IEEE Transactions on Circuits and Systems for Video Technology ,34(1):299–314, 2023. 1 [58] Omid Taheri, Vasileios Choutas, Michael J Black, and Dim-itrios Tzionas. Goal: Generating 4d whole-body motion for hand-object grasping. In Proceedings of the IEEE/CVF Con-ference on Computer Vision and Pattern Recognition , pages 13263–13273, 2022. 1 [59] Chengde Wan, Thomas Probst, Luc Van Gool, and Angela Yao. Self-supervised 3d hand pose estimation through train-ing by fitting. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 10853– 10862, 2019. 2 [60] Xinyi Wang, Pengfei Ren, Haoyang Zhang, Xin Sheng, Da Li, Liang Xie, Yue Gao, and Erwei Yin. Vihand: Enhancing 3d hand pose estimation with visual-inertial benchmark. In 
+
+Proceedings of the 33rd ACM International Conference on Multimedia , pages 12753–12760, 2025. 2 [61] Linlin Yang, Shicheng Chen, and Angela Yao. Semihand: Semi-supervised hand pose estimation with consistency. In 
+
+Proceedings of the IEEE/CVF international conference on computer vision , pages 11364–11373, 2021. 2 [62] Lixin Yang, Kailin Li, Xinyu Zhan, Fei Wu, Anran Xu, Liu Liu, and Cewu Lu. Oakink: A large-scale knowledge repos-itory for understanding hand-object interaction. In Proceed-ings of the IEEE/CVF conference on computer vision and pattern recognition , pages 20953–20962, 2022. 2, 5 [63] Lixin Yang, Jian Xu, Licheng Zhong, Xinyu Zhan, Zhicheng Wang, Kejian Wu, and Cewu Lu. Poem: reconstructing hand in a point embedded multi-view stereo. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 21108–21117, 2023. 2 [64] Qi Ye and Tae-Kyun Kim. Occlusion-aware hand pose esti-mation using hierarchical mixture density network. In Pro-ceedings of the European conference on computer vision (ECCV) , pages 801–817, 2018. 2 [65] Xiong Zhang, Qiang Li, Hong Mo, Wenbo Zhang, and Wen Zheng. End-to-end hand mesh recovery from a monocular rgb image. In Proceedings of the IEEE/CVF international conference on computer vision , pages 2354–2364, 2019. 2 [66] Hengshuang Zhao, Li Jiang, Jiaya Jia, Philip HS Torr, and Vladlen Koltun. Point transformer. In Proceedings of the IEEE/CVF international conference on computer vision ,pages 16259–16268, 2021. 2 [67] Xiaozheng Zheng, Pengfei Ren, Haifeng Sun, Jingyu Wang, Qi Qi, and Jianxin Liao. Sar: Spatial-aware regression for 3d hand pose and mesh reconstruction from a monocular rgb image. In 2021 IEEE International Symposium on Mixed and Augmented Reality (ISMAR) , pages 99–108. IEEE, 2021. 1, 3[68] Xiaozheng Zheng, Chao Wen, Zhou Xue, Pengfei Ren, and Jingyu Wang. Hamuco: Hand pose estimation via multi-view collaborative self-supervised learning. In Proceedings of the IEEE/CVF international conference on computer vi-sion , pages 20763–20773, 2023. 1, 2, 6, 7 [69] Christian Zimmermann, Duygu Ceylan, Jimei Yang, Bryan Russell, Max Argus, and Thomas Brox. Freihand: A dataset for markerless capture of hand pose and shape from single rgb images. In Proceedings of the IEEE/CVF international conference on computer vision , pages 813–822, 2019. 2 [70] Christian Zimmermann, Max Argus, and Thomas Brox. Contrastive representation learning for hand shape estima-tion. In DAGM German Conference on Pattern Recognition ,pages 250–264. Springer, 2021. 2, 5 UST-Hand: An Uncertainty-aware Spatiotemporal Point Cloud Interaction Network for 3D Self-supervised Hand Pose Estimation 
+
+# Supplementary Material 
+
+# 6. Video Demo 
+
+We provide sequential visualizations in the attached video to illustrate our method’s performance. 
+
+# 7. Additional Ablation Study 
+
+To further validate our approach, we conduct fine-grained ablation studies on the individual components within the Confidence-aware feature interaction module and the Spa-tiotemporal Point Transformer (STPT). As shown in Tab. 4, in the Confidence-aware feature interaction module, remov-ing the adaptive-GCN or CASA mechanism leads to per-formance degradation, demonstrating that both structural topology modeling and confidence-aware feature aggrega-tion contribute to robust cross-view feature interaction. For the STPT module, temporal attention shows the largest im-pact, highlighting the importance of exploiting temporal consistency for video-based hand pose estimation. These results confirm that each component plays an indispensable role in achieving accurate pose refinement.  
+
+> Table 4. Additional Ablation Study of UST-Hand on DexYCB-MV dataset. We report the MPVPE (mm), PA-V (mm), MPJPE (mm), PA-J (mm).
+
+Method MPVPE PA-V MPJPE PA-J UST-Hand 8.16 4.81 7.84 5.31 w/o GCN 8.22 4.83 7.90 5.41 w/o CASA 8.28 4.87 7.95 5.43 w/o SpatialAttn 8.46 5.02 8.18 5.58 w/o TemporalAttn 8.55 5.09 8.20 5.64 w/o CrossAttn 8.50 4.99 8.15 5.59 
+
+# 8. Model Analysis 
+
+Different Temporal Length. We examine the performance of UST-Hand with varying temporal lengths in the video se-quence. The results on HanCo dataset are shown in Tab. 5 rows t1-t7. We find that using 5 frames achieves the best performance. Increasing temporal length from 1 to 5 frames enables the model to capture hand motion patterns and re-duce frame-wise jittering. However, extending to 7 frames shows marginal degradation, suggesting that excessively long temporal windows may introduce optimization chal-lenges. We use a temporal length of 5 to balance modeling capacity and computational efficiency.  
+
+> Table 5. Performance of UST-Hand on varying temporal length, the number of STPT blocks and cameras in the multi-view setting. The best results are highlighted in bold .
+
+Exp MPVPE PA-V MPJPE PA-J HanCo t1 5.94 4.15 5.38 3.55 t3 5.91 4.10 5.27 3.53 t5 5.82 4.13 5.19 3.50 
+
+t7 5.87 4.07 5.25 3.51 b1 6.01 4.19 5.45 3.62 b2 5.95 4.17 5.40 3.55 b3 5.88 4.13 5.34 3.51 b4 5.82 4.13 5.19 3.50 
+
+> DexYCB
+
+c2 10.90 7.06 10.48 7.12 c4 9.63 6.02 9.33 6.19 c6 8.41 5.16 8.17 5.61 c8 8.16 4.81 7.84 5.31 Different Number of STPT Blocks. We evaluate the per-formance of UST-Hand on varying the number of STPT blocks. The results on HanCo dataset are shown in Tab. 5 rows b1-b4. The results show that stacking more STPT blocks consistently improves performance. This validates that iterative refinement through multiple blocks enables the model to progressively correct pose errors by repeatedly in-tegrating spatiotemporal information and distributional un-certainty. We use 4 STPT blocks in our final model to achieve optimal performance. 
+
+Different Number of Cameras. We evaluate UST-Hand across varying numbers of cameras in the multi-view set-ting. The results on the DexYCB dataset are shown in Tab. 5 rows c2-c8, where ”c2” indicates the use of two cameras. The results demonstrate that UST-Hand effectively fuses complementary features from diverse viewpoints, boosting overall performance as the number of cameras increases. 
+
+# 9. More Qualitative Results 
+
+We provide comprehensive qualitative results across all three evaluation datasets to further validate our method’s su-periority. Specifically, Figs. 6 to 8 compare our method with the SOTA approach HaMuCo, where both models utilize 2D keypoints generated by Wilor for self-supervision. Further-more, Figs. 9 to 11 explicitly highlight the robustness of UST-Hand in maintaining strict multi-view geometric con-sistency, even when encountering highly diverse hand poses and complex camera view configurations. Figure 6. 2D joints prediction and 3D mesh prediction between ground-truth, Wilor, HaMuCo, and ours on HanCo dataset. 
+
+Figure 7. 2D joints prediction and 3D mesh prediction between ground-truth, Wilor, HaMuCo, and ours on DexYCB-MV dataset. 
+
+Figure 8. 2D joints prediction and 3D mesh prediction between ground-truth, Wilor, HaMuCo, and ours on OakInk-MV dataset. Figure 9. Qualitative results of each view on HanCo dataset. 
+
+Figure 10. Qualitative results of each view on DexYCB-MV dataset. 
+
+Figure 11. Qualitative results of each view on OakInk-MV dataset.

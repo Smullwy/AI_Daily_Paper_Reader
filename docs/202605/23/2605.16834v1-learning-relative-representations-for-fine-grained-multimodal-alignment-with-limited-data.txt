@@ -1,0 +1,397 @@
+Title: Learning Relative Representations for Fine-Grained Multimodal Alignment with Limited Data
+
+URL Source: https://arxiv.org/pdf/2605.16834v1
+
+Published Time: Tue, 19 May 2026 00:36:34 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# Learning Relative Representations for Fine-Grained Multimodal Alignment with Limited Data 
+
+Shiwon Kim 
+
+Yonsei University 
+
+shiwon@yuhs.ac 
+
+Yu Rang Park †
+
+Yonsei University 
+
+yurangpark@yuhs.ac 
+
+## Abstract 
+
+Multimodal pre-training demonstrates strong generalization performance, but this paradigm is often impractical in domains where paired data are scarce. A promising alternative is post-hoc multimodal alignment, which aligns separately pre-trained unimodal encoders using a limited number of paired examples. However, existing methods focus primarily on aligning global representations, missing patch-token relations. This may hinder transfer to tasks that require fine-grained cross-modal matching beyond coarse sample-level semantics. To address this issue, we propose a post-hoc alignment method that learns token-level cross-modal structure using relative representations. Specifically, we represent images and texts through their token-level similarities to a set of learnable anchors in each modality space, which are trained to induce consistent cross-modal similarity patterns for matched pairs. Despite learning only the anchors without heavy projection layers, our approach consistently outperforms existing methods in zero-shot classification, cross-modal retrieval, and zero-shot segmentation by a substantial margin. This highlights the importance of modeling fine-grained cross-modal structure for effective post-hoc multimodal alignment with limited paired data. 
+
+## 1 Introduction 
+
+Multimodal foundation models, such as CLIP [ 1 ] and ALIGN [ 2], have demonstrated remarkable performance across a wide range of vision-language tasks, including zero-shot image classification and cross-modal retrieval. By jointly training image and text encoders on web-collected paired data, these models learn shared representation spaces with strong semantic alignment across modalities. However, this success comes at a substantial cost: multimodal pre-training typically requires hundreds of millions of paired samples as well as considerable computational resources, making it difficult to reproduce or adapt in data-constrained domains such as healthcare and biology. In response, recent work has increasingly explored a more modular approach to multimodal learning. This direction is motivated in part by the observation that well-trained models often exhibit convergent representational structure across architectures, objectives, and even modalities [ 3, 4]. Building on this view, a growing line of work studies post-hoc multimodal alignment: rather than training multimodal encoders from scratch, these methods keep independently pre-trained unimodal encoders frozen and learn lightweight modules that align their latent representations [ 5– 11 ]. Compared with conventional multimodal pre-training, such approaches offer a substantially more practical route toward multimodal learning by reusing existing unimodal foundation models. Despite this promise, most post-hoc alignment methods still require substantial paired data, often at the scale of millions or tens of millions of image-text pairs obtained through nontrivial data collection and curation pipelines [ 9, 10 ]. More recently, several studies have started to investigate alignment under limited paired supervision, using only tens of thousands of paired samples [ 11 , 7 ]. These works    
+
+> †Corresponding author. Preprint.
+> arXiv:2605.16834v1 [cs.CV] 16 May 2026 Flickr30k
+> (retrieval)
+> COCO
+> (retrieval)
+> STL10
+> (classification)
+> CIFAR100
+> (classification)
+> Caltech101
+> (classification)
+> DTD
+> (classification)
+> EuroSAT
+> (classification)
+> ADE20K
+> (segmentation)
+> Context
+> (segmentation)
+> VOC20
+> (segmentation)
+> STRUCTURE SAIL FA PAL (ours)
+> 46.1
+> 57.0
+> 22.3
+> 56.0
+> 38.2
+> 93.4
+> 16.5
+> 30.4
+> 11.9
+> 22.5
+> 69.1
+> 49.5
+> 95.3
+> 48.8
+> 60.9
+> 17.7
+> 34.6
+> 13.8
+> 25.5
+> 32.3
+
+Figure 1: Performance of PAL and post-hoc alignment methods on classification, retrieval, and segmentation. 
+
+suggest that post-hoc multimodal alignment does not necessarily require million-scale supervision, but instead depends critically on how effectively one can leverage the well-trained structure already present in frozen unimodal encoders. Yet a more fundamental problem remains under-explored: existing work—including recent low-data approaches—continues to focus largely on aligning global representations . In practice, these methods typically optimize contrastive objectives over a single summary vector produced by each encoder, providing supervision primarily at the sample level. While this can be effective for coarse semantic alignment [ 1 , 2], it provides limited guid-ance for organizing fine-grained correspondences between visual patches and textual tokens into the final aligned representation. Consequently, local semantic structure is only weakly constrained dur-ing alignment, which can hinder transfer to more structured downstream tasks beyond classification [ 12 – 14 ]. Although some recent works incorporate full image patches and text sequences [ 9, 10 ], they still rely on projection-based transformations rather than explicitly modeling patch-token correspondences. In this paper, we address this gap by introducing projection-free anchor learning (PAL) , a low-data 1
+
+post-hoc multimodal alignment strategy that directly models fine-grained patch-token interactions. Specifically, our approach is inspired by the idea of relative representations [ 4, 6], which represents each sample through its relations to a reference set, referred to as anchors , rather than through its absolute coordinates in feature space. We extend this idea to multimodal representation alignment by introducing learnable anchors in each modality space as modality-specific reference points. For each input pair, visual patches and textual tokens are expressed as relative representations defined by their similarities to these anchors. During alignment, the anchors are trained to induce similar relative representations for matched image-text pairs across modalities. This design explicitly models patch-token correspondences without directly projecting absolute representations into a shared space, thereby preserving the well-trained geometry of the frozen unimodal encoders. As shown in Figure 1, our method achieves strong generalization across three distinct downstream tasks: zero-shot classification, cross-modal retrieval, and zero-shot segmentation. Consistent with our motivation, the gains are particularly large on retrieval and segmentation, where local information plays a more central role than in classification. Importantly, these improvements are achieved in the low-data setting, suggesting that the key challenge is not merely data scale, but how effectively the alignment method organizes local cross-modal structure. 
+
+## 2 Related Work 
+
+Multimodal pre-training. Multimodal pre-training has become the dominant paradigm for learning transferable vision-language representations. Early approaches like CLIP [ 1] and ALIGN [ 2 ] achieve strong zero-shot transfer across classification and retrieval through contrastive learning. Subsequent work has explored richer forms of cross-modal interaction, moving beyond global image-text matching toward finer-grained local alignment. FILIP [ 12 ] enables token-level contrastive learning through late interaction between visual patches and textual tokens. SPARC [ 14 ] further strengthens this trend by grouping image patches for each text token and combining local alignment with global contrastive learning. Subsequent foundation models have further expanded the scope of multimodal learning. BLIP [ 15 ] improves vision-language pre-training through caption bootstrapping on noisy web data, while CoCa [ 16 ] unifies contrastive and generative objectives within a single image-text foundation model. Large-scale models like Flamingo [ 17 ] and PaLI [ 18 ] further demonstrate the broad transfer potential of jointly pre-trained vision-language systems. Despite their strong performance, however, 
+
+> 1We follow the low-data setting of [ 11 ], which uses less than 1% of the training data used by previous alignment methods.
+
+2these approaches still depend on large-scale paired data and substantial computational resources, which makes them difficult to reproduce or adapt in low-data domains. 
+
+Post-hoc multimodal alignment. An alternative line of work seeks to align separate unimodal encoders after independent pre-training, rather than learning multimodal encoders jointly from scratch. We refer to this setting as post-hoc multimodal alignment. These methods keep the unimodal encoders frozen and avoid updating their internal weights during alignment. Training-free approaches, such as ASIF [ 6] and CSA [ 8], directly compute cross-modal sample-level mappings from the available data. Since they do not learn a shared representation space, they are often more data-dependent and limited in their ability to generalize beyond the observed samples. Other approaches learn alignment layers on top of frozen encoders. FA [ 9 ] and SAIL [ 10 ] achieve strong performance with expressive projection layers, but still rely on multi-million-scale data. In response, more recent work has started to explore post-hoc alignment under the low-data setting. FuseMix [ 7 ] yields competitive results on a single GPU across varying data scales through multimodal latent mixup, but its performance drops sharply below the million-sample regime. STRUCTURE [ 11 ] proposes an effective regularization strategy using only 80K paired data. In this work, we adopt the same low data setting as STRUCTURE. Most post-hoc alignment methods still operate on global representations, using only the CLS token or a single pooled feature per modality. Even when full token-level inputs are used [ 9, 10 ], alignment is typically mediated by projection heads, rather than directly modeling patch-token correspondences in the final aligned representation. Different from other approaches, our method performs projection-free alignment and explicitly models patch-token correspondence, effectively capturing local cross-modal structure in the low-data regime. 
+
+Relative representations Relative representations describe each sample through its similarities to a set of anchors , rather than through its absolute coordinates in feature space [ 4]. In multimodal alignment, ASIF [ 6] applies this idea to frozen image and text encoders using anchor-based similarities for alignment without training additional modules. Despite their conceptual appeal, such methods depend entirely on fixed anchor sets constructed from the available data. This makes them sensitive to anchor selection and coverage, and often necessitates a large and diverse reference set for reliable transfer. Moreover, because the anchor space itself is fixed, these methods have limited flexibility in adapting the relative representations to the alignment objective. Our method builds on this intuition but replaces fixed anchors with learnable modality-specific anchors, so that the anchor space itself is optimized for alignment. This allows our approach to achieve strong transfer with far fewer anchors while more effectively capturing cross-modal structure in a projection-free token-level setting. 
+
+## 3 Problem Setup 
+
+We consider a post-hoc multimodal alignment task, which aims to align representations of separately pre-trained unimodal encoders from different modalities without modifying their weights. In this paper, we focus on fine-grained multimodal alignment, where image and text are aligned at the level of visual patches and textual tokens. We adopt the low-data setting, using only a limited number of paired image-text samples ( N ≈ 80K ) [ 11 ], in contrast to prior settings that typically assume access to millions or tens of millions of paired samples [ 9, 10 ]. This problem is particularly challenging because the two modalities originate from independently learned latent spaces whose underlying geometries are not directly compatible. 
+
+Post-hoc alignment setup. Let fv : X → RTv ×Dv and fl : Y → RTl×Dl denote pre-trained and frozen vision and language encoders, respectively, where Tv and Tl are the numbers of visual patches and textual tokens. Given a paired dataset {(xi, y i)}Ni=1 , where xi ∈ X and yi ∈ Y , the objective is to learn modality-specific alignment functions gv : RTv ×Dv → RK and gl : RTl×Dl → RK that map token-level encoder outputs to comparable K-dimensional representations across modalities, while keeping the unimodal encoders fixed throughout training. In the aligned space, matched image-text pairs should exhibit higher similarity than unmatched pairs. Formally, if hv,i = gv (fv (xi)) and hl,i = gl(fl(yi)) , then a desirable alignment should satisfy 
+
+sim( hv,i , hl,i ) ≥ sim( hv,i , hl,j ), ∀j̸ = i, (1) where sim( ·, ·) denotes a similarity function that measures pairwise affinity. 3Input 
+
+… …
+
+> Token -to -anchor similarity computation
+> Learnable anchors
+> (Absolute representation space)
+> : Learnable
+> : Frozen (fixed)
+
+(a) Token-level relative representations Anchor -wise token pooling     
+
+> Σ: Weighted sum
+> ΣSoftmax ΣSoftmax …
+> Contrastive learning
+> L2 normalize
+> (Anchor 1 )
+> …
+> …
+> …
+> …
+> Pooled relative representation
+> Relative representations
+> in matrix form
+> (Anchor K )
+> …
+> …Token 1
+> relative representation
+> Token T m
+> relative representation
+
+(b) Cross-attention pooling (CAP) Figure 2: Overview of PAL. (a) Frozen token embeddings are first converted into token-to-anchor similarity matrices to construct token-level relative representations. (b) CAP then aggregates these similarities by applying anchor-wise softmax over the token dimension, producing a pooled representation for contrastive alignment. 
+
+A straightforward approach is to learn projection heads that directly map token-level unimodal features into a shared space. In low-data regimes, however, such approaches can be prone to overfitting and may obscure the geometry of frozen unimodal encoders. Instead, we represent each modality relative to its own small set of learnable anchors , yielding aligned relative representations without directly transforming modality-specific absolute representations. 
+
+## 4 Learning Relative Representations for Multimodal Alignment 
+
+In this section, we introduce projection-free anchor learning (PAL) , a post-hoc alignment method that aligns frozen unimodal encoders through token-level relative representations. We first define modality-specific learnable anchors and use them to express visual patches and textual tokens by their similarities to the anchors. We then aggregate these token-level representations with cross-attention pooling (CAP) and optimize the resulting representations using a symmetric contrastive objective. Figure 2 illustrates the computation flow of PAL for a single modality. The same procedure is applied independently to both modalities before cross-modal alignment. 
+
+4.1 Relative Representations over Patches and Tokens 
+
+To construct token-level relative representations, we define a set of learnable anchors in each modality space. Given frozen token embeddings from an image or text encoder, each token is represented by its similarities to the modality-specific anchors, as illustrated in Figure 2a. 
+
+Learnable anchors. For each modality m ∈ { v, l }, we introduce a learnable anchor matrix 
+
+Am = [ a1
+
+> m
+
+, . . . , aKm]⊤ ∈ RK×Dm , (2) where K is the number of anchors. The anchors are not shared across modalities. Instead, they serve as modality-specific reference points for deriving relative representations in each frozen feature space. 
+
+Token-level relative representations. Let Zm = [ z1
+
+> m
+
+, . . . , zTm 
+
+> m
+
+]⊤ ∈ RTm×Dm denote the frozen token sequence for modality m, where Tm is the number of tokens and Dm is the feature dimension. For each token ztm and anchor akm, we compute their cosine similarity: 
+
+sim( ztm, akm) = zt⊤ 
+
+> m
+
+akm
+
+∥ztm∥2∥akm∥2
+
+. (3) The resulting K-dimensional relative representation of token ztm is 
+
+rtm =
+
+
+
+sim( ztm, a1
+
+> m
+
+), sim( ztm, a2
+
+> m
+
+), . . . , sim( ztm, aKm)
+
+
+
+∈ RK . (4) 44.2 Cross-Attention Pooling (CAP) 
+
+The relative representations possess fine-grained patch- or word-level relations to the anchors. To obtain a single K-dimensional representation for cross-modal contrastive alignment, we aggregate them with cross-attention pooling (CAP). As illustrated in Figure 2b, CAP performs anchor-wise pooling over the token dimension, in which the anchors act as queries over frozen token sequences. Stacking the relative representations of all tokens gives Rm = [ r1
+
+> m
+
+, r2
+
+> m
+
+, . . . , rTm 
+
+> m
+
+]⊤ ∈ RTm×K ,where each column corresponds to one anchor and each row corresponds to one token. For each anchor k, CAP computes a token attention distribution by applying softmax along the token dimension: 
+
+αm,t,k = exp([ Rm]t,k /τ p)
+
+PTm 
+
+> t′=1
+
+exp([ Rm]t′,k /τ p) , (5) where τp > 0 controls the sharpness of token selection. Intuitively, αm,t,k measures how strongly anchor k attends to token t in modality m. A smaller τp makes each anchor focus more strongly on the most similar tokens, whereas a larger τp yields smoother pooling. The k-th dimension of the pooled representation is then obtained by taking the attention-weighted sum of the corresponding anchor-similarity values: 
+
+[pm]k =
+
+> Tm
+
+X
+
+> t=1
+
+αm,t,k [Rm]t,k , pm ∈ RK . (6) The final representation used for contrastive alignment is obtained by ℓ2 normalization: 
+
+hm = pm
+
+∥pm∥2
+
+∈ RK . (7) Unlike standard cross-attention layers, CAP introduces no learned query, key, or value projections. The only trainable parameters are the anchors themselves, making CAP a lightweight mechanism for organizing token-level structure under limited paired supervision. 
+
+4.3 Cross-Modal Alignment Objective 
+
+Given a mini-batch of B paired image-text samples, let hv,i , hl,i ∈ RK denote the normalized visual and textual representations for the i-th pair, obtained from Eqs. (4) – (7) . We align the two modalities using a symmetric contrastive objective:                 
+
+> Lcon =12B
+> BX
+> i=1
+> "
+> −log exp( h⊤
+> v,i hl,i /τ )
+> PBj=1 exp( h⊤
+> v,i hl,j /τ )−log exp( h⊤
+> l,i hv,i /τ )
+> PBj=1 exp( h⊤
+> l,i hv,j /τ )
+> #
+> ,(8)
+
+where τ > 0 is the contrastive temperature. Since hv,i and hl,i are ℓ2-normalized, their dot product corresponds to cosine similarity in the learned relative representation space. This encourages matched image-text pairs to induce similar relative representations across modalities, while separating unmatched pairs within the mini-batch. Since the unimodal encoders are frozen and no projection heads are introduced, cross-modal alignment is achieved by optimizing the modality-specific anchors that define the relative token-to-anchor structure. 
+
+## 5 Experiments 
+
+5.1 Experimental Setup Implementation details. Following the low-data setup of STRUCTURE [ 11 ], we perform post-hoc alignment using the MS COCO 2014 training split, which consists of approximately 80K image-text pairs [ 19 ]. We adopt the common layer selection protocol in prior studies to select the image and text encoder layers based on CKA similarity [ 9, 11 ]. All experiments are conducted on a single NVIDIA Quadro RTX 8000 GPU using DINOv2 ViT-L and RoBERTa-Large as unimodal encoders. We use anchor number K = 512 and CAP temperature 0.03 for the main results. 5Table 2: Zero-shot classification and cross-modal retrieval results across seven benchmarks using DINOv2 ViT-L and RoBERTa-Large. Results are reported in top-1 accuracy (%) for classification and recall@1 (%) for retrieval. Best results are in bold , and second-best results are underlined . RS indicates STRUCTURE regularization [ 11 ].                                                                    
+
+> Zero-shot Classification (Acc.) Cross-modal Retrieval (R@1)
+> Zero-shot In-domain Method STL10 CIFAR100 Caltech101 DTD EuroSAT Flickr I2T Flickr T2I COCO I2T COCO T2I CSA 75.6 36.0 25.9 12.3 17.3 44.0 32.5 25.1 19.2 Linear RS92.6 46.1 55.7 15.9 29.2 62.4 47.9 40.5 29.4 MLP RS92.8 46.6 56.9 16.2 26.0 61.4 47.7 40.3 29.4 SAIL 88.8 45.8 57.0 13.4 27.4 51.9 41.0 38.6 29.2 FA 93.4 45.9 56.2 16.5 30.4 63.0 48.9 43.5 32.8
+> PAL (ours) 95.3 48.8 60.9 17.7 34.6 76.3 61.8 56.3 42.6
+
+We evaluate the aligned encoders on three downstream tasks: zero-shot classification, cross-modal retrieval, and zero-shot segmentation. Specifically, we report results on five classification datasets [ 20 –24 ], Flickr30k [ 25 ] and MS COCO [ 19 ] for retrieval, and three segmentation datasets [ 26 – 28 ]. For retrieval, we use Flickr30K for zero-shot evaluation and COCO for in-domain evaluation. 
+
+Table 1: Summary of compared baselines for DINOv2 ViT-L and RoBERTa-Large.                        
+
+> Method Projector Token-level Params.
+> CSA [8] ✗✗✗
+> Linear RS[11] ✓✗1.0M MLP RS[11] ✓✗1.3M SAIL [10] ✓✗96.5M FA [9] ✓✓4.5M
+> PAL (ours) ✗✓1.0M
+
+Baselines. We compare PAL against five representative post-hoc alignment baselines. CSA [ 8] is a training-free baseline, while Linear RS and MLP RS are the two variants of STRUCTURE [ 11 ] that serve as our direct low-data baselines. SAIL [ 10 ] and FA [ 9 ] are strong projector-based methods with substantially larger alignment modules. In particular, FA performs token-level alignment by combin-ing a CLS projector with a local token projector. Among all compared methods as summarized in Table 1, PAL is the only method that performs token-level alignment without using a trainable projector, while requiring only a linear-layer-scale number of trainable parameters. 
+
+Evaluation metrics. For zero-shot classification, we use top-1 accuracy (%) as the primary metric. For cross-modal retrieval, we report recall@1 (%) for both image-to-text (I2T) and text-to-image (T2I). For zero-shot segmentation, we use foreground mean IoU (mIoU-fg, %) as the main metric. For sample-level baselines, segmentation evaluation is performed using the MaskCLIP [ 29 ] trick. We exclude CSA from the segmentation benchmark, since computing CCA [ 30 ] over all patch and token features is impractical in this setting. 
+
+5.2 Main Results 
+
+In this section, we present a comprehensive comparison between PAL and the compared baselines across three downstream tasks. We further analyze the behavior of the learned anchors to understand what PAL captures after alignment. 
+
+Zero-shot classification and cross-modal retrieval. Table 2 shows the zero-shot classification and cross-modal retrieval performance of all compared methods. PAL achieves the best results across all five classification and two retrieval datasets, indicating its consistent generalization in both semantic recognition and cross-modal matching. On zero-shot classification, PAL improves over the strongest baselines by +1.9 on STL10, +2.2 on CIFAR100, +3.9 on Caltech101, +1.2 on DTD, and +4.2 on EuroSAT. These consistent gains suggest that the learned relative representations transfer robustly across datasets with diverse visual characteristics. The advantage of PAL becomes even more pronounced on cross-modal retrieval. On the zero-shot Flickr30k benchmark, PAL outperforms the second-best method by +13.3 for I2T and +12.9 for T2I. On in-domain COCO retrieval, it further improves by +12.8 for I2T and +9.8 for T2I. These gains are substantially larger than those observed on classification, suggesting that the proposed method is especially effective when accurate matching depends on fine-grained cross-modal correspondence rather than coarse sample-level semantics. Another notable trend is that the improvement remains 6Anchor 57 Anchor 507 Anchor 421 Anchor 346 Anchor 374         
+
+> Image 1 Image 2  Image 1: Small white dog with spot on
+> back leaping in air with football in mouth
+> with small boy and man watching.
+> Image 2: A dog takes a leap of faith as he
+> jumps into a pool to grab an orange toy.
+> Captions
+> “ football ” “ dog ” “ leaping ” “ boy ” “ man ”
+> “ toy ” “ dog ” “ jumps ”
+
+Figure 3: Qualitative analysis of anchor specialization and reuse. Rows illustrate anchor specialization within the same image-text pair: different anchors attend to different image regions and caption words. Columns illustrate anchor reuse across different pairs: the same anchor consistently responds to similar semantic concepts such as objects or actions. Caption words with attention values larger than 0.5 are provided underneath the heatmaps. 
+
+consistent in both zero-shot and in-domain retrieval settings. This indicates that the benefit of PAL is not limited to a particular evaluation protocol, but instead reflects a more general improvement in how image and text representations are organized after alignment. Overall, the results show that PAL yields strong and well-balanced transfer under the low-data setting, while providing especially large benefits on tasks that rely more directly on fine-grained structure. 
+
+Table 3: Zero-shot segmentation results for DINOv2 ViT-L and RoBERTa-Large. Results are in mIoU-fg (%). Best results in bold ; second-best results underlined.                      
+
+> Method VOC20 Context ADE20K FA (20M) *31.4 24.6 –Linear RS10.8 8.1 3.7 MLP RS11.8 8.2 3.8 SAIL 22.3 21.1 10.7 FA 20.1 22.5 11.9
+> PAL (ours) 32.3 25.5 13.8
+> *Numbers are from the original paper.
+
+Zero-shot semantic segmentation. Table 3 reports zero-shot evaluation results on three segmentation benchmarks. While it is not considered the primary task in prior work, it offers a useful implication of whether the learned alignment preserves local structure strongly enough to support dense transfer beyond classification and retrieval. PAL achieves the best results on all datasets, outperforming the strongest baseline by +10.0 on VOC20, +3.0 on Context, and +1.9 on ADE20K. Interestingly, PAL also surpasses the FA (20M) result reported in the original paper, which was trained with the same encoder pair on 20M high-concept-coverage curated image-text pairs. These results support the central motivation of our approach. While projection-based baselines can improve sample-level alignment, they provide only weak constraints on how local visual structure should be organized. In contrast, by directly modeling local structure using anchor-based similarities, PAL yields representations that transfer more effectively to dense prediction tasks. 
+
+Table 4: Anchor overlap scores for matched / mismatched pairs on Flickr30k and COCO. Scores are computed from the top-5 activated anchors in each modality.           
+
+> Metric Flickr30k COCO
+> Hard overlap 0.226 / 0.059 0.218 / 0.028 Dice coeff. 0.212 / 0.050 0.211 / 0.024
+
+Analysis of learned anchors. To better understand how the learned anchors behave after alignment, we conduct both quantitative and qualitative analyses. Since PAL is designed to induce consistent anchor-relative similarity patterns for matched pairs, a natural question is whether matched image-text pairs activate similar anchors across modalities. Table 4 reports this analysis on Flickr30k and COCO. Concretely, for each image and text sample, we take the top-5 anchors with the largest values in the CAP-aggregated representation pm, and compare the resulting anchor sets for matched and mismatched 732 64 128 256 512          
+
+> 42
+> 44
+> 46
+> 48
+> 50
+> 52
+> Performance (%)
+> Classification
+> PAL (ours)
+> Best baseline 66K
+> 131K
+> 262K 524K
+> 1M
+> 32 64 128 256 512
+> Number of anchors (K)
+> 42.5
+> 45.0
+> 47.5
+> 50.0
+> 52.5
+> 55.0
+> 57.5
+> 60.0
+> Retrieval
+> PAL (ours)
+> Best baseline 66K
+> 131K
+> 262K
+> 524K
+> 1M
+> 32 64 128 256 512
+> 16
+> 18
+> 20
+> 22
+> 24
+> Segmentation
+> PAL (ours)
+> Best baseline
+> 66K
+> 131K
+> 262K
+> 524K
+> 1M
+
+Figure 4: Effect of the number of anchors K. Dashed lines indicate the strongest baseline for each task, and annotations indicate the number of trainable anchor parameters. 
+
+pairs using hard overlap and Dice coefficient [ 31 ]. In all cases, matched pairs show substantially higher consistency than mismatched pairs. This indicates that the learned anchors are not activated independently within each modality, but instead exhibit aligned cross-modal structure for semantically corresponding image-text pairs. Figure 3 provides a qualitative view of how the learned anchors behave. We visualize anchor attention heatmaps with the caption words receiving strong attention scores (attention > 0.5). Two consistent patterns emerge. First, within the same image-text pair, different anchors attend to distinct regions and words, indicating clear anchor specialization. In the first row, different anchors focus on semantically different concepts such as “football,” “dog,” “leaping,” “boy,” and “man.” Notably, the anchors distinguish between closely related entities such as boy and man , while also separating objects and actions. Moreover, the highlighted caption words correspond closely to the image regions receiving the strongest visual attention. Second, the same anchor can be reused across different samples to capture consistent semantic concepts. For example, Anchor 507 attends to the dog region in both images, while Anchor 421 consistently responds to motion-related concepts such as “leaping” and “jumps.” Similarly, Anchor 57 activates on “football” and “toy,” suggesting that it captures a shared object-related semantic pattern corresponding to small throwable objects. Interestingly, the motion-related anchors often focus on the legs or lower-body regions associated with jumping actions, indicating that the learned anchors also capture fine-grained interaction and action cues. 
+
+5.3 Ablation Study 
+
+In this section, we analyze the contribution of the main design choices in PAL. We examine the contribution of full token usage and CAP, and analyze the effect of anchor number K.
+
+Table 5: Ablation of token usage and CAP.             
+
+> Variant Avg. cls. Avg. ret. Avg. seg.
+> Global only 48.4 43.9 7.3 + Full tokens 49.3 48.4 16.3
+> + CAP 51.5 59.3 23.9
+
+Ablation of full token usage and CAP. As shown in Table 5, simply replacing pooled encoder representa-tions (CLS for image, pooled for text) with full token sequences already improves performance across all three tasks. Adding CAP on top of full token usage yields a fur-ther and substantially larger improvement, increasing the average classification, retrieval, and segmentation scores by +2.2, +10.9, and +7.6, respectively. The gains are par-ticularly pronounced on retrieval and segmentation, indicating that anchor-wise token aggregation helps organize fine-grained cross-modal structure more effectively than uniform token aggregation. 
+
+Effect of anchor number K. Figure 4 analyzes the effect of the number of anchors K, which controls both the dimensionality of the relative representation and the number of trainable parameters. Overall, increasing K consistently improves performance across all three tasks, indicating that larger anchor sets provide more expressive fine-grained cross-modal structure. Interestingly, retrieval and segmentation already outperform the strongest baseline at relatively small scales ( K = 64 ,
+
+131 K parameters), suggesting that even a modest number of anchors is sufficient to capture useful local cross-modal correspondences. Classification improves more gradually, reaching comparable performance to the best baseline around K = 128 , before showing a larger improvement at K = 512 .85.4 Additional Analysis 
+
+In this section, we provide additional analyses that examine the robustness and scalability of PAL. We analyze how the proposed method behaves when the amount of training data is increased, the sensitivity of the model to the key hyperparameter.          
+
+> Table 6: Effect of scaling the alignment data.
+> Source Avg. cls. Avg. ret. Avg. seg.
+> Baseline (COCO 80K) 51.5 59.3 23.9 + COCO 30K 53.0 61.9 25.5
+
+Scaling up the training data. Table 6 exam-ines whether PAL continues to improve when the amount of paired alignment data is increased be-yond the standard low-data setup. Starting from the default COCO 2014 training split, we addition-ally scale the alignment set using the COCO 2017 training split, which provides about 30K more pairs under the same data source. To ensure a fair comparison, we remove approximately 4K overlap-ping samples that coincide with the test split used in downstream evaluation. Increasing the paired training set from 80K to 110K consistently improves performance across all three tasks, indicating that PAL can effectively exploit additional paired data without changing the model design.                     
+
+> Table 7: Effect of different pooling τ.
+> τAvg. cls. Avg. ret. Avg. seg.
+> 0.02 51.1 58.8 21.6 0.03 51.5 59.3 23.9
+> 0.05 50.4 57.9 23.2 0.07 50.2 55.5 21.0 0.1 49.7 52.9 18.5
+
+Hyperparameter sensitivity analysis. Table 7 reports the ef-fect of the pooling temperature τp used in CAP. Overall, PAL remains stable across a moderate range of values, with τp = 0 .03 
+
+achieving the best average performance across classification, retrieval, and segmentation. We observe that overly large tem-peratures gradually degrade performance, especially on retrieval and segmentation. This suggests that excessively smooth token attention weakens anchor-wise token selection, which is impor-tant for capturing fine-grained cross-modal structure. Based on these results, we use τp = 0 .03 as the default setting. 
+
+## 6 Conclusion 
+
+We presented projection-free anchor learning (PAL), a projection-free and fine-grained post-hoc multimodal alignment method for frozen unimodal encoders under limited paired supervision. By aligning modalities through learnable relative representations rather than direct feature projection, PAL effectively captures local cross-modal structure while remaining lightweight and parameter-efficient. Across zero-shot classification, cross-modal retrieval, and zero-shot segmentation, PAL consistently outperforms existing post-hoc alignment baselines, with especially large gains on retrieval and segmentation. These results suggest that effective low-data alignment requires not only sample-level semantic matching, but also the ability to organize fine-grained cross-modal structure. 
+
+Broader Impact. This work may reduce the data and compute required for multimodal alignment by reusing frozen unimodal encoders with lightweight trainable anchors. However, the aligned representations may inherit biases and limitations from the underlying pre-trained models and datasets. Careful evaluation is therefore needed before applying the method in high-stakes domains. 
+
+## 7 Limitations 
+
+While the learned anchors exhibit clear specialization and semantic reuse, these behaviors emerge implicitly from the alignment objective rather than being explicitly enforced. Developing mechanisms that directly encourage anchor disentanglement, specialization, or controllable role assignment may further improve interpretability and structured alignment. In addition, our experiments focus primarily on the low-data regime, where post-hoc alignment is most practically motivated. Although PAL continues to improve when additional paired data are introduced, we do not evaluate the method at the multi-million-scale setting. Studying how anchor-based alignment behaves under substantially larger paired datasets remains an important direction for future work. 9References 
+
+[1] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agar-wal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervision. In Proceed-ings of the 38th International Conference on Machine Learning (ICML) , pages 8748–8763. PMLR, 2021. [2] Chao Jia, Yinfei Yang, Ye Xia, Yi-Ting Chen, Zarana Parekh, Hieu Pham, Quoc V. Le, Yun-Hsuan Sung, Zhen Li, and Tom Duerig. Scaling up visual and vision-language representation learning with noisy text supervision. In Proceedings of the 38th International Conference on Machine Learning (ICML) , pages 4904–4916. PMLR, 2021. [3] Minyoung Huh, Brian Cheung, Tongzhou Wang, and Phillip Isola. The platonic representation hypothesis. In Proceedings of the 41st International Conference on Machine Learning (ICML) .PMLR, 2024. [4] Luca Moschella, Valentino Maiorca, Marco Fumero, Antonio Norelli, Francesco Locatello, and Emanuele Rodolà. Relative representations enable zero-shot latent space communication. In 
+
+International Conference on Learning Representations (ICLR) , 2023. [5] Jack Merullo, Louis Castricato, Carsten Eickhoff, and Ellie Pavlick. Linearly mapping from image to text space. arXiv preprint arXiv:2209.15162 , 2022. [6] Antonio Norelli, Marco Fumero, Valentino Maiorca, Luca Moschella, Emanuele Rodolà, and Francesco Locatello. ASIF: Coupled data turns unimodal models to multimodal without training. In Advances in Neural Information Processing Systems (NeurIPS) , volume 36, pages 15303–15319, 2023. [7] Noël Vouitsis, Zhaoyan Liu, Satya Krishna Gorti, Valentin Villecroze, Jesse C. Cresswell, Guangwei Yu, Gabriel Loaiza-Ganem, and Maksims Volkovs. Data-efficient multimodal fusion on a single GPU. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2024. [8] Po-han Li, Sandeep P. Chinchali, and Ufuk Topcu. CSA: Data-efficient mapping of unimodal features to multimodal features. In International Conference on Learning Representations (ICLR) , 2025. [9] Mayug Maniparambil, Raiymbek Akshulakov, Yasser Abdelaziz Dahou Djilali, Sanath Narayan, Ankit Singh, and Noel E. O’Connor. Harnessing frozen unimodal encoders for flexible multi-modal alignment. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 29847–29857, 2025. [10] Le Zhang, Qian Yang, and Aishwarya Agrawal. Assessing and learning alignment of unimodal vision and language models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2025. [11] Fabian Gröger, Shuo Wen, Huyen Le, and Maria Brbi´ c. With limited data for multimodal alignment, let the STRUCTURE guide you. In Advances in Neural Information Processing Systems (NeurIPS) , 2025. [12] Lewei Yao, Runhui Huang, Lu Hou, Guansong Lu, Minzhe Niu, Hang Xu, Xiaodan Liang, Zhenguo Li, Xin Jiang, and Chunjing Xu. FILIP: Fine-grained interactive language-image pre-training. In International Conference on Learning Representations (ICLR) , 2022. [13] Weizhe Lin, Jinghong Chen, Jingbiao Mei, Alexandru Coca, and Bill Byrne. Fine-grained late-interaction multi-modal retrieval for retrieval augmented visual question answering. Advances in Neural Information Processing Systems , 36:22820–22840, 2023. [14] Ioana Bica, Anastasija Ilic, Matthias Bauer, Goker Erdogan, Matko Bošnjak, Christos Kaplanis, Alexey A. Gritsenko, Matthias Minderer, Charles Blundell, Razvan Pascanu, and Jovana Mitrovic. Improving fine-grained understanding in image-text pre-training. In Proceedings of the 41st International Conference on Machine Learning (ICML) . PMLR, 2024. 10 [15] Junnan Li, Dongxu Li, Caiming Xiong, and Steven Hoi. Blip: Bootstrapping language-image pre-training for unified vision-language understanding and generation. In International conference on machine learning , pages 12888–12900. PMLR, 2022. [16] Jiahui Yu, Zirui Wang, Vijay Vasudevan, Legg Yeung, Mojtaba Seyedhosseini, and Yonghui Wu. Coca: Contrastive captioners are image-text foundation models. arXiv preprint arXiv:2205.01917 , 2022. [17] Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katherine Millican, Malcolm Reynolds, et al. Flamingo: a visual language model for few-shot learning. Advances in neural information processing systems , 35: 23716–23736, 2022. [18] Xi Chen, Xiao Wang, Soravit Changpinyo, Anthony J Piergiovanni, Piotr Padlewski, Daniel Salz, Sebastian Goodman, Adam Grycner, Basil Mustafa, Lucas Beyer, et al. Pali: A jointly-scaled multilingual language-image model. arXiv preprint arXiv:2209.06794 , 2022. [19] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva Ramanan, Piotr Dollár, and C. Lawrence Zitnick. Microsoft COCO: Common objects in context. In 
+
+European Conference on Computer Vision (ECCV) , pages 740–755. Springer, 2014. [20] Adam Coates, Andrew Ng, and Honglak Lee. An analysis of single-layer networks in unsuper-vised feature learning. In Proceedings of the fourteenth international conference on artificial intelligence and statistics , pages 215–223. JMLR Workshop and Conference Proceedings, 2011. [21] Alex Krizhevsky, Geoffrey Hinton, et al. Learning multiple layers of features from tiny images. 2009. [22] Li Fei-Fei, Rob Fergus, and Pietro Perona. Learning generative visual models from few training examples: An incremental bayesian approach tested on 101 object categories. In 2004 conference on computer vision and pattern recognition workshop , pages 178–178. IEEE, 2004. [23] Mircea Cimpoi, Subhransu Maji, Iasonas Kokkinos, Sammy Mohamed, and Andrea Vedaldi. Describing textures in the wild. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 3606–3613, 2014. [24] Patrick Helber, Benjamin Bischke, Andreas Dengel, and Damian Borth. Eurosat: A novel dataset and deep learning benchmark for land use and land cover classification. IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing , 12(7):2217–2226, 2019. [25] Bryan A. Plummer, Liwei Wang, Chris M. Cervantes, Juan C. Caicedo, Julia Hockenmaier, and Svetlana Lazebnik. Flickr30k entities: Collecting region-to-phrase correspondences for richer image-to-sentence models. International Journal of Computer Vision , 123(1):74–93, 2017. [26] Mark Everingham, Luc Van Gool, Christopher K. I. Williams, John Winn, and Andrew Zisser-man. The PASCAL visual object classes (VOC) challenge. International Journal of Computer Vision , 88(2):303–338, 2010. [27] Roozbeh Mottaghi, Xianjie Chen, Xiaobai Liu, Nam-Gyu Cho, Seong-Whan Lee, Sanja Fidler, Raquel Urtasun, and Alan Yuille. The role of context for object detection and semantic segmentation in the wild. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition , pages 891–898, 2014. [28] Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela Barriuso, and Antonio Torralba. Scene parsing through ADE20K dataset. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 633–641, 2017. [29] Xiaoyi Dong, Jianmin Bao, Yinglin Zheng, Ting Zhang, Dongdong Chen, Hao Yang, Ming Zeng, Weiming Zhang, Lu Yuan, Dong Chen, et al. Maskclip: Masked self-distillation ad-vances contrastive language-image pretraining. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 10995–11005, 2023. 11 [30] David Weenink. Canonical correlation analysis. In Proceedings of the Institute of Phonetic Sciences of the University of Amsterdam , volume 25, pages 81–99. University of Amsterdam Amsterdam, 2003. [31] Lee R Dice. Measures of the amount of ecologic association between species. Ecology , 26(3): 297–302, 1945. 12
