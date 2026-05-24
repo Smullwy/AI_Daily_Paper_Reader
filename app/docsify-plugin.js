@@ -1905,6 +1905,48 @@ window.$docsify = {
 
         const DAY_ANIM_MS = 240;
 
+        const getFoldContent = (li) =>
+          li
+            ? li.querySelector(
+                ':scope > ul.sidebar-day-content, :scope > ul.dpr-sidebar-fold-content, :scope > ul',
+              )
+            : null;
+
+        const isFoldCollapsed = (li) =>
+          !li ||
+          li.classList.contains('sidebar-day-collapsed') ||
+          li.classList.contains('dpr-sidebar-group-collapsed');
+
+        const unlockOpenFoldHeight = (li) => {
+          if (isFoldCollapsed(li)) return;
+          const ul = getFoldContent(li);
+          if (!ul) return;
+          ul.style.maxHeight = 'none';
+          ul.style.opacity = '1';
+        };
+
+        const refreshOpenFoldHeights = (fromLi, options = {}) => {
+          const { unlock = true } = options || {};
+          let current = fromLi;
+          while (current) {
+            try {
+              if (!isFoldCollapsed(current)) {
+                const ul = getFoldContent(current);
+                if (ul) {
+                  ul.style.opacity = '1';
+                  ul.style.maxHeight = unlock ? 'none' : `${ul.scrollHeight}px`;
+                }
+              }
+            } catch {
+              // ignore
+            }
+            current =
+              current.parentElement && current.parentElement.closest
+                ? current.parentElement.closest('li')
+                : null;
+          }
+        };
+
         const setDayCollapsed = (li, collapsed, options = {}) => {
           const { animate = true } = options || {};
           const ul = li.querySelector(':scope > ul');
@@ -1914,10 +1956,14 @@ window.$docsify = {
           const doAnimate = animate && !prefersReducedMotion();
           if (!doAnimate) {
             ul.style.transition = 'none';
-            ul.style.maxHeight = collapsed ? '0px' : `${ul.scrollHeight}px`;
+            ul.style.maxHeight = collapsed ? '0px' : 'none';
             ul.style.opacity = collapsed ? '0' : '1';
             requestAnimationFrame(() => {
               ul.style.transition = '';
+              if (!collapsed) {
+                unlockOpenFoldHeight(li);
+              }
+              refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null);
             });
             return;
           }
@@ -1927,20 +1973,27 @@ window.$docsify = {
             ul.style.opacity = '0';
             requestAnimationFrame(() => {
               ul.style.maxHeight = '0px';
+              refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null, {
+                unlock: false,
+              });
             });
           } else {
             ul.style.opacity = '1';
             ul.style.maxHeight = '0px';
             requestAnimationFrame(() => {
               ul.style.maxHeight = `${ul.scrollHeight}px`;
+              refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null, {
+                unlock: false,
+              });
             });
           }
 
           setTimeout(() => {
             try {
               if (!li.classList.contains('sidebar-day-collapsed')) {
-                ul.style.maxHeight = `${ul.scrollHeight}px`;
+                unlockOpenFoldHeight(li);
               }
+              refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null);
             } catch {
               // ignore
             }
@@ -2197,32 +2250,6 @@ window.$docsify = {
           return '';
         };
 
-        const refreshOpenFoldHeights = (fromLi) => {
-          let current = fromLi;
-          while (current) {
-            try {
-              if (
-                !current.classList.contains('sidebar-day-collapsed') &&
-                !current.classList.contains('dpr-sidebar-group-collapsed')
-              ) {
-                const ul = current.querySelector(
-                  ':scope > ul.sidebar-day-content, :scope > ul.dpr-sidebar-fold-content',
-                );
-                if (ul) {
-                  ul.style.maxHeight = `${ul.scrollHeight}px`;
-                  ul.style.opacity = '1';
-                }
-              }
-            } catch {
-              // ignore
-            }
-            current =
-              current.parentElement && current.parentElement.closest
-                ? current.parentElement.closest('li')
-                : null;
-          }
-        };
-
         const setGroupCollapsed = (li, wrapper, collapsed, options = {}) => {
           const { animate = true } = options || {};
           const ul = li.querySelector(':scope > ul');
@@ -2237,10 +2264,13 @@ window.$docsify = {
           const doAnimate = animate && !prefersReducedMotion();
           if (!doAnimate) {
             ul.style.transition = 'none';
-            ul.style.maxHeight = collapsed ? '0px' : `${ul.scrollHeight}px`;
+            ul.style.maxHeight = collapsed ? '0px' : 'none';
             ul.style.opacity = collapsed ? '0' : '1';
             requestAnimationFrame(() => {
               ul.style.transition = '';
+              if (!collapsed) {
+                unlockOpenFoldHeight(li);
+              }
               refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null);
             });
             return;
@@ -2251,18 +2281,24 @@ window.$docsify = {
             ul.style.opacity = '0';
             requestAnimationFrame(() => {
               ul.style.maxHeight = '0px';
+              refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null, {
+                unlock: false,
+              });
             });
           } else {
             ul.style.opacity = '1';
             ul.style.maxHeight = '0px';
             requestAnimationFrame(() => {
               ul.style.maxHeight = `${ul.scrollHeight}px`;
+              refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null, {
+                unlock: false,
+              });
             });
           }
 
           setTimeout(() => {
             if (!li.classList.contains('dpr-sidebar-group-collapsed')) {
-              ul.style.maxHeight = `${ul.scrollHeight}px`;
+              unlockOpenFoldHeight(li);
             }
             refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null);
           }, DAY_ANIM_MS + 30);
@@ -2363,7 +2399,7 @@ window.$docsify = {
                 // 仅做“静默修正”，避免因为 max-height 变化触发过渡，导致侧边栏看起来“滚动/刷新”一下
                 const prevTransition = ul.style.transition;
                 ul.style.transition = 'none';
-                ul.style.maxHeight = `${ul.scrollHeight}px`;
+                ul.style.maxHeight = 'none';
                 ul.style.opacity = '1';
                 requestAnimationFrame(() => {
                   ul.style.transition = prevTransition || '';
