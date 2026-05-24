@@ -146,7 +146,7 @@
     btn.id = 'custom-toggle-btn';
     btn.className = 'custom-toggle-btn';
     btn.innerHTML = '⚙️';
-    btn.title = '后台管理';
+    btn.title = '设置';
 
     btn.addEventListener('click', function () {
       var event = new CustomEvent('ensure-arxiv-ui');

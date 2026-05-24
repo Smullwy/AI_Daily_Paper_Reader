@@ -1710,7 +1710,15 @@ def update_sidebar(
             end += 1
         del lines[day_idx:end]
 
+    ym = date_str[:6]
+    day = date_str[6:8]
+    report_href = f"#/{ym}/{day}/README" if len(date_str) == 8 else "#/"
+
     block: List[str] = [day_heading]
+    block.append(
+        "    * "
+        f'<a class="dpr-sidebar-brief-link" href="{report_href}">📝 今日简报</a>\n'
+    )
     if deep_entries:
         block.append("    * 精读区\n")
         for paper_id, title, tags in deep_entries:

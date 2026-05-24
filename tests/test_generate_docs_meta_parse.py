@@ -221,6 +221,10 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
             content = sidebar_path.read_text(encoding="utf-8")
             self.assertNotIn("暂无日报", content)
             self.assertIn("2026-05-22 <!--dpr-date:20260522-->", content)
+            self.assertIn(
+                '<a class="dpr-sidebar-brief-link" href="#/202605/22/README">📝 今日简报</a>',
+                content,
+            )
             self.assertIn("Test Paper", content)
             self.assertIn("* Other", content)
 
@@ -240,6 +244,7 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
 
             content = sidebar_path.read_text(encoding="utf-8")
             self.assertIn("* Daily Papers\n  * 2026-05-22", content)
+            self.assertIn("📝 今日简报", content)
             self.assertNotIn("* Daily Papers  * 2026-05-22", content)
 
     def test_update_sidebar_repairs_existing_same_line_daily_item(self):
@@ -268,6 +273,7 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
 
             content = sidebar_path.read_text(encoding="utf-8")
             self.assertIn("* Daily Papers\n  * 2026-05-22", content)
+            self.assertIn("📝 今日简报", content)
             self.assertNotIn("* Daily Papers  * 2026-05-22", content)
             self.assertNotIn("旧条目", content)
             self.assertIn("* Other", content)

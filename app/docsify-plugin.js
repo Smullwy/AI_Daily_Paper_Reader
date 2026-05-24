@@ -1,6 +1,7 @@
 // Docsify 配置与公共插件（评论区 + Zotero 元数据）
 window.$docsify = {
-  name: 'AI Daily Paper Reader',
+  name:
+    '<span class="dpr-brand"><img class="dpr-brand-logo" src="app/asserts/adpr-logo.svg" alt="" aria-hidden="true"><span class="dpr-brand-text">ADPR</span></span>',
   repo: '',
   // 文档内容与侧边栏都存放在 docs/ 下
   basePath: 'docs/', // 所有 Markdown 路由以 docs/ 为前缀
@@ -1070,6 +1071,87 @@ window.$docsify = {
         return text;
       };
 
+      let docsifyMathPlaceholderRun = 0;
+      let docsifyMathPlaceholderPrefix = '';
+      const docsifyMathPlaceholders = [];
+
+      const escapeMathPlaceholderHtml = (value) =>
+        String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+      const protectMarkdownMathForDocsify = (markdown) => {
+        let text = String(markdown || '');
+        docsifyMathPlaceholders.length = 0;
+        docsifyMathPlaceholderRun += 1;
+        docsifyMathPlaceholderPrefix =
+          `@@DPRDOCSIFYMATH${docsifyMathPlaceholderRun}X`;
+
+        const codeBlocks = [];
+        text = text.replace(
+          /(^|\n)(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\2(?=\n|$)/g,
+          (match) => {
+            const idx = codeBlocks.length;
+            codeBlocks.push(match);
+            return `@@DPRDOCSIFYCODE${idx}@@`;
+          },
+        );
+
+        const inlineCodes = [];
+        text = text.replace(/`[^`\n]*`/g, (match) => {
+          const idx = inlineCodes.length;
+          inlineCodes.push(match);
+          return `@@DPRDOCSIFYINLINE${idx}@@`;
+        });
+
+        const stashMath = (match) => {
+          const idx = docsifyMathPlaceholders.length;
+          docsifyMathPlaceholders.push(match);
+          return `${docsifyMathPlaceholderPrefix}${idx}@@`;
+        };
+
+        text = text.replace(/\$\$([\s\S]*?)\$\$/g, stashMath);
+        text = text.replace(/\$([^\$\n]+?)\$/g, stashMath);
+
+        text = text.replace(
+          /@@DPRDOCSIFYINLINE(\d+)@@/g,
+          (_match, idx) => inlineCodes[Number(idx)] || '',
+        );
+        text = text.replace(
+          /@@DPRDOCSIFYCODE(\d+)@@/g,
+          (_match, idx) => codeBlocks[Number(idx)] || '',
+        );
+        return text;
+      };
+
+      const restoreMarkdownMathPlaceholders = (html) => {
+        if (!docsifyMathPlaceholders.length || !docsifyMathPlaceholderPrefix) {
+          return String(html || '');
+        }
+        const pattern = new RegExp(
+          `${escapeRegExp(docsifyMathPlaceholderPrefix)}(\\d+)@@`,
+          'g',
+        );
+        return String(html || '').replace(pattern, (match, idx) => {
+          const math = docsifyMathPlaceholders[Number(idx)];
+          return typeof math === 'string'
+            ? escapeMathPlaceholderHtml(math)
+            : match;
+        });
+      };
+
+      const restoreMarkdownMathPlaceholdersInEl = (el) => {
+        if (!el || !docsifyMathPlaceholders.length) return;
+        const html = el.innerHTML || '';
+        const restored = restoreMarkdownMathPlaceholders(html);
+        if (restored !== html) {
+          el.innerHTML = restored;
+        }
+      };
+
       // 公共工具：简单表格 + 标记修正：
       // 1）移除协议标记 [ANS]/[THINK]
       // 2）移除表格行之间多余空行，避免把同一张表拆成两块
@@ -1263,6 +1345,8 @@ window.$docsify = {
       window.DPRMarkdown = {
         normalizeTables,
         normalizeMarkdownMathDelimiters,
+        protectMarkdownMathForDocsify,
+        restoreMarkdownMathPlaceholders,
         renderMarkdownWithTables,
         renderMathInEl,
       };
@@ -1326,6 +1410,44 @@ window.$docsify = {
           if (raw.startsWith('#/')) return raw;
           if (raw.startsWith('#')) return `#/${raw.slice(1).replace(/^\//, '')}`;
           return `#/${raw.replace(/^\//, '')}`;
+        };
+
+        const stripSidebarEmoji = (value) =>
+          String(value || '')
+            .replace(/^(?:[\s\uFE0F\u200D]*(?:[\u2600-\u27BF]|[\u{1F300}-\u{1FAFF}])\uFE0F?\s*)+/u, '')
+            .trim();
+
+        const getSidebarEmoji = (type, text) => {
+          const value = stripSidebarEmoji(text);
+          if (type === 'daily-root' || value === 'Daily Papers') return '🗂️';
+          if (type === 'day') return '📅';
+          if (value === '精读区') return '🔬';
+          if (value === '速读区') return '⚡';
+          if (value === '今日简报') return '📝';
+          return '';
+        };
+
+        const setSidebarLabelContent = (el, type, text) => {
+          if (!el) return;
+          const clean = stripSidebarEmoji(text);
+          const emoji = getSidebarEmoji(type, clean);
+          el.dataset.dprRawLabel = clean;
+          el.textContent = '';
+          if (!emoji) {
+            el.textContent = clean;
+            return;
+          }
+          const wrap = document.createElement('span');
+          wrap.className = 'dpr-sidebar-label-with-icon';
+          const icon = document.createElement('span');
+          icon.className = 'dpr-sidebar-label-icon';
+          icon.textContent = emoji;
+          const label = document.createElement('span');
+          label.className = 'dpr-sidebar-label-text';
+          label.textContent = clean;
+          wrap.appendChild(icon);
+          wrap.appendChild(label);
+          el.appendChild(wrap);
         };
 
         const buildDayReportHref = (label) => {
@@ -1604,8 +1726,13 @@ window.$docsify = {
             const label = li.querySelector(
               ':scope > .sidebar-day-toggle .sidebar-day-toggle-label',
             );
-            rawText = (label && (label.textContent || '').trim()) || '';
+            rawText =
+              (label &&
+                ((label.dataset && label.dataset.dprRawLabel) ||
+                  (label.textContent || '').trim())) ||
+              '';
           }
+          rawText = stripSidebarEmoji(rawText);
 
           const rangeMatch = rawText.match(
             /^(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})$/,
@@ -1825,6 +1952,8 @@ window.$docsify = {
           const childUl = li.querySelector(':scope > ul');
           if (childUl) childUl.classList.add('sidebar-day-content');
           const key = dayKey || rawText;
+          li.dataset.dprDayKey = key;
+          li.dataset.dprDayLabel = rawText;
           const dayReportHref = reportHref || buildDayReportHref(rawText);
 
           // 复用或创建 wrapper（包含日期文字和小箭头）
@@ -1874,11 +2003,14 @@ window.$docsify = {
           }
 
           wrapper.dataset.dprDayReportHref = dayReportHref;
-          wrapper.setAttribute('role', 'link');
+          wrapper.classList.add('dpr-sidebar-fold-toggle', 'dpr-sidebar-fold-toggle-day');
+          wrapper.setAttribute('role', 'button');
           wrapper.setAttribute('tabindex', '0');
 
           const labelSpan = wrapper.querySelector('.sidebar-day-toggle-label');
-          if (labelSpan) labelSpan.textContent = rawText;
+          if (labelSpan) {
+            setSidebarLabelContent(labelSpan, 'day', rawText);
+          }
           const arrowSpan = wrapper.querySelector('.sidebar-day-toggle-arrow');
           const menuTrigger = wrapper.querySelector('.sidebar-day-menu-trigger');
           const menu = wrapper.querySelector('.sidebar-day-menu');
@@ -1954,6 +2086,8 @@ window.$docsify = {
             li.classList.remove('sidebar-day-collapsed');
             if (arrowSpan) arrowSpan.textContent = '▾';
           }
+          wrapper.classList.toggle('is-open', !collapsed);
+          wrapper.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 
           // 初始化一次高度（不做动画，避免首次渲染闪动）
           setDayCollapsed(li, collapsed, { animate: false });
@@ -1993,23 +2127,12 @@ window.$docsify = {
                 if (e.stopImmediatePropagation) e.stopImmediatePropagation();
                 const collapsed = li.classList.toggle('sidebar-day-collapsed');
                 if (arrowSpan) arrowSpan.textContent = collapsed ? '\u25b8' : '\u25be';
+                wrapper.classList.toggle('is-open', !collapsed);
+                wrapper.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
                 setDayCollapsed(li, collapsed, { animate: true });
                 state[rawText] = collapsed ? 'closed' : 'open';
                 state.__latestDay = latestDay;
                 ensureStateSaved();
-                const targetHref =
-                  wrapper.dataset.dprDayReportHref || buildDayReportHref(rawText);
-                if (targetHref) {
-                  const currentHref = normalizeHashHref(window.location.hash || '');
-                  if (currentHref !== targetHref) {
-                    try {
-                      DPR_NAV_STATE.lastNavSource = 'click';
-                    } catch {
-                      // ignore
-                    }
-                    window.location.hash = targetHref;
-                  }
-                }
                 requestAnimationFrame(() => {
                   syncSidebarActiveIndicator({ animate: false });
                 });
@@ -2028,12 +2151,214 @@ window.$docsify = {
           li.dataset.dayToggleApplied = '2';
         });
 
+        const getGroupTextAndNode = (li) => {
+          if (!li) return { text: '', firstTextNode: null };
+          const existingLabel = li.querySelector(
+            ':scope > .dpr-sidebar-group-toggle .dpr-sidebar-group-toggle-label',
+          );
+          if (existingLabel) {
+            return {
+              text: stripSidebarEmoji(
+                (existingLabel.dataset && existingLabel.dataset.dprRawLabel) ||
+                  existingLabel.textContent ||
+                  '',
+              ),
+              firstTextNode: null,
+            };
+          }
+          if (typeof Node === 'undefined') return { text: '', firstTextNode: null };
+          const firstTextNode = Array.from(li.childNodes || []).find(
+            (n) => n && n.nodeType === Node.TEXT_NODE && String(n.textContent || '').trim(),
+          );
+          return {
+            text: stripSidebarEmoji(firstTextNode ? firstTextNode.textContent || '' : ''),
+            firstTextNode: firstTextNode || null,
+          };
+        };
+
+        const getGroupType = (text) => {
+          const value = stripSidebarEmoji(text);
+          if (value === 'Daily Papers') return 'daily-root';
+          if (value === '精读区' || value === '速读区') return 'section';
+          return '';
+        };
+
+        const getAncestorDayKey = (li) => {
+          let current = li && li.parentElement ? li.parentElement.closest('li') : null;
+          while (current) {
+            if (current.dataset && current.dataset.dprDayKey) {
+              return current.dataset.dprDayKey;
+            }
+            current =
+              current.parentElement && current.parentElement.closest
+                ? current.parentElement.closest('li')
+                : null;
+          }
+          return '';
+        };
+
+        const refreshOpenFoldHeights = (fromLi) => {
+          let current = fromLi;
+          while (current) {
+            try {
+              if (
+                !current.classList.contains('sidebar-day-collapsed') &&
+                !current.classList.contains('dpr-sidebar-group-collapsed')
+              ) {
+                const ul = current.querySelector(
+                  ':scope > ul.sidebar-day-content, :scope > ul.dpr-sidebar-fold-content',
+                );
+                if (ul) {
+                  ul.style.maxHeight = `${ul.scrollHeight}px`;
+                  ul.style.opacity = '1';
+                }
+              }
+            } catch {
+              // ignore
+            }
+            current =
+              current.parentElement && current.parentElement.closest
+                ? current.parentElement.closest('li')
+                : null;
+          }
+        };
+
+        const setGroupCollapsed = (li, wrapper, collapsed, options = {}) => {
+          const { animate = true } = options || {};
+          const ul = li.querySelector(':scope > ul');
+          if (!ul) return;
+          ul.classList.add('dpr-sidebar-fold-content');
+          li.classList.toggle('dpr-sidebar-group-collapsed', !!collapsed);
+          wrapper.classList.toggle('is-open', !collapsed);
+          wrapper.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          const arrow = wrapper.querySelector('.dpr-sidebar-group-toggle-arrow');
+          if (arrow) arrow.textContent = collapsed ? '\u25b8' : '\u25be';
+
+          const doAnimate = animate && !prefersReducedMotion();
+          if (!doAnimate) {
+            ul.style.transition = 'none';
+            ul.style.maxHeight = collapsed ? '0px' : `${ul.scrollHeight}px`;
+            ul.style.opacity = collapsed ? '0' : '1';
+            requestAnimationFrame(() => {
+              ul.style.transition = '';
+              refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null);
+            });
+            return;
+          }
+
+          if (collapsed) {
+            ul.style.maxHeight = `${ul.scrollHeight}px`;
+            ul.style.opacity = '0';
+            requestAnimationFrame(() => {
+              ul.style.maxHeight = '0px';
+            });
+          } else {
+            ul.style.opacity = '1';
+            ul.style.maxHeight = '0px';
+            requestAnimationFrame(() => {
+              ul.style.maxHeight = `${ul.scrollHeight}px`;
+            });
+          }
+
+          setTimeout(() => {
+            if (!li.classList.contains('dpr-sidebar-group-collapsed')) {
+              ul.style.maxHeight = `${ul.scrollHeight}px`;
+            }
+            refreshOpenFoldHeights(li.parentElement ? li.parentElement.closest('li') : null);
+          }, DAY_ANIM_MS + 30);
+        };
+
+        Array.from(nav.querySelectorAll('li')).forEach((li) => {
+          const childUl = li.querySelector(':scope > ul');
+          const directLink = li.querySelector(':scope > a');
+          if (!childUl || directLink || li.querySelector(':scope > .sidebar-day-toggle')) {
+            return;
+          }
+
+          const { text: rawText, firstTextNode } = getGroupTextAndNode(li);
+          const groupType = getGroupType(rawText);
+          if (!groupType) return;
+
+          const storageKey =
+            groupType === 'daily-root'
+              ? '__dailyRoot'
+              : `section:${getAncestorDayKey(li) || 'unknown'}:${rawText}`;
+          let wrapper = li.querySelector(':scope > .dpr-sidebar-group-toggle');
+          if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.className = `dpr-sidebar-group-toggle dpr-sidebar-fold-toggle dpr-sidebar-fold-toggle-${groupType}`;
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'dpr-sidebar-group-toggle-label';
+            const arrowSpan = document.createElement('span');
+            arrowSpan.className = 'dpr-sidebar-group-toggle-arrow';
+            arrowSpan.textContent = '\u25be';
+
+            wrapper.appendChild(labelSpan);
+            wrapper.appendChild(arrowSpan);
+            if (firstTextNode && firstTextNode.parentNode === li) {
+              li.replaceChild(wrapper, firstTextNode);
+            } else {
+              li.insertBefore(wrapper, childUl);
+            }
+          }
+
+          wrapper.classList.add('dpr-sidebar-fold-toggle');
+          wrapper.dataset.dprFoldType = groupType;
+          wrapper.setAttribute('role', 'button');
+          wrapper.setAttribute('tabindex', '0');
+
+          const labelSpan = wrapper.querySelector('.dpr-sidebar-group-toggle-label');
+          if (labelSpan) {
+            setSidebarLabelContent(labelSpan, groupType, rawText);
+          }
+
+          li.classList.toggle('dpr-sidebar-daily-root', groupType === 'daily-root');
+          li.classList.toggle('dpr-sidebar-section', groupType === 'section');
+          childUl.classList.add('dpr-sidebar-fold-content');
+
+          const saved = state[storageKey];
+          const collapsed = saved === 'closed' ? true : false;
+          setGroupCollapsed(li, wrapper, collapsed, { animate: false });
+
+          if (!wrapper.dataset.dprGroupToggleBound) {
+            wrapper.dataset.dprGroupToggleBound = '1';
+            const activateGroup = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+              closeAllDayMenus();
+              const nextCollapsed = !li.classList.contains('dpr-sidebar-group-collapsed')
+                ? true
+                : false;
+              setGroupCollapsed(li, wrapper, nextCollapsed, { animate: true });
+              state[storageKey] = nextCollapsed ? 'closed' : 'open';
+              state.__latestDay = latestDay;
+              ensureStateSaved();
+              requestAnimationFrame(() => {
+                syncSidebarActiveIndicator({ animate: false });
+              });
+              setTimeout(() => {
+                syncSidebarActiveIndicator({ animate: false });
+              }, DAY_ANIM_MS + 34);
+            };
+            wrapper.addEventListener('click', activateGroup, true);
+            wrapper.addEventListener('keydown', (e) => {
+              const keyName = e && (e.key || e.code);
+              if (keyName !== 'Enter' && keyName !== ' ') return;
+              activateGroup(e);
+            });
+          }
+        });
+
         // 每次 doneEach 触发时都刷新一次“已展开分组”的 max-height：
         // 避免 active 项显示评价按钮等导致内容高度变化后被截断，从而出现“只有灰色高亮但看不到文字”的错觉。
         requestAnimationFrame(() => {
           try {
             nav
-              .querySelectorAll('li:not(.sidebar-day-collapsed) > ul.sidebar-day-content')
+              .querySelectorAll(
+                'li:not(.sidebar-day-collapsed) > ul.sidebar-day-content, li:not(.dpr-sidebar-group-collapsed) > ul.dpr-sidebar-fold-content',
+              )
               .forEach((ul) => {
                 // 仅做“静默修正”，避免因为 max-height 变化触发过渡，导致侧边栏看起来“滚动/刷新”一下
                 const prevTransition = ul.style.transition;
@@ -2432,6 +2757,16 @@ window.$docsify = {
 	          const paperIdFromHref = m[1].replace(/\/$/, '');
 	          const li = a.closest('li');
 	          if (!li) return;
+          if (
+            a.classList.contains('dpr-sidebar-brief-link') ||
+            /\/README$/i.test(paperIdFromHref) ||
+            !/^(\d{6}\/\d{2}|\d{8}-\d{8})\/(?!README$).+/i.test(paperIdFromHref)
+          ) {
+            li.classList.remove('sidebar-paper-item');
+            const strayActions = li.querySelector('.sidebar-paper-rating-icons');
+            if (strayActions && strayActions.remove) strayActions.remove();
+            return;
+          }
 	          // 标记这是一个具体论文条目，方便样式细化（避免整天标题一起高亮）
 	          li.classList.add('sidebar-paper-item');
 
@@ -2698,6 +3033,50 @@ window.$docsify = {
             `<span class="dpr-sidebar-meta-tags">${tagsHtml || '<span class="dpr-sidebar-tag dpr-sidebar-tag-other">-</span>'}</span>` +
             `</div>`;
           a.dataset.sidebarStructuredHydrated = '1';
+        });
+      };
+
+      const decorateSidebarStaticLinks = () => {
+        const nav = document.querySelector('.sidebar-nav');
+        if (!nav) return;
+        const current = normalizeHref(window.location.hash || '#/');
+        const stripEmoji = (value) =>
+          String(value || '')
+            .replace(/^(?:[\s\uFE0F\u200D]*(?:[\u2600-\u27BF]|[\u{1F300}-\u{1FAFF}])\uFE0F?\s*)+/u, '')
+            .trim();
+        const setLinkLabel = (a, emoji, rawText) => {
+          if (!a) return;
+          const raw = stripEmoji(rawText || '');
+          a.dataset.dprRawLabel = raw;
+          a.textContent = '';
+          const wrap = document.createElement('span');
+          wrap.className = 'dpr-sidebar-label-with-icon';
+          const icon = document.createElement('span');
+          icon.className = 'dpr-sidebar-label-icon';
+          icon.textContent = emoji || '';
+          const label = document.createElement('span');
+          label.className = 'dpr-sidebar-label-text';
+          label.textContent = raw;
+          wrap.appendChild(icon);
+          wrap.appendChild(label);
+          a.appendChild(wrap);
+        };
+
+        nav.querySelectorAll('a.dpr-sidebar-root-link').forEach((a) => {
+          const raw = stripEmoji(a.dataset.dprRawLabel || a.textContent || '');
+          if (!raw) return;
+          const emoji = raw === '首页' ? '🏠' : raw === '使用教程' ? '📘' : '';
+          if (emoji) setLinkLabel(a, emoji, raw);
+          const href = a.getAttribute('data-dpr-hash') || a.getAttribute('href') || '';
+          const target = normalizeHref(href);
+          a.classList.toggle('dpr-sidebar-static-active', !!target && current === target);
+        });
+
+        nav.querySelectorAll('a.dpr-sidebar-brief-link').forEach((a) => {
+          const raw = stripEmoji(a.dataset.dprRawLabel || a.textContent || '今日简报');
+          setLinkLabel(a, '📝', raw || '今日简报');
+          const target = normalizeHref(a.getAttribute('href') || '');
+          a.classList.toggle('dpr-sidebar-static-active', !!target && current === target);
         });
       };
 
@@ -2994,7 +3373,11 @@ window.$docsify = {
         if (!li.classList || !li.classList.contains('sidebar-paper-item')) return;
         // 若该条目在“折叠的日期”之下：隐藏高亮层，避免折叠后仍残留选中背景
         try {
-          if (li.closest && li.closest('li.sidebar-day-collapsed')) {
+          if (
+            li.closest &&
+            (li.closest('li.sidebar-day-collapsed') ||
+              li.closest('li.dpr-sidebar-group-collapsed'))
+          ) {
             hideSidebarActiveIndicator();
             return;
           }
@@ -4082,18 +4465,18 @@ window.$docsify = {
         // 只对论文页面处理
         if (!isPaperRouteFile(file)) {
           latestPaperRawMarkdown = '';
-          return normalizedContent;
+          return protectMarkdownMathForDocsify(normalizedContent);
         }
         latestPaperRawMarkdown = normalizedContent || '';
 
         const { meta, body } = parseFrontMatter(normalizedContent);
         if (!meta) {
-          return normalizedContent;
+          return protectMarkdownMathForDocsify(normalizedContent);
         }
 
         // 生成论文页面 HTML + 正文
         const paperHtml = renderPaperFromMeta(meta);
-        return paperHtml + body;
+        return protectMarkdownMathForDocsify(paperHtml + body);
       });
 
       // --- Docsify 生命周期钩子 ---
@@ -4134,7 +4517,9 @@ window.$docsify = {
         if (mainContent) {
           // 先创建正文包装层，避免后续切页动画影响聊天浮层
           const root = isPaperPage ? ensurePageContentRoot() : null;
-          renderMathInEl(root || mainContent);
+          const mathRoot = root || mainContent;
+          restoreMarkdownMathPlaceholdersInEl(mathRoot);
+          renderMathInEl(mathRoot);
         }
 
         // 论文页标题条排版（只对 docs/YYYYMM/DD/*.md 生效）
@@ -4194,6 +4579,7 @@ window.$docsify = {
         // F. 侧边栏按日期折叠
         // ----------------------------------------------------
         setupCollapsibleSidebarByDay();
+        decorateSidebarStaticLinks();
         hydrateStructuredSidebarItems();
         bindSidebarVirtualHashLinks();
         neutralizeSidebarNoactiveLinks();

@@ -24,6 +24,9 @@ window.SubscriptionsManager = (function () {
   let quickRunMsgEl = null;
   let resetContentBtn = null;
   let resetContentMsgEl = null;
+  let settingsDirtyBadge = null;
+  let activeSettingsPage = 'search';
+  let lastConfigSource = '';
 
   let draftConfig = null;
   let hasUnsavedChanges = false;
@@ -86,6 +89,12 @@ window.SubscriptionsManager = (function () {
 
   const normalizeText = (v) => String(v || '').trim();
   const normalizeSourceKey = (v) => normalizeText(v).toLowerCase();
+  const escapeHtml = (str) => String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
   const toStableId = (value) => {
     const text = normalizeText(value).toLowerCase();
     const slug = text
@@ -119,6 +128,18 @@ window.SubscriptionsManager = (function () {
     'aaai',
   ];
   const VISIBLE_PAPER_SOURCES = ['arxiv', 'biorxiv'];
+  const SOURCE_LABELS = {
+    arxiv: 'arXiv',
+    biorxiv: 'bioRxiv',
+    medrxiv: 'medRxiv',
+    chemrxiv: 'ChemRxiv',
+    neurips: 'NeurIPS',
+    iclr: 'ICLR',
+    icml: 'ICML',
+    acl: 'ACL',
+    emnlp: 'EMNLP',
+    aaai: 'AAAI',
+  };
   const SOURCE_BACKEND_DEFAULTS = {
     arxiv: {
       papers_table: 'arxiv_papers',
@@ -174,6 +195,19 @@ window.SubscriptionsManager = (function () {
       return a.localeCompare(b);
     });
     return visibleOut;
+  };
+
+  const getPaperSourceLabel = (source) => {
+    const key = normalizeSourceKey(source);
+    return SOURCE_LABELS[key] || (key ? key.toUpperCase() : 'Unknown');
+  };
+
+  const getAccessModeLabel = () => {
+    const mode = String(window.DPR_ACCESS_MODE || '').toLowerCase();
+    if (mode === 'full') return '完整权限';
+    if (mode === 'guest') return '游客模式';
+    if (mode === 'locked') return '尚未解锁';
+    return '未初始化';
   };
 
   const normalizePaperSources = (values, options = {}) => {
@@ -404,6 +438,114 @@ window.SubscriptionsManager = (function () {
     }
   };
 
+  const updateSettingsChrome = () => {
+    if (settingsDirtyBadge) {
+      settingsDirtyBadge.textContent = hasUnsavedChanges ? '有未保存更改' : '已保存';
+      settingsDirtyBadge.classList.toggle('is-dirty', hasUnsavedChanges);
+    }
+    if (saveBtn) {
+      saveBtn.classList.toggle('is-dirty', hasUnsavedChanges);
+      saveBtn.title = hasUnsavedChanges
+        ? '保存当前设置到 config.yaml'
+        : '当前没有未保存修改';
+    }
+  };
+
+  const activateSettingsPage = (pageKey) => {
+    const key = normalizeText(pageKey) || 'search';
+    activeSettingsPage = key;
+    if (!panel) return;
+
+    panel.querySelectorAll('[data-settings-page]').forEach((btn) => {
+      const selected = btn.getAttribute('data-settings-page') === key;
+      btn.classList.toggle('is-active', selected);
+      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+
+    panel.querySelectorAll('[data-settings-page-panel]').forEach((section) => {
+      const selected = section.getAttribute('data-settings-page-panel') === key;
+      section.classList.toggle('is-active', selected);
+      section.hidden = !selected;
+    });
+  };
+
+  const renderSettingsSnapshot = () => {
+    if (!panel) return;
+    const cfg = isPlainObject(draftConfig) ? draftConfig : {};
+    const subs = isPlainObject(cfg.subscriptions) ? cfg.subscriptions : {};
+    const profiles = Array.isArray(subs.intent_profiles) ? subs.intent_profiles : [];
+    const sources = getAvailablePaperSources(cfg);
+    const sourceListEl = document.getElementById('dpr-settings-sources-list');
+    const sourceSummaryEl = document.getElementById('dpr-settings-sources-summary');
+    const storageStatusEl = document.getElementById('dpr-settings-storage-status');
+    const profileCountEl = document.getElementById('dpr-settings-profile-count');
+    const sourceCountEl = document.getElementById('dpr-settings-source-count');
+    const accessModeEl = document.getElementById('dpr-settings-access-mode');
+
+    if (profileCountEl) {
+      profileCountEl.textContent = String(profiles.length);
+    }
+    if (sourceCountEl) {
+      sourceCountEl.textContent = String(sources.length || 0);
+    }
+    if (accessModeEl) {
+      accessModeEl.textContent = getAccessModeLabel();
+    }
+    if (sourceSummaryEl) {
+      sourceSummaryEl.textContent = sources.length
+        ? `已启用 ${sources.map(getPaperSourceLabel).join(' / ')}，检索词条可按来源选择。`
+        : '尚未读取到可见文献源，默认会回退到 arXiv。';
+    }
+    if (sourceListEl) {
+      const backends = isPlainObject(cfg.source_backends) ? cfg.source_backends : {};
+      const list = sources.length ? sources : ['arxiv'];
+      sourceListEl.innerHTML = list.map((source) => {
+        const key = normalizeSourceKey(source);
+        const backend = isPlainObject(backends[key])
+          ? backends[key]
+          : (buildDefaultSourceBackend(key, cfg) || {});
+        const enabled = backend.enabled !== false;
+        const schema = normalizeText(backend.schema || 'public');
+        const table = normalizeText(backend.papers_table || '未配置');
+        const vectorRpc = normalizeText(backend.vector_rpc_exact || backend.vector_rpc || '未配置');
+        const bm25Rpc = normalizeText(backend.bm25_rpc || '未配置');
+        return `
+          <article class="dpr-source-card">
+            <div class="dpr-source-card-head">
+              <div>
+                <div class="dpr-source-name">${escapeHtml(getPaperSourceLabel(key))}</div>
+                <div class="dpr-source-subtitle">schema: ${escapeHtml(schema)}</div>
+              </div>
+              <span class="dpr-source-status ${enabled ? 'is-on' : 'is-off'}">${enabled ? '已启用' : '已停用'}</span>
+            </div>
+            <div class="dpr-source-meta">
+              <span>表：${escapeHtml(table)}</span>
+              <span>向量 RPC：${escapeHtml(vectorRpc)}</span>
+              <span>BM25 RPC：${escapeHtml(bm25Rpc)}</span>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+    if (storageStatusEl) {
+      const sourceText = lastConfigSource || 'config.yaml';
+      storageStatusEl.innerHTML = `
+        <div class="dpr-storage-row">
+          <span>配置来源</span>
+          <strong>${escapeHtml(sourceText)}</strong>
+        </div>
+        <div class="dpr-storage-row">
+          <span>检索配置</span>
+          <strong>${profiles.length} 个词条</strong>
+        </div>
+        <div class="dpr-storage-row">
+          <span>草稿状态</span>
+          <strong>${hasUnsavedChanges ? '有未保存更改' : '已同步'}</strong>
+        </div>
+      `;
+    }
+  };
+
   const refreshQuickRunButtons = () => {
     const blocked = hasUnsavedChanges;
     [quickRunTodayBtn, quickRun10dBtn, quickRun30dBtn, quickRun30dStandardBtn].forEach((btn) => {
@@ -418,6 +560,8 @@ window.SubscriptionsManager = (function () {
       quickRunMsgEl.textContent = '检测到未保存修改，请先保存后再发起快速抓取。';
       quickRunMsgEl.style.color = '#c00';
     }
+    updateSettingsChrome();
+    renderSettingsSnapshot();
   };
 
   const setQuickRunMessage = (text, color) => {
@@ -708,78 +852,294 @@ window.SubscriptionsManager = (function () {
     overlay.innerHTML = `
       <div id="arxiv-search-panel">
         <div id="arxiv-search-panel-header">
-          <div style="font-weight:600;">后台管理</div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <button id="arxiv-config-save-btn" class="arxiv-tool-btn" style="padding:2px 10px; background:#2e7d32; color:white;">保存</button>
-            <button id="arxiv-open-secret-setup-btn" class="arxiv-tool-btn" style="padding:2px 10px;">密钥配置</button>
-            <button id="arxiv-search-close-btn" class="arxiv-tool-btn" style="padding:2px 6px;">关闭</button>
+          <div class="dpr-settings-title-block">
+            <div id="dpr-settings-title">⚙️ 设置</div>
+          </div>
+          <div class="dpr-settings-window-actions">
+            <span id="dpr-settings-unsaved-badge" class="dpr-settings-unsaved-badge">已保存</span>
+            <button id="arxiv-search-close-btn" class="dpr-settings-close-btn" type="button" aria-label="关闭设置窗口">×</button>
           </div>
         </div>
 
         <div id="arxiv-search-panel-body">
-          <div id="arxiv-search-panel-main">
-            <div id="dpr-smart-query-section" class="arxiv-pane dpr-smart-pane">
-              <div class="dpr-display-card">
-                <div id="dpr-sq-display" class="dpr-sq-display"></div>
+          <aside class="dpr-settings-sidebar" aria-label="设置分类">
+            <div class="dpr-settings-nav-group">
+              <div class="dpr-settings-nav-label">常规</div>
+              <button class="dpr-settings-nav-btn is-active" type="button" data-settings-page="search" aria-selected="true">
+                <span class="dpr-settings-nav-icon">🔎</span>
+                <span class="dpr-settings-nav-text">检索配置</span>
+              </button>
+              <button class="dpr-settings-nav-btn" type="button" data-settings-page="quick" aria-selected="false">
+                <span class="dpr-settings-nav-icon">⚡</span>
+                <span class="dpr-settings-nav-text">快速使用</span>
+              </button>
+              <button class="dpr-settings-nav-btn" type="button" data-settings-page="workflow" aria-selected="false">
+                <span class="dpr-settings-nav-icon">▶</span>
+                <span class="dpr-settings-nav-text">工作流</span>
+              </button>
+              <button class="dpr-settings-nav-btn" type="button" data-settings-page="sources" aria-selected="false">
+                <span class="dpr-settings-nav-icon">📚</span>
+                <span class="dpr-settings-nav-text">文献源</span>
+              </button>
+            </div>
+            <div class="dpr-settings-nav-group">
+              <div class="dpr-settings-nav-label">隐私</div>
+              <button class="dpr-settings-nav-btn dpr-settings-nav-btn-privacy" type="button" data-settings-page="secrets" aria-selected="false">
+                <span class="dpr-settings-nav-icon">🔐</span>
+                <span class="dpr-settings-nav-text">密钥配置</span>
+              </button>
+            </div>
+            <div class="dpr-settings-nav-group">
+              <div class="dpr-settings-nav-label">危险</div>
+              <button class="dpr-settings-nav-btn dpr-settings-nav-btn-danger" type="button" data-settings-page="storage" aria-selected="false">
+                <span class="dpr-settings-nav-icon">💾</span>
+                <span class="dpr-settings-nav-text">存储</span>
+              </button>
+              <button class="dpr-settings-nav-btn dpr-settings-nav-btn-danger" type="button" data-settings-page="reset" aria-selected="false">
+                <span class="dpr-settings-nav-icon">🧨</span>
+                <span class="dpr-settings-nav-text">重置</span>
+              </button>
+            </div>
+            <div class="dpr-settings-sidebar-card">
+              <div class="dpr-settings-sidebar-kicker">当前状态</div>
+              <div class="dpr-settings-sidebar-stats">
+                <span><strong id="dpr-settings-profile-count">0</strong> 个检索词条</span>
+                <span><strong id="dpr-settings-source-count">0</strong> 个文献源</span>
+              </div>
+            </div>
+          </aside>
+
+          <main id="arxiv-search-panel-main">
+            <section class="dpr-settings-page dpr-settings-page-with-save is-active" data-settings-page-panel="search">
+              <div class="dpr-settings-page-head">
+                <div>
+                  <div class="dpr-settings-page-kicker">General / Search</div>
+                  <h2>检索配置</h2>
+                  <p>用自然语言或手动规则维护检索词条，保存后写入 config.yaml。</p>
+                </div>
+                <button id="dpr-sq-open-chat-btn" class="arxiv-tool-btn dpr-settings-primary-btn" type="button">新增检索</button>
               </div>
 
-              <div class="dpr-input-card">
-                <div class="dpr-inline-row">
-                  <button id="dpr-sq-open-chat-btn" class="arxiv-tool-btn" style="background:#2e7d32; color:#fff;">新增</button>
+              <div id="dpr-smart-query-section" class="arxiv-pane dpr-smart-pane dpr-settings-card">
+                <div class="dpr-display-card">
+                  <div id="dpr-sq-display" class="dpr-sq-display"></div>
                 </div>
               </div>
-            </div>
 
-            <div id="dpr-smart-msg" style="font-size:12px; color:#666; margin-top:10px;">提示：修改后点击「保存」才会写入 config.yaml。</div>
-          </div>
+              <div id="dpr-smart-msg" class="dpr-settings-message">提示：修改后点击「保存更改」才会写入 config.yaml。</div>
+              <div class="dpr-settings-save-row">
+                <button id="arxiv-config-save-btn" class="arxiv-tool-btn dpr-settings-save-btn" type="button">保存更改</button>
+              </div>
+            </section>
 
-          <div id="arxiv-search-quick-run-divider" aria-hidden="true"></div>
+            <section class="dpr-settings-page" data-settings-page-panel="quick" hidden>
+              <div class="dpr-settings-page-head">
+                <div>
+                  <div class="dpr-settings-page-kicker">General / Quick Run</div>
+                  <h2>快速使用</h2>
+                  <p>选择常用抓取范围，直接触发日报工作流。存在未保存修改时会自动锁定。</p>
+                </div>
+              </div>
+              <div id="arxiv-search-quick-run-side" class="dpr-settings-card dpr-quick-run-card">
+                <div class="dpr-settings-card-head">
+                  <div>
+                    <h3>快速抓取</h3>
+                    <p>按常见使用场景启动论文检索与报告生成。</p>
+                  </div>
+                </div>
+                <div class="dpr-quick-run-grid">
+                  <button id="arxiv-admin-quick-run-today-btn" class="chat-quick-run-item" type="button">
+                    <span>今日日报</span>
+                    <small>1 天标准抓取，适合日常更新</small>
+                  </button>
+                  <button id="arxiv-admin-quick-run-10d-btn" class="chat-quick-run-item" type="button">
+                    <span>十天内论文</span>
+                    <small>快速补齐近期遗漏论文</small>
+                  </button>
+                  <button id="arxiv-admin-quick-run-30d-btn" class="chat-quick-run-item" type="button">
+                    <span>三十天速览</span>
+                    <small>全速览模式，成本约 0.76</small>
+                  </button>
+                  <button id="arxiv-admin-quick-run-30d-standard-btn" class="chat-quick-run-item" type="button">
+                    <span>三十天标准 / 精读</span>
+                    <small>全标准模式，成本约 1.22</small>
+                  </button>
+                </div>
+                <div class="chat-quick-run-divider" aria-hidden="true"></div>
+                <div class="dpr-settings-card-head dpr-settings-card-head-compact">
+                  <div>
+                    <h3>会议论文</h3>
+                    <p>入口已预留，后续可接入会议专属抓取。</p>
+                  </div>
+                </div>
+                <div class="dpr-settings-form-grid">
+                  <label class="chat-quick-run-row" for="arxiv-admin-quick-run-year-select">
+                    <span>年份</span>
+                    <select id="arxiv-admin-quick-run-year-select" disabled>
+                      <option value="">选择年份</option>
+                    </select>
+                  </label>
+                  <label class="chat-quick-run-row" for="arxiv-admin-quick-run-conference-select">
+                    <span>会议名</span>
+                    <select id="arxiv-admin-quick-run-conference-select" disabled>
+                      <option value="">选择会议名</option>
+                    </select>
+                  </label>
+                </div>
+                <button
+                  id="arxiv-admin-quick-run-conference-run-btn"
+                  class="chat-quick-run-run-btn chat-quick-run-item--disabled"
+                  type="button"
+                  disabled
+                >
+                  运行会议抓取
+                </button>
+                <div id="arxiv-admin-quick-run-msg" class="chat-quick-run-msg"></div>
+              </div>
+            </section>
 
-          <div id="arxiv-search-quick-run-side">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
-              <div class="chat-quick-run-title" style="margin:0;">快速抓取</div>
-              <button id="arxiv-admin-open-workflow-panel-btn" class="arxiv-tool-btn" type="button" style="padding:2px 8px;">打开工作流面板</button>
-            </div>
-            <button id="arxiv-admin-quick-run-today-btn" class="chat-quick-run-item" type="button">立即生成今日日报</button>
-            <button id="arxiv-admin-quick-run-10d-btn" class="chat-quick-run-item" type="button">立即搜寻十天内论文</button>
-            <button id="arxiv-admin-quick-run-30d-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文（全速览，约 0.76）</button>
-            <button id="arxiv-admin-quick-run-30d-standard-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文（全标准 / 精读，约 1.22）</button>
-            <div class="chat-quick-run-divider" aria-hidden="true"></div>
-            <div class="chat-quick-run-title">会议论文（暂未接入）</div>
-            <div class="chat-quick-run-row">
-              <label for="arxiv-admin-quick-run-year-select">年份</label>
-              <select id="arxiv-admin-quick-run-year-select" disabled>
-                <option value="">选择年份</option>
-              </select>
-            </div>
-            <div class="chat-quick-run-row">
-              <label for="arxiv-admin-quick-run-conference-select">会议名</label>
-              <select id="arxiv-admin-quick-run-conference-select" disabled>
-                <option value="">选择会议名</option>
-              </select>
-            </div>
-            <button
-              id="arxiv-admin-quick-run-conference-run-btn"
-              class="chat-quick-run-run-btn chat-quick-run-item--disabled"
-              type="button"
-              disabled
-            >
-              运行
-            </button>
-            <div id="arxiv-admin-quick-run-msg" class="chat-quick-run-msg"></div>
+            <section class="dpr-settings-page" data-settings-page-panel="workflow" hidden>
+              <div class="dpr-settings-page-head">
+                <div>
+                  <div class="dpr-settings-page-kicker">General / Workflow</div>
+                  <h2>工作流</h2>
+                  <p>查看 GitHub Actions 运行状态，或打开完整工作流面板发起高级操作。</p>
+                </div>
+                <button id="arxiv-admin-open-workflow-panel-btn" class="arxiv-tool-btn dpr-settings-primary-btn" type="button">打开工作流面板</button>
+              </div>
+              <div class="dpr-workflow-settings-layout">
+                <div class="dpr-settings-card dpr-workflow-guide-card">
+                  <div class="dpr-workflow-guide-step">
+                    <span>1</span>
+                    <div>
+                      <h3>保存配置</h3>
+                      <p>检索配置页右下角保存后，workflow 才会读取最新的 config.yaml。</p>
+                    </div>
+                  </div>
+                  <div class="dpr-workflow-guide-step">
+                    <span>2</span>
+                    <div>
+                      <h3>选择入口</h3>
+                      <p>常用抓取走“快速使用”，同步和危险操作保留在对应设置页，避免误触。</p>
+                    </div>
+                  </div>
+                  <div class="dpr-workflow-guide-step">
+                    <span>3</span>
+                    <div>
+                      <h3>查看进度</h3>
+                      <p>工作流面板聚合最近运行和执行过程，失败时可直接跳转 GitHub Actions。</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="dpr-workflow-metric-grid">
+                  <div class="dpr-settings-card dpr-workflow-mini-card">
+                    <strong>日报抓取</strong>
+                    <span>抓取 → 召回 → 重排 → 生成 docs</span>
+                  </div>
+                  <div class="dpr-settings-card dpr-workflow-mini-card">
+                    <strong>同步代码</strong>
+                    <span>仅 Fork 仓库可用，面板会自动提示状态</span>
+                  </div>
+                  <div class="dpr-settings-card dpr-workflow-mini-card">
+                    <strong>危险重置</strong>
+                    <span>保留二次确认，入口仍在危险设置中</span>
+                  </div>
+                </div>
+              </div>
+            </section>
 
-            <div class="chat-quick-run-divider" aria-hidden="true"></div>
-            <div class="chat-quick-run-title">危险操作</div>
-            <button
-              id="arxiv-admin-reset-content-btn"
-              class="chat-quick-run-run-btn"
-              type="button"
-              style="background:#c62828; color:#fff; border-color:#b71c1c;"
-            >
-              删除所有
-            </button>
-            <div id="arxiv-admin-reset-content-msg" class="chat-quick-run-msg"></div>
-          </div>
+            <section class="dpr-settings-page" data-settings-page-panel="sources" hidden>
+              <div class="dpr-settings-page-head">
+                <div>
+                  <div class="dpr-settings-page-kicker">General / Sources</div>
+                  <h2>文献源</h2>
+                  <p id="dpr-settings-sources-summary">加载配置后显示当前可用文献源。</p>
+                </div>
+              </div>
+              <div id="dpr-settings-sources-list" class="dpr-source-card-grid">
+                <div class="dpr-settings-empty">正在读取文献源配置...</div>
+              </div>
+            </section>
+
+            <section class="dpr-settings-page" data-settings-page-panel="secrets" hidden>
+              <div class="dpr-settings-page-head">
+                <div>
+                  <div class="dpr-settings-page-kicker">Privacy / Secrets</div>
+                  <h2>密钥配置</h2>
+                  <p>密钥只通过加密向导和 GitHub Secrets 管理，此处不会展示明文。</p>
+                </div>
+                <button id="arxiv-open-secret-setup-btn" class="arxiv-tool-btn dpr-settings-primary-btn" type="button">打开密钥配置</button>
+              </div>
+              <div class="dpr-secret-settings-grid">
+                <div class="dpr-settings-card dpr-secret-card dpr-secret-card--hero">
+                  <div class="dpr-secret-status-orb">🔐</div>
+                  <div>
+                    <h3>访问模式：<span id="dpr-settings-access-mode">未初始化</span></h3>
+                    <p>完整权限可读写 config.yaml、触发 workflow，并启用大模型对话；游客模式仅支持阅读。</p>
+                  </div>
+                </div>
+                <div class="dpr-settings-card dpr-secret-info-card">
+                  <span>GitHub Token</span>
+                  <strong>保存配置与触发 workflow</strong>
+                </div>
+                <div class="dpr-settings-card dpr-secret-info-card">
+                  <span>工作流大模型</span>
+                  <strong>改写、筛选、速览与总结</strong>
+                </div>
+                <div class="dpr-settings-card dpr-secret-info-card">
+                  <span>聊天模型</span>
+                  <strong>可复用工作流 API 或单独配置</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="dpr-settings-page" data-settings-page-panel="storage" hidden>
+              <div class="dpr-settings-page-head">
+                <div>
+                  <div class="dpr-settings-page-kicker">Danger / Storage</div>
+                  <h2>存储</h2>
+                  <p>检查当前配置来源、草稿状态与本地设置，不直接删除运行产物。</p>
+                </div>
+                <button id="dpr-settings-reload-config-btn" class="arxiv-tool-btn" type="button">重新加载配置</button>
+              </div>
+              <div class="dpr-settings-card">
+                <div class="dpr-settings-card-head">
+                  <div>
+                    <h3>配置与草稿</h3>
+                    <p>关闭窗口前若有未保存修改，将提示是否丢弃本地草稿。</p>
+                  </div>
+                </div>
+                <div id="dpr-settings-storage-status" class="dpr-storage-status">
+                  <div class="dpr-settings-empty">等待配置加载...</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="dpr-settings-page" data-settings-page-panel="reset" hidden>
+              <div class="dpr-settings-page-head">
+                <div>
+                  <div class="dpr-settings-page-kicker">Danger / Reset</div>
+                  <h2>重置</h2>
+                  <p>这些操作会影响已生成内容，请确认你理解后果再继续。</p>
+                </div>
+              </div>
+              <div class="dpr-settings-card dpr-danger-card">
+                <div class="dpr-danger-icon">🧨</div>
+                <div class="dpr-danger-content">
+                  <h3>删除并重置 content</h3>
+                  <p>该操作会通过工作流将 docs 备份为 docs_backup_xxx 后恢复为 docs_init，并清空 archive。需要输入 RESET_ALL 二次确认。</p>
+                  <button
+                    id="arxiv-admin-reset-content-btn"
+                    class="chat-quick-run-run-btn dpr-danger-run-btn"
+                    type="button"
+                  >
+                    删除所有并重置
+                  </button>
+                  <div id="arxiv-admin-reset-content-msg" class="chat-quick-run-msg"></div>
+                </div>
+              </div>
+            </section>
+          </main>
         </div>
       </div>
     `;
@@ -790,6 +1150,10 @@ window.SubscriptionsManager = (function () {
     saveBtn = document.getElementById('arxiv-config-save-btn');
     closeBtn = document.getElementById('arxiv-search-close-btn');
     msgEl = document.getElementById('dpr-smart-msg');
+    settingsDirtyBadge = document.getElementById('dpr-settings-unsaved-badge');
+    activateSettingsPage(activeSettingsPage);
+    updateSettingsChrome();
+    renderSettingsSnapshot();
 
     const reloadAll = () => {
       renderFromDraft();
@@ -817,6 +1181,7 @@ window.SubscriptionsManager = (function () {
     if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
       window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
     }
+    renderSettingsSnapshot();
   };
 
   const loadSubscriptions = async () => {
@@ -824,7 +1189,11 @@ window.SubscriptionsManager = (function () {
       if (!window.SubscriptionsGithubToken || !window.SubscriptionsGithubToken.loadConfig) {
         throw new Error('SubscriptionsGithubToken.loadConfig 不可用');
       }
-      const { config } = await window.SubscriptionsGithubToken.loadConfig();
+      const loaded = await window.SubscriptionsGithubToken.loadConfig();
+      const { config } = loaded || {};
+      lastConfigSource = normalizeText(
+        (loaded && loaded.source) || (loaded && loaded.sha ? 'GitHub config.yaml' : 'config.yaml'),
+      );
       draftConfig = normalizeSubscriptions(config || {});
       hasUnsavedChanges = false;
       refreshQuickRunButtons();
@@ -833,6 +1202,7 @@ window.SubscriptionsManager = (function () {
       }
       renderFromDraft();
       setMessage('已加载配置，可开始编辑。', '#666');
+      renderSettingsSnapshot();
     } catch (e) {
       console.error(e);
       setMessage('加载配置失败，请确认 GitHub Token 可用。', '#c00');
@@ -875,6 +1245,7 @@ window.SubscriptionsManager = (function () {
         window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
       }
       setMessage('配置已保存。', '#080');
+      renderSettingsSnapshot();
     } catch (e) {
       console.error(e);
       const msg = e && e.message ? e.message : '未知错误';
@@ -913,6 +1284,9 @@ window.SubscriptionsManager = (function () {
     ensureOverlay();
     if (!overlay) return;
     overlay.style.display = 'flex';
+    activateSettingsPage(activeSettingsPage);
+    updateSettingsChrome();
+    renderSettingsSnapshot();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         overlay.classList.add('show');
@@ -942,6 +1316,23 @@ window.SubscriptionsManager = (function () {
     if (saveBtn && !saveBtn._bound) {
       saveBtn._bound = true;
       saveBtn.addEventListener('click', saveDraftConfig);
+    }
+
+    if (panel && !panel._settingsNavBound) {
+      panel._settingsNavBound = true;
+      panel.querySelectorAll('[data-settings-page]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          activateSettingsPage(btn.getAttribute('data-settings-page'));
+        });
+      });
+    }
+
+    const reloadConfigBtn = document.getElementById('dpr-settings-reload-config-btn');
+    if (reloadConfigBtn && !reloadConfigBtn._bound) {
+      reloadConfigBtn._bound = true;
+      reloadConfigBtn.addEventListener('click', () => {
+        loadSubscriptions();
+      });
     }
 
     const secretBtn = document.getElementById('arxiv-open-secret-setup-btn');

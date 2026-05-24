@@ -244,21 +244,47 @@ window.DPRWorkflowRunner = (function () {
     overlay.innerHTML = `
       <div id="dpr-workflow-panel">
         <div id="dpr-workflow-header">
-          <div style="font-weight:600;">工作流触发</div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <button id="dpr-workflow-refresh-btn" class="arxiv-tool-btn" style="padding:2px 10px;">刷新</button>
-            <button id="dpr-workflow-close-btn" class="arxiv-tool-btn" style="padding:2px 6px;">关闭</button>
+          <div class="dpr-workflow-title-wrap">
+            <div class="dpr-workflow-kicker">GitHub Actions</div>
+            <div class="dpr-workflow-title">工作流面板</div>
+          </div>
+          <div class="dpr-workflow-header-actions">
+            <button id="dpr-workflow-refresh-btn" class="arxiv-tool-btn dpr-workflow-soft-btn">刷新</button>
+            <button id="dpr-workflow-close-btn" class="arxiv-tool-btn dpr-workflow-close-btn" aria-label="关闭工作流面板">×</button>
           </div>
         </div>
         <div id="dpr-workflow-body">
-          <div id="dpr-workflow-status" style="font-size:12px; color:#666; margin-bottom:10px;">准备就绪。</div>
-          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">最近运行（各取 3 条）</div>
-          <div id="dpr-workflow-recent" style="font-size:12px; color:#333; border:1px solid #eee; border-radius:8px; background:#fff; padding:10px; margin-bottom:12px;">
-            <div style="color:#999;">加载中...</div>
-          </div>
-          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">执行过程</div>
-          <div id="dpr-workflow-runs" style="font-size:12px; color:#333; border:1px solid #eee; border-radius:8px; background:#fff; padding:10px; min-height:120px;">
-            <div style="color:#999;">尚未触发工作流。</div>
+          <section class="dpr-workflow-status-card">
+            <div>
+              <div class="dpr-workflow-section-label">当前状态</div>
+              <div id="dpr-workflow-status">准备就绪。</div>
+            </div>
+          </section>
+          <div class="dpr-workflow-columns">
+            <section class="dpr-workflow-section-card">
+              <div class="dpr-workflow-section-head">
+                <div>
+                  <div class="dpr-workflow-section-label">Recent Runs</div>
+                  <h3>最近运行</h3>
+                </div>
+                <span>各取 3 条</span>
+              </div>
+              <div id="dpr-workflow-recent">
+                <div class="dpr-workflow-empty">加载中...</div>
+              </div>
+            </section>
+            <section class="dpr-workflow-section-card">
+              <div class="dpr-workflow-section-head">
+                <div>
+                  <div class="dpr-workflow-section-label">Execution</div>
+                  <h3>执行过程</h3>
+                </div>
+                <span>自动刷新</span>
+              </div>
+              <div id="dpr-workflow-runs">
+                <div class="dpr-workflow-empty">尚未触发工作流。</div>
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -739,23 +765,23 @@ window.DPRWorkflowRunner = (function () {
       .join('');
 
     runsEl.innerHTML = `
-      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px;">
-        <div style="min-width:0;">
-          <div style="font-weight:600;">Run #${run.run_number || run.id}</div>
-          <div style="color:#666; margin-top:2px;">
-            <span style="display:inline-block; padding:1px 6px; border-radius:999px; background:rgba(0,0,0,0.06); color:${badgeColor};">
+      <div class="dpr-wf-run-head">
+        <div class="dpr-wf-run-title-wrap">
+          <div class="dpr-wf-run-title">Run #${run.run_number || run.id}</div>
+          <div class="dpr-wf-run-meta">
+            <span class="dpr-wf-run-badge" style="color:${badgeColor};">
               ${escapeHtml(badgeText)}
             </span>
-            <span style="margin-left:8px;">${escapeHtml(
+            <span>${escapeHtml(
               formatRunTime(run.created_at),
             )}</span>
           </div>
         </div>
-        <div style="flex-shrink:0; display:flex; gap:8px;">
-          <a class="arxiv-tool-btn" style="padding:6px 10px; text-decoration:none;" target="_blank" href="${runUrl}">打开 Actions</a>
+        <div class="dpr-wf-run-actions">
+          <a class="arxiv-tool-btn dpr-workflow-soft-btn" target="_blank" href="${runUrl}">打开 Actions</a>
         </div>
       </div>
-      ${jobHtml || '<div style="color:#999;">暂无 Job 信息</div>'}
+      ${jobHtml || '<div class="dpr-workflow-empty">暂无 Job 信息</div>'}
     `;
   };
 

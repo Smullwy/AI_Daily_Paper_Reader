@@ -1626,13 +1626,9 @@ window.SubscriptionsSmartQuery = (function () {
     displayListEl.innerHTML = currentProfiles
       .map((p) => {
         const isPaused = !!p.paused;
-        const isQuickRunOpen = !!p._quickRunOpen;
-        const pauseLabel = isPaused ? '恢复' : '暂停';
-        const pauseBtnClass = isPaused ? 'dpr-entry-resume-btn' : 'dpr-entry-pause-btn';
         const cardClass = 'dpr-entry-card' + (isPaused ? ' dpr-entry-card--paused' : '');
         const pausedBadge = isPaused ? '<span class="dpr-entry-paused-badge">已暂停</span>' : '';
         const profileId = escapeHtml(getProfileKey(p) || '');
-        const runPanelClass = `dpr-entry-run-panel${isQuickRunOpen ? ' is-open' : ''}`;
         return `
           <div class="${cardClass}" data-profile-id="${profileId}">
             <div class="dpr-entry-top">
@@ -1644,16 +1640,9 @@ window.SubscriptionsSmartQuery = (function () {
                 <span class="dpr-entry-source-inline">${renderProfileDailyLimitChip(p)}</span>
               </div>
               <div class="dpr-entry-actions">
-                <button class="arxiv-tool-btn dpr-entry-run-toggle-btn" data-action="toggle-profile-runs" data-profile-id="${profileId}">${isQuickRunOpen ? '收起运行' : '运行'}</button>
-                <button class="arxiv-tool-btn ${pauseBtnClass}" data-action="pause-profile" data-profile-id="${profileId}">${pauseLabel}</button>
                 <button class="arxiv-tool-btn dpr-entry-edit-btn" data-action="edit-profile" data-profile-id="${profileId}">修改</button>
                 <button class="arxiv-tool-btn dpr-entry-delete-btn" data-action="delete-profile" data-profile-id="${profileId}">删除</button>
               </div>
-            </div>
-            <div class="${runPanelClass}">
-              <button class="arxiv-tool-btn dpr-entry-run-btn" data-action="run-profile-10d" data-profile-id="${profileId}">10 天</button>
-              <button class="arxiv-tool-btn dpr-entry-run-btn" data-action="run-profile-30d-skims" data-profile-id="${profileId}">30 天速览</button>
-              <button class="arxiv-tool-btn dpr-entry-run-btn" data-action="run-profile-30d-standard" data-profile-id="${profileId}">30 天标准</button>
             </div>
           </div>
         `;
@@ -1743,47 +1732,73 @@ window.SubscriptionsSmartQuery = (function () {
     const sourceChoices = renderPaperSourceChoices(modalState.paper_sources || []);
 
     modalPanel.innerHTML = `
-      <div class="dpr-modal-head">
-        <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改词条' : '新增词条候选'}</div>
-        <button class="arxiv-tool-btn" data-action="close">关闭</button>
-      </div>
-      <div class="dpr-modal-group-title">
-        请先在下方输入你的检索想法
-      </div>
-      <div class="dpr-help-examples">
-        <div class="dpr-help-example">ex: 强化学习 符号回归</div>
-        <div class="dpr-help-example">ex: 请帮我去查找强化学习和符号回归相关的论文</div>
-        <div class="dpr-help-example">ex: 请帮我查找可解释的强化学习驱动符号回归方程发现论文</div>
-      </div>
-      <div class="dpr-modal-list dpr-combo-list">${candidateBlocks || '<div class="dpr-cloud-empty"></div>'}</div>
-      <div class="dpr-modal-actions-inline dpr-modal-add-inline">
-        <input id="dpr-add-kw-text" type="text" placeholder="手动新增关键词（召回词）" value="${escapeHtml(modalState.customKeyword || '')}" />
-        <input id="dpr-add-kw-query" type="text" placeholder="对应语义 Query 改写" value="${escapeHtml(modalState.customQuery || '')}" />
-        <input id="dpr-add-kw-logic" type="text" placeholder="中文直译（可选）" value="${escapeHtml(modalState.customKeywordLogic || '')}" />
-        <button class="arxiv-tool-btn" data-action="add-custom-kw">加入候选</button>
-      </div>
-      <div class="dpr-modal-actions dpr-modal-add-footer">
-        <label class="dpr-modal-field">
-          <span class="dpr-modal-field-label">标签</span>
-          <input id="dpr-add-profile-tag" type="text" value="${escapeHtml(modalState.tag || '')}" placeholder="请填写标签" />
-        </label>
-        <label class="dpr-modal-field">
-          <span class="dpr-modal-field-label">中文描述</span>
-          <input id="dpr-add-profile-desc" type="text" value="${escapeHtml(modalState.description || '')}" placeholder="请填写中文描述" />
-        </label>
-        <div class="dpr-modal-field dpr-modal-field-sources">
-          <span class="dpr-modal-field-label">论文源</span>
-          <div class="dpr-paper-source-row">${sourceChoices}</div>
+      <div class="dpr-modal-shell dpr-query-builder">
+        <div class="dpr-modal-head dpr-modal-head-polished">
+          <div>
+            <div class="dpr-modal-kicker">Smart Query</div>
+            <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改查询' : '新增查询'}</div>
+          </div>
+          <button class="arxiv-tool-btn dpr-modal-round-close" data-action="close" aria-label="关闭新增查询">×</button>
         </div>
-        <label class="dpr-modal-field">
-          <span class="dpr-modal-field-label">精读上限</span>
-          <input id="dpr-add-deep-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.deep_daily_paper_limit))}" />
-        </label>
-        <label class="dpr-modal-field">
-          <span class="dpr-modal-field-label">速读上限</span>
-          <input id="dpr-add-quick-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.quick_daily_paper_limit))}" />
-        </label>
-        <button class="arxiv-tool-btn" data-action="apply-add" style="background:#2e7d32;color:#fff;">保存查询</button>
+        <div class="dpr-query-intro-card">
+          <div>
+            <div class="dpr-query-step-pill">01</div>
+            <h3>从检索想法开始</h3>
+            <p>选择候选关键词和意图 Query，也可以手动补充召回词，让配置更贴近你的研究方向。</p>
+          </div>
+          <div class="dpr-help-examples">
+            <div class="dpr-help-example">ex: 强化学习 符号回归</div>
+            <div class="dpr-help-example">ex: 请帮我去查找强化学习和符号回归相关的论文</div>
+            <div class="dpr-help-example">ex: 请帮我查找可解释的强化学习驱动符号回归方程发现论文</div>
+          </div>
+        </div>
+        <div class="dpr-query-card">
+          <div class="dpr-query-card-head">
+            <div>
+              <div class="dpr-query-step-pill">02</div>
+              <h3>候选内容</h3>
+            </div>
+            <span>勾选后写入检索配置</span>
+          </div>
+          <div class="dpr-modal-list dpr-combo-list">${candidateBlocks || '<div class="dpr-cloud-empty"></div>'}</div>
+          <div class="dpr-modal-actions-inline dpr-modal-add-inline dpr-query-custom-row">
+            <input id="dpr-add-kw-text" type="text" placeholder="手动新增关键词（召回词）" value="${escapeHtml(modalState.customKeyword || '')}" />
+            <input id="dpr-add-kw-query" type="text" placeholder="对应语义 Query 改写" value="${escapeHtml(modalState.customQuery || '')}" />
+            <input id="dpr-add-kw-logic" type="text" placeholder="中文直译（可选）" value="${escapeHtml(modalState.customKeywordLogic || '')}" />
+            <button class="arxiv-tool-btn dpr-query-secondary-btn" data-action="add-custom-kw">加入候选</button>
+          </div>
+        </div>
+        <div class="dpr-query-save-strip">
+          <div class="dpr-query-card-head">
+            <div>
+              <div class="dpr-query-step-pill">03</div>
+              <h3>保存为配置</h3>
+            </div>
+          </div>
+          <div class="dpr-modal-actions dpr-modal-add-footer dpr-query-footer-grid">
+            <label class="dpr-modal-field">
+              <span class="dpr-modal-field-label">标签</span>
+              <input id="dpr-add-profile-tag" type="text" value="${escapeHtml(modalState.tag || '')}" placeholder="请填写标签" />
+            </label>
+            <label class="dpr-modal-field">
+              <span class="dpr-modal-field-label">中文描述</span>
+              <input id="dpr-add-profile-desc" type="text" value="${escapeHtml(modalState.description || '')}" placeholder="请填写中文描述" />
+            </label>
+            <div class="dpr-modal-field dpr-modal-field-sources">
+              <span class="dpr-modal-field-label">论文源</span>
+              <div class="dpr-paper-source-row">${sourceChoices}</div>
+            </div>
+            <label class="dpr-modal-field dpr-modal-field-compact">
+              <span class="dpr-modal-field-label">精读上限</span>
+              <input id="dpr-add-deep-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.deep_daily_paper_limit))}" />
+            </label>
+            <label class="dpr-modal-field dpr-modal-field-compact">
+              <span class="dpr-modal-field-label">速读上限</span>
+              <input id="dpr-add-quick-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.quick_daily_paper_limit))}" />
+            </label>
+            <button class="arxiv-tool-btn dpr-query-save-btn" data-action="apply-add">保存查询</button>
+          </div>
+        </div>
       </div>
     `;
   };
@@ -1908,57 +1923,86 @@ window.SubscriptionsSmartQuery = (function () {
     const emptyBlock = '<div class="dpr-cloud-empty"></div>';
 
     modalPanel.innerHTML = `
-      <div class="dpr-modal-head">
-        <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改查询' : '新增查询'}</div>
-        <button class="arxiv-tool-btn" data-action="close">关闭</button>
-      </div>
-      <div class="dpr-chat-result-module">
-        ${tipSection}
-        <div class="dpr-chat-result-content">${mixedHtml || emptyBlock}</div>
-      </div>
-      <div class="dpr-modal-actions dpr-chat-action-area">
-        <div class="dpr-chat-row">
-          <label class="dpr-chat-label dpr-chat-inline-desc">
-            <span class="dpr-chat-label-text">检索需求</span>
-            <textarea id="dpr-chat-desc-input" rows="2" placeholder="请帮我去查找强化学习和符号回归相关的论文">${escapeHtml(
-              modalState.inputDesc || '',
-            )}</textarea>
-          </label>
-          <button
-            class="arxiv-tool-btn dpr-chat-send-btn"
-            data-action="chat-send"
-            ${modalState.pending ? 'disabled' : ''}
-          >
-            <span class="dpr-chat-send-label">${actionLabel}</span>
-            <span class="dpr-mini-spinner" aria-hidden="true"></span>
-          </button>
+      <div class="dpr-modal-shell dpr-query-builder">
+        <div class="dpr-modal-head dpr-modal-head-polished">
+          <div>
+            <div class="dpr-modal-kicker">Smart Query</div>
+            <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改查询' : '新增查询'}</div>
+          </div>
+          <button class="arxiv-tool-btn dpr-modal-round-close" data-action="close" aria-label="关闭新增查询">×</button>
         </div>
-        <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
-      </div>
-      <div class="dpr-modal-actions dpr-modal-add-footer">
-        <label class="dpr-chat-label dpr-chat-inline-tag">
-          <span class="dpr-chat-label-text">标签</span>
-          <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
-        </label>
-        <label class="dpr-chat-label dpr-chat-inline-desc">
-          <span class="dpr-chat-label-text">中文描述</span>
-          <input id="dpr-chat-required-desc" type="text" placeholder="请填写描述" value="${escapeHtml(modalState.inputDesc || '')}" />
-        </label>
-        <div class="dpr-chat-label dpr-chat-inline-sources">
-          <span class="dpr-chat-label-text">论文源</span>
-          <div class="dpr-paper-source-row">${sourceChoices}</div>
+        <div class="dpr-query-flow-card">
+          <div class="dpr-query-card-head">
+            <div>
+              <div class="dpr-query-step-pill">01</div>
+              <h3>描述检索需求</h3>
+            </div>
+            <span>自然语言生成候选</span>
+          </div>
+          ${tipSection}
+          <div class="dpr-modal-actions dpr-chat-action-area">
+            <div class="dpr-chat-row">
+              <label class="dpr-chat-label dpr-chat-inline-desc">
+                <span class="dpr-chat-label-text">检索需求</span>
+                <textarea id="dpr-chat-desc-input" rows="2" placeholder="请帮我去查找强化学习和符号回归相关的论文">${escapeHtml(
+                  modalState.inputDesc || '',
+                )}</textarea>
+              </label>
+              <button
+                class="arxiv-tool-btn dpr-chat-send-btn"
+                data-action="chat-send"
+                ${modalState.pending ? 'disabled' : ''}
+              >
+                <span class="dpr-chat-send-label">${actionLabel}</span>
+                <span class="dpr-mini-spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
+          </div>
         </div>
-        <label class="dpr-chat-label dpr-chat-inline-limit">
-          <span class="dpr-chat-label-text">精读上限</span>
-          <input id="dpr-chat-deep-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.deep_daily_paper_limit))}" />
-        </label>
-        <label class="dpr-chat-label dpr-chat-inline-limit">
-          <span class="dpr-chat-label-text">速读上限</span>
-          <input id="dpr-chat-quick-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.quick_daily_paper_limit))}" />
-        </label>
-        <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
-          保存查询
-        </button>
+        <div class="dpr-chat-result-module dpr-query-card">
+          <div class="dpr-query-card-head">
+            <div>
+              <div class="dpr-query-step-pill">02</div>
+              <h3>选择候选</h3>
+            </div>
+            <span>可编辑、可追加</span>
+          </div>
+          <div class="dpr-chat-result-content">${mixedHtml || emptyBlock}</div>
+        </div>
+        <div class="dpr-query-save-strip">
+          <div class="dpr-query-card-head">
+            <div>
+              <div class="dpr-query-step-pill">03</div>
+              <h3>确认保存</h3>
+            </div>
+          </div>
+          <div class="dpr-modal-actions dpr-modal-add-footer dpr-query-footer-grid">
+            <label class="dpr-chat-label dpr-chat-inline-tag">
+              <span class="dpr-chat-label-text">标签</span>
+              <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
+            </label>
+            <label class="dpr-chat-label dpr-chat-inline-desc">
+              <span class="dpr-chat-label-text">中文描述</span>
+              <input id="dpr-chat-required-desc" type="text" placeholder="请填写描述" value="${escapeHtml(modalState.inputDesc || '')}" />
+            </label>
+            <div class="dpr-chat-label dpr-chat-inline-sources">
+              <span class="dpr-chat-label-text">论文源</span>
+              <div class="dpr-paper-source-row">${sourceChoices}</div>
+            </div>
+            <label class="dpr-chat-label dpr-chat-inline-limit">
+              <span class="dpr-chat-label-text">精读上限</span>
+              <input id="dpr-chat-deep-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.deep_daily_paper_limit))}" />
+            </label>
+            <label class="dpr-chat-label dpr-chat-inline-limit">
+              <span class="dpr-chat-label-text">速读上限</span>
+              <input id="dpr-chat-quick-daily-paper-limit" type="number" min="1" step="1" value="${escapeHtml(normalizeDailyPaperLimit(modalState.quick_daily_paper_limit))}" />
+            </label>
+            <button class="arxiv-tool-btn dpr-query-save-btn" data-action="apply-chat" ${hasCandidates ? '' : 'disabled'}>
+              保存查询
+            </button>
+          </div>
+        </div>
       </div>
     `;
 
