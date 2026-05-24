@@ -1,0 +1,811 @@
+Title: DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG
+
+URL Source: https://arxiv.org/pdf/2605.18298v1
+
+Published Time: Tue, 19 May 2026 02:58:25 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG 
+
+# Yang Shao 
+
+College of Artificial Intelligence, Nanjing University of Aeronautics and Astronautics Nanjing, Jiangsu, China shaoyang@nuaa.edu.cn 
+
+# Peiliang Gong 
+
+College of Artificial Intelligence, Nanjing University of Aeronautics and Astronautics Nanjing, Jiangsu, China plgong@nuaa.edu.cn 
+
+# Qun Dai 
+
+College of Artificial Intelligence, Nanjing University of Aeronautics and Astronautics Nanjing, Jiangsu, China daiqun@nuaa.edu.cn 
+
+# Daoqiang Zhang ∗
+
+College of Artificial Intelligence, Nanjing University of Aeronautics and Astronautics Nanjing, Jiangsu, China dqzhangn@nuaa.edu.cn 
+
+## Abstract 
+
+Foundation models pre-trained through masked reconstruction on large-scale EEG data have emerged as a promising paradigm for learning generalizable neural representations across diverse brain-computer interface applications. However, a critical yet over-looked challenge is that EEG encoders must learn representations invariant to incomplete observations—when different masked views of the same signal have minimal overlap, existing methods fail to constrain them to a consistent latent subspace, leading to de-graded transferability. To address this, we propose DARE-EEG, a self-supervised foundation model that explicitly enforces the mask-invariance property through dual-aligned representation learning during pre-training. Specifically, we introduce mask alignment that constrains representations from multiple masked views of the same EEG sample via contrastive learning, complementing anchor align-ment that aligns masked representations to momentum-updated complete features for semantic stability. Additionally, we propose conv-linear-probing, a parameter-efficient strategy that adapts pre-trained representations to heterogeneous electrode configurations and sampling rates through decoupled spectro-spatial projections. Extensive experiments across diverse EEG benchmarks demon-strate that DARE-EEG consistently achieves state-of-the-art in ac-curacy performance while maintaining relatively low parameter complexity and superior cross-dataset portability compared to ex-isting methods. Furthermore, DARE-EEG contributes to effectively discovering and utilizing the rich potential representations in EEG. 
+
+## CCS Concepts 
+
+• Computing methodologies → Machine learning ; • Human-centered computing → Human computer interaction (HCI) .
+
+## Keywords 
+
+EEG, Foundation Models, Mask Alignment, Anchor Alignment, Representation Learning, Mask-invariance Property 
+
+## 1 Introduction 
+
+Electroencephalography (EEG) provides a non-invasive window into human brain activity, capturing rich neural dynamics that 
+
+> ∗Corresponding author.
+
+……   
+
+> Encoder
+> Few-Overlap Alignment with Origin Add Mask Alignment Mask Constraint EEG with Label EEG with Label Encoder Masked Patches Few-Overlap
+
+Figure 1: Illustration of the advantage of the dual alignment in DARE-EEG. Mask constraint attempts to preserve the in-variant properties of the masked representation of EEG in the encoding space. 
+
+reflect cognitive states, emotional responses, and neurological con-ditions [ 20 , 42 , 48 ]. Its high temporal resolution, portability, and cost-effectiveness have made EEG indispensable across diverse applications, from clinical diagnosis [ 26 , 38 ] to brain-computer interfaces [ 1, 37 ] and cognitive neuroscience [ 29 ]. However, learn-ing robust and generalizable representations from EEG remains a fundamental challenge. The inherently low Signal-to-Noise Ratio (SNR) caused by electrode-skin impedance and volume conduc-tion [ 40 ], combined with substantial inter-subject variability and task-dependent fluctuations [ 30 ], creates significant barriers to de-veloping universally applicable EEG models. Traditional approaches addressing cross-subject and cross-task variability have primarily relied on domain adaptation techniques that explicitly align predefined source and target distributions [ 27 ,30 ]. While effective in controlled scenarios, these methods struggle to generalize beyond the specific domains they are designed to align, limiting their applicability to the diverse and heterogeneous nature of real-world EEG data. In contrast, the recent success of 
+
+> arXiv:2605.18298v1 [cs.AI] 18 May 2026 Shao et al.
+
+self-supervised learning in computer vision [ 6] and time-series analysis [ 47 ] has opened new avenues for learning transferable representations without explicit domain alignment. By pre-training on large-scale unlabeled data, self-supervised models can discover domain-invariant patterns that generalize across subjects, tasks, and recording conditions [43]. Among self-supervised approaches, masked autoencoding has emerged as a particularly promising paradigm for EEG foundation models [ 45 ]. This approach trains encoders to reconstruct randomly masked portions of the input, encouraging the model to capture underlying structural dependencies rather than superficial patterns. Building on this principle, several EEG foundation models have been proposed. BENDR [ 16 ] uses a Convolutional Neural Network (CNN) to encode EEG sequences into BENDR vectors, applies ran-dom masking to the BENDR vectors, and then feeds them to a Transformer for reconstruction. BIOT [ 43 ] introduces a unified sen-tence structure to handle heterogeneous electrode configurations across datasets. LaBraM [ 13 ], inspired by advances in large language models, segments EEG into channel-wise patches and employs vec-tor quantization to create discrete neural codes. EEGMamba [ 36 ]replaces the Transformer backbone with Mamba for improved computational efficiency. More recently, EEGPT [ 35 ] incorporates Anchor Alignment (AA)—a technique from Data2Vec [ 2]—where masked representations are aligned to complete signal features from a momentum-updated target encoder, achieving state-of-the-art performance through linear probing. Despite this progress, existing masked reconstruction approaches face a critical limitation when applied to EEG signals. Due to EEG’s inherently low SNR and sensitivity to incomplete observations [ 21 ], minor gaps or perturbations can substantially distort learned rep-resentations. This makes EEG particularly sensitive to incomplete observations compared to vision signals in reconstruction-based representation learning. Current methods employing AA ensure that masked views align with the complete signal but do not explic-itly enforce consistency among different masked views of the same sample. This becomes particularly problematic when masked views have minimal overlap—a common scenario in high-masking-ratio pre-training. Without explicit constraints, the encoder may learn to encode mask patterns themselves rather than the underlying neural states, leading to what we term a violation of the Mask-Invariance Property (MIP). MIP requires that representations derived from dif-ferent masked views of the same EEG sample should be constrained to a consistent latent subspace while maintaining discriminability across different neural states. Existing models such as LaBraM and EEGPT, despite using channel position embeddings and AA, do not explicitly enforce this property, potentially limiting their ability to learn truly robust and transferable representations. To address this fundamental limitation, we propose DARE-EEG (Dual-Aligned RE presentation learning for EEG ), a foundation model that explicitly enforces mask invariance through a novel dual-alignment framework. As illustrated in Fig. 1, DARE-EEG inte-grates two complementary alignment mechanisms during masked reconstruction pre-training. First, AA aligns masked representa-tions to stable semantic references from a momentum-updated target encoder, ensuring consistency with the complete signal. Sec-ond, and critically, Mask Alignment (MA) explicitly constrains representations from multiple masked views of the same EEG sam-ple via contrastive learning, directly enforcing the MIP. This dual-alignment strategy prevents the encoder from degenerating into waveform memorization and instead encourages learning of mean-ingful neural state representations that are both mask-invariant and discriminative. Beyond the core dual-alignment framework, we further introduce Conv-Linear-Probing (CLP), an enhanced adapta-tion strategy for downstream tasks. Traditional linear probing [ 34 ]directly attaches a classification head to the frozen encoder, which can be suboptimal when downstream datasets have different elec-trode configurations or sampling rates than the pre-training data. CLP addresses this by inserting a lightweight spectro-spatial pro-jection module before the encoder. This module employs decoupled convolutional operations to adaptively transform both the spatial (channel) and temporal (frequency) dimensions with minimal pa-rameter overhead, enabling seamless transfer across heterogeneous EEG datasets. Notably, we pre-trained DARE-EEG on over 264,000 EEG samples (over 917+ hours) spanning five diverse paradigms: emotion recog-nition (SEED [ 50 ]), motor imagery and execution (PhysioMI [ 8 ]), multi-paradigm cognitive tasks (M3CV [ 12 ]), steady-state visual evoked potentials (TSU [ 39 ]), and cognitive workload assessment (pBCIW [ 24 ]). The resulting Deep architecture contains 103 million parameters. We evaluated DARE-EEG with CLP on seven down-stream benchmarks strictly separated from pre-training data. Re-sults demonstrate that DARE-EEG performs exceptionally well in terms of Balanced Accuracy and is competitive overall across other metrics, while not introducing an excessive increase in parameters compared with existing methods. The main contributions of this paper are: 
+
+• We identify the MIP as a critical yet overlooked require-ment for learning robust EEG representations via masked reconstruction, and provide intuitive theoretical analysis (Appendix C illustrating its effectiveness and necessity). 
+
+• We propose DARE-EEG, a foundation model that enforces MIP through dual-aligned representation learning, com-bining anchor alignment for semantic stability with mask alignment for explicit mask-invariance constraints via con-trastive learning across multiple masked views. 
+
+• We introduce conv-linear-probing, a parameter-efficient adaptation strategy that enables seamless transfer across heterogeneous EEG datasets with varying electrode con-figurations and sampling rates through decoupled spectro-spatial projections. 
+
+• Through extensive experiments on seven diverse bench-marks, we demonstrate that DARE-EEG achieves competi-tive performance while maintaining relatively low parame-ter complexity, validating the effectiveness of explicit mask-invariance enforcement for transferable EEG representation learning. 
+
+## 2 Methods 
+
+Our method, DARE-EEG, is designed to constrain the EEG masked reconstruction process by jointly enforcing AA and MA during pre-training. The proposed framework consists of four key com-ponents as shown in Fig. 2: (1) Masked reconstruction based on a DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG 
+
+masked autoencoder [ 11 ], used to learn a task-agnostic EEG en-coder; (2) Anchor alignment via a consistency loss that encourages the encoded representations to preserve the original EEG features; (3) Mask alignment through explicit mask-aware constraints, en-suring the preservation of MIP between EEG representations in the encoded space; (4) An improved CLP based on linear-probing, which enhances the model’s transferability to downstream tasks. The details of our method are described below. 
+
+## 2.1 Masked Reconstruction 
+
+2.1.1 Masked autoencoder. Masked autoencoders are designed to randomly mask a large proportion of input patches and reconstruct the missing content from the remaining visible context, thereby encouraging the encoder to learn meaningful and structured latent representations of the original input. Let 𝑋 𝑖𝑛 ∈ R𝐶 ×𝑇 be the input data; the objective function for the masked reconstruction process is as follows: 
+
+min 
+
+> 𝜙,𝜃
+
+1
+
+|1 − M| (1 − M) ⊙ 
+
+
+
+𝑋 in − ℎ𝜙 
+
+ 𝑔 𝜃 (𝑋 in ⊙ M) 
+
+. (1) Here, M represents the set of visible positions after masking, ⊙
+
+denotes the Hadamard product, 𝑔 and ℎ represent the encoder and decoder of the masked autoencoder, respectively, and 𝜃 and 𝜙 are their learnable parameters. 
+
+2.1.2 Patching and Channel Embedding. Unlike conventional re-gression tasks that aim to reconstruct the raw signal in a pointwise manner, DARE-EEG formulates masked reconstruction at the patch level, using patch-embedded EEG segments as the reconstruction targets. Patching not only significantly reduces the size of the input data, thereby improving training efficiency, but also, by aggregat-ing local temporal context, helps the model focus on more stable and semantically meaningful neural activity patterns, rather than point-by-point fitting of high-frequency noise or transient fluctu-ations [ 46 ]. We assume that the patched 𝑋 𝑖𝑛 becomes 𝑃 = {𝑃 𝑖 𝑗 },where 𝑖 and 𝑗 traverse the channel and time dimensions, respec-tively, with 𝑖 ranging from 1 to 𝐶 and 𝑗 ranging from 1 to 𝑁 , where 
+
+𝐶 is the total number of EEG electrode channels and 𝑁 is the num-ber of patches along the time dimension after patching. This means that the patching is performed in the temporal domain. Therefore, Eq. 1 needs to be modified as follows to accommodate EEG patches: 
+
+min 
+
+> 𝜙,𝜃
+
+1
+
+Í𝑖,𝑗 (1 − 𝑀 𝑖,𝑗 )∑︁ 𝑖,𝑗 
+
+(1 − 𝑀 𝑖,𝑗 ) 𝑝 𝑖,𝑗 − ˆ𝑝 𝑖,𝑗 ,
+
+ˆ𝑝 𝑖,𝑗 ∈ ℎ𝜙 (𝑔 𝜃 (M ⊙ 𝑃 )) ,
+
+(2) where 𝑀 𝑖,𝑗 ∈ M , 1 indicates that the patch is visible to the en-coder, while 0 indicates that it is invisible. Furthermore, DARE-EEG employs MSE as an evaluation metric in the reconstruction pro-cess; therefore, Eq. 2 can be transformed into a reconstruction loss function L𝑅𝐶 :
+
+LRC = MSE 
+
+
+
+(1 − M) ⊙ ( 𝑃 − ˆ𝑃 )
+
+
+
+, ˆ𝑃 = { ˆ𝑝 𝑖,𝑗 }. (3) Moreover, some studies [ 35 , 43 ] have verified that channel em-bedding plays an important role in EEG foundation models. Incor-porating channel embeddings not only facilitates the modeling of spatial heterogeneity across channels, but also improves the ro-bustness of learned representations when adapting to datasets with varying channel configurations or electrode layouts. As shown in step 1 of Fig. 2, we use 𝑐ℎ 𝑖 to perform positional encoding for each channel. Specifically, we add the positional encoding to the EEG patches according to their corresponding channel positions, result-ing in 𝑃 𝐶𝐸 = 𝑃 11 + 𝑐ℎ 1, 𝑃 12 + 𝑐ℎ 1, ..., 𝑃 𝑖 𝑗 + 𝑐ℎ 𝑖 , ..., 𝑃 𝐶 𝑗 + 𝑐ℎ 𝐶 . Thus, Eq. 3 can be transformed into: 
+
+LRC = MSE 
+
+
+
+(1 − M) ⊙ ( 𝑃 𝐶𝐸 − ˆ𝑃 𝐶𝐸 )
+
+
+
+, (4) where ˆ𝑃 𝐶𝐸 is the output of the 𝑃 𝐶𝐸 after the masking and recon-struction. 
+
+2.1.3 Encoder, Predictor and Reconstructor. To reduce model com-putational complexity, improve training efficiency, and stabilize the MIP, we introduced Global Learnable Tokens (GLTs) as a global se-mantic aggregator before the encoder. Unlike other models that use CLS tokens [ 4] and embed them in the temporal dimension, we em-bed GLTs in the channel space dimension to learn overall patterns across channels and time. GLTs are particularly important in EEG encoding because it helps align representations across different mask-views of the same EEG sample. The patches with 𝑆 embedded GLTs become 𝑇𝑜𝑘𝑒𝑛𝑠 = 𝐶𝑎𝑡 (M ⊙ 𝑃 𝐶𝐸 , {𝑡𝑜𝑘𝑒𝑛 1, ..., 𝑡𝑜𝑘𝑒𝑛 𝑆 }| 𝑑𝑖𝑚 =
+
+0). After passing through the encoder, we extract the GLTs sepa-rately and feed them into the predictor as 𝑇𝑜𝑘𝑒𝑛𝑠 𝑒𝑛𝑐 ∈ R𝑆 ×𝑚𝑁 ×𝐷 ,
+
+𝑚𝑁 is the number of patches visible along the time dimension after masking: 
+
+𝑇𝑜𝑘𝑒𝑛𝑠 𝑒𝑛𝑐 = 𝑔 𝜃 (𝑇𝑜𝑘𝑒𝑛𝑠 ) [ 𝐶 + 1 : 𝐶 + 𝑆 ] . (5) The EEG predictor is responsible for predicting the masked por-tions, decoupling representation learning from the reconstruction objective [ 5], thereby improving optimization stability. After being padded with masked positions, 𝑇𝑜𝑘𝑒𝑛𝑠 𝑒𝑛𝑐 underwent Rotational Po-sitional Embedding (RoPE) so that the predictor could understand the temporal order of different positions. 𝑇𝑜𝑘𝑒𝑛𝑠 𝑝𝑟𝑒𝑑 ∈ R𝑆 ×𝑁 ×𝐷 is shown below: 
+
+𝑇𝑜𝑘𝑒𝑛𝑠 𝑝𝑟𝑒𝑑 = 𝑔 𝜓 
+
+
+
+{𝑡 𝑒𝑛𝑐 𝑖,𝑗 + 𝑟 𝑗 }
+
+
+
+, 𝑡 𝑒𝑛𝑐 𝑖,𝑗 ∈ 𝑇𝑜𝑘𝑒𝑛𝑠 𝑒𝑛𝑐 . (6) Here, 𝑖 ranges from 1 to 𝑆 , and 𝑗 ranges from 1 to 𝑁 . 𝑟 𝑗 represents the RoPE coding. 𝑔 𝜓 represents the operation process of the predictor. The EEG reconstructor does not directly receive the complete output of the predictor, as shown in Fig. 2, step 2, but only uti-lizes the predictor’s output for the positions that were completely masked; for the remaining visible positions, it directly reuses the output representation of the encoder. This design preserves the integrity of the encoder representations while directing the predic-tor to focus exclusively on completing missing information, thus achieving a more favorable trade-off between reconstruction fidelity and representation generalization. Assume that 𝑡 𝑝𝑟𝑒𝑑 𝑖,𝑗 ∈ 𝑇𝑜𝑘𝑒𝑛𝑠 𝑝𝑟𝑒𝑑 ,formal representation of 𝑇𝑜𝑘𝑒𝑛𝑠 𝑟𝑒𝑐 ∈ R𝐶 ×𝑁 with RoPE is: 
+
+Tokens rec = ℎ𝜙 
+
+
+
+{𝑡 enc  
+
+> 𝑖,𝑗
+
++ 𝑟 𝑗 | 𝑀 𝑖,𝑗 = 1} ∪ { 𝑡 pred  
+
+> 𝑖,𝑗
+
++ 𝑟 𝑗 | 𝑀 𝑖,𝑗 = 0}∪{ 𝑡 rec  
+
+> 𝑘
+
++ 𝑟 𝑘 }
+
+
+
+,
+
+(7) where 𝑡 𝑟𝑒𝑐 𝑘 represents the 𝑚 positions that need to be reconstructed, where 𝑘 ranges from 1 to 𝑚 . Thus, by substituting the output into Eq. 4, we can obtain the loss function for the mask reconstruction process of DARE-EEG: 
+
+L𝑅𝐶 = 𝑀𝑆𝐸 (( 1 − M) ⊙ ( 𝑃 𝐶𝐸 − 𝑇𝑜𝑘𝑒𝑛𝑠 𝑟𝑒𝑐 )) . (8) Shao et al. 
+
+Figure 2: The structure of DARE-EEG used to discover dual-aligned representations of EEG signals. It mainly includes two steps: patching and masked, and pre-training to reconstruct EEG patches. The preprocessed unified EEG first undergoes a patching operation, followed by channel embedding. Then, two different masks are generated. The EEG patches affected by mask M1
+
+are processed through an encoder, predictor, and reconstructor for reconstruction, while simultaneously being aligned with the representations of the complete patches. The patches affected by mask M2 are used for mask-alignment with the patches affected by M1.
+
+## 2.2 Anchor Alignment 
+
+Due to the challenges of low SNR and cross-domain shifts in EEG, a simple masked reconstruction process alone cannot effectively abstract stable EEG representations. Therefore, an additional tar-get encoder is used to encode the unmasked EEG patches, serving as an anchor point with distinct original features. Target encoder ensures that the output of the EEG encoder is always aligned to a stable reference frame. Some studies [ 2, 9] suggest that the target encoder can also mitigate the representational uncertainty caused by masked reconstruction. In this paper, the target encoder param-eters Δ is updated through Momentum Updates (MU) [ 3] from the EEG encoder. The update method is shown in Eq. 9: 
+
+Δ = 𝜏 Δ + ( 1 − 𝜏 ) 𝜃, (9) where 𝜏 = 0.99 denotes the momentum coefficient. The output of the target encoder with input 𝑃 𝐶𝐸 can be represented as 𝑇𝑜𝑘𝑒𝑛𝑠 𝑡𝑒𝑛𝑐 ∈
+
+R𝑆 ×𝑁 ×𝐷 :
+
+𝑇𝑜𝑘𝑒𝑛𝑠 𝑡𝑒𝑛𝑐 = 𝑓 Δ (𝐶𝑎𝑡 (𝑃 𝐶𝐸 , 𝐺𝐿𝑇𝑠 |𝑑𝑖𝑚 = 0)) [ 𝐶 + 1 : 𝐶 + 𝑆 ] . (10) By fixing 𝑇𝑜𝑘𝑒𝑛𝑠 𝑡𝑒𝑛𝑐 as an anchor, we use MSE as a consistency loss to constrain the EEG encoder for AA. The loss function is an instantiation of Eq. 4: 
+
+L𝐴𝐴 = 𝑀𝑆𝐸 (𝑇𝑜𝑘𝑒𝑛𝑠 𝑡𝑒𝑛𝑐 ,𝑇𝑜𝑘𝑒𝑛𝑠 𝑒𝑛𝑐 ) . (11) 
+
+## 2.3 Mask Alignment 
+
+MA is a critical mechanism for enforcing the MIP of EEG represen-tations in the latent space. Specifically, for each embedded 𝑃 𝑖 𝐶𝐸 in a mini-batch, two distinct random masking patterns are generated, as illustrated in Fig. 2 (denoted as M1 and M2). The M1 is applied DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG FP1 F7 F3 F4 O1 O2 C4 
+
+> …
+
+## …… …… …… Time 0 Time 0 Time 
+
+## …… Time Original Data Channel Adaptive Data Conv (K=1) Input Data Channel Transform Conv (K=15) Sampling Transform electrode channels electrode channels                                
+
+> AF3 AF4 F5 F3 F1 F2 F4 F6 CP5 CP3 CP1 CP4 CP6 FP2 FP1 F7 F8 TP7 O1 O2 Fz CPz CP2 FPz FT7 FC5 FC3 FC1 FCz FC2 FC4 FC6 FT8 P7 P5 P3 P1 Pz P2 P4 P6 P8 PO7 PO3 POz PO4 PO8 Oz T7 C5 C3 C1 Cz C2 C4 C6 C8 TP8
+
+Target Electrodes F7 FP1 AF3 F5 F3 F1 Learnable Projection Ta sk Electrodes 
+
+Figure 3: Conv-Linear-Probing learns an effective mapping method for different downstream tasks by decoupling channel adaptation from Sampling adaptation. Target Electrodes refers to the unified EEG electrode channels and format we used during pre-training. After Channel Transform, Task Electrodes, due to subsequent channel position embedding, are forced by the training loss to compensate for the desired channels. 
+
+during the masked reconstruction process, while the M2 is exclu-sively used for MA, enabling explicit consistency constraints across different mask-views of the same EEG signal. To avoid degenerate mask configurations, we do not allow the two random masks to be either completely disjoint or excessively overlapping. Extremely low overlap may result in insufficient shared context for reliable alignment, whereas excessive overlap diminishes the diversity be-tween masked views. Accordingly, the overlap ratio is constrained to the interval (0.2, 0.8).Secondly, M1 and M2 are processed by the same EEG encoder, yielding two sets of latent representations 𝑇𝑜𝑘𝑒𝑛𝑠 𝑀 1 and 𝑇𝑜𝑘𝑒𝑛𝑠 𝑀 2.Within a mini-batch, multiple pairs of masked views are therefore generated. MA encourages representations originating from differ-ent mask-views of the same EEG sample to be close in the latent space, while simultaneously pushing representations of different samples further apart. It should be noted that this constraint op-erates purely at the representation level and does not require the use of original labels; therefore, it remains self-supervised learning, and does not introduce label leakage. This process can be formally represented as follows: 
+
+Tokens 𝑖  
+
+> M1
+
+= 𝑔 𝜃 
+
+ Cat  M1 ⊙ 𝑃 𝑖 
+
+> CE
+
+, GLTs  [𝐶 + 1 : 𝐶 + 𝑆 ],
+
+Tokens 𝑖  
+
+> M2
+
+= 𝑔 𝜃 
+
+ Cat  M2 ⊙ 𝑃 𝑖 
+
+> CE
+
+, GLTs  [𝐶 + 1 : 𝐶 + 𝑆 ]. (12) Here, 𝑖 ranges from 1 to 𝐵 , where 𝐵 is the size of a mini-batch. Third, the cosine similarity is calculated: 
+
+𝑠 𝑖,𝑗 =
+
+𝑃𝑃 (Tokens 𝑖  
+
+> M1
+
+) T
+
+
+
+𝑃𝑃 (Tokens 𝑗  
+
+> M2
+
+)
+
+
+
+𝜅 , 𝑖, 𝑗 ∈ { 1, 2, . . . , 𝐵 }.
+
+(13) Fourth, we use symmetric InfoNCE as the masked constraint loss 
+
+L𝑀𝐴 , and by optimizing this loss, we can achieve MA: 
+
+L1→2 = − 1
+
+𝐵 
+
+> 𝐵
+
+∑︁ 
+
+> 𝑖 =1
+
+log exp (𝑠 𝑖,𝑖 )
+
+Í𝐵 𝑗 =1 exp (𝑠 𝑖,𝑗 ) ,
+
+L2→1 = − 1
+
+𝐵 
+
+> 𝐵
+
+∑︁ 
+
+> 𝑖 =1
+
+log exp (𝑠 𝑖,𝑖 )
+
+Í𝐵 𝑗 =1 exp (𝑠 𝑗,𝑖 ) ,
+
+LMA = 12 (L 1→2 + L 2→1) .
+
+(14) In L𝑀𝐴 , 𝜅 is a trainable parameter that will be automatically opti-mized during the training process, with an initial value set to 0.1. To improve stability during training, the masked representations were subjected to pooling and projection operations ( 𝑃𝑃 ) before calculating similarity. Finally, the parameters of DARE-EEG during the pre-training are optimized by all three loss functions simulta-neously, and its training loss function is L:
+
+L = L𝑅𝐶 + L 𝐴𝐴 + 0.1L𝑀𝐴 . (15) 
+
+## 2.4 Conv-linear-probing in Downstream Tasks 
+
+2.4.1 Conv-linear-probing. For downstream tasks, DARE-EEG em-ploys the pre-trained encoder solely as an EEG feature extractor. To facilitate task-specific adaptation, a standard linear probe is attached to the encoder head to map the learned features to classifi-cation outputs. In addition, a lightweight Spectro–spatial projection module is introduced at the encoder tail to accommodate variations in channel configurations and sampling frequencies across datasets. The overall downstream adaptation pipeline is illustrated in Fig. 3. Target Electrodes displays the unified channels used in pre-training. Specifically, the input EEG signal 𝑋 ′ is first subjected to channel adaptation via a 1 × 1 convolution, which maps non-standard elec-trode configurations to a unified channel space compatible with channel embedding. Subsequently, a large-kernel convolution [ 7]is applied along the temporal dimension of each channel, enabling the model to capture long-range temporal dependencies and adapt Shao et al. Target EEG Encoder Spectro-Spatial Projection Linear Probe Head 
+
+> Patch & Channel Embedding Results
+> or
+
+Trainable Frozen 
+
+Figure 4: Overview of the DARE-EEG downstream training pipeline. The pre-trained encoder is employed as the core feature extractor, while the spectro-spatial projection and the linear probe head jointly constitute the CLP for supervised downstream tasks. 
+
+to heterogeneous frequency characteristics. The result, 𝑋 𝑖𝑛 , is the input to the patching operation. 
+
+2.4.2 Supervised Training in Downstream Tasks. Fig. 4 shows the specific architecture of DARE-EEG equipped with the proposed CLP for supervised training on downstream tasks. In one approach, the pre-trained encoder is kept frozen and only the CLP is optimized; another approach is to allow the encoder to participate in fine-tuning, which is more suitable for large-scale datasets with high classification difficulty (i.e., TUH-EEG). Let the model’s output be Outputs, both approaches are optimized using the cross-entropy loss: 
+
+LCE = − log exp (Output 𝑙 )
+
+Í𝑦 ∈𝑌 Output 𝑦 
+
+, 𝑌 ∈ { 0, 1, . . . , num classes }. (16) Here, Output 𝑦 is the logit corresponding to class 𝑦 , and Output 𝑙 is the logit of the true class 𝑙 . The proposed CLP effectively mitigates overfitting when fine-tuning large-scale models with limited la-beled samples, while maintaining strong portability across different downstream tasks. Moreover, since the additional modules are sim-ple and parameter-efficient, the downstream performance largely depends on the encoder, facilitating a more faithful assessment of the learned representations. 
+
+## 3 Experiments and Results 3.1 Datasets and Implementation details 
+
+Table 1 provides information on the datasets used by DARE-EEG in pre-training and downstream tasks. Detailed descriptions of datasets are provided in the Appendix D . The tasks involved in pre-training mainly include emotion recognition using the SEED [ 50 ]dataset, motor imagery and execution using the PhysioMI [ 8] dataset, multi-subject, multi-session, and multi-paradigm cognitive and vi-sual tasks using the M3CV [ 12 ] dataset, steady-state visual evoked 
+
+Table 1: Summary of pretraining and downstream EEG datasets.                                        
+
+> Dataset Paradigm Tasks Subjects
+> Pretraining Datasets
+> SEED Video Stimulation Emotion 15 PhysioMI MI and ME Left vs Right 109 M3CV MSU, MSE and MPA Identification 106 TSU SSVEP Frequency Stimulation 33 pBCIW MATB Cognitive Workload 15
+> Downstream Datasets
+> TUH-AB Clinical EEG Normal vs Abnormal 2383 TUH-EV Clinical EEG Event Detection 288 BCIC-2A MI 4-class MI 9BCIC-2B MI Left vs Right 9SEEDIV Video Stimulation Emotion (4 classes) 15 SleepEDF Polysomnography Sleep Staging 197 MMWM Working Memory Cognitive Workload 30
+
+Table 2: Performance on TUAB for abnormal EEG detection (mean ± std).                                     
+
+> Models Balanced ACC AUC_PR AUROC SPaRCNet [14] 0.7896 ±0.0018 0.8414 ±0.0018 0.8676 ±0.0012
+> ContraWR [44] 0.7746 ±0.0041 0.8421 ±0.0104 0.8456 ±0.0074
+> CNN-Trans [23] 0.7777 ±0.0022 0.8433 ±0.0039 0.8461 ±0.0013
+> FFCL [18] 0.7848 ±0.0038 0.8448 ±0.0065 0.8569 ±0.0051
+> ST-Trans [31] 0.7966 ±0.0023 0.8521 ±0.0026 0.8707 ±0.0019
+> BIOT (PREST) [43] 0.7907 ±0.0050 0.8752 ±0.0051 0.8730 ±0.0021
+> BIOT (Other) [43] 0.7959 ±0.0057 0.8792 ±0.0023 0.8815 ±0.0043
+> EEGPT-tiny [35] 0.7959 ±0.0021 –0.8716 ±0.0041
+> EEGPT-large [35] 0.7983 ±0.0030 –0.8718 ±0.0050
+> DARE-EEG-Base 0.8145 ±0.0031 0.9138 ±0.0039 0.8927 ±0.0020
+> DARE-EEG-Deep 0.8156 ±0.0022 0.9060 ±0.0041 0.8904 ±0.0010
+
+Table 3: Performance on the TUEV dataset for event type classification (mean ± std).                                     
+
+> Models Balanced ACC Kappa Weighted F1 SPaRCNet [14] 0.4161 ±0.0262 0.4233 ±0.0181 0.7024 ±0.0104
+> ContraWR [44] 0.4384 ±0.0349 0.3912 ±0.0237 0.6893 ±0.0136
+> CNN-Trans [23] 0.4087 ±0.0161 0.3815 ±0.0134 0.6854 ±0.0293
+> FFCL [18] 0.3979 ±0.0104 0.3732 ±0.0188 0.6783 ±0.0120
+> ST-Trans [31] 0.3984 ±0.0228 0.3765 ±0.0306 0.6823 ±0.0190
+> BIOT (PREST) [43] 0.5207 ±0.0285 0.4932 ±0.0301 0.7381 ±0.0169
+> BIOT (Other) [43] 0.5281 ±0.0225 0.5273 ±0.0249 0.7492 ±0.0082
+> EEGPT-tiny [35] 0.5670 ±0.0066 0.5085 ±0.0173 0.7535 ±0.0097
+> EEGPT-large [35] 0.6232 ±0.0114 0.6351 ±0.0134 0.8187 ±0.0063
+> DARE-EEG-Base 0.6561 ±0.0157 0.5827 ±0.0283 0.7884 ±0.0161
+> DARE-EEG-Deep 0.6489 ±0.0021 0.5883 ±0.0012 0.7920 ±0.0004
+
+potentials using the TSU [ 39 ] dataset, and MATB cognitive work-load assessment using the pBCIW [ 24 ] dataset. For downstream tasks, we selected seven commonly used datasets, including the clin-ical EEG datasets TUAB and TUEV from the TUH-EEG dataset [ 22 ], motor imagery classification from the BCIC-2A and BCIC-2B datasets [ 33 ], emotion recognition from the SEEDIV dataset [ 49 ], DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG 
+
+Table 4: Performance comparison on downstream datasets. The optimal results are highlighted in bold. Pretrain indicates whether pre-trained weights are used, and T.P. represents the number of parameters involved in training in downtasks. 
+
+Dataset Methods Pretrain T.P. (K) Balanced Accuracy Cohen’s Kappa Weighted F1 / ROC_AUC BCIC-2A 
+
+EEGNet × 6.0 0.5153 ± 0.0374 0.3537 ± 0.0499 0.5044 ± 0.0366 DeepCNN × 287.0 0.5312 ± 0.0306 0.3750 ± 0.0407 0.5053 ± 0.0381 Conformer × 160.0 0.5206 ± 0.0165 0.3608 ± 0.0220 0.5043 ± 0.0167 BENDR ✓ 22.5 0.4899 ± 0.0070 0.3199 ± 0.0094 0.4836 ± 0.0076 BIOT ✓ 31.6 0.4590 ± 0.0196 0.2787 ± 0.0261 0.4282 ± 0.0289 LaBraM ✓ 102.0 0.5613 ± 0.0052 0.4151 ± 0.0069 0.5520 ± 0.0052 EEGPT ✓ 34.2 0.5846 ± 0.0070 0.4462 ± 0.0094 0.5715 ± 0.0051 Ours ✓ 35.4 0.5911 ± 0.0036 0.4547 ± 0.0048 0.5855 ± 0.0033 BCIC-2B 
+
+EEGNet × 5.2 0.7179 ± 0.0202 0.4357 ± 0.0405 0.7845 ± 0.0275 DeepCNN × 270.0 0.7178 ± 0.0028 0.4357 ± 0.0057 0.8010 ± 0.0015 Conformer × 127.0 0.6594 ± 0.0051 0.3187 ± 0.0103 0.7379 ± 0.0074 BENDR ✓ 22.7 0.7067 ± 0.0011 0.4131 ± 0.0022 0.7854 ± 0.0029 BIOT ✓ 1.1 0.6409 ± 0.0118 0.2817 ± 0.0236 0.7095 ± 0.0141 LaBraM ✓ 66.2 0.6851 ± 0.0063 0.3703 ± 0.0125 0.7576 ± 0.0067 EEGPT ✓ 33.4 0.7212 ± 0.0019 0.4426 ± 0.0037 0.8059 ± 0.0032 Ours ✓ 33.5 0.7471 ± 0.0017 0.4941 ± 0.0033 0.8151 ± 0.0015 SEEDIV 
+
+EEGNet × 8.2 0.3466 ± 0.0043 0.1398 ± 0.0062 0.3263 ± 0.0036 DeepCNN × 312.0 0.4203 ± 0.0118 0.2341 ± 0.0175 0.3902 ± 0.0149 Conformer × 221.0 0.4286 ± 0.0050 0.2453 ± 0.0056 0.3977 ± 0.0103 BENDR ✓ 22.5 0.3664 ± 0.0077 0.1624 ± 0.0113 0.3651 ± 0.0106 BIOT ✓ 32.2 0.4173 ± 0.0041 0.2248 ± 0.0041 0.3714 ± 0.0092 LaBraM ✓ 31.8 0.4244 ± 0.0109 0.2323 ± 0.0138 0.4060 ± 0.0116 EEGPT ✓ 33.8 0.3920 ± 0.0033 0.1908 ± 0.0036 0.3934 ± 0.0090 Ours ✓ 36.8 0.4357 ± 0.0033 0.2454 ± 0.0030 0.4300 ± 0.0045 SleepEDF 
+
+EEGNet × 15.2 0.6281 ± 0.0122 0.5752 ± 0.0075 0.6719 ± 0.0060 DeepCNN × 301.0 0.6765 ± 0.0158 0.6614 ± 0.0088 0.7523 ± 0.0064 Conformer × 125.0 0.6469 ± 0.0045 0.6010 ± 0.0051 0.6989 ± 0.0039 BENDR ✓ 28.3 0.6968 ± 0.0031 0.6884 ± 0.0033 0.7581 ± 0.0032 
+
+BIOT ✓ 1.3 0.6907 ± 0.0033 0.6570 ± 0.0082 0.7442 ± 0.0047 LaBraM ✓ 127.4 0.6596 ± 0.0142 0.5985 ± 0.0009 0.6974 ± 0.0112 EEGPT ✓ 398.3 0.6803 ± 0.0009 0.6634 ± 0.0082 0.7451 ± 0.0062 Ours ✓ 169.6 0.7011 ± 0.0016 0.6586 ± 0.0088 0.7220 ± 0.0267 
+
+MMWM 
+
+EEGNet × 4.2 0.5660 ± 0.0131 0.1319 ± 0.0260 0.5727 ± 0.0164 DeepCNN × 284.0 0.5645 ± 0.0202 0.1292 ± 0.0407 0.5953 ± 0.0495 Conformer × 170.0 0.6131 ± 0.0306 0.2262 ± 0.0610 0.6573 ± 0.0420 BENDR ✓ 196.1 0.6183 ± 0.0029 0.2365 ± 0.0058 0.6533 ± 0.0043 BIOT ✓ 31.2 0.6253 ± 0.0058 0.2505 ± 0.0119 0.6667 ± 0.0079 LaBraM ✓ 13.4 0.5965 ± 0.0067 0.1931 ± 0.0132 0.6159 ± 0.0090 EEGPT ✓ 33.3 0.6038 ± 0.0022 0.2076 ± 0.0044 0.6320 ± 0.0034 Ours ✓ 35.4 0.6490 ± 0.0063 0.2976 ± 0.0124 0.6915 ± 0.0122 
+
+sleep staging from SleepEDF [ 15 ], and working memory cognitive load recognition from the MMWM dataset [28]. During pre-training, to ensure training stability and prevent dataset-specific biases, all EEG recordings were uniformly down-sampled to 256 Hz, and only overlapping channels across datasets were retained. The resulting channel configuration follows the inter-national 10–20 system, and the selected electrodes are highlighted as target channels in Fig. 3. Furthermore, to account for variations across EEG tasks, certain datasets were additionally filtered and interpolated before being uniformly segmented into fixed-length segments of 1024. The temporal patch length is fixed to 64 samples, resulting in 𝑁 = 16 patches along the time dimension. During masking, each temporal patch is fully masked with a probability of 50%. For the remaining patches, only 20% of the channels are randomly retained as visible context, while the rest are masked. Pre-training was conducted using a OneCycle learning rate schedule with a maximum learning rate of 5e-4 and a division factor of 24. The batch size was set to 64, and the max epochs was set to 200. All pre-training data were randomly split into training and validation sets with a ratio of 9:1. In downstream tasks, a Leave-One-Subject-Out (LOSO) cross-validation strategy was used on the BCIC-2A, BCIC-2B, and SEEDIV datasets, while a mixed training strategy was used on the SleepEDF and MMWM datasets with a training, validation, and test set split ratio of 6:2:2. The CLP strategy was ultilized for all of the afore-mentioned datasets. On the TUAB and TUEV datasets, we strictly followed the settings specified in previous studies [ 35 , 43 ] using a fine-tuning strategy. In CLP, the dropout rate for Spectro-Spatial Projection was set to 0.1, and the dropout rate for the Linear Probe Head was set to 0.5, with a uniform learning rate of 5e-4. All experiments were conducted on a Linux system running Ubuntu 20.04, equipped with four NVIDIA RTX 3090 GPUs, each Shao et al. 
+
+with 24 GB of memory. All experimental results are the average of three trials after random initialization of the model. 
+
+## 3.2 Downstream Results and Analysis 
+
+We first conducted comparative experiments on the TUAB and TUEV datasets, with the results summarized in Tables 2 and 3, re-spectively. On the TUAB dataset, both the Base and Deep variants of DARE-EEG consistently outperformed all competing methods. In particular, DARE-EEG-Deep achieved improvements of more than 1.6% in balanced accuracy and 1.7% in AUROC over the previous state-of-the-art method, EEGPT. On the TUEV dataset, DARE-EEG further demonstrated its superiority by improving balanced accu-racy by over 3% compared to the strongest baseline. These results indicate that DARE-EEG not only delivers superior performance but also exhibits strong robustness across different EEG classification tasks. Moreover, it is noteworthy that DARE-EEG-Base achieves competitive and even superior performance despite employing a substantially smaller pre-trained encoder than other comparison methods (approximately 6M vs. 20M), further validating the effec-tiveness of enforcing the MIP. The detailed configuration of the DARE-EEG parameters are discussed in the Section 3.3.1 .We further evaluated DARE-EEG on the remaining five datasets using the Deep architecture. In addition to comparisons with ex-isting pre-trained EEG foundation models, we also included sev-eral classic EEG decoding approaches, such as EEGNet [ 17 ], Deep-CNN [ 25 ], and EEG-Conformer [ 32 ]. The results are summarized in Table 4. DARE-EEG consistently achieved the highest balanced accu-racy across all evaluated datasets, surpassing previous state-of-the-art methods. It improved balanced accuracy by more than 2.5% on BCIC-2B and 3.0% on SEEDIV, with the largest gain observed on the MMWM dataset, reaching approximately 4%. Moreover, DARE-EEG ranked among the top-performing methods across other evaluation metrics, demonstrating overall superiority on BCIC-2A, BCIC-2B, SEEDIV, and MMWM. It is worth noting that, on certain datasets, some classical super-vised models outperformed pre-trained EEG models-for example, DeepCNN surpassed BENDR and BIOT on BCIC-2A, and EEG-Conformer outperformed LaBraM on SEEDIV. Nevertheless, DARE-EEG consistently outperformed all classical methods across these datasets. This advantage can be attributed to the proposed dual-aligned representation learning strategy, explicitly enforcing the MIP in the encoding space. which is precisely where classic models have an advantage (using data labels). Importantly, these perfor-mance gains are achieved without a substantial increase in model parameters. In addition, on the SEEDIV dataset, BENDR exhib-ited degraded performance due to its reliance on fixed electrode configurations, which have limited overlap with emotion-related channels. In contrast, DARE-EEG alleviates this issue through the proposed CLP and channel position embedding, further highlight-ing its robustness and adaptability to heterogeneous EEG datasets. For further discussion, please refer to Appendix B .
+
+Table 5: Comparison of metrics (BAC/Kappa/ROC_AUC) and losses ( L𝑅𝐶 , L𝐴𝐴 , L𝑀𝐴 ) under different parameter settings. P represents trained parameters in pre-training.                                                                              
+
+> Model P (M) deLayers Heads S.T. Loss Result
+> Nano 0.6 64 2, 2, 3 410.48 0.6610 ±0.0047 0.23 0.3220 ±0.0094 0.11 0.7214 ±0.0088 Light 3.8 128 6, 6, 6 410.45 0.7101 ±0.0035 0.21 0.4203 ±0.0071 0.04 0.7679 ±0.0048 Small 14.7 256 6, 6, 6 410.44 0.7392 ±0.0045 0.16 0.4783 ±0.0091 0.02 0.8060 ±0.0047 Base 19.9 256 8, 8, 8 840.43 0.7400 ±0.0007 0.15 0.4799 ±0.0013 0.02 0.8037 ±0.0018 Deep 77.8 512 8, 8, 8 840.42 0.7471 ±0.0017 0.16 0.4941 ±0.0033 0.02 0.8151 ±0.0015
+
+## 3.3 Ablation Study and Model Analysis 
+
+In this section, we present ablation studies to analyze the effects of different model components and hyperparameter settings. Ad-ditional analyses, including CLP analysis ( Appendix B.3 ), the ne-cessity of pre-training ( Appendix B.4, B.5 ), and classification and topographic maps ( Appendix B.6, B.7 ) visualization results, are provided in the Appendix. 
+
+3.3.1 Comparison of Different Parameters. We evaluated DARE-EEG under five architectural configurations with varying param-eter scales on the BCIC-2B dataset, and the results are reported in Table 5. As model capacity increases, performance consistently improves, accompanied by corresponding reductions in all three loss terms. However, these gains gradually saturate beyond the Base and Deep configurations. Consequently, we consider the Base and Deep variants to offer an optimal trade-off between perfor-mance and complexity. A scaling law analysis is provided in the 
+
+Appendix B.1 .
+
+3.3.2 Module Ablation. Ablation studies were conducted on the base architecture to evaluate AA, MA, and the Replace operation. As shown in Fig. 5, removing any component consistently degrades performance. In particular, removing AA reduces balanced accuracy by about 2.6% on MMWM, while removing MA leads to a 1.5% drop on BCIC-2A. These results confirm the necessity of the dual-alignment representation in DARE-EEG. Further details are shown in the Appendix B.2 .
+
+## 4 Conclusion 
+
+In this paper, we propose that the MIP of EEG representations in the encoding space is a crucial factor affecting the model’s perfor-mance on downstream tasks. Motivated by this observation, we propose DARE-EEG, a novel pre-training foundation model that constrains masked reconstruction through the joint use of AA and MA, enabling the EEG encoder to learn Dual-Aligned REpresenta-tions. Experimental results have demonstrated the effectiveness of DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG w/o w/o w/o Replace Complete     
+
+> BCIC-2A, BAC BCIC-2A, Kappa BCIC-2A, ROCAUC MMWM, BAC MMWM, Kappa MMWM, ROCAUC
+
+Figure 5: Results of the module ablation experiment. 
+
+DARE-EEG. This work advances the discovery and mining of rich yet subtle neural knowledge from EEG data underlying complex brain states. 
+
+## References 
+
+[1] Saadullah Farooq Abbasi, Awais Abbas, Iftikhar Ahmad, Mohammed S. Al-shehri, Sultan Almakdi, Yazeed Yasin Ghadi, and Jawad Ahmad. 2023. Automatic neonatal sleep stage classification: A comparative study. Heliyon 9, 11 (2023). doi:10.1016/j.heliyon.2023.e22195 [2] Alexei Baevski, Wei-Ning Hsu, Qiantong Xu, Arun Babu, Jiatao Gu, and Michael Auli. 2022. data2vec: A General Framework for Self-supervised Learning in Speech, Vision and Language. In Proceedings of the 39th International Confer-ence on Machine Learning (Proceedings of Machine Learning Research, Vol. 162) ,Kamalika Chaudhuri, Stefanie Jegelka, Le Song, Csaba Szepesvari, Gang Niu, and Sivan Sabato (Eds.). PMLR, 1298–1312. https://proceedings.mlr.press/v162/ baevski22a.html [3] Mathilde Caron, Hugo Touvron, Ishan Misra, Hervé Jégou, Julien Mairal, Piotr Bojanowski, and Armand Joulin. 2021. Emerging Properties in Self-Supervised Vision Transformers. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) . IEEE, Montreal, QC, Canada, 9650–9660. doi:10.1109/ ICCV48922.2021.00951 [4] Ching Chang, Chiao-Tung Chan, Wei-Yao Wang, Wen-Chih Peng, and Tien-Fu Chen. 2024. TimeDRL: Disentangled Representation Learning for Multivariate Time-Series. In 2024 IEEE 40th International Conference on Data Engineering (ICDE) . 625–638. doi:10.1109/ICDE60146.2024.00054 [5] Xinlei Chen and Kaiming He. 2021. Exploring Simple Siamese Representation Learning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) . IEEE, Nashville, TN, USA, 15750–15758. doi:10.1109/ CVPR46437.2021.01550 [6] Zhihua Chen, Bo Hu, Zhongsheng Chen, and Jiarui Zhang. 2024. Progress and Thinking on Self-Supervised Learning Methods in Computer Vision: A Review. 
+
+IEEE Sensors Journal 24, 19 (2024), 29524–29544. doi:10.1109/JSEN.2024.3443885 [7] Xiaohan Ding, Yiyuan Zhang, Yixiao Ge, Sijie Zhao, Lin Song, Xiangyu Yue, and Ying Shan. 2024. UniRepLKNet: A Universal Perception Large-Kernel ConvNet for Audio Video Point Cloud Time-Series and Image Recognition. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) 
+
+(Seattle, WA, USA). 5513–5524. [8] Ary L. Goldberger, Luis A. N. Amaral, Leon Glass, Jeffrey M. Haus-dorff, Plamen Ch. Ivanov, Roger G. Mark, Joseph E. Mietus, George B. Moody, Chung-Kang Peng, and H. Eugene Stanley. 2000. PhysioBank, PhysioToolkit, and PhysioNet. Circulation 101, 23 (2000), e215–e220. arXiv:https://www.ahajournals.org/doi/pdf/10.1161/01.CIR.101.23.e215 doi:10. 1161/01.CIR.101.23.e215 [9] Jean-Bastien Grill, Florian Strub, Florent Altché, Corentin Tallec, Pierre Richemond, Elena Buchatskaya, Carl Doersch, Bernardo Avila Pires, Zhaohan Guo, Mohammad Gheshlaghi Azar, Bilal Piot, koray kavukcuoglu, Remi Munos, and Michal Valko. 2020. Bootstrap Your Own Latent - A New Approach to Self-Supervised Learning. In Advances in Neural Information Processing Systems ,H. Larochelle, M. Ranzato, R. Hadsell, M.F. Balcan, and H. Lin (Eds.), Vol. 33. Curran Associates, Inc., 21271–21284. https://proceedings.neurips.cc/paper_ files/paper/2020/file/f3ada80d5c4ee70142b17b8192b2958e-Paper.pdf [10] He He and Dongrui Wu. 2020. Transfer Learning for Brain–Computer Interfaces: A Euclidean Space Data Alignment Approach. IEEE Transactions on Biomedical Engineering 67, 2 (2020), 399–410. doi:10.1109/TBME.2019.2913914 [11] Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, and Ross Girshick. 2022. Masked Autoencoders Are Scalable Vision Learners. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) . IEEE, New Orleans, LA, USA, 16000–16009. doi:10.1109/CVPR52688.2022.01553 [12] Gan Huang, Zhenxing Hu, Weize Chen, Shaorong Zhang, Zhen Liang, Linling Li, Li Zhang, and Zhiguo Zhang. 2022. M3CV: A multi-subject, multi-session, and multi-task database for EEG-based biometrics challenge. NeuroImage 264 (2022), 119666. doi:10.1016/j.neuroimage.2022.119666 [13] Wei-Bang Jiang, Li-Ming Zhao, and Bao-Liang Lu. 2024. Large Brain Model for Learning Generic Representations with Tremendous EEG Data in BCI. In Pro-ceedings of the Twelfth International Conference on Learning Representations (ICLR 2024) . https://openreview.net/forum?id=QzTpTRVtrP Spotlight / Conference paper. [14] Jin Jing, Wendong Ge, Shenda Hong, Marta Bento Fernandes, Zhen Lin, Chaoqi Yang, Sungtae An, Aaron F Struck, Aline Herlopian, Ioannis Karakis, et al . 2023. Development of expert-level classification of seizures and rhythmic and periodic patterns during EEG interpretation. Neurology 100, 17 (2023), e1750–e1762. [15] B. Kemp, A.H. Zwinderman, B. Tuk, H.A.C. Kamphuisen, and J.J.L. Oberye. 2000. Analysis of a sleep-dependent neuronal feedback loop: the slow-wave microcontinuity of the EEG. IEEE Transactions on Biomedical Engineering 47, 9 (2000), 1185–1194. doi:10.1109/10.867928 [16] Demetres Kostas, Stéphane Aroca-Ouellette, and Frank Rudzicz. 2021. BENDR: Using Transformers and a Contrastive Self-Supervised Learning Task to Learn From Massive Amounts of EEG Data. Frontiers in Human Neuroscience Volume 15 - 2021 (2021). doi:10.3389/fnhum.2021.653659 [17] Vernon J Lawhern, Amelia J Solon, Nicholas R Waytowich, Stephen M Gordon, Chou P Hung, and Brent J Lance. 2018. EEGNet: a compact convolutional neural network for EEG-based brain–computer interfaces. Journal of Neural Engineering 
+
+15, 5 (jul 2018), 056013. doi:10.1088/1741-2552/aace8c [18] Hongli Li, Man Ding, Ronghua Zhang, and Chunbo Xiu. 2022. Motor imagery EEG classification algorithm based on CNN-LSTM feature fusion network. Biomedical Signal Processing and Control 72 (2022), 103342. doi:10.1016/j.bspc.2021.103342 [19] Laurens van der Maaten and Geoffrey Hinton. 2008. Visualizing data using t-SNE. 
+
+Journal of machine learning research 9, Nov (2008), 2579–2605. [20] Ernst Niedermeyer and FH Lopes da Silva. 2005. Electroencephalography: basic principles, clinical applications, and related fields . Lippincott Williams & Wilkins. [21] Paul L Nunez and Ramesh Srinivasan. 2006. Electric fields of the brain: the neurophysics of EEG . Oxford university press. [22] Iyad Obeid and Joseph Picone. 2016. The Temple University Hospital EEG Data Corpus. Frontiers in Neuroscience Volume 10 - 2016 (2016). doi:10.3389/fnins. 2016.00196 [23] Wei Yan Peh, Yuanyuan Yao, and Justin Dauwels. 2022. Transformer Convo-lutional Neural Networks for Automated Artifact Detection in Scalp EEG. In 
+
+2022 44th Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC) . 3599–3602. doi:10.1109/EMBC48229.2022.9871916 [24] Raphaëlle N. Roy, Marcel Hinss, Fabien Lotte, Ludovic Darmet, and Si-mon Ladouce. 2021. Passive BCI Cross-Session Workload EEG Dataset. Neuroergonomics Conference Passive BCI Challenge. https://www. neuroergonomicsconference.um.ifi.lmu.de/pbci/ Accessed: 2025-9. [25] Robin Tibor Schirrmeister, Jost Tobias Springenberg, Lukas Do-minique Josef Fiederer, Martin Glasstetter, Katharina Eggensperger, Michael Tangermann, Frank Hutter, Wolfram Burgard, and Tonio Ball. 2017. Deep learning with convolutional neural networks for EEG de-coding and visualization. Human Brain Mapping 38, 11 (2017), 5391– 5420. arXiv:https://onlinelibrary.wiley.com/doi/pdf/10.1002/hbm.23730 doi:10.1002/hbm.23730 [26] Sina Shafiezadeh, Gian Marco Duma, Marco Pozza, and Alberto Testolin. 2024. A systematic review of cross-patient approaches for EEG epileptic seizure pre-diction. Journal of Neural Engineering 21, 6 (dec 2024), 061004. doi:10.1088/1741-2552/ad9682 [27] Yang Shao, Yueying Zhou, Peiliang Gong, Qianru Sun, and Daoqiang Zhang. 2024. A Dual-Adversarial Model for Cross-Time and Cross-Subject Cognitive Workload Decoding. IEEE Transactions on Neural Systems and Rehabilitation Engineering 32 (2024), 2324–2335. doi:10.1109/TNSRE.2024.3415364 [28] Yang Shao, Yueying Zhou, Xuyun Wen, Peiliang Gong, Qun Dai, and Daoqiang Zhang. 2026. Exploring Cognitive Workload Recognition Using CogRepLKNet with EEG-fMRI. Neural Networks (2026), 108575. doi:10.1016/j.neunet.2026. 108575 [29] Yang Shao, Yueying Zhou, and Daoqiang Zhang. 2025. BDANet: A Binary-Dimensional Aware Network with Multi-Wise Attention for Cognitive Workload Recognition. In 2025 13th International Conference on Brain-Computer Interface (BCI) . 1–8. doi:10.1109/BCI65088.2025.10931257 Shao et al. 
+
+[30] Qingshan She, Chenqi Zhang, Feng Fang, Yuliang Ma, and Yingchun Zhang. 2023. Multisource Associate Domain Adaptation for Cross-Subject and Cross-Session EEG Emotion Recognition. IEEE Transactions on Instrumentation and Measurement 72 (2023), 1–12. doi:10.1109/TIM.2023.3277985 [31] Yonghao Song, Xueyu Jia, Lie Yang, and Longhan Xie. 2021. Transformer-based spatial-temporal feature learning for EEG decoding. arXiv preprint arXiv:2106.11170 (2021). [32] Yonghao Song, Qingqing Zheng, Bingchuan Liu, and Xiaorong Gao. 2023. EEG Conformer: Convolutional Transformer for EEG Decoding and Visualization. 
+
+IEEE Transactions on Neural Systems and Rehabilitation Engineering 31 (2023), 710–719. doi:10.1109/TNSRE.2022.3230250 [33] Michael Tangermann, Kai-Robert Müller, Ad Aertsen, Niels Birbaumer, Benjamin Blankertz, Gottfried Curio, Bernhard Graimann, Christina Hammon, Jane E Huggins, Dean J Krusienski, et al . 2012. Review of the BCI Competition IV. 
+
+Frontiers in Neuroscience 6 (2012), 55. [34] Akiyoshi Tomihari and Issei Sato. 2024. Understanding Linear Probing then Fine-tuning Language Models from NTK Perspective. In Advances in Neural Information Processing Systems , A. Globerson, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tomczak, and C. Zhang (Eds.), Vol. 37. Curran Associates, Inc., 139786–139822. doi:10.52202/079017-4436 [35] Guagnyu Wang, Wenchao Liu, Yuhong He, Cong Xu, Lin Ma, and Haifeng Li. 2024. EEGPT: Pretrained Transformer for Universal and Reliable Representation of EEG Signals. In Advances in Neural Information Processing Systems , A. Globerson, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tomczak, and C. Zhang (Eds.), Vol. 37. Curran Associates, Inc., 39249–39280. doi:10.52202/079017-1239 [36] Jiquan Wang, Sha Zhao, Zhiling Luo, Yangxuan Zhou, Shijian Li, and Gang Pan. 2025. EEGMamba: An EEG foundation model with Mamba. Neural Networks 192 (2025), 107816. doi:10.1016/j.neunet.2025.107816 [37] Pengpai Wang, Tiantian Xie, Yueying Zhou, Peiliang Gong, and Rosa H. M. Chan. 2025. TCPL: task-conditioned prompt learning for few-shot cross-subject motor imagery EEG decoding. Frontiers in Neuroscience Volume 19 - 2025 (2025). doi:10.3389/fnins.2025.1689286 [38] Xiaohu Wang, Yongmei Ren, Ze Luo, Wei He, Jun Hong, and Yinzhen Huang. 2023. Deep learning-based EEG emotion recognition: Current trends and future perspectives. Frontiers in Psychology Volume 14 - 2023 (2023). doi:10.3389/fpsyg. 2023.1126994 [39] Yijun Wang, Xiaogang Chen, Xiaorong Gao, and Shangkai Gao. 2017. A Bench-mark Dataset for SSVEP-Based Brain-Computer Interfaces. IEEE Transactions on Neural Systems and Rehabilitation Engineering 25, 10 (2017), 1746–1752. doi:10.1109/TNSRE.2016.2627556 [40] Tracy Warbrick. 2022. Simultaneous EEG-fMRI: What Have We Learned and What Does the Future Hold? Sensors 22, 6 (2022). doi:10.3390/s22062262 [41] P. Welch. 1967. The use of fast Fourier transform for the estimation of power spectra: A method based on time averaging over short, modified periodograms. 
+
+IEEE Transactions on Audio and Electroacoustics 15, 2 (1967), 70–73. doi:10.1109/ TAU.1967.1161901 [42] Chen Xu and Ren-Zhe Xia. 2023. EEG Signal Classification and Feature Extraction Methods Based on Deep Learning: A Review. In 2023 2nd International Conference on Big Data, Information and Computer Network (BDICN) . 186–189. doi:10.1109/ BDICN58493.2023.00046 [43] Chaoqi Yang, M Westover, and Jimeng Sun. 2023. BIOT: Biosignal Transformer for Cross-data Learning in the Wild. In Advances in Neu-ral Information Processing Systems , A. Oh, T. Naumann, A. Globerson, K. Saenko, M. Hardt, and S. Levine (Eds.), Vol. 36. Curran Associates, Inc., 78240–78260. https://proceedings.neurips.cc/paper_files/paper/2023/file/ f6b30f3e2dd9cb53bbf2024402d02295-Paper-Conference.pdf [44] Chaoqi Yang, Cao Xiao, M Brandon Westover, and Jimeng Sun. 2023. Self-Supervised Electroencephalogram Representation Learning for Automatic Sleep Staging: Model Development and Evaluation Study. JMIR AI 2 (26 Jul 2023), e46769. doi:10.2196/46769 [45] Chaoning Zhang, Chenshuang Zhang, Junha Song, John Seon Keun Yi, and In So Kweon. 2023. A Survey on Masked Autoencoder for Visual Self-supervised Learning. In Proceedings of the Thirty-Second International Joint Conference on Artificial Intelligence (IJCAI-23) . International Joint Conferences on Artificial Intelligence Organization, Macau, China, 6805–6813. [46] Chaoning Zhang, Chenshuang Zhang, Junha Song, John Seon Keun Yi, Kang Zhang, and In So Kweon. 2022. A survey on masked autoencoder for self-supervised learning in vision and beyond. arXiv preprint arXiv:2208.00173 (2022). [47] Kexin Zhang, Qingsong Wen, Chaoli Zhang, Rongyao Cai, Ming Jin, Yong Liu, James Y. Zhang, Yuxuan Liang, Guansong Pang, Dongjin Song, and Shirui Pan. 2024. Self-Supervised Learning for Time Series Analysis: Taxonomy, Progress, and Prospects. IEEE Transactions on Pattern Analysis and Machine Intelligence 46, 10 (2024), 6775–6794. doi:10.1109/TPAMI.2024.3387317 [48] Pengbo Zhang, Xue Wang, Weihang Zhang, and Junfeng Chen. 2019. Learning Spatial–Spectral–Temporal EEG Features With Recurrent 3D Convolutional Neural Networks for Cross-Task Mental Workload Assessment. IEEE Transactions on Neural Systems and Rehabilitation Engineering 27, 1 (2019), 31–42. doi:10.1109/ TNSRE.2018.2884641 [49] Wei-Long Zheng, Wei Liu, Yifei Lu, Bao-Liang Lu, and Andrzej Cichocki. 2019. EmotionMeter: A Multimodal Framework for Recognizing Human Emotions. 
+
+IEEE Transactions on Cybernetics 49, 3 (2019), 1110–1122. doi:10.1109/TCYB.2018. 2797176 [50] Wei-Long Zheng and Bao-Liang Lu. 2015. Investigating Critical Frequency Bands and Channels for EEG-based Emotion Recognition with Deep Neural Networks. IEEE Transactions on Autonomous Mental Development 7, 3 (2015), 162–175. doi:10.1109/TAMD.2015.2431497 DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG 
+
+## A Notation Table 
+
+This section lists the abbreviations and notations used in the main text and their meanings, as shown in Table 6. 
+
+Table 6: Abbreviations and notations used in main text. 
+
+Abbreviation/Symbols Detailed Descriptions EEG Electroencephalography SNR Low Signal-to-Noise Ratio CNN Convolutional Neural Network LLM Large Language Model AA Anchor Alignment MIP Mask-invariance Property of EEG in the encoding space MA Mask Alignment CLP Conv-Linear-Probing GLT Global Learnable Tokens MU Momentum Update 
+
+𝑋 ′ ∈ R𝐶 ′ ×𝑇 ′
+
+the original data with 𝐶 ′ channels and 𝑇 ′ points 
+
+𝑋 𝑖𝑛 ∈ R𝐶 ×𝑇 the input data of DARE-EEG 
+
+M the mask set, where 1 indicates visible and 0 indicates masked 
+
+𝑔 𝜃 the EEG Encoder and its parameters 𝜃 𝑔 𝜓 the EEG Predictor and its parameters 𝜓 ℎ𝜙 the EEG Decoder (Reconstructor) and its parameters 𝜙 𝐶 the number of EEG electrode channels 
+
+𝑁 the number of EEG temporal patches 
+
+𝐷 the embedding dimension 
+
+𝐵 the batch size 
+
+𝑃 = {𝑃 𝑖 𝑗 } ∈ R𝐶 ×𝑁 ×𝐷 , 𝑖 ∈ { 1, 2, ..., 𝐶 }, 𝑗 ∈ { 1, 2, ..., 𝑁 } the patched 𝑋 𝑖𝑛 
+
+ˆ𝑃 = { ˆ𝑃 𝑖 𝑗 } ∈ R𝐶 ×𝑁 ×𝐷 , 𝑖 ∈ { 1, 2, ..., 𝐶 }, 𝑗 ∈ { 1, 2, ..., 𝑁 } the reconstructed patches 
+
+𝑐ℎ 𝑖 , 𝑖 ∈ { 1, 2, ..., 𝐶 } the channel position coding 
+
+𝑃 𝐶𝐸 ∈ R𝐶 ×𝑁 ×𝐷 the patches after channel embedding 
+
+ˆ𝑃 𝐶𝐸 ∈ R𝐶 ×𝑁 ×𝐷 the patches after channel embedding and reconstruction 
+
+𝑆 the number of GLTs 
+
+𝑚 the number of masked parts need padding before the reconstructor 
+
+𝑚𝑁 the number of visible EEG temporal patches 
+
+𝑟 𝑗 , 𝑗 ∈ { 1, 2, ..., 𝑁 } the RoPE coding 
+
+𝑇𝑜𝑘𝑒𝑛𝑠 𝑒𝑛𝑐 ∈ R𝑆 ×𝑚𝑁 ×𝐷 the output of EEG Encoder 
+
+𝑇𝑜𝑘𝑒𝑛𝑠 𝑝𝑟𝑒𝑑 ∈ R𝑆 ×𝑁 ×𝐷 the output of EEG Predictor 
+
+𝑇𝑜𝑘𝑒𝑛𝑠 𝑟𝑒𝑐 ∈ R𝐶 ×𝑁 the output of EEG Reconstructor 
+
+LRC the reconstruction loss 
+
+LAA the anchor alignment loss 
+
+LMA the mask alignment loss 
+
+LCE the cross-entropy loss 
+
+𝑓 Δ the Target Encoder and its parameters Δ
+
+Tokens 𝑖  
+
+> M
+
+∈ R𝑆 ×𝑚𝑁 ×𝐷 , 𝑖 ∈ { 1, 2, ..., 𝐵 } the output of the EEG Encoder for the 𝑖 -th sample in a mini-batch with mask M
+
+## B Additional Experimental Results B.1 Scaling Law Analysis 
+
+To explore the trends in balanced accuracy and total loss as the number of DARE-EEG parameters increases in Section 3.3.1, a saturation function was used to fit the observed trends. The function formula is as follows: 
+
+𝐵𝐴𝐶 (𝑥 ) = 𝐴 − 𝐵𝑒 −𝑘𝑙𝑜𝑔 (𝑥 ) (17) 
+
+𝐿𝑜𝑠𝑠 (𝑥 ) = 𝐴 + 𝐵𝑒 −𝑘𝑙𝑜𝑔 (𝑥 ) (18) Shao et al. Parameters (M, log scale) Parameters (M, log scale) Balanced Accuracy 
+
+> Total Loss
+
+Figure 6: Scaling Laws with DARE-EEG parameters. Saturated function fitting was used. The parameter axis is on a logarithmic scale. 
+
+Figure 6 presents the fitted scaling laws for DARE-EEG. For balanced accuracy (Eq. 17), the estimated parameters are 𝐴 = 0.7666 , 𝐵 =
+
+0.0875 , 𝑎𝑛𝑑𝑘 = 0.8752 ; for the total loss (Eq. 18), the fitted parameters are 𝐴 = 0.4335 , 𝐵 = 0.1237 , 𝑎𝑛𝑑𝑘 = 0.9822 . Two observations can be drawn from these results. First, model performance consistently improves as the number of parameters increases. Second, extrapolation based on the fitted curves indicates that, beyond the Base and Deep configurations, an additional increase of at least 100 M parameters would be required to obtain a further 1% improvement in performance. Consequently, the Base and Deep architectures provide a favorable trade-off between performance gains and parameter efficiency. 
+
+## B.2 Loss Changes during Module Ablation Loss Loss Loss 
+
+## w/o w/o w/o Replace Complete 
+
+Parameter changes 
+
+Overall parameters Parameters in training 
+
+Figure 7: The changes in loss and the number of model parameters after removing different modules. 
+
+Fig. 7 illustrates the evolution of the three loss terms during pre-training after selectively removing different components of DARE-EEG. The rightmost part further indicates whether the corresponding configuration leads to a reduction in model parameters. As shown, removing either AA or MA results in a dramatic increase in both AA and MA losses: the AA loss increases by up to twelve times its original value, while the MA loss rises by several-fold. This observation suggests that masked reconstruction alone is insufficient to preserve the discriminative structure of EEG representations.In addition, removing either the L𝑀𝐴 or the Replace operation leads to a noticeable increase in reconstruction loss, indicating that both components play an important role in effective EEG signal reconstruction. Overall, these results demonstrate that DARE-EEG leverages MA to regularize the MIP, thereby ensuring that the representations learned by the EEG encoder remain both discriminative and robust during pre-training. Furthermore, we observe that removing individual modules does not provide substantial reductions in model complexity. Specifically, eliminating the MA module reduces the number of trainable parameters by only approximately 0.6M, while removing the AA module has no impact on the number of trainable parameters, as the Target Encoder is updated via momentum. These results indicate that each module in DARE-EEG contributes meaningfully to performance while incurring minimal computational overhead, underscoring the effectiveness and necessity of the proposed design. DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG 1 10 90 99 1 10 90 99 
+
+> Weight Change Rate Weight Change Rate
+
+Spectro-Spatial Projection Linear Probe Head 
+
+Average Change Average Change 
+
+×198 ×52 ×6 ×24       
+
+> C3 Cz C4
+> C3 Cz C4 C1 C2 C5 C6
+
+BCIC-2B Relative Positions of EEG Channels 
+
+Channel Adaptation 
+
+C3 Cz C4 C5 C6 -0.6 +0.6 0
+
+Channel Projection Weight 
+
+Dataset: BCIC-2B, Model: Deep,In Channels :[C3, Cz,C4] ,Show Virtual Channels:[ C5, C3,C 1,Cz , C2, C4, C6], :First 10 epochs,---------:Last 10epochs electrode channels                                                  
+
+> F3 F4 CP5 CP1 CP6 FP2 FP1 F7 F8 A1 A2 Fz CP2 FC5 FC1 FC2 FC6 P7 P3 Pz P4 P8 O1 Oz O2 T7 C3 Cz C4 C8 electrode channels
+> AF3 AF4 F5 F3 F1 F2 F4 F6 CP5 CP3 CP1 CP4 CP6 FP2 FP1 F7 F8 TP7 O1 O2 Fz CPz CP2 FPz FT7 FC5 FC3 FC1 FCz FC2 FC4 FC6 FT8 P7 P5 P3 P1 Pz P2 P4 P6 P8 PO7 PO3 POz PO4 PO8 Oz T7 C5 C3 C1 Cz C2 C4 C6 C8 TP8
+
+Channel Adaptation 
+
+MMWM Relative Positions of EEG Channels Channel Projection Weight Spectro-Spatial Projection 
+
+Linear Probe Head Weight Change Rate Weight Change Rate 
+
+1 10 90 99 
+
+1 10 90 99 
+
+××
+
+Average Change Average Change 
+
+×5 ×7 
+
+FP1 O2 -0.2 +0.2 0FP1 A2 Dataset: MMWM(FP1 →A2),Model: Deep,Selected Show Channels : [FPZ, F1, F2, PZ, FC2,FC 5, C3], :First 10 epochs,---------:Last 10epochs 
+
+Figure 8: Analysis of the CLP during downstream training. The figure illustrates the learned channel projection weights and the parameter update magnitudes of CLP across training. Results are shown for the BCIC-2B and MMWM datasets. The original input channels and the adapted output channels after channel projection are also visualized. This analysis highlights how CLP in DARE-EEG performs channel adaptation and how its Spectro–Spatial Projection and Linear Probe Head components are progressively optimized and stabilized during training. 
+
+## B.3 Analysis of the CLP: Channel Projection and Training Behavior 
+
+In this section, we analyze how the proposed CLP contributes to downstream adaptation in DARE-EEG. Fig. 8 illustrates the learned channel projection weights on the BCIC-2B and MMWM datasets, as well as the evolution of parameter update magnitudes for the Spectro-Spatial Projection module and Linear Probe Head at the beginning and end of the training process. BCIC-2B is a binary classification dataset for motor imagery, and motor imagery belongs to a low-level human cognitive process; MMWM is a cognitive workload dataset, which belongs to a high-level human cognitive process. Using these two datasets allows us to effectively observe the differences in how DARE-EEG discovers rich representations embedded within EEG signals across different cognitive processes. In the BCIC-2B dataset, there are only three original channels, namely [C3, Cz, C4]. We selected seven representative projected channels [C5, C3, C1, Cz, C2, C4, C6] that are strongly associated with the motor imagery task for demonstration purposes. Virtual C6 is almost entirely dominated by C3 activity (associated with right-hand motor imagery). Virtual C1/C5/Cz showed a clear contralateral contrast between C3 and C4. During training, both modules of CLP exhibited clear and consistent training dynamics. Both the Spectro-Spatial Projection and the Linear Probe Head showed significantly higher parameter weight change rates in the early stages of training compared to later stages, indicating that both modules undertook the primary adaptation and discriminative learning tasks in the initial training phase. As training progressed, the magnitude of weight updates gradually decreased and stabilized, reflecting that the model had converged Shao et al. 
+
+to a relatively stable representation space. Further comparison reveals that the weight change rate of the Spectro-Spatial Projection was generally significantly lower than that of the Linear Probe Head, and the decrease was even more pronounced in the later stages of training. This phenomenon indicates that channel and spectral adaptation were primarily completed in the early stages of training, and this module stabilized in subsequent training phases, thus avoiding excessive perturbation to the learned representations. In contrast, the Linear Probe Head consistently maintained a relatively higher update magnitude, suggesting that it is primarily responsible for the discriminative decision-making of downstream tasks and continuously undergoes fine-grained adjustments during training. In the MMWM dataset, The situation became more complicated. The neural mechanisms underlying working memory–induced cognitive load states are inherently complex and distributed across multiple brain regions. Moreover, datasets with a larger number of EEG channels impose higher demands on channel projection, requiring more expressive adaptation mechanisms. For clarity of analysis, we adopt a single-layer channel projection in this visualization, while the actual projection process in DARE-EEG is more sophisticated. The lower part of Fig. 8 highlights a subset of channels [FPZ, F1, F2, PZ, FC2, FC5, C3] that exhibit strong correlations with cognitive workload–related tasks. The five channels with the highest contribution weights are displayed. Notably, frontal and fronto-central electrodes (e.g., FP, F, FC series) consistently receive higher absolute weights across several virtual channels, and parietal and occipital channels contribute more selectively. Unlike motor imaginary, certain electrodes of cognitive workload tasks in the original input do not necessarily remain dominant within their corresponding virtual channels after projection. Instead, the learned channel projections integrate information from multiple electrodes, reflecting the distributed and cooperative nature of neural processes underlying cognitive load. Furthermore, the training dynamics of CLP exhibit trends that are highly consistent with those observed on the BCIC-2B dataset. This consistent behavior across datasets further demonstrates the robustness of CLP, suggesting that its modular design induces stable and transferable training dynamics independent of dataset characteristics. Overall, the distinct yet complementary training dynamics of the two CLP modules indicate that CLP in DARE-EEG achieves stable channel adaptation while retaining sufficient flexibility for task-specific discrimination. This also explains why the authors suggest setting the dropout rate for Spectro-Spatial Projection to 0.1 or even 0 in the experimental details , while setting the dropout rate for the Linear Probe Head to 0.5. This is to accommodate the characteristics of these two components: one learns a general projection matrix and stabilizes early in training, while the other continuously performs fine-grained alignment throughout the training process. 
+
+## B.4 Impact of Pre-trained Weights 
+
+Table 7: Effect of weight usage on convergence and performance. T. P. represents the parameters involved in the training, and Conv. Epochs represents the number of convergence epochs.                
+
+> Weight T. P. Conv. Epochs Balanced Acc. Cohen’s Kappa ROC_AUC
+> ×25.3 M 48.2 0.6978 0.3957 0.7560
+> ✓33.5 K 30.6 0.7471 0.4941 0.8151
+
+In this section, we investigate the effect of using pre-trained weights on downstream tasks. Table 7 summarizes the comparison between models trained with and without pre-trained weights. When pre-trained weights are not employed, the model is trained from scratch on the BCIC-2B dataset using supervised learning. The results indicate a substantial performance degradation without pre-training: the balanced accuracy drops by approximately 4.9%, while the number of epochs required for convergence increases noticeably. These findings demonstrate that leveraging pre-trained weights not only improves downstream performance but also accelerates training convergence, making it clearly preferable to training models from scratch. 
+
+## B.5 Training and Evaluation with Small Dataset 
+
+Table 8: Evaluation results on the MMWM subject-independent small sample dataset.                                                                 
+
+> Model Load Weight Balanced Accuracy Cohen’s Kappa ROC_AUC
+> LaBraM ×0.6706 ±0.0793 0.3313 ±0.1584 0.6659 ±0.1178 EEGPT ×0.7118 ±0.0867 0.4179 ±0.1729 0.7317 ±0.1217 DARE-EEG ×0.7104 ±0.0888 0.4130 ±0.1730 0.7284 ±0.0925 LaBraM ✓0.7142 ±0.0931 0.4221 ±0.1881 0.7395 ±0.1107 EEGPT ✓0.7385 ±0.0714 0.4711 ±0.1415 0.7666 ±0.0901 DARE-EEG ✓0.7640 ±0.0747 0.5223 ±0.1507 0.7934 ±0.0942
+
+A key advantage of fine-tuning (or training only a lightweight classification head) a pre-trained EEG foundation model over task-specific models is its reduced tendency to overfit on limited data. To evaluate this property, we assessed the classification performance of DARE-EEG DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG Balanced Accuracy Balanced Accuracy 
+
+1 30 1 30 
+
+Load Pretrained Weight Random Initialization      
+
+> DARE-EEG EEGPT LaBraM DARE-EEG EEGPT LaBraM
+
+Figure 9: Small data learning performance on the MMWM dataset with subject-dependent evaluation. The line plots report results across 30 subjects, comparing models trained from random initialization with those loading pre-trained weights. 
+
+under small-data settings, with the results summarized in Table 8. On the MMWM dataset, the 29 available subjects (excluding one subject with abnormal recordings) were treated as 29 independent datasets for subject-dependent evaluation, thereby simulating a small-sample scenario. Performance statistics are reported as the mean and variance across subjects. The results demonstrate that models initialized with pre-trained weights consistently outperform those trained from scratch. Notably, DARE-EEG achieves the best overall performance, improving balanced accuracy by approximately 2.5% compared to the previous state-of-the-art method. In addition, Fig. 9 presents detailed subject-wise evaluation results, further illustrating the robustness and consistency of the proposed approach across individual subjects. 
+
+## B.6 t-SNE Visualization Results The encoder output features with MA The encoder output features w/o MA 
+
+Left Hand Right Hand Foot Tongue 
+
+Left Hand Right Hand Foot Tongue 
+
+Figure 10: The t-SNE results for subject 1 on the BCIC-2A dataset are shown. The left image shows the results using MA, while the right image shows the results without using MA. 
+
+B.6.1 t-SNE Results on BCIC-2A Dataset . Fig. 10 shows the t-SNE [19] visualization results of the output features of the EEG Encoder with and without MA on the BCIC-2A dataset. Since the EEG Encoder outputs high-dimensional EEG latent representations, we employed PCA to reduce the dimensionality of the output to 30 before applying t-SNE. It can be observed that the output of the EEG Encoder exhibits a certain degree of separability, and the classification boundaries are clearer when using MA. This indicates that MA can optimize the encoding capability of DARE-EEG to some extent. Shao et al. The encoder output features with MA The encoder output features w/o MA 
+
+Left Hand Right Hand Left Hand Right Hand 
+
+Figure 11: The t-SNE results for subject 7 on the BCIC-2B dataset are shown. The left image shows the results using MA, while the right image shows the results without using MA. 
+
+B.6.2 t-SNE Results on BCIC-2B Dataset . Fig. 11 shows the t-SNE [19] visualization results of the output features of the EEG Encoder with and without MA on the BCIC-2B dataset. Since the EEG Encoder outputs high-dimensional EEG latent representations, we employed PCA to reduce the dimensionality of the output to 30 before applying t-SNE. It can be observed that the output of the EEG Encoder exhibits a certain degree of separability, and using MA resulted in clearer clustering properties. This indicates that MA can optimize the encoding capability of DARE-EEG to some extent. 
+
+## B.7 EEG Topography Analysis Left Hand Right Hand Foot Tongue     
+
+> -8.7 -8.8 -8.9 -9.0 -9.1
+> 0.04 0.02 -0.00 -0.02 -0.04
+> Left Hand-Right Hand
+> -8.65 -8.70 -8.75 -8.80 -8.85 0.10 0.05 0.00 -0.05 -0.10
+> Left Hand Right Hand Foot Tongue Left Hand-Right Hand Subject 1 Subject 3
+
+Figure 12: PSD topographic maps of Subjects 1 and 3 from the BCIC-2A dataset. PSD values are shown on a log10 scale over the 0–38 Hz frequency range. 
+
+Fig. 12 and 13 present the Power Spectral Density (PSD) visualizations for the BCIC-2A and SEEDIV datasets, respectively. The PSD features were computed using the Welch method [41], while the SEEDIV dataset provides pre-extracted and temporally smoothed PSD features. DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG 2.0 1.0 0.0 -1.0 -2.0         
+
+> 2.0 1.0 0.0 -1.0 -2.0
+> Neutral Sad Fear Happy Happy-Sad
+> 2.0 1.0 0.0 -1.0 -2.0
+> 2.0 1.0 0.0 -1.0 -2.0
+> Neutral Sad Fear Happy Happy-Sad Subject 1 Subject 2
+
+Figure 13: PSD topographic maps of Subjects 1 and 2 from the SEEDIV dataset. The gamma frequency band is shown, with values normalized using z-score normalization. 
+
+For the motor imagery task in BCIC-2A, relatively clear and consistent spectral patterns can be observed across subjects. As illustrated by the differential PSD on the right side of Fig. 12, the contrast between left-hand and right-hand motor imagery exhibits a characteristic lateralized pattern, with higher PSD values over the left hemisphere and lower values over the right hemisphere for both subjects. In contrast, the SEEDIV emotion dataset shows more pronounced inter-subject variability. As shown in Fig. 13, the differential PSD between two opposing emotional states, Happy and Sad, varies substantially across subjects. This observation highlights the inherent subject-specific nature of emotional EEG patterns and explains the increased difficulty of cross-subject emotion classification. 
+
+## C MIP Theory Proof 
+
+This section uses mathematical methods to theoretically demonstrate that using MA can indeed guarantee mask invariance in the encoding space, constraining the encoder to bring together EEG samples of the same category and ensuring discriminative differences between different samples. In contrast, simply using the complete output of the target encoder for contrastive learning (anchor alignment) does not explicitly guarantee this property. 
+
+## C.1 Definition and Objectives 
+
+After applying patching, we obtain the token sequence 𝑃 (𝑋 ) ∈ R𝐶 ×𝑁 ×𝑑 from originate data 𝑋 ∈ R𝐶 ×𝑇 . Mask 𝑚 ∈ { 0, 1}𝑁 , The mask operator 
+
+M (· ; 𝑚 ) sets the token to 0 at the masked positions, while preserving the positional information. GLS representation of EEG Encoder 𝑓 𝜃 :
+
+𝑧 𝜃 (𝑋, 𝑚 ) = GLS (𝑓 𝜃 (M ( 𝑃 (𝑋 ); 𝑚 ))) ∈ R𝑑 , ∥𝑧 ∥ = 1. (19) The updated Target Encoder processes the complete input: 
+
+¯𝑧 Δ (𝑋 ) = GLS (𝑓 Δ (𝑃 (𝑋 ))) , ∥ ¯𝑧 ∥ = 1. (20) 
+
+## C.2 Proposition 1: Masked contrastive learning explicitly enforces MIP 
+
+Masked contrastive learning uses the GLS representations of the same sample under two independent random masks as positive pairs. 
+
+LMI = −E𝑋 ,𝑚,𝑚 ′ [sim (𝑧 𝜃 (𝑋, 𝑚 ), 𝑧 𝜃 (𝑋, 𝑚 ′))] . (21) Minimizing LMI will directly reduce the following variable: 
+
+E𝑚,𝑚 ′ ∥𝑧 𝜃 (𝑋, 𝑚 ) − 𝑧 𝜃 (𝑋, 𝑚 ′)∥ 2 . (22) Therefore, maximizing E [sim (𝑧 (𝑋, 𝑚 ), 𝑧 (𝑋, 𝑚 ′))] is equivalent to minimizing E ∥𝑧 (𝑋, 𝑚 ) − 𝑧 (𝑋, 𝑚 ′)∥ 2. This objective directly maximizes the similarity of the positive pairs to increase their similarity. The objective function directly includes the two mask-views, 𝑚 and 𝑚 ′,therefore this is an explicit constraint. Shao et al. 
+
+The proof sketch used if ∥𝑧 ∥ = 1:
+
+∥𝑎 − 𝑏 ∥2 = 2 − 2𝑎 ⊤𝑏 = 2 − 2 sim (𝑎, 𝑏 ). (23) Note that mask invariance alone does not prevent representation collapse; discriminability is achieved when combined with contrastive negatives or supervised contrastive objectives (Prop. C.3). 
+
+## C.3 Proposition 2: MIP helps with intra-class aggregation and inter-class separation 
+
+Suppose we have three EEG samples with known label relationships 𝑦 1 = 𝑦 2 ≠ 𝑦 3. Note that these relationships do not necessarily correspond to three distinct class labels, but rather indicate whether samples share the same underlying condition, such as the same task or subject. If using supervised contrastive learning similar to Eq. 14, and the representation of each sample is derived from a random mask, then the loss is: 
+
+LSupCon = −∑︁ 
+
+> 𝑖
+
+1
+
+|P ( 𝑖 )| ∑︁ 𝑝 ∈ P ( 𝑖 )
+
+log exp  sim  𝑧 𝑖 , 𝑧 𝑝 
+
+ /𝜏 Í𝑎 ≠𝑖 exp (sim (𝑧 𝑖 , 𝑧 𝑎 ) / 𝜏 ) , 𝑧 𝑖 = 𝑧 0 (𝑋 𝑖 , 𝑚 𝑖 ) . (24) Where P ( 𝑖 ) = {𝑝 ≠ 𝑖 |𝑦 𝑝 = 𝑦 𝑖 } denotes the index set of positive samples that share the same label (or underlying condition) with sample 𝑖 .Therefore, the above loss function will simultaneously promote intra-class aggregation sim (𝑧 1, 𝑧 2) ↑ of similar classes (𝑋 1, 𝑋 2) and inter-class separation sim (𝑧 1, 𝑧 3, 𝑒𝑡𝑐. ) ↓ of dissimilar classes (𝑋 1, 𝑋 3, 𝑒𝑡𝑐. ). Combining this with Proposition C.2, we can conclude that both mask invariance and inter-class/intra-class discriminability hold simultaneously. 
+
+## C.4 Proposition 3: Anchor alignment alone cannot guarantee MIP 
+
+The loss function for anchor alignment has already been given in Eq. 11; here we express it explicitly: 
+
+LAA = −E𝑋 ,𝑚 [sim (𝑧 𝜃 (𝑋, 𝑚 ), ¯𝑧 Δ (𝑋 ))] . (25) Note that Eq. 25 only contains sim (𝑧 𝜃 (𝑋, 𝑚 ), ¯𝑧 Δ (𝑋 )) , and sim (𝑧 𝜃 (𝑋, 𝑚 ), 𝑧 𝜃 (𝑋, 𝑚 ′)) does not appear in it. Therefore, from the perspective of the optimization objective, it does not imply that the value of E𝑚,𝑚 ′ ∥𝑧 𝜃 (𝑋, 𝑚 ) − 𝑧 𝜃 (𝑋, 𝑚 ′)∥ 2 in Eq. 22 will decrease. The following example will further illustrate this problem with a counterexample. The set of tokens is divided into two parts using a random mask: 𝑈 represents the subset of tokens that are not masked in a particular masking instance (which varies with 𝑚 ); 𝑉 represents the subset of tokens that are masked (which also varies with m). This allows for the construction of a theoretically possible EEG Encoder representation: 
+
+𝑧 𝜃 (𝑋, 𝑚 ) = norm ( ¯𝑧 Δ (𝑋 ) + 𝛼𝑟 (𝑚 )) . (26) Where 𝑟 (𝑚 ) is a vector determined solely by the mask pattern and approximately orthogonal to ¯𝑧 Δ (𝑋 ), 𝛼 > 0. Here we find that anchor alignment can still be very small because the dominant term is still ¯𝑧 Δ (𝑋 ), and the similarity sim (𝑧 𝜃 (𝑋, 𝑚 ), ¯𝑧 Δ (𝑋 )) remains high, especially when 𝛼 is not too large. However, MIP cannot be guaranteed because 𝑟 (𝑚 ) ≠ 𝑟 (𝑚 ′) if 𝑚 ≠ 𝑚 ′. So the ∥𝑧 𝜃 (𝑋, 𝑚 ) − 𝑧 𝜃 (𝑋, 𝑚 ′)∥ can become very large. Proof sketch: Assume that 𝑟 (𝑚 ) ⊥ ¯𝑧 (𝑋 ) and ∥ ¯𝑧 (𝑋 )∥ = ∥𝑟 (𝑚 )∥ = 1. Consider the construction in Eq. 26, where 𝛼 > 0 controls the contribution of the mask-dependent component. Then the similarity between the masked representation and the full-view target representation satisfies 
+
+sim  𝑧 0 (𝑋, 𝑚 ), ¯𝑧 (𝑋 ) = 1
+
+√1 + 𝛼 2 ≈ 1 − 𝛼 2
+
+2 , (27) which remains high when 𝛼 is small. Therefore, the anchor alignment loss can still be minimized. However, for two different masks 
+
+𝑚 ≠ 𝑚 ′, since 𝑟 (𝑚 ) ≠ 𝑟 (𝑚 ′), the distance between the corresponding representations satisfies 
+
+∥𝑧 0 (𝑋, 𝑚 ) − 𝑧 0 (𝑋, 𝑚 ′)∥ can be large (up to O( 𝛼 )), (28) indicating that anchor alignment alone does not guarantee mask invariance. This clearly demonstrates that simply aligning with the full target is not sufficient to rule out degenerate solutions such as "encoding the mask pattern into the representation"; in mask contrastive learning, this type of solution is explicitly penalized because it directly optimizes the sim (𝑧 (𝑋, 𝑚 ), 𝑧 (𝑋, 𝑚 ′). In general, anchor alignment only requires each mask-view to resemble the full view, but does not require different mask-views to resemble each other, while mask invariance specifically enforces the latter. 
+
+## D Dataset Description D.1 Datasets in Pretraining 
+
+D.1.1 Emotion Classification: SEED [50]. DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG 
+
+Dataset Overview. The SEED (Shanghai Jiao Tong University Emotion EEG Dataset) 1 is a publicly available benchmark dataset proposed by Baoliang Lu designed for emotion recognition using EEG signals. It has been widely adopted in affective computing and EEG representation learning studies due to its relatively large subject pool and multi-session recording protocol. 
+
+Experimental Paradigm. In the SEED dataset, subjects were exposed to a set of carefully selected emotional video clips intended to elicit three distinct emotional states: positive , neutral , and negative . Each experimental session consisted of multiple trials, where each trial corresponded to watching one video clip, followed by a short resting period. 
+
+Subjects and Sessions. The dataset contains EEG recordings from 15 healthy subjects. Each subject participated in three independent recording sessions conducted on different days. 
+
+Preprocessing. EEG signals were recorded using a 62-channel electrode cap arranged according to the international 10–20 system. The signals were originally sampled at 1000 Hz and subsequently downsampled to 200 Hz in the released dataset. A band-pass frequency filter of 0-75 Hz was applied. All recordings were referenced to the left mastoid during acquisition. In our experiment, the data was interpolated to 256 Hz and divided into 10-second samples according to the start of each trial for pre-training after channel selection. 
+
+D.1.2 Motor Movement and Imagery Tasks: PhysioMI [8]. 
+
+Dataset Overview. PhysioMI was created by Gerwin Schalk and his colleagues at the BCI R&D Program 2. This dataset consists of over 1500 one- and two-minute EEG recordings, obtained from 109 volunteers with a 64-channel BCI2000 system. 
+
+Experimental Paradigm. Each subject completed 14 experimental runs, including two baseline runs (eyes open and eyes closed) and twelve task runs. The tasks involved left/right or top/bottom visual cues, prompting subjects to either execute or imagine specific movements of the fists or feet corresponding to the cue location. 
+
+Preprocessing. The continuous EEG data was segmented into fixed-length epochs of 6 seconds each, based on events, followed by channel selection. Finally, each 6-second segment of data was aligned to a 256 Hz sampling grid, and the amplitude units were scaled to mV. 
+
+D.1.3 Identity Identification and Verification: M3CV [12]. 
+
+Dataset Overview. The M3CV dataset is a large-scale dataset used to study the commonalities and variations of EEG signals across subjects, time, and tasks. This dataset was first released for a brain-based identity recognition and verification task 3, aiming to explore a method that can reliably identify individuals using EEG signals, regardless of time or task variations. 
+
+Experimental Paradigm. M3CV designed a total of 6 experimental paradigms, covering resting-state, transient-state sensory, steady-state sensory, cognitive oddball (P300), motor execution, and SSVEP with selective attention. During each trial, subjects were presented with controlled visual stimuli, and their neural responses were recorded continuously. 
+
+Subjects and Sessions. EEG data were collected from 106 subjects, with each subject participating in two recording sessions conducted on different days. Of these participants, 95 took part in the experiment twice, with an interval of more than six days between the two experiments. 
+
+Preprocessing. The raw data had a sampling rate of 1000Hz and underwent TP9/TP10 re-referencing, bad channel interpolation, 0.01-200Hz bandpass filtering, ICA artifact removal, and downsampling. During pre-training, we resampled it to 256Hz and converted the amplitude units to mV. 
+
+D.1.4 SSVEP Task: TSU [39]. 
+
+Dataset Overview. The TSU (Tsinghua University Benchmark) dataset is a publicly available steady-state visual evoked potential (SSVEP) EEG dataset collected for SSVEP-based brain–computer interface research 4. It contains EEG recordings from 35 healthy subjects performing a multi-target visual stimulation task involving 40 distinct flickering stimuli. 
+
+Experimental Paradigm. The experiment was designed around a cue-guided SSVEP paradigm. Each subject completed six experimental blocks, and each block consisted of 40 trials corresponding to 40 visual targets presented in a randomized order. At the beginning of each trial, a visual cue indicating the target stimulus was displayed for 0.5 s, followed by a 5 s stimulation period during which all targets flickered simultaneously. Subjects were instructed to fixate on the cued target while minimizing eye blinks. A short blank interval was inserted between trials, and rest periods were provided between blocks to reduce visual fatigue. Each trial lasted 6 s in total. 
+
+Subjects and Sessions. EEG data were collected from 35 subjects (17 females, aged 17–34 years). Subjects were divided into two groups according to their prior experience with SSVEP-based BCIs, including an experienced group and a naive group. Each subject participated in six blocks within a single recording session. 
+
+> 1https://bcmi.sjtu.edu.cn/home/seed/seed.html
+> 2https://physionet.org/content/eegmmidb/1.0.0/
+> 3https://aistudio.baidu.com/competition/detail/315/0/related-material
+> 4https://bci.med.tsinghua.edu.cn/ Shao et al.
+
+Data Acquisition. EEG signals were recorded using a 64-channel Synamps2 system (Neuroscan, Inc.) with electrodes positioned according to the international 10–20 system. The data were sampled at 1000 Hz with an amplifier passband of 0.15–200 Hz. A notch filter at 50 Hz was applied during acquisition to suppress power-line interference. Electrode impedances were maintained below 10 k Ω. Event triggers were synchronized with the EEG recordings. 
+
+Preprocessing. The continuous EEG recordings were segmented into 6 s epochs (0.5 s pre-stimulus and 5.5 s post-stimulus onset) and subsequently downsampled to 250 Hz. Each subject’s data were stored as a four-dimensional matrix with dimensions corresponding to electrode index, time points, target index, and block index. Prior to pre-training, the EEG signals were further downsampled to 256 Hz and normalized to mV scale. A global average reference was applied, and for each trial, a temporal segment from 0 to 4 s was extracted to construct the pre-training samples. 
+
+D.1.5 MATB Task: pBCIW [24]. 
+
+Dataset Overview. pBCI is a public passive BCI dataset 5 that provides multiple session EEG signals for each user, and invites participants to design the best algorithm to decode cognitive load from EEG signals of new, unknown sessions, using a training dataset containing multiple sessions. 
+
+Subjects and Sessions. The dataset includes 15 participants (6 females; average age 25 years). Each participant performed three independent experiments, with a one-week interval between each experiment. Each experiment included a short training/warm-up phase. 
+
+Experimental Paradigm. Participants completed the MATB-II task, which consisted of three 5-minute modules, each with a different difficulty level (i.e., workload level), presented in a pseudo-random order. Three different workload levels were established by varying the number and complexity of subtasks (and these levels were validated through statistical analysis of subjective and objective data, including behavioral and heart rate data). 
+
+Data Acquisition. The data acquisition was performed using a 64 active Ag-AgCl Electrode system (ActiCap, Brain Products Gmbh) and an ActiCHamp amplifier (Brain Products, Gmbh). One electrode could not be used and one electrode was dedicated to record cardiac activity, resulting in 62 electrodes, placed according to the international 10-20 system. 
+
+Preprocessing. The EEG recordings were segmented into non-overlapping 2-second epochs and initially referenced to the right mastoid electrode. A high-pass FIR filter at 1 Hz was applied, followed by noisy electrode rejection based on amplitude deviation (above two standard deviations across channels) and spherical interpolation. Artifact removal was performed using second-order blind identification (SOBI) with automated independent component classification, where muscle, cardiac, and ocular components were rejected using a 95% threshold. The cleaned signals were then low-pass filtered at 40 Hz, re-referenced using a common average reference, and downsampled to 250 Hz. For pre-training, each epoch was further temporally interpolated to 1024 time points to ensure a fixed input length. 
+
+## D.2 Datasets in Downstream Tasks 
+
+D.2.1 Abnormal and Event Dection: TUAB and TUEV [22]. 
+
+Dataset Overview. The TUAB (Temple University Abnormal EEG) 6 dataset is a large-scale clinical EEG dataset collected from routine hospital recordings. It is designed for binary classification between normal and abnormal EEG patterns. Due to its clinical diversity and variability, TUAB is widely used to evaluate the robustness and generalization capability of EEG representation learning models. The TUAB dataset contains a total of 2383 subjects and over 400,000 10-second samples. The TUEV (Temple University EEG Events) 7 dataset is a clinically annotated EEG dataset focusing on event-level abnormal patterns. It provides expert-labeled EEG segments corresponding to various pathological events, such as periodic lateralized epileptiform discharge, generalized periodic epileptiform discharge, spike and/or sharp wave discharges, artifact, and eye movement. 
+
+Preprocessing. We first removed non-EEG channels such as ECG/EMG/respiration/event markers, retaining the 23 EEG channels according to the 10-20 standard, and the sampling rate was standardized to 200Hz. Then, a 0.1–75 Hz bandpass filter and a 50 Hz notch filter were applied. Finally, fixed-length time windows of 10 seconds were extracted centered around the events. 
+
+Training Details. During training, we used the CLP method. First, the 23-channel EEG data was projected to 58 channels consistent with the pre-trained model, and then subjected to frequency adaptation with a kernel size of 15. The batch size was set to 128, the learning rate was set to 5e-4 and a cosine scheduler was used. The warmup epochs were set to 5, and the maximum number of epochs to 50. TUAB and TUEV have already divided the data into training and validation sets. Therefore, following some previous experiments, we will use 20% of the training set as the test set. 
+
+D.2.2 Motor Imagery Task: BCIC-2A and BCIC-2B [33]. 
+
+> 5https://www.neuroergonomicsconference.um.ifi.lmu.de/pbci/
+> 6https://isip.piconepress.com/projects/nedc/data/tuh_eeg/tuh_eeg_abnormal/
+> 7https://isip.piconepress.com/projects/nedc/data/tuh_eeg/tuh_eeg_events/ DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG
+
+Dataset Overview. The BCIC-2A and BCIC-2B datasets are two widely used benchmark motor imagery (MI) EEG datasets released as part of the BCI Competition IV 8. Both datasets are designed for evaluating MI-based brain–computer interface algorithms under controlled experimental conditions. They consist of cue-guided motor imagery tasks involving hand movements, recorded using multi-channel scalp EEG systems following standardized protocols. Due to their well-defined paradigms, subject diversity, and extensive adoption in the literature, BCIC-2A and BCIC-2B are commonly used for benchmarking EEG decoding methods and assessing cross-subject generalization performance. BCIC-2A provides four-class (left hand, right hand, foot, tongue) motor imagery data with higher channel density (22), while BCIC-2B focuses on a binary motor imagery task (left hand, right hand) with fewer channels (C3, C4, Cz), offering complementary evaluation scenarios. The BCIC-2A dataset contains EEG recordings from 9 subjects, each participating in two recording sessions conducted on different days. The BCIC-2B dataset includes EEG data from 9 subjects with two sessions. 
+
+Preprocessing. Raw EEG signals were segmented into task-related epochs according to the provided cue markers. Standard preprocessing steps were applied following common practice in motor imagery EEG studies. In addition, the EEG signals were band-pass filtered between 0 and 38 Hz and downsampled to 256 Hz. Furthermore, Euclidean Alignment [10] was applied to align EEG data across subjects. 
+
+Training Details. For the BCIC-2A dataset, channel representations were directly transformed to 58 dimensions using CLP. For BCIC-2B, the three original channels were projected onto their seven neighboring channels to enhance spatial representation. The model was optimized using AdamW with a learning rate of 5e-4, together with a OneCycle learning rate schedule. The batch size was set to 72, and training was conducted for up to 100 epochs. A leave-one-subject-out cross-validation strategy was adopted for evaluation. 
+
+D.2.3 Emotion Classification: SEEDIV [49]. 
+
+Dataset Overview. SEEDIV is an emotion dataset designed for multi-class emotion recognition using EEG signals 9. It contains recordings from 15 subjects, each participating in three sessions conducted on different days. During each session, subjects watched a set of affective video clips to elicit distinct emotional responses. The dataset includes four emotion categories: neutral , sad , fear , and happy . This multi-session and multi-class design enables the evaluation of emotion-related EEG representations under varying affective states. 
+
+Preprocessing. The released SEEDIV dataset provides trial-wise EEG recordings aligned with video stimuli and corresponding emotion labels. In this work, an additional preprocessing pipeline was applied prior to model training. Specifically, the EEG signals were band-pass filtered between 1 and 75 Hz using a zero-phase filter. The filtered signals were then resampled from 1000 Hz to 256 Hz. A common average reference was applied by subtracting the across-channel mean at each time point. Subsequently, each trial was segmented into non-overlapping 4-second windows (1024 samples per window at 256 Hz). When the trial length was not an exact multiple of the window size, the initial residual samples were discarded to ensure non-overlapping segmentation. 
+
+Training Details. SEEDIV employs a 62-channel EEG configuration following the international 10–20 system, which is adaptively transformed into 58 channels via CLP during training. A leave-one-subject-out cross-validation protocol was adopted for evaluation. Model optimization was performed using AdamW in conjunction with a OneCycle learning rate schedule, with a maximum learning rate of 5e-4, a division factor of 24, and a maximum of 100 training epochs. 
+
+D.2.4 Sleep Staging: SleepEDF [15]. 
+
+Dataset Overview. The SleepEDF dataset is a publicly available polysomnography dataset for sleep stage classification 10 . It consists of overnight EEG recordings from healthy subjects, with sleep stages annotated by clinical experts according to standard scoring rules. It provides two differential channel signals, FPz-Cz and Pz-Oz. The recordings span multiple hours per subject and 197 subjects were included. The dataset defines multiple sleep stages, such as wakefulness, rapid eye movement sleep, and non-REM sleep. Following the American Academy of Sleep Medicine sleep scoring standard, sleep stages 3 and 4 were merged into a single deep sleep stage (N3), resulting in five classes: wakefulness , N1 , N2 , N3 , and REM .
+
+Preprocessing. SleepEDF recordings were cropped to remove 30 minutes of wake at the beginning and end of each night, converted from volts to microvolts, low-pass filtered at 30 Hz, segmented into non-overlapping 30-s windows, mapped into five sleep stages (W/N1/N2/N3/REM with stage 3 and 4 merged), and finally standardized using channel-wise z-score normalization. Since the sleepedf dataset has a sampling rate of 100 Hz, it was also interpolated and upsampled to 256 Hz. 
+
+Training Details. Since each Sleep-EDF sample corresponds to a 30-second EEG segment, the resulting sequence length exceeds 7,000 time points after upsampling. To handle such long sequences, a lightweight single-layer decoder was employed after the EEG Encoder to aggregate patch-level representations, which were subsequently fed into a multi-layer perceptron for classification. For channel adaptation, all electrodes surrounding the two sets of differential electrodes were incorporated, yielding a total of 21 channels. The dataset was split into training, validation, and test sets with a ratio of 6:2:2. The batch size was set to 32, and training was conducted for up to 50 epochs, while all other hyperparameters were kept consistent with those used for the previous datasets. 
+
+> 8https://www.bbci.de/competition/iv/
+> 9https://bcmi.sjtu.edu.cn/home/seed/seed-iv.html
+> 10 https://physionet.org/content/sleep-edfx/1.0.0/ Shao et al.
+
+D.2.5 Cognitive Workload Recognition: MMWM [28]. 
+
+Dataset Overview. MMWM is a multimodal cognitive load dataset 11 , including EEG and fMRI data. In our experiment, only the EEG modality was used. The experimental paradigm employed a working memory task, where each participant was asked to remember characters displayed on the screen, with different cognitive loads induced by controlling the number of characters. A total of 30 participants took part in this experiment, with 14 participants participating in a second session. A 32-channel EEG cap conforming to the 10-20 system was used during data acquisition, with 30 channels actually available for use. The cognitive load levels were primarily divided into four categories, but only two categories were used in this study. 
+
+Preprocessing. EEG signals were preprocessed using EEGLAB, including MRI gradient artifact removal, re-referencing, band-pass filtering (0.1–80 Hz), 50 Hz notch filtering, and downsampling to 500 Hz. Physiological artifacts were removed using ICA and visual inspection. The data were segmented into 1-second epochs with baseline correction, and each epoch was temporally interpolated to 1024 time points for subsequent frequency adaptation. 
+
+Training Details. As the 30 available channels in MMWM provide near whole-head coverage, they were transformed into 58 channels via channel conversion during training to ensure consistency with the pre-trained model. The dataset was split into training, validation, and test sets with a ratio of 6:2:2. A batch size of 64 was used, while all other training configurations were kept consistent with those adopted for the previous datasets. 
+
+## E Code and Pretrained Checkpoints Acquisition 
+
+Our code is available on github https://anonymous.4open.science/r/DARE-EEG-72F7 and can be run directly. The pretrained weights will also be provided in the same repository.

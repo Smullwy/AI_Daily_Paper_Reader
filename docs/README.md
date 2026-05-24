@@ -1,72 +1,66 @@
 ## 最新日报
-- 最新运行日期：2026-05-23
-- 运行时间：2026-05-23 20:08:38 UTC
+- 最新运行日期：2026-05-24
+- 运行时间：2026-05-24 20:23:05 UTC
 - 运行状态：成功
-- 本次总论文数：18
-- 精读区：8
+- 本次总论文数：16
+- 精读区：6
 - 速读区：10
 
 ### 今日简报（AI）
-今日从18篇论文中精读2篇、速读3篇前沿文献，聚焦生成式脑动态建模与大脑通用几何表征的突破。  
-最值得关注的是：用层神经网络常微分方程模拟脑动态，以及人脑自发学习出类似AI的普适表征结构。  
-建议普通读者留意“脑科学与AI的双向启发”这一趋势，未来或能通过无监督方式解码更多视觉功能。
-- 详情：[/202605/23/README](/202605/23/README)
+今日聚焦脑功能组织与个体化建模，精读两项揭示脑网络基序与视觉布线原理的高分研究，并速读了皮层分区与非线性混合模型等新进展。  
+值得重点关注两个结论：个体级任务fMRI因子模型能稳健分离出具有临床潜力的全脑功能基序，而人类视觉皮层的视网膜拓扑布线遵循统一的空间规律。  
+下一步可留意这些精细脑图谱与个体化模型向精神疾病分型和数字诊疗的转化应用。
+- 详情：[/202605/24/README](/202605/24/README)
 
 ### 精读区论文标签
-1. [BrainDyn: A Sheaf Neural ODE for Generative Brain Dynamics](/202605/23/2605.19324v1-braindyn-a-sheaf-neural-ode-for-generative-brain-dynamics)  
+1. [Refining RDoC Using Individual-Level Task fMRI Factor Models RevealsReproducible and Clinically Relevant Brain-Wide Motifs](/202605/24/biorxiv-10-1101-2025-10-13-682124-v2-refining-rdoc-using-individual-level-task-fmri-factor-models-revealsreproducible-and-clinically-relevant-brain-wide-motifs)  
    标签：评分：9.0/10、query:fclip
-   evidence：作为神经先验的生成性大脑动力学模型
-2. [Platonic Representations in the Human Brain: Unsupervised Recovery of Universal Geometry](/202605/23/2605.20496v1-platonic-representations-in-the-human-brain-unsupervised-recovery-of-universal-geometry)  
+   evidence：个体水平任务fMRI因子模型发现全脑模式
+2. [A retinotopic wiring principle of the human brain](/202605/24/biorxiv-10-64898-2026-04-03-716412-v2-a-retinotopic-wiring-principle-of-the-human-brain)  
    标签：评分：9.0/10、query:fclip
-   evidence：跨被试fMRI嵌入通过无监督旋转对齐
-3. [Learning fMRI activations dictionaries across individual geometries via optimal transport](/202605/23/2605.20883v1-learning-fmri-activations-dictionaries-across-individual-geometries-via-optimal-transport)  
-   标签：评分：9.0/10、query:fclip
-   evidence：通过最优传输学习跨个体脑几何的fMRI激活字典
-4. [Concurrent category-selective neural activity across the ventral occipito-temporal cortex supports a non-hierarchical view of human visual recognition](/202605/23/biorxiv-10-1101-2025-07-28-666781-v3-concurrent-category-selective-neural-activity-across-the-ventral-occipito-temporal-cortex-supports-a-non-hierarchical-view-of-human-visual-recognition)  
-   标签：评分：9.0/10、query:fclip
-   evidence：跨被试VOTC类别选择性神经活动
-5. [Self-supervised learning yields representational signatures of category-selective cortex](/202605/23/biorxiv-10-64898-2026-02-09-704031-v2-self-supervised-learning-yields-representational-signatures-of-category-selective-cortex)  
-   标签：评分：9.0/10、query:fclip
-   evidence：自监督模型再现类别选择性皮层表征
-6. [Diffusion-based stimulus optimization reveals functional organization across higher visual cortex](/202605/23/biorxiv-10-64898-2026-05-12-724119-v1-diffusion-based-stimulus-optimization-reveals-functional-organization-across-higher-visual-cortex)  
-   标签：评分：9.0/10、query:fclip
-   evidence：fMRI编码模型指导扩散生成激活特定脑区的图像
-7. [Classification of image category based on spatially distributed, transient high-frequency events](/202605/23/biorxiv-10-64898-2026-05-15-725481-v1-classification-of-image-category-based-on-spatially-distributed-transient-high-frequency-events)  
-   标签：评分：9.0/10、query:fclip
-   evidence：从颅内高频活动事件解码视觉类别
-8. [Shared and Distinct Object Spaces in Human and Macaque Inferotemporal Cortex](/202605/23/biorxiv-10-64898-2026-05-20-724014-v1-shared-and-distinct-object-spaces-in-human-and-macaque-inferotemporal-cortex)  
-   标签：评分：9.0/10、query:fclip
-   evidence：跨物种fMRI物体空间对齐
+   evidence：来自1700+被试fMRI的视网膜拓扑连接原则作为人口级神经先验
+3. [Predictive coding video models capture dorsal parietal representations and human judgments for surfaces defined by motion](/202605/24/biorxiv-10-64898-2026-05-13-724755-v1-predictive-coding-video-models-capture-dorsal-parietal-representations-and-human-judgments-for-surfaces-defined-by-motion)  
+   标签：评分：8.0/10、query:fclip
+   evidence：预测编码视频模型捕捉背侧顶叶表征
+4. [Bandwidth-aware fusion of resting-state EEG-fMRI connectivity in cortical eigenmode space](/202605/24/biorxiv-10-64898-2026-05-15-725408-v1-bandwidth-aware-fusion-of-resting-state-eeg-fmri-connectivity-in-cortical-eigenmode-space)  
+   标签：评分：8.0/10、query:fclip
+   evidence：在皮层本征模空间中融合静息态EEG和fMRI连接
+5. [Beyond next-word prediction: hierarchical linguistic composition drives LLM-brain alignment in time](/202605/24/biorxiv-10-64898-2026-05-15-725490-v1-beyond-next-word-prediction-hierarchical-linguistic-composition-drives-llm-brain-alignment-in-time)  
+   标签：评分：8.0/10、query:fclip
+   evidence：层级语言组织驱动大模型与大脑对齐
+6. [Beyond next-word prediction: hierarchical linguistic composition modulates LLM-brain alignment in time](/202605/24/biorxiv-10-64898-2026-05-15-725490-v2-beyond-next-word-prediction-hierarchical-linguistic-composition-modulates-llm-brain-alignment-in-time)  
+   标签：评分：8.0/10、query:fclip
+   evidence：LLM-大脑对齐研究，使用EEG
 
 ### 速读区论文标签
-1. [Mechanistically Interpretable Neural Encoding Reveals Fine-Grained Functional Selectivity in Human Visual Cortex](/202605/23/2605.16468v1-mechanistically-interpretable-neural-encoding-reveals-fine-grained-functional-selectivity-in-human-visual-cortex)  
+1. [Expanded Group-Constrained Parcels Enhance Coverage and Reproducibility of the Scene-Selective Cortex](/202605/24/biorxiv-10-64898-2026-05-16-725633-v1-expanded-group-constrained-parcels-enhance-coverage-and-reproducibility-of-the-scene-selective-cortex)  
    标签：评分：8.0/10、query:fclip
-   evidence：视觉皮层可解释神经编码
-2. [Multi-task learning on partially labeled datasets via invariant/equivariant semi-supervised learning](/202605/23/2605.17624v1-multi-task-learning-on-partially-labeled-datasets-via-invariantequivariant-semi-supervised-learning)  
+   evidence：跨被试可重复的fMRI脑映射的组约束分区
+2. [Modeling Complex Effects and Individual Variability in Multi-Paradigm fMRI with Nonlinear Mixed Models](/202605/24/biorxiv-10-64898-2026-05-16-725673-v1-modeling-complex-effects-and-individual-variability-in-multi-paradigm-fmri-with-nonlinear-mixed-models)  
    标签：评分：8.0/10、query:fclip
-   evidence：不变/等变半监督学习用于多任务视觉
-3. [Efficient coding along the visual hierarchy](/202605/23/2605.19155v1-efficient-coding-along-the-visual-hierarchy)  
+   evidence：跨被试fMRI群体层面非线性混合模型
+3. [A hierarchical computational motif unifies neural dynamics across the ventral visual stream](/202605/24/biorxiv-10-64898-2026-05-18-726101-v1-a-hierarchical-computational-motif-unifies-neural-dynamics-across-the-ventral-visual-stream)  
    标签：评分：8.0/10、query:fclip
-   evidence：高效编码构建人类对齐的视觉特征
-4. [When word order matters: human brains represent sentence meaning differently from large language models](/202605/23/biorxiv-10-1101-2025-07-19-665701-v3-when-word-order-matters-human-brains-represent-sentence-meaning-differently-from-large-language-models)  
-   标签：评分：8.0/10、query:fclip
-   evidence：比较30名被试的fMRI脑表征与大语言模型
-5. [Sparse Autoencoders enable Robust and Interpretable Fine-tuning of CLIP models](/202605/23/2605.15961v1-sparse-autoencoders-enable-robust-and-interpretable-fine-tuning-of-clip-models)  
+   evidence：腹侧视觉通路的神经动态；群体级计算基序
+4. [DARE-EEG: A Foundation Model for Mining Dual-Aligned Representation of EEG](/202605/24/2605.18298v1-dare-eeg-a-foundation-model-for-mining-dual-aligned-representation-of-eeg)  
    标签：评分：7.0/10、query:fclip
-   evidence：使用稀疏自编码器正则化视觉表示的鲁棒CLIP微调方法
-6. [Isolating Nonlinear Independent Sources in fMRI with $β$-TCVAE Models](/202605/23/2605.16708v1-isolating-nonlinear-independent-sources-in-fmri-with--tcvae-models)  
+   evidence：EEG基础模型的双对齐表示学习强制掩码不变性
+5. [Pointwise Generalization in Deep Neural Networks](/202605/24/2605.18598v1-pointwise-generalization-in-deep-neural-networks)  
    标签：评分：7.0/10、query:fclip
-   evidence：使用beta-TCVAE的fMRI深度表示学习
-7. [CodeBind: Decoupled Representation Learning for Multimodal Alignment with Unified Compositional Codebook](/202605/23/2605.18257v1-codebind-decoupled-representation-learning-for-multimodal-alignment-with-unified-compositional-codebook)  
+   evidence：深度网络泛化理论
+6. [CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark](/202605/24/2605.18621v1-crossview-suite-harnessing-cross-view-spatial-intelligence-of-mllms-with-dataset-model-and-benchmark)  
    标签：评分：7.0/10、query:fclip
-   evidence：提出解耦表示学习用于多模态对齐可应用于脑机对齐
-8. [Atom-level Protein Representation Learning Improves Protein Structure Prediction](/202605/23/2605.22133v1-atom-level-protein-representation-learning-improves-protein-structure-prediction)  
+   evidence：多视图空间智能的跨视图套件
+7. [Riemannian geometry meets fMRI: the advantages of modeling correlation manifolds and eigenvector subspaces](/202605/24/2605.22334v1-riemannian-geometry-meets-fmri-the-advantages-of-modeling-correlation-manifolds-and-eigenvector-subspaces)  
    标签：评分：7.0/10、query:fclip
-   evidence：多视图结构约束（三个残基层面视图）用于蛋白质表示学习
-9. [Learning Relative Representations for Fine-Grained Multimodal Alignment with Limited Data](/202605/23/2605.16834v1-learning-relative-representations-for-fine-grained-multimodal-alignment-with-limited-data)  
+   evidence：用于fMRI相关流形和跨被试比较的黎曼几何
+8. [Conceptualizing Embeddings: Sparse Disentanglement for Vision-Language Models](/202605/24/2605.22679v1-conceptualizing-embeddings-sparse-disentanglement-for-vision-language-models)  
+   标签：评分：7.0/10、query:fclip
+   evidence：解缠CLIP嵌入以增强可解释性
+9. [Improved Baselines with Representation Autoencoders](/202605/24/2605.18324v1-improved-baselines-with-representation-autoencoders)  
    标签：评分：6.0/10、query:fclip
-   evidence：使用相对表示的事后多模态对齐
-10. [UST-Hand: An Uncertainty-aware Spatiotemporal Point Cloud Interaction Network for 3D Self-supervised Hand Pose Estimation](/202605/23/2605.17742v1-ust-hand-an-uncertainty-aware-spatiotemporal-point-cloud-interaction-network-for-3d-self-supervised-hand-pose-estimation)  
+   evidence：表征对齐方法
+10. [Identifiable Multimodal Causal Representation Learning under Partial Latent Sharing](/202605/24/2605.19135v1-identifiable-multimodal-causal-representation-learning-under-partial-latent-sharing)  
    标签：评分：6.0/10、query:fclip
-   evidence：利用多视图一致性约束进行自监督手势估计
+   evidence：多模态因果表示与部分潜在共享
 

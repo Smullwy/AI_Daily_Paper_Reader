@@ -1,0 +1,441 @@
+Title: Identifiable Multimodal Causal Representation Learning under Partial Latent Sharing
+
+URL Source: https://arxiv.org/pdf/2605.19135v1
+
+Published Time: Wed, 20 May 2026 00:22:22 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# Identifiable Multimodal Causal Representation Learning under Partial Latent Sharing 
+
+Manal Benhamza 1 Marianne Clausel 2 Myriam Tami 11Paris-Saclay University, CentraleSupélec, MICS Lab, France 
+
+> 2
+
+Lorraine University, CRAN, France 
+
+# Abstract 
+
+Causal representation learning (CRL) seeks to un-cover meaningful latent variables and their corre-sponding causal structure from high-dimensional observational data. Although its significance, CRL’s identifiability remains a crucial property, as it ensures the recovery of the mechanisms be-hind the data generation process, and hence the in-terpretability and robustness of the representation. Proving identifiability in CRL is intrinsically diffi-cult, and we address in this work an even more chal-lenging setting: multimodality. We consider multi-modal observed data with a latent partially shared structure. Each modality is generated, through non linear mixing functions, from a specific subset of causal latent variables. Under flexible assumptions and without imposing any parametric distribution on the latent variables, we establish component-wise identifiability guarantees for the causal latent representation. Our identifiability results, further-more, apply to the undercomplete scenario where we have, for each modality, more observed than latent variables. To instantiate our theoretical anal-ysis, we introduce a Wasserstein-based module to recover the partially shared latent structure. Due to its differentiability, the latter can be easily inte-grated into all types of architecture, only requiring minimal changes. Extensive experiments on syn-thetic and realistic datasets validate the superiority of our approach over SOTA methods. 
+
+# 1 INTRODUCTION 
+
+Causal Representation Learning (CRL) aims to uncover high-level meaningful representations and their correspond-ing causal structure from low-level observational data. It has attracted growing importance across a wide variety of fields [Komanduri et al., 2024]. For example, CRL is leveraged in medical applications to avoid learning spurious correlations, thereby promoting more robust representations [Sanchez et al., 2022]. It is also used in biological sciences with mul-timodal sequencing data to learn the causal latent variables and their related causal relationships, hence providing more transparency to complex biological systems [Squires et al., 2023]. More generally, it is worth noting that causal rep-resentations enable multiple aspects of trustworthy AI by achieving fairness [Schölkopf et al., 2021, Zuo et al., 2023], interpretability [Wu et al., 2023] and generalizing to out-of-distribution samples [Lu et al., 2022, Sun et al., 2021, Beery et al., 2018, Arjovsky et al., 2020]. However, despite these promising advantages, the practical use of CRL in real-world scenarios remains constrained by strong identifia-bility assumptions. Establishing identifiability guarantees is indeed crucial: in their absence, two independently learned representations may achieve the same learning objective while being structurally different. As a result, the learned representation may fail to capture the true underlying data-generating process, thereby undermining interpretability. In this work, we consider a multimodal setting where the observed variables are functions of subsets of causal latent variables. This setting naturally appears in many practical scenarios. For example, as illustrated in Fig. 1, in medical datasets, an MRI can show structural changes in the brain, a blood test can reveal inflammatory responses, and a genetic test can indicate predispositions to certain diseases. Each modality reflects only a subset of the underlying variables, some of which may overlap with other modalities, while others remain specific to a single modality. Recent works have addressed the identifiability issue by assuming a constraining parametric structure on the distri-bution of latent variables [Morioka and Hyvärinen, 2024, von Kügelgen et al., 2023, Hyvärinen et al., 2023]. Other approaches are based on auxiliary signals such as supervi-sion [Yang et al., 2020, Shen et al., 2022, Komanduri et al., 2022], interventions on latent variables [Buchholz et al., 2023] or temporal dependence [Lachapelle et al., 2024], 
+
+> Preprint. Under review.
+> arXiv:2605.19135v1 [cs.LG] 18 May 2026
+
+Figure 1: Multimodal MRI Dataset encompassing both modality-specific and overlapping shared latent variables. The black directed arrows represent the causal relationships among the causal latent variables. Here, for example, the Inflammatory Activity is a shared variable between the MRI scan and blood test modalities. which are not always accessible. The multimodal setting has attracted significant interest, as it enables the extraction and integration of complementary information across multiple modalities [Manzoor et al., 2023]. In this context, the focus is mainly on identifying the subspace of shared variables between the different modalities [Yao et al., 2024, Morioka and Hyvärinen, 2024, Daunhawer et al., 2023]. The sharing pattern can either be total, with all modalities depending on a common set of latent variables, or partial, where only subsets of modalities share latent variables, as shown in Fig. 1. Identifiability guarantees for these multimodal paradigms are limited. Moreover, most existing approaches assume that the modality mixing functions are bijective [Yao et al., 2024, Daunhawer et al., 2023, Sun et al., 2025, von Kügelgen et al., 2021]. This is often unrealistic in real-world scenar-ios, such as image data, where the dimensionality of the observations can be much higher than that of the latent ones. Consequently, the identifiability assumptions underlying prior work remain restrictive. We, thus, establish in this work, identifiability guarantees for the causal representation in a multimodal with a partially shared latent structure setting. More specifically, we prove under structural causal sparsity constraints that both the shared and modality specific variables can be identified, up to component-wise smooth bijections. Our work, thus, gen-eralizes the block-wise identification results in [Yao et al., 2024, Daunhawer et al., 2023] and ensures interpretability of the learned representations. As opposite to other work, our guarantees also hold in undercomplete cases where there are, in each modality, more observed variables than latent ones and we do not require access to supervision nor to inter-ventions. Our theoretical conditions are hence weaker than other restrictive works. Furthermore, to show the efficiency of our theoretical conditions, we implement them in a gener-ative framework to estimate the causal latent variables and their causal relationships. We also introduce a Wasserstein distance–based, architecture-agnostic pluggable module to recover the partially shared latent structure. Extensive ex-periments on both synthetic and realistic datasets validate the superiority of our approach over SOTA methods. 
+
+# 2 RELATED WORK 
+
+Multimodal Identifiable CRL: As emphasized in Sec. 1, identifiability is a central concern in CRL. We focus on the multimodal CRL setting, which has recently attracted in-creasing attention [Sun et al., 2025, Morioka and Hyvärinen, 2024]. (a) Non Overlapping Latent Structure: Sun et al. [2025] prove the component-wise identifiability of latent vari-ables from each modality by enforcing sparsity over the causal structure. They require, however, the mix-ing functions to be bijective. Morioka and Hyvärinen [2024] consider a setup where the grouping of the ob-served variables is known a priori. Their identifiability results require the latent variables to follow an exponen-tial family distribution, which may limit applicability in practice. Sun et al. [2025], Morioka and Hyvärinen [2024] guarantees are established for non-overlapping latent structures. While their frameworks are argued to extend to settings with shared latent variables, such extensions are not explicitly developed, and handling partially shared structures remains an open challenge in practice. (b) Overlapping Latent Structure: In the multimodal set-ting with shared latent variables, the focus is mainly on identifying the shared variables. Sturma et al. [2023] focus on the identifiability of the joint distribution and the shared causal graph in a setup where the modal-ities potentially share a representation. Nonetheless, their guarantees are limited because they only hold for linear mixing functions. von Kügelgen et al. [2021], Daunhawer et al. [2023] give sufficient conditions for the identifiability of the shared latent variables in a pair of modalities setup. Both approaches assume that the second modality is generated as an augmentation of the first, through perturbations of a subset of modality-specific variables, commonly denoted style variables. As a result, this setting may not reflect more general multimodal generative mechanisms. In von Kügelgen et al. [2021], the mixing functions are further assumed to be identical across modalities, whereas Daunhawer et al. [2023] relax this assumption and allow for distinct mixing processes. Nevertheless, the resulting guaran-tees remain limited, as they only ensure subspace-level identifiability and rely on strong assumptions, in par-ticular that the modality mixing functions are diffeo-morphisms. Yao et al. [2024] presents a multi-view 2setting, which is a particular case of the multimodal. The identifiability results are only block-wise estab-lished for the subset of shared variables. Furthermore, both the theoretical analysis and empirical framework are contrastive learning based, hence, requiring care-fully constructed positive and negative data pairs. Our work extends previous approaches to a more general multimodal setting with partially shared latent structure and, importantly, different injective non linear mixing functions across modalities. In particular, the modalities are not neces-sarily augmented versions of each other. Within this general framework, we establish the component-wise identifiability of both shared and modality-specific variables. 
+
+Partially Shared Pattern Learning: Only few works ad-dress the partially shared pattern learning problem. Most of them are contrastive learning based [von Kügelgen et al., 2021, Daunhawer et al., 2023, Yao et al., 2024]. Xu and Qu [2025] propose to use a trainable classifier with a down-stream task to identify the latent shared representations be-tween modalities. We introduce a novel Wasserstein-based differentiable pluggable module which computes, through a transport optimization problem [Li, 2024], the shared struc-ture permutation matrix introduced in Sec. 5. By unveiling the shared latent variables between the different modali-ties, this matrix promotes a better cross-modal alignment. Thanks to our proposed module, we eliminate the need for additional training, supplementary data, or auxiliary super-vision, while remaining easily compatible with a wide range of encoder–decoder architectures. 
+
+# 3 MODEL DEFINITION 
+
+We formulate our multimodal data generation process as a latent variable model. Let z = ( z1, . . . , zJ ) be a causally related continuous random variable taking values in Z =
+
+Z1 × ... × Z J and collectively capturing all the necessary information to generate the entangled observed variables 
+
+x = ( x(1) , . . . ., x(M )), where x(m) denotes the mth modality with dimension dm. We consider that each modality m only depends on a subset of latent variables zAm = {zj , j ∈Am}. While each observed variable only belongs to one of the M observed modalities, there might be overlapping between the subsets of latent variables {zAm }Mm=1 .
+
+Generating process Gen (z, ϵ, g 1, · · · , g J , f 1, · · · , f m).
+
+We model the data-generating process as follows: 
+
+zj = gj (Pa (zj ), ϵ j ) ∀j ∈ { 1, · · · , J } (1) 
+
+x(m) = fm(zAm ) (2) We assume that we have causal relationships between the latent variables, as specified in Eq. 1. Pa (zj ) denotes the causal parents of the variable zj , gj represents the cor-responding causal mechanism, and ϵj are the exogenous noise variables, which are assumed to be mutually inde-pendent. In Eq. 2 we generate, for each modality m, ob-served variables x(m) from latent ones zAm . The modal-ity specific mixing functions in Eq. 2, denoted by fm are assumed to be smooth and injective, hence allowing for less latent than observed variables in each modality m, i.e., 
+
+∀m ∈ { 1, ..., M } |A m| ≤ dm. We further assume that the different observed modalities are obtained through different mixing functions ∀m, n ∈ { 1, ..., M } fm̸ = fn.
+
+Example 1: Multimodal dataset with a partially shared causal latent structure. Our objective is to prove 
+
+Figure 2: The variables z7 and z8 are shared by the first and second modalities, whereas z3 and z4 are modality-specific. component-wise identifiability results for the shared and modality specific latent representations under weak as-sumptions. More specifically, we establish under hypoth-esis on the data generating process, that we can recover from observed variables, for each modality m, the ground-truth shared and modality-specific latent variables zAm
+
+up to component-wise bijections. That is, we want an es-timation ˆzAm of the ground truth latent variables zAm
+
+of the form ∀ ˆzj ∈ ˆzAm ∃ h(m) 
+
+> j
+
+, σ (m) such that ˆzj =
+
+h(m) 
+
+> j
+
+(( zAm )σ(m)(i)). We want to emphasize that our pro-posed identifiability guarantees, ensure the estimated shared variables (resp. modality specific) depend only on their ground truth counterpart. Then, shared variables are dis-entangled from the modality specific ones. From a practical point of view, this implies efficient retrieval procedures of latent variables, relying on our Wasserstein-based module. Due to their invariance across modalities, these shared vari-ables are efficient representations for downstream prediction tasks [Lachapelle et al., 2023]. We also aim to learn the iden-tified causal latent representations and their related causal structure. Learning causal relationships on top of the latent representations enables a principled understanding of the underlying data-generating mechanisms. 
+
+# 4 IDENTIFIABILITY THEORY 
+
+Notations: We denote Jfm (resp. J ˆfm , Jg , Jˆg ) the Jacobian of fm (resp. ˆfm, g := ( g1, · · · , g J ) and ˆg = (ˆ g1, · · · , ˆgJ )). 
+
+dim (·) denotes the dimensionality of a given set of vari-3ables, and I(·) the indices of the corresponding set. Super-scripts and subscripts enclosed in parentheses (m) refer to the mth modality. The c(m1,··· ,m p) are the common vari-ables between the p modalities m1, · · · , m p whereas s(m)
+
+are the variables specific to modality m. We also denote 
+
+Sh (m) = {l ∈ { 1, ..., M } s.t zAl ∩ zAm̸ = ∅} the indices of modalities that share variables with the mth modality. 
+
+4.1 OVERVIEW OF THE CONTRIBUTIONS 
+
+In this section, we establish component-wise identifiability guarantees for both modality-specific variables and variables shared across arbitrary subsets of modalities. Our approach aims to relax the commonly imposed strong assumption of bijectivity on the modality mixing functions fm. In particu-lar, it also applies to the undercomplete setting, where the mixing functions are assumed to be injective rather than diffeomorphic. Furthermore, we consider a general multi-modal setting in which shared variables exhibit a partially shared structure, instead of being common to all modali-ties. This implies that the common latent variables c(m) are shared only among subsets of modalities, rather than across the entire set of modalities. Our identifiability analysis and results rely on flexible conditions and do not require access to supervisory signals, interventional data, or assumptions on the parametric form of the latent distribution. Before introducing our theoretical guarantees and results, it is es-sential, to first recall the classical definitions of block and component-wise identifiability. 
+
+Definition 4.1 (Block-wise Identifiability) . The true latent variables z are said to be block-identified, if the estimated latent variables ˆz contain all and only information about the true latent variables z, i.e. there exists a smooth invertible mapping h : Rdim (Z) → Rdim (Z) such that ˆz = h(z).
+
+Definition 4.2 (Component-wise Identifiability) . A true latent variable zi is said to be component-wise identified, if a component of the estimated latent variables ˆzj contains all and only information about zi, i.e., there exists a smooth invertible mapping hi : Rdim (Zi) → Rdim (Zj ), such that 
+
+ˆzj = hi(zi).
+
+We can hence understand that block-wise identifiability en-sures that the information is preserved within the subspace of estimated variables, whereas component-wise identifia-bility guarantees that each latent component is individually recoverable up to an invertible transformation. 
+
+Example 2 (Example 1, continued). In Fig. 2, the block wise identifiability of the shared variables c(1) = {z7, z8}
+
+between modalities 1 and 2 implies the existence of an invertible function h(1) : Rd(c(1) ) → Rd(c(1) ) s.t. ˆc(1) =
+
+h(1) (c(1) ). As for the component-wise identifiability of z8,an option with one dimensional variables would be to have an invertible function h7 : R → R such that ˆz8 = h7(z7).
+
+Theoretical contributions: We present two main iden-tifiability results : (1) the block-wise identifiability of the shared variables between each subset of modalities; (2) the component-wise identifiability of both specific s(m) and common latent variables c(m).
+
+Sketch of the proofs. First, we establish for each modal-ity m that there exists an invertible function mapping the estimated latent variables ˆzAm to their ground-truth coun-terparts zAm under injective and distinct modality-mixing functions. Then we show that the estimated shared vari-ables across a subset of modalities depend only on their ground-truth counterparts. We, thereafter, prove that under causal structural sparsity constraints as in [Sun et al., 2025, Ng et al., 2023, Lachapelle et al., 2024], both shared and specific latent variables in a modality m can be uniquely identified. 
+
+4.2 BLOCK IDENTIFICATION 
+
+We now establish, as previously outlined, the block-wise identifiability of the shared latent variables between each subset of modalities. 
+
+Theorem 4.1 (Block-wise Identifiability of modality shared variables) . Assuming that the observed data are ob-tained from the true latent variables (resp. estimated ones) through the ground truth data-generating process 
+
+Gen (z, ϵ, g 1, · · · , g J , f 1, · · · , f M ) (resp. estimating data generating process Gen (ˆ z, ˆϵ, ˆg1, · · · , ˆgJ , ˆf1, · · · , ˆfM )) de-fined in Eq.2, and given the assumptions below: 
+
+• A1 (Linear Independence ): The Jacobians of the true and estimated generating functions Jfm and J ˆfm are full-column rank. 
+
+• A2 (Properness ): Both fm and ˆfm are proper func-tions: 
+
+∥z∥, ∥ˆz∥ − → ∞ ⇐⇒ fm(z), ˆfm(ˆ z) −→ ∞ (3) 
+
+• A3 (Conditional and Marginal Independence ): Causal edges are allowed only from shared variables to specific variables, and not vice versa. Moreover, condi-tioned on c(m,n ) and c(k) ∀k s.t Sh (m) ∩ Sh (k) = ∅,
+
+∀n ∈ Sh (m), s(m) 
+
+> i
+
+are independent from s(n) 
+
+> j
+
+∀ i, j ∈
+
+I(s(m)) × I(s(n)). Moreover, we require that c(m) 
+
+> i
+
+and 
+
+c(n) 
+
+> j
+
+are either marginally independent ∀n ∈ Sh (m)
+
+and ∀ i, j ∈ I(c(m) \ c(m,n )) × I(c(n) \ c(m,n )) or conditionally independent given c(k) ∀k s.t Sh (m) ∩
+
+Sh (k) = ∅.Then the shared variables for each subset of modalities are block-identified from observed variables. 
+
+Discussion on the assumptions: The proof is on the Ap-pendix A. Th. 4.1 first assumption Th. 4.1 A 1 is common 4in [Zheng and Zhang, 2023]. It ensures, for a modality m,that each latent variable affects the observed variables in-dependently of the others. This assumption is milder than requiring the true and estimated mixing functions to be diffeomorphic, as is commonly assumed in most identifica-tion theories [Sun et al., 2025, Yao et al., 2024, Daunhawer et al., 2023, von Kügelgen et al., 2021]. Properness Th. 4.1 A2 ensures that as latent variables diverge, the correspond-ing observed variables also diverge, preventing any loss of information at extreme values. It guarantees that the map-ping from latent to observed space is globally well-behaved, so that all latent variations are faithfully reflected in the observations and are, in principle, recoverable. As for the conditional and marginal independence Th. 4.1 A 3, it as-sumes there are no causal relationships between specific latent variables from two different modalities. The causal influence of each latent specific variable is, therefore, con-fined in its modality, whereas that of shared variables may span other modalities as shown in Fig. 2. 
+
+4.3 COMPONENT-WISE IDENTIFIABILITY 
+
+Following on Th. 4.1 results, we establish the component-wise identifiability guarantees. Not to load notations, we use interchangeably here I(zAm ) and (m).
+
+Preliminary notations. Set T := {T ∈
+
+RJ×J , ∀m, T (m),(m) is invertible }, Sm = {P ∈
+
+RAm×A m , ∃σ permutation of Am, ∀j̸ = σ(i), P i,j = 0 }
+
+and T (−m) = {T ∈ T , T (m),(m) /∈ S m}.The following result also involves the ground truth and estimated latent causal structure encoded in the two matrices 
+
+Jg and Jˆg , that can be identified as the adjacency matrices of the ground truth and estimated latent graphs G and ˆG
+
+respectively. 
+
+Theorem 4.2. (Component-wise Identifiability of modality-specific and shared variables) Given the same assumptions in Th. 4.1. Assume that in addition, the following conditions hold: 
+
+• B1 (Non-overlap ): For each modality m, there is an-other modality k, such that there is no shared structure between the two modalities , i.e., Sh (m) ∩ Sh (k) = ∅.
+
+• B2 (Mixing Density ): For any T ∈ T (−m) and any k
+
+such that i.e., Sh (m) ∩ Sh (k) = ∅, then: 
+
+X
+
+> m,k
+> Sh (m)∩Sh (k)= ∅
+
+∥ ˜J(T,m,k ) 
+
+> g
+
+∥0 > X
+
+> m,k
+> Sh (m)∩Sh (k)= ∅
+
+∥[Jg ](m),(k)∥0 (4) 
+
+with ˜J(T,m,k ) 
+
+> g
+
+:= T(m),(m)[Jg ](m),(k)T −1(k),(k)
+
+• B3 (Causal Structural Sparsity ): The estimated causal graph ˆG is sparser than its true counterpart G in the non sharing modalities, i.e., 
+
+X
+
+> m,k
+> Sh (m)∩Sh (k)= ∅
+
+∥[Jˆg ](m),(k)∥0 ≤ X
+
+> m,k
+> Sh (m)∩Sh (k)= ∅
+
+∥[Jg ](m),(k)∥0
+
+(5) 
+
+Then the specific and shared latent variables are component-wise identified. 
+
+Figure 3: Th. 4.2 causal structural sparsity condition illus-tration. The estimated causal graph is sparser than the true one. Additional edges are highlighted in red. 
+
+Intuition: In Theorem 4.2, Assumption B 2 accounts for the additional causal edges that can appear in blocks [Jg ](m),(k)
+
+when identifiability breaks. It stipulates that if T(m),(m) is a non generalized permutation matrix, then there exists a group k such that [Jg ](m),(k) is structured so that multiplica-tion by T(m),(m) results in nontrivial linear mixing of rows and columns. Such mixing neccesarily reduces the sparsity of the block. An example is given on Appendix A. 
+
+Discussion on the assumptions: See the proof of the Th. 4.2 in Appendix A. The first assumption in Th. 4.2 B1 requires the latent components to exhibit only partial sharing. Concretely, this means that no latent variable is shared across all the modalities. They are rather shared by a subset of modalities. This partial pattern ensures the sharing structure is distinct among the different modalities. Both the second Th. 4.2 B 2 and third Th. 4.2 B 3 assumptions, namely the mixing density and structural sparsity assumptions are an adaption of [Sun et al., 2025] causal component-wise identifiability conditions, to the partial overlapping setup. Under assumption B 2, the blocks [Jg ](m),(k) may contain additional edges when the identifiability breaks. Assumption Th. 4.2 B 3 implies the absence of some inter-modal causal relationships in the estimated causal graph, as illustrated in Fig. 4.2. The latter sparsity constraint is very common in identifiaction works [Fumero et al., 2023, Lachapelle et al., 2024, Xu et al., 2023] and is satisfied in many real-world scenarios [Busiello et al., 2016, Nacher and Akutsu, 2013]. The second and third assumptions together induce a contradiction if there is an m such that [J ∂ˆz
+
+> ∂z
+
+](m),(m) is not a generalized permutation matrix. In particular, Th. 4.2B 2
+
+and Th. 4.2B 3, are only verified when there is a one to-one mapping between the latent variables in each modality. 5Combined, the assumptions of Th. 4.2 prove the component-wise identifiability of shared and modality-specific latent variables. 
+
+# 5 LEARNING FRAMEWORK 
+
+We propose a learning framework to corroborate our theoret-ical identification conditions. Our framework learns causal latent representations, using Th. 4.2. It also captures the par-tially shared structure by determining and thereafter align-ing the shared elements between different modalities. Our model also infers the causal structure over the estimated latent variables. Our estimation framework is illustrated in Fig. 5. The framework includes (i) an autoencoder structure; (ii) a Wasserstein module learning the latent shared struc-ture; (iii) the normalizing flow learning the causal latent structure. This last step heavily relies on our identifiability results proven in Sec. 4. 
+
+5.1 AUTO ENCODER STRUCTURE Encoder: Every modality’s observed variables x(m) are passed through a modality-specific encoder to estimate the modality’s corresponding causal latent variables zAm con-taining both the modality-specific and shared latent parts. 
+
+Decoder: For each modality, the latent variables zAm are passed through modality-specific decoders to reconstruct the observed variables ˆx(m). The reconstruction loss is then minimized using a quadratic loss in Eq. 6, between the true and reconstructed observed variables. 
+
+Lrec = L2(x, ˆx) = M
+
+Σ
+
+> m=1
+
+∥x(m) − ˆx(m)∥2 (6) 
+
+5.2 LEARNING THE SHARED LATENT STRUCTURE 
+
+We leverage a Wasserstein-distance based pluggable dif-ferentiable module to capture the partially shared structure from the concatenated latent variables zcat = M
+
+∪
+
+> i=1
+
+zAi . The latter identifies the shared elements across the different sub-sets of modalities by learning a permutation matrix P over 
+
+zcat defined as follows: each latent variable is mapped to itself when it is modality-specific, and to its corresponding shared component otherwise. 
+
+Example 4. Suppose we have the shared pattern config-uration in the left side of Fig. 2 (blue and green part). By duplicating the modality shared variables, one can as-sume that the latent structure can be written as zcat =(z1, z2, z(1) 7 , z(1) 8 , z(2) 7 , z(2) 8 , z3), where z(i) 
+
+> j
+
+is the duplicate of the shared latent variable zj in the modality i. The per-mutation matrix P is expressed as: 
+
+P =
+
+mod 1 mod 2 
+
+
+
+mod 1 
+
+1 0 0 0 0 0 00 1 0 0 0 0 00 0 0 0 1 0 00 0 0 0 0 1 0
+
+mod 2 
+
+0 0 1 0 0 0 00 0 0 1 0 0 00 0 0 0 0 0 1
+
+The permutation matrix P, hence reveals the partially shared latent elements z4 and z5. Non null elements in blocks 
+
+[P](mod 1) ,(mod 2) and [P](mod 1) ,(mod 2) indicate the shared elements between mod 1 and mod 2.
+
+Modeling the permutation learning problem. In a general case, the permutation matrix P is obtained through solving the Integer Linear Programming (ILP) problem in Eq. 7. We minimize the trace to find the permutation that minimizes the total transport cost. 
+
+argmin 
+
+> P
+
+tr (( D + ϵepoch I)PT)
+
+s.t 
+
+Pij ∈ { 0, 1} ∀ i, j ∈ [|1, L |]
+
+P1 L = 1L
+
+PT1L = 1L
+
+BT 
+
+> Ai
+
+PB Aj ≤ k ∀ i, j ∈ [|1, M |] , i ̸ = j
+
+(7) where [BAi ]k =
+
+(
+
+1 if k ∈ A i
+
+0 o.w ϵepoch is a selec-tion parameter and L = M
+
+Σ
+
+> i=1
+
+dim (Ai) [ D]ij = ∥(zcat )i −
+
+(zcat )j ∥2 is a chosen distance between the ith and jth fea-tures in zcat . The first and second constraints in the ILP problem ensure P is a permutation matrix, whereas the last one fixes the number of latent variables shared by different modalities. The problem in Eq. 7 corresponds to an optimal transport problem whose objective is to find the optimal mapping between the latent variables of different modal-ities zAm and zAn . More specifically, it aims to recover the optimal mapping that minimizes the Wasserstein Dis-tance between variables from different modalities, where our associated transport cost matrix: 
+
+cost (zi, zj ) = 
+
+(
+
+ϵepoch if i = j
+
+∥zi − zj ∥2 o.w (8) It is noteworthy that ϵepoch decreases with the epochs to ensure tighter selection of the shared latent variables. 
+
+Solving the problem. To integrate the ILP problem in our model, we need to relax the binary constraint and solve it with the gradient descent algorithm as in [Huang et al., 2020]. Note that we need it to be differentiable for backprop-agating the gradients. To enforce the above constraints after each gradient update, we use Dykstra’s cyclic algorithm to iteratively project the resulting matrix onto the four convex 6Figure 4: The proposed estimation framework. It infers based on each modality’s observed variables x(m) the corresponding causal latent variables zAm .The latter are then passed through modality-specific decoders to reconstruct the obervations ˆx(m). The model also determines, leveraging its Wasserstein-based pluggable differentiable module, the partially shared data pattern. The exogenous variables ϵ(m) are estimated with an autoregressive normalizing flow and causal relationships are captured in a learnable adjacency matrix, as is standard in the literature [Khemakhem et al., 2021]. constraint sets, defined in Eq. 9. 
+
+ψ1(P) = ReLU (P)
+
+ψ2(P) = P − 1n (P1 L − 1L)1TL
+
+ψ3(P) = P − 1L 1L(1TL P − 1TL )
+
+ψi,j4 (P) = P − 1
+
+|A i| · |A j| (BT 
+
+> Aj
+
+PB Ai − k)BAi BT
+
+> Aj
+
+(9) We then inject the resulting permutation matrix P into the alignment loss Lalg in Eq. 10, to pull closer the shared latent variables between the different subsets of modalities. 
+
+Lalg = ∥zcat − zcat · P∥2 (10) 
+
+5.3 LEARNING THE CAUSAL STRUCTURE 
+
+As in Sun et al. [2025], we estimate the exogenous variables with a Masked Autoregressive Normalizing Flow. The latter receives as input the concatenated causal latent variables, along with a learnable adjacency matrix Jˆg and learns the causal mechanisms behind the latent variables. The adja-cency matrix encodes the causal generating process, where non null positions [Jˆg ]ij indicate that the variable i is a par-ent of the variable j. We enforce the learned matrix to be sparse and acyclic by minimizing the following equations: 
+
+Lspr = ∥Jˆg ∥1 (11) 
+
+Lacy = tr (( IL + cst (Jˆg ◦ Jˆg )) L) − L (12) where cst is a constant. The sparsity ensures the component-wise identifiability of the modality-specific and shared causal latent representations as in Th. 4.2. Acyclicity guar-antees that the learned causal graph is a valid DAG. 
+
+5.4 TRAINING OBJECTIVE 
+
+Our model is trained by minimizing the following loss L:
+
+L = αalg Lalg + αrec Lrec + αspr Lspr + αacy Lacy (13) 
+
+# 6 EXPERIMENTS 
+
+To evaluate the efficiency of our approach, we compare it against several baseline methods, including CausalVAE [Yang et al., 2020], Multimodal Contrastive Learning (MCL) [Daunhawer et al., 2023], the Multimodal Biomedical Model [Sun et al., 2025] and the Multi-View With Partial Observability framework [Yao et al., 2024] across a diverse set of datasets that encompass realistic synthetic ones. We evaluate the performance of our model through 3 common metrics. (a) MCC (Mean Correlation Coefficient): Mea-sures the component-wise correlation between the estimated and ground-truth latent variables up to permutations. High MCC values close to 1 reflect near-perfect recovery of the underlying latent structure. (b) R² (Coefficient of Deter-mination): We predict the true latent variables from the estimated ones and report the coefficient of variation. The latter hence quantifies the proportion of variance in the true variables that can be explained by the estimated ones. Higher scores are better. (c) EnSHD (Enhanced version of the Structural Hamming Distance): assesses the similar-ity between the true and estimated causal graphs. However, since identifiability is established only up to permutation, a direct comparison is not appropriate. We therefore first align the estimated graph according to the permutation that maximizes the MCC. Lower EnSHD is better. 
+
+6.1 MULTIMODAL NUMERICAL DATASETS 
+
+We generate 3 multimodal numerical datasets, each modality being related to measurements in a different domain. In each case, we have distinct sharing pattern and causal structures to test our framework under different scenarios. We follow the generation process presented in Eq. 2, where modality-specific functions are implemented by random MLP with LeakyReLU activation functions. Our datasets, respectively, include 2, 3 and 4 modalities. Their detailed presentation is 7provided in Appendix B. Tab. 1 and 3, respectively, show Table 1: Mean ± standard deviation results of R². 
+
+Models 2 Modalities 3 Modalities 4 Modalities CausalVAE 0.74 ± 0.09 0.64 ± 0.04 0.56 ± 0.14 
+
+MCL 0.29 ± 0.03 - -
+
+MultiBio* 0.95 ± 0.002 0.84 ± 0.05 0.85 ± 0.03 
+
+MultiView 0.88 ± 0.16 0.80 ± 0.06 0.80 ± 0.07 
+
+Ours 0.96 ± 0.001 0 .88 ± 0.003 0 .88 ± 0.02 
+
+Table 2: Mean ± standard deviation results of the MCC. 
+
+Models 2 Modalities 3 Modalities 4 Modalities CausalVAE 0.45 ± 0.01 0.37 ± 0.01 0.30 ± 0.01 
+
+MCL 0.20 ± 0.02 - -
+
+MultiBio* 0.70 ± 0.1 0.67 ± 0.01 0.68 ± 0.02 
+
+MultiView 0.78 ± 0.2 0.62 ± 0.03 0.70 ± 0.05 
+
+Ours 0.76 ± 0.02 0.63 ± 0.03 0.69 ± 0.04 
+
+Table 3: The EnSHD for the 3 settings. For all settings the SHD doesn’t exceed 8% of the total edges. 
+
+Models 2 Modalities 3 Modalities 4 Modalities EnSHD 3 7 11 
+
+the R² and MCC coefficients between the true and estimated latent variables. It is noteworthy that the MCL [Daunhawer et al., 2023] framework only accounts for two modalities. We can observe that our proposed model outperforms other SOTA baselines in terms of R2 among all the compared datasets. Hence, it proves that our estimated latent variables under the component-wise identifiability results better ex-plain the ground-true ones, compared to other approaches that only establish block-wise identifiability results [Daun-hawer et al., 2023, Yao et al., 2024], are not multimodal [Yang et al., 2020] or do not consider overlapping between the latent variables [Sun et al., 2025]. We also report better MCC results than the CausalVAE, MCL and MultiBio mod-els and competitive ones with the MultiView. However, the latter is based on contrastive learning and needs carefully constructed negative and positive pairs. We also performed an ablation study in the Appendix C to evaluate the effect of causal structural sparsity on the performances of our model. The latter shows our performances remain competitive even when the sparsity constraint is violated and the best perfor-mances correspond to sparse scenarios. 
+
+6.2 SYNTHETIC MULTIMODAL DATASETS Multimodal3DIdent: We experiment our proposed framework on a more realistic dataset MultiModal3DIdent [Daunhawer et al., 2023] that includes pairs of images along their text annotations. The images are generated from syn-thetic scenes consisting of a colored object placed in front of a colored background and illuminated by a spotlight of distinct color. More details about the dataset are provided in Appendix B. Our conclusions from Tab. 1 and 3 also Table 4: Mean ± standard deviation of the MCC and R² on the MultiModal3DIdent dataset. 
+
+Models MCC R² CausalVAE 0.50 ± 0.01 0.35 ± 0.1
+
+MCL 0.64 ± 0.04 0.33 ± 0.02 
+
+MultiBio* 0.78 ± 0.02 0.44 ± 0.01 
+
+MultiView 0.82 ± 0.03 0.46 ± 0.04 
+
+Ours 0.81 ± 0.1 0.50 ± 0.01 
+
+hold in this realistic setting. Tab. 5 shows that our approach outperforms the SOTA baselines in terms of R2 for the Mul-timodal3DIdent dataset. These results indicate that we learn more informative representations. 
+
+Gene Regulatory Network We evaluate our model on the synthetic single-cell gene expression data generated by SERGIO [Dibaeinia and Sinha, 2020]. More details are provided in Appendix B. Our approach here achieves the best M CC scores compared to existing SOTA methods, confirming its applicability to real datasets. Table 5: Mean ± standard deviation results of the MCC on the Gene Regulatory Network dataset. 
+
+Models MCC CausalVAE 0.45 ± 0.03 
+
+MultiBio* 0.97 ± 0.02 
+
+MultiView 0.80 ± 0.03 
+
+Ours 0.98 ± 0.01 
+
+# 7 CONCLUSION 
+
+This work proposes new component-wise identifiability guarantees for multimodal CRL with partially shared latent structure. More specifically, it shows that under causal struc-tural sparsity constraints, both the shared and group specific latent variables are identified up to component-wise bijec-tions. Although our assumptions restrict the inter-modal causal relationships to some extent, our framework sup-ports the undercomplete setting, which is more flexible. We also introduce a Wasserstein-based module to uncover the partially shared latent structure. Extensive experiments con-firm the effectiveness of our method and show that it is a promising approach for learning meaningful causal latent representations. 8References 
+
+Martin Arjovsky, Léon Bottou, Ishaan Gulrajani, and David Lopez-Paz. Invariant risk minimization, 2020. URL 
+
+https://arxiv.org/abs/1907.02893 .Sara Beery, Grant Van Horn, and Pietro Perona. Recognition in terra incognita. In Proceedings of the European Con-ference on Computer Vision (ECCV) , September 2018. Simon Buchholz, Goutham Rajendran, Elan Rosenfeld, Bryon Aragam, Bernhard Schölkopf, and Pradeep Ku-mar Ravikumar. Learning linear causal representations from interventions under general nonlinear mixing. In 
+
+Thirty-seventh Conference on Neural Information Pro-cessing Systems , 2023. URL https://openreview. net/forum?id=q131tA7HCT .Daniel Maria Busiello, Samir Simon Suweis, Jorge Hi-dalgo, and Amos Maritan. Explorability and the origin of network sparsity in living systems. Scientific Reports ,7, 2016. URL https://api.semanticscholar. org/CorpusID:3325375 .Imant Daunhawer, Alice Bizeul, Emanuele Palumbo, Alexander Marx, and Julia E Vogt. Identifiability results for multimodal contrastive learning. In The Eleventh International Conference on Learning Representations ,2023. URL https://openreview.net/forum? id=U_2kuqoTcB .Payam Dibaeinia and Saurabh Sinha. Sergio: A single-cell expression simulator guided by gene regulatory net-works. Cell Systems , 11(3):252–271.e11, 2020. ISSN 2405-4712. doi: https://doi.org/10.1016/j.cels.2020.08. 003. URL https://www.sciencedirect.com/ science/article/pii/S2405471220302878 .Marco Fumero, Florian Wenzel, Luca Zancato, Alessan-dro Achille, Emanuele Rodolà, Stefano Soatto, Bernhard Schölkopf, and Francesco Locatello. Leveraging sparse and shared feature activations for disentangled represen-tation learning. In Proceedings of the 37th International Conference on Neural Information Processing Systems ,NIPS ’23, Red Hook, NY, USA, 2023. Curran Associates Inc. Zhenyu Huang, Peng Hu, Joey Tianyi Zhou, Jiancheng Lv, and Xi Peng. Partially view-aligned clustering. In H. Larochelle, M. Ranzato, R. Hadsell, M.F. Balcan, and H. Lin, editors, Advances in Neural Information Pro-cessing Systems , volume 33, pages 2892–2902. Curran Associates, Inc., 2020. Aapo Hyvärinen, Ilyes Khemakhem, and Hiroshi Morioka. Nonlinear independent component analysis for principled disentanglement in unsupervised deep learning. Patterns ,4:100844, 10 2023. doi: 10.1016/j.patter.2023.100844. Ilyes Khemakhem, Ricardo Monti, Robert Leech, and Aapo Hyvarinen. Causal autoregressive flows. In Arindam Banerjee and Kenji Fukumizu, editors, Proceedings of The 24th International Conference on Artificial Intelli-gence and Statistics , volume 130 of Proceedings of Ma-chine Learning Research , pages 3520–3528. PMLR, 13– 15 Apr 2021. URL https://proceedings.mlr. press/v130/khemakhem21a.html .Aneesh Komanduri, Yongkai Wu, Wen Huang, Feng Chen, and Xintao Wu. Scm-vae: Learning identifiable causal representations via structural knowledge. In 2022 IEEE International Conference on Big Data (Big Data) , pages 1014–1023, 2022. doi: 10.1109/BigData55660.2022. 10021114. Aneesh Komanduri, Xintao Wu, Yongkai Wu, and Feng Chen. From identifiable causal representations to con-trollable counterfactual generation: A survey on causal generative modeling. Transactions on Machine Learn-ing Research , 2024. ISSN 2835-8856. URL https: //openreview.net/forum?id=PUpZXvNqmb .Sebastien Lachapelle, Tristan Deleu, Divyat Mahajan, Ioan-nis Mitliagkas, Yoshua Bengio, Simon Lacoste-Julien, and Quentin Bertrand. Synergies between disentan-glement and sparsity: Generalization and identifiabil-ity in multi-task learning. In Andreas Krause, Emma Brunskill, Kyunghyun Cho, Barbara Engelhardt, Sivan Sabato, and Jonathan Scarlett, editors, Proceedings of the 40th International Conference on Machine Learn-ing , volume 202 of Proceedings of Machine Learn-ing Research , pages 18171–18206. PMLR, 23–29 Jul 2023. URL https://proceedings.mlr.press/ v202/lachapelle23a.html .Sébastien Lachapelle, Pau Rodríguez López, Yash Sharma, Katie Everett, Rémi Le Priol, Alexandre Lacoste, and Simon Lacoste-Julien. Nonparametric partial disentan-glement via mechanism sparsity: Sparse actions, inter-ventions and sparse temporal dependencies, 2024. URL 
+
+https://arxiv.org/abs/2401.04890 .Fuwei Li. Feature selection based on wasserstein dis-tance, 2024. URL https://arxiv.org/abs/ 2411.07217 .Chaochao Lu, Yuhuai Wu, José Miguel Hernández-Lobato, and Bernhard Schölkopf. Invariant causal representa-tion learning for out-of-distribution generalization. In 
+
+International Conference on Learning Representations ,2022. URL https://openreview.net/forum? id=-e4EXDWXnSn .Muhammad Arslan Manzoor, Sarah Albarri, Ziting Xian, Zaiqiao Meng, Preslav Nakov, and Shangsong Liang. Multimodality representation learning: A survey on evo-lution, pretraining and its applications. ACM Trans. 
+
+9Multimedia Comput. Commun. Appl. , 20(3), October 2023. ISSN 1551-6857. doi: 10.1145/3617833. URL 
+
+https://doi.org/10.1145/3617833 .Hiroshi Morioka and Aapo Hyvärinen. Causal representa-tion learning made identifiable by grouping of observa-tional variables. In Proceedings of the 41st International Conference on Machine Learning , ICML’24. JMLR.org, 2024. Jose C. Nacher and Tatsuya Akutsu. Structural controllabil-ity of unidirectional bipartite networks. Scientific Reports ,3, 2013. URL https://api.semanticscholar. org/CorpusID:17937192 .Ignavier Ng, Yujia Zheng, Xinshuai Dong, and Kun Zhang. On the identifiability of sparse ICA without assuming non-gaussianity. In Thirty-seventh Conference on Neural Information Processing Systems , 2023. URL https: //openreview.net/forum?id=kJIibP5bq2 .Pedro Sanchez, {Jeremy P.} Voisey, Tian Xia, {Hannah I.} Watson, {Alison Q.} ONeil, and {Sotirios A.} Tsaftaris. Causal machine learning for healthcare and precision medicine. Royal Society Open Science , 9(8):220638, Au-gust 2022. ISSN 2054-5703. doi: 10.1098/rsos.220638. Bernhard Schölkopf, Francesco Locatello, Stefan Bauer, Nan Rosemary Ke, Nal Kalchbrenner, Anirudh Goyal, and Yoshua Bengio. Toward causal representation learn-ing. Proceedings of the IEEE , 109(5):612–634, 2021. doi: 10.1109/JPROC.2021.3058954. Xinwei Shen, Furui Liu, Hanze Dong, Qing Lian, Zhitang Chen, and Tong Zhang. Weakly supervised disentangled generative causal representation learning. J. Mach. Learn. Res. , 23(1), January 2022. ISSN 1532-4435. Chandler Squires, Anna Seigal, Salil Bhate, and Caroline Uhler. Linear causal disentanglement via interventions. In Proceedings of the 40th International Conference on Machine Learning , ICML’23. JMLR.org, 2023. Nils Sturma, Chandler Squires, Mathias Drton, and Car-oline Uhler. Unpaired multi-domain causal representa-tion learning. In Thirty-seventh Conference on Neural Information Processing Systems , 2023. URL https: //openreview.net/forum?id=zW1uVN6Mbv .Xinwei Sun, Botong Wu, Xiangyu Zheng, Chang Liu, Wei Chen, Tao Qin, and Tie-Yan Liu. Recovering latent causal factor for generalization to distributional shifts. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P.S. Liang, and J. Wortman Vaughan, editors, Ad-vances in Neural Information Processing Systems ,volume 34, pages 16846–16859. Curran Associates, Inc., 2021. URL https://proceedings.neurips. cc/paper_files/paper/2021/file/ 8c6744c9d42ec2cb9e8885b54ff744d0-Paper. pdf .Yuewen Sun, Lingjing Kong, Guangyi Chen, Loka Li, Gongxu Luo, Zijian Li, Yixuan Zhang, Yujia Zheng, Mengyue Yang, Petar Stojanov, Eran Segal, Eric P. Xing, and Kun Zhang. Causal representation learning from multimodal biomedical observations. In The Thirteenth International Conference on Learning Representations ,2025. URL https://openreview.net/forum? id=hjROBHstZ3 .Julius von Kügelgen, Yash Sharma, Luigi Gresele, Wieland Brendel, Bernhard Schölkopf, Michel Besserve, and Francesco Locatello. Self-supervised learning with data augmentations provably isolates content from style. In 
+
+Proceedings of the 35th International Conference on Neural Information Processing Systems , NIPS ’21, Red Hook, NY, USA, 2021. Curran Associates Inc. ISBN 9781713845393. Julius von Kügelgen, Michel Besserve, Wendong Liang, Luigi Gresele, Armin Keki´ c, Elias Bareinboim, David Blei, and Bernhard Schölkopf. Nonparametric iden-tifiability of causal representations from unknown in-terventions. In Thirty-seventh Conference on Neural Information Processing Systems , 2023. URL https: //openreview.net/forum?id=V87gZeSOL4 .Zhengxuan Wu, Atticus Geiger, Thomas Icard, Christopher Potts, and Noah Goodman. Interpretability at scale: Iden-tifying causal mechanisms in alpaca. In Thirty-seventh Conference on Neural Information Processing Systems ,2023. URL https://openreview.net/forum? id=nRfClnMhVX .Danru Xu, Dingling Yao, Sebastien Lachapelle, Perouz Taslakian, Julius von Kügelgen, Francesco Locatello, and Sara Magliacane. A sparsity principle for partially observable causal representation learning. In Causal Representation Learning Workshop at NeurIPS 2023 ,2023. URL https://openreview.net/forum? id=Whr6uobelR .Qi Xu and Annie Qu. Representation retrieval learning for heterogeneous data integration, 2025. URL https: //arxiv.org/abs/2503.09494 .Mengyue Yang, Furui Liu, Zhitang Chen, Xinwei Shen, Jianye Hao, and Jun Wang. Causalvae: Disentangled representation learning via neural structural causal mod-els. 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 9588–9597, 2020. URL https://api.semanticscholar. org/CorpusID:220280826 .Dingling Yao, Danru Xu, Sebastien Lachapelle, Sara Maglia-cane, Perouz Taslakian, Georg Martius, Julius von Kügel-gen, and Francesco Locatello. Multi-view causal rep-resentation learning with partial observability. In The 
+
+10 Twelfth International Conference on Learning Represen-tations , 2024. URL https://openreview.net/ forum?id=OGtnhKQJms .Yujia Zheng and Kun Zhang. Generalizing nonlinear ICA beyond structural sparsity. In Thirty-seventh Conference on Neural Information Processing Systems ,2023. URL https://openreview.net/forum? id=gI1SOgW3kw .Zhiqun Zuo, Mohammad Mahdi Khalili, and Xueru Zhang. Counterfactually fair representation. NIPS ’23. Curran Associates Inc., 2023. 11

@@ -1,0 +1,575 @@
+Title: CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark
+
+URL Source: https://arxiv.org/pdf/2605.18621v1
+
+Published Time: Tue, 19 May 2026 03:04:36 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark 
+
+# Wei Wang 
+
+Zhejiang University China 
+
+# Yuqian Yuan 
+
+Zhejiang University China 
+
+# Tianwei Lin 
+
+Zhejiang University China 
+
+# Wenqiao Zhang ∗
+
+Zhejiang University China 
+
+# Siliang Tang 
+
+Zhejiang University China 
+
+# Jun Xiao 
+
+Zhejiang University China 
+
+# Yueting Zhuang 
+
+Zhejiang University China 
+
+Figure 1: Overview of CrossViewer. CrossViewer presents a unified framework for cross-view spatial intelligence in MLLMs, integrating data, benchmark, and model. CrossViewSet is a large-scale mask-grounded instruction dataset (1.6M samples, 17 tasks), and CrossViewBench is a scene-disjoint benchmark for systematic evaluation. The model follows a progressive Perception–Alignment–Reasoning paradigm, enabling explicit cross-view object alignment and region-guided reasoning. 
+
+> arXiv:2605.18621v1 [cs.CV] 18 May 2026
+
+## Abstract 
+
+Spatial intelligence requires multimodal large language models (MLLMs) to move beyond single-view perception and reason con-sistently about objects, visibility, geometry, and interactions across multiple viewpoints. However, progress in cross-view reasoning remains limited by three major gaps: the scarcity of large-scale well-annotated training data, the lack of comprehensive benchmarks for systematic evaluation, and the absence of explicit alignment mechanisms that establish object-level consistency across views. To address these gaps, we thoroughly develop CrossView Suite across three coordinated components: CrossViewSet , CrossViewBench ,and CrossViewer . Firstly, we introduce a multi-agent data engine to meticulously curate a large-scale, high-quality cross-view in-struction dataset, termed CrossViewSet , covering 17 fine-grained task types with 1.6M samples. Second, we meticulously create a scene-disjoint CrossViewBench to comprehensively assess the cross-view spatial understanding capability of an MLLM, evaluat-ing it across various aspects. Finally, we propose CrossViewer ,a progressive three-stage framework for cross-view spatial rea-soning in MLLMs, following a Perception → Alignment → Rea-soning paradigm. Our method equips an adaptive spatial region tokenizer to capture fine-grained object representations, and then aligns the multi-view objects explicitly, and thus fuses aligned fea-tures for boosting the cross-view inference capacity for MLLMs. Extensive experiments and analyses show that large-scale training data, systematic evaluation, and explicit cross-view alignment are all critical for advancing MLLMs from single-view perception to-ward real-world spatial intelligence. The project page is available at https://github.com/Thinkirin/Crossview-Suite. 
+
+## Keywords 
+
+spatial intelligence,cross-view alignment,multimodal large language models,multi-view reasoning,multi-view benchmark 
+
+## 1 Introduction 
+
+Multimodal large language models (MLLMs) have achieved remark-able progress in single-view visual understanding, with represen-tative systems such as Flamingo [ 1], BLIP-2 [ 22 ], LLaVA [ 25 ], In-ternVL [ 6], and Qwen3-VL [ 3] demonstrating strong performance on captioning and general visual question answering. Building on these advances, recent research has begun to extend MLLMs toward richer spatial and 3D reasoning capabilities [ 5 , 7 , 9 , 15 , 48 ], which are essential for enabling real-world interaction. However, real-world environments are inherently dynamic and multi-perspective: agents must continuously perceive scenes from changing viewpoints rather than relying on a single static image. This shift from static perception to dynamic, multi-view under-standing introduces new challenges that cannot be addressed by simply scaling single-view capabilities. A model must identify the same physical object across viewpoint changes and use that aligned representation to support downstream reasoning about visibility, ge-ometry, and interactions. In real multi-camera settings, judgments such as cross-view correspondence, occlusion, layout change, and physical contact all depend on stable object-level consistency across views. This capability is fundamental for embodied AI, multi-agent 
+
+> ∗Corresponding author.
+
+collaboration, robotics, and video analytics, but remains under-developed in current MLLMs. We attribute this limitation to the following key challenges. 
+
+First, The Lack Of Large-Scale Mask-Grounded Cross-View Supervision. Existing public resources such as Ego-Exo4D [ 11 ], EgoHumans [ 17 ], MessyTable [ 4] and MMPTrack [ 13 ] provide syn-chronized views, identities, or 3D annotations, but they are not organized as large-scale mask-grounded instruction-tuning data for MLLMs. In particular, they do not simultaneously provide reliable and high-quality instance masks for precise object localization and effective background-noise suppression, unified region references, and object-grounded cross-view QA supervision at scale. As a result, while these datasets offer valuable perceptual signals and useful visual cues, they cannot directly provide scalable supervision for teaching MLLMs explicit object-level reasoning across views. 
+
+Second, The Lack Of A Unified, Multi-Dimensional Bench-mark. Existing benchmarks, including MMVM, All-Angles Bench, and MV-ScanQA [ 27 , 36 , 51 ], reveal failures in correspondence, viewpoint-sensitive reasoning, and multi-view scene understanding. Yet each covers only part of the problem, with limited task breadth, scale, or alignment with real-world mask-grounded multi-camera reasoning. The field therefore still lacks a unified benchmark that jointly and systematically evaluates the core capabilities required for multi-view spatial intelligence. 
+
+Third, The Lack Of An Object-Centric MLLM Framework For Cross-View Reasoning. Existing region-aware MLLMs can ground objects within one image, but they do not establish cross-view identity consistency [ 26 , 28 ]. Non-MLLM cross-view methods such as IDMR [ 24 ], Wang et al. [ 35 ], VICI [ 47 ], and ObjectRela-tor [ 10 ] have made strong progress on cross-view association. How-ever, these methods are not designed as general-purpose reason-ing systems and therefore cannot support the open-ended, object-centric, multi-task reasoning tasks. Current frontier and recent multi-image MLLMs [ 3, 6 , 16 , 21 , 34 ] can process multiple images, yet they still rely largely on implicit fusion inside the language model instead of an explicit object-level cross-view alignment stage. As a result, they struggle to form stable cross-view object corre-spondences and capture fine-grained relations among objects across viewpoints. To address these challenges, we introduce CrossView Suite ,a unified framework comprising CrossViewSet, CrossViewBench, and CrossViewer, which together provide an integrated solution for training, evaluation, and deployment. On the set side, we introduce a multi-agent data engine to curate CrossViewSet , a large-scale cross-view instruction dataset containing 1.6M samples from four public multi-view sources. It spans 17 fine-grained task types covering correspondence, visibility and occlusion, geometric reasoning, and physical reasoning. For sources lacking pixel-level annotations, we generate instance masks and systematically convert raw multi-view observations, object associations, and geometric cues into a unified, object-grounded QA supervision format tailored for MLLMs. On the evaluation side, we build CrossViewBench , a compre-hensive benchmark with 17,000 questions across the same 17 task types. It evaluates four capability groups: (i) cross-view correspon-dence, (ii) visibility and occlusion, (iii) geometric relations, and (iv) physical reasoning. The benchmark is scene-disjoint from training, CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark 
+
+uses a combination of predominantly closed-form QA and comple-mentary open-ended QA for analysis. On the model side, we propose CrossViewer , a progressive three-stage framework for cross-view spatial reasoning in MLLMs. Its design follows three stages: Perception , Alignment , and Rea-soning . In the Perception stage, the Adaptive Region Tokenizer (ART) converts each mask-grounded object into compact tokens via adaptive crop-and-scale processing. In the Alignment stage, a retrieval module establishes coarse cross-view correspondences, while the Object-Centric Cross-View Aligner (OCVA) integrates cross-attention fusion with contrastive learning to produce consis-tent object representations across views. In the Reasoning stage, an LLM adapter injects the aligned region tokens at <REGION> po-sitions together with key scene cues, enabling answer generation grounded in explicit object-level evidence. This unified setup enables end-to-end investigation of explicit cross-view alignment. CrossViewer reaches 62.7% overall accuracy on CrossViewBench, outperforming Qwen3-VL-8B by 20.0% , and reaches 49.5% accuracy on valid MMVMBench cases. These results highlight the importance of scalable training data, scene-disjoint evaluation, and explicit cross-view alignment for advancing MLLMs toward multi-view spatial intelligence. Our main contributions are summarized as follows: 
+
+• We build CrossViewSet , a 1.6M-sample cross-view instruc-tion dataset with mask grounding and object-level QA super-vision across 17 tasks. 
+
+• We introduce CrossViewBench , a comprehensive bench-mark with 17K questions covering correspondence, occlusion, geometry, and physical reasoning in multi-view settings. 
+
+• We propose CrossViewer , a progressive three-stage frame-work for cross-view spatial reasoning that enables object-level reasoning across multiple views through explicit alignment. 
+
+## 2 Related Work 2.1 Multimodal Large Language Models 
+
+MLLMs have evolved from early adapter-style systems such as Flamingo [ 1] and BLIP-2 [ 22 ] to instruction-tuned models includ-ing InstructBLIP [ 8], LLaVA [ 25 ], Qwen-VL [ 2], and recent suc-cessors such as LLaVA-NeXT [ 21 ], Qwen2-VL [ 34 ], InternVL [ 6], and Qwen3-VL [ 3]. These models improve perception, multi-image input, and open-ended reasoning, but still rely mainly on implicit fu-sion rather than explicit object-level cross-view alignment. Recent specialized and modular MLLMs further explore domain adapta-tion and dynamic expert tuning, as exemplified by medical VLM adaptation and dynamic visual-language expert routing [23, 43]. Related efforts extend MLLMs toward spatial and 3D reasoning, including SpatialVLM [ 5 ], SpatialRGPT [ 7], MM-Spatial [ 9 ], MLLM-for3D [ 15 ], and Video-3D LLM [ 49 ]. However, these methods em-phasize geometry and 3D scene understanding more than synchro-nized instance-level alignment across views. Empirical studies such as Eyes Wide Shut [ 33 ], MMVM [ 51 ], and All-Angles Bench [ 36 ]further expose weak cross-view consistency, motivating the explicit alignment design in CrossViewer. 
+
+## 2.2 Fine-Grained Visual Understanding 
+
+Promptable segmentation models such as SAM [ 19 ], SAM 2 [ 29 ], and LISA [ 20 ] provide strong mask generation and language-guided seg-mentation. Region-aware MLLMs such as Ferret [ 37 ], Osprey [ 39 ], GLaMM [ 28 ], RegionGPT [ 12 ], and AnyRef [ 14 ] extend instruction tuning to arbitrary regions and fine-grained visual references. Re-cent object-centric and video referring systems further broaden this direction toward spatio-temporal grounding, segmentation, editing, and generation [ 40 , 42 , 50 ]. PixelRefer [ 41 ] is especially related because it compresses mask regions into compact tokens, yet these methods remain fundamentally single-view. CrossViewer extends this mask-grounded setting to explicit cross-view correspondence and multi-view spatial reasoning. 
+
+## 2.3 Cross-View Alignment and Correspondence 
+
+Classical methods such as SuperGlue [ 30 ], LoFTR [ 31 ], and diffusion-based correspondence analysis [ 32 ] focus on low-level point or patch matching. More semantic vision-language work such as MMVM [ 51 ], IDMR [ 24 ], VICI [ 47 ], and ObjectRelator [ 10 ] studies paired-image correspondence, retrieval, localization, or ego/exo relations, but still targets narrower matching or reasoning settings rather than combining large-scale mask-grounded training, explicit object-token alignment, and unified multi-task QA evaluation. 
+
+## 2.4 Multi-View Datasets and Benchmarks 
+
+Representative multi-view resources include Ego-Exo4D, EgoHu-mans, MessyTable, and MMPTrack [ 4, 11 , 13 , 17 ]. Benchmark re-sources such as MMVM, All-Angles Bench, and MV-ScanQA [ 27 , 36 ,51 ] evaluate narrower slices of cross-view reasoning (Table 1). Ego-centric object benchmarks such as EOC-Bench [ 38 ] also highlight the importance of identifying, recalling, and forecasting objects in dynamic first-person scenes. These resources provide synchronized views, identities, or 3D signals, but not a large-scale mask-grounded MLLM corpus with unified QA. By contrast, CrossViewSet and CrossViewBench couple large-scale training and scene-disjoint evaluation under the same taxonomy. 
+
+## 3 CrossViewSet and CrossViewBench 
+
+In this section, we introduce CrossViewSet, a large-scale dataset designed to equip models with cross-view reasoning capability, and CrossViewBench, a comprehensive benchmark for systematic evaluation and fair comparison. 
+
+## 3.1 Source Data Collection 
+
+Our dataset and benchmark integrate four established multi-view resources: Ego-Exo4D [ 11 ] for synchronized ego/exo activity videos, EgoHumans [ 17 ] for dynamic multi-person scenes, MMPTrack [ 13 ]for surveillance-style multi-camera association, and MessyTable [ 4 ]for cluttered tabletop instance association. Together, they cover hu-man activities, multi-person interaction, surveillance, and tabletop-object scenarios across mixed ego/exo viewpoints, static and envi-ronments, and both human-centered and object-centered targets. Wei Wang, Yuqian Yuan, Tianwei Lin, Wenqiao Zhang, Siliang Tang, Jun Xiao, and Yueting Zhuang 
+
+Table 1: Comparison of representative multi-view resources for MLLMs. MV denotes multi-view input, Corr. denotes explicit cross-view correspondence supervision, and Scene-disj. denotes a scene-disjoint train/eval split. In the Role column, D and B indicate dataset and benchmark, respectively. The symbol ◦ denotes partial support.                                                                                                                                     
+
+> Resource Type MV Mask Corr. 3D/Geo. QA Role Scene-disj. Scale Tasks
+> Ego-Exo4D Dataset [11] Raw dataset + training dataset ✓✓✓✓◦D–5,035 takes / 1,286 h N/A Ego-Exo4D Benchmark [11] Benchmark ✓✓✓✓–B–3,082 / 842 / 1,121 takes 8EgoHumans Dataset [17] Raw dataset ✓◦✓✓–D✓125K ego RGB / 410K instances N/A EgoHumans Benchmark [17] Benchmark ✓◦✓✓–B✓77,260 / 47,740 images 4MessyTable [4] Raw dataset + benchmark ✓–✓✓–DB–5,579 scenes / 50,211 images 1MMPTrack [13] Raw dataset + benchmark ✓–✓✓–DB–261 / 153 / 162 min ( ∼2.98M GT) 2MMVM SFT Dataset [51] Training dataset ✓✓✓–✓D–220K QA samples N/A MMVM Benchmark [51] Benchmark ✓✓✓–✓B–1,510 examples 1All-Angles Bench [36] Benchmark ✓–✓–✓B–2,132 examples 6MV-ScanQA [27] Benchmark ✓–✓✓✓B✓10K examples 1
+> CrossViewSet (ours) Training dataset ✓✓✓✓✓D✓1.643M samples 17
+> CrossViewBench (ours) Benchmark ✓✓✓✓✓B✓17K questions 17
+
+## 3.2 Question Taxonomy 
+
+We introduce a hierarchical taxonomy to systematically character-ize cross-view spatial reasoning capabilities. The taxonomy com-prises 17 fine-grained task types (Q1–Q17), organized into four categories, as summarized in Table 2. 
+
+Correspondence (Q1–Q5) focuses on identifying and matching the same physical instance across different viewpoints. Visibility & Occlusion (Q6–Q8) evaluates cross-view presence and reason-ing about occlusions and occluders. Geometric (Q9–Q16) encom-passes tasks such as nearest-neighbor retrieval, scale estimation, completeness assessment, arrangement inversion, and displacement reasoning. Finally, Physical Reasoning (Q17) examines whether visual overlap implies physical contact. All questions are formu-lated as multiple-choice (four options) or binary where appropriate. Multiple-choice items include distractors where needed. Although CrossViewBench primarily adopts closed-form QA for stable and objective large-scale evaluation, it also includes a small amount of open-ended questions for supplementary analysis. These samples remove answer options while preserving the same mask grounding, allowing us to test cross-view reasoning beyond predefined choices without changing the main evaluation protocol. 
+
+## 3.3 Automatic Generation Pipeline 
+
+We formulate the construction of CrossViewSet and CrossView-Bench as a tool-augmented multi-agent engine built on public multi-view sources and their original annotations. A coordinator agent calls tools and sub-agents for perception completion, cross-view association, question generation, open-ended rewriting, quality con-trol, and final human verification. This design is also motivated by prior data-centric learning pipelines that combine pseudo labeling, active annotation, partial-label learning, and uncertainty-aware transfer to reduce annotation cost while controlling label noise [ 44 –46]. The pipeline has five stages: (1) the coordinator agent calls tools such as SAM 2 [ 29 ] to recover missing masks from boxes or key-points and filter low-confidence outputs; (2) it derives geometric supervision and structured cross-view cues from 3D coordinates and camera extrinsics; (3) it instantiates rule-based QA templates, 
+
+Table 2: Question taxonomy of CrossViewSet and CrossView-Bench. 
+
+ID Task Set Bench Correspondence 632K 5K 
+
+Q1 Single-object cross-view retrieval 99K 1K Q2 Two-candidate retrieval 107K 1K Q3 One-of-three identification 191K 1K Q4 Multi-object group matching 119K 1K Q5 Binary instance verification 116K 1K 
+
+Visibility & Occlusion 260K 3K 
+
+Q6 Cross-view visibility detection 116K 1K Q7 Exclusive-presence identification 119K 1K Q8 Occluder source localization 25K 1K 
+
+Geometric 743K 8K 
+
+Q9 Cross-view nearest-neighbour retrieval 36K 1K Q10 Scale change detection 109K 1K Q11 Single-view completeness comparison 22K 1K Q12 Cross-view completeness comparison 100K 1K Q13 Left-right arrangement flip detection 121K 1K Q14 Cross-view displacement comparison 117K 1K Q15 Depth-relation consistency 116K 1K Q16 Relative scale-growth comparison 122K 1K 
+
+Physical Reasoning 8K 1K 
+
+Q17 Visual overlap vs. physical contact 8K 1K 
+
+Total 1,643K 17K 
+
+yielding over 8M candidates before filtering; (4) for the supple-mentary open-ended setting, it first calls a rewriting sub-agent to convert selected closed-form samples into grounded short-answer questions, and then a verification sub-agent to remove ambiguous or low-quality cases; and (5) after automatic generation, filtering, rewriting, and consistency checks, the pipeline retains about 1.6M 
+
+training samples and 17,000 evaluation questions, followed by hu-man re-inspection on the evaluation set and a stratified training subset. In this reviewed portion, 98.2% of training samples and 
+
+96.8% of evaluation samples are kept directly, while the remainder are corrected or removed. CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark Bench Composition 17K Correspondence 5K | 29.4% Visibility 3K | 17.6% Physical 1K | 5.9% Geometric 8K | 47.1% Set Composition 1.64M Correspondence 632K | 38.5% Visibility 260K | 15.8% Physical 8K | 0.5% Geometric 742K | 45.2% 
+
+Figure 2: Source and task composition of CrossViewSet and CrossViewBench. 
+
+## 3.4 Data Characteristics 
+
+CrossViewSet and CrossViewBench provide a large-scale, scene-disjoint testbed for cross-view spatial reasoning with 1.6M training samples, 17,000 evaluation questions, and 17 task types. All samples are region-grounded and carry consistent cross-view identities, enabling supervision of object correspondence and relations. 
+
+## 4 Method 4.1 Problem Formulation 
+
+Given 𝑁 images I = {𝐼 (𝑛 ) }𝑁 𝑛 =1 with associated mask sets M (𝑛 ) =
+
+{𝑚 (𝑛 ) 
+
+> 1
+
+, . . . , 𝑚 (𝑛 ) 
+
+> 𝐾 𝑛
+
+}, where 𝐼 (𝑛 ) ∈ R𝐻 ×𝑊 ×3 and 𝑚 (𝑛 ) 
+
+> 𝑖
+
+∈ { 0, 1}𝐻 0 ×𝑊 0 , the model learns 
+
+𝑃 (𝑎 | I , M, 𝑞 ; Θ) , (1) for a question 𝑞 , where 𝑎 is the text answer and Θ denotes trainable parameters. Unlike single-view VQA, the model must establish correspon-dences across viewpoints. Let C ⊆ {( 𝑖, 𝑛, 𝑗, 𝑛 ′) : 𝑛 ≠ 𝑛 ′ } denote the ground-truth cross-view correspondence set, where (𝑖, 𝑛, 𝑗, 𝑛 ′)
+
+indicates that object 𝑖 in view 𝑛 and object 𝑗 in view 𝑛 ′ refer to the same physical entity; the goal is to align co-referent objects in feature space and reason over the aligned representations to answer the question. 
+
+## 4.2 Model Overview 
+
+As shown in Fig. 3, CrossViewer follows three conceptual stages: Perception, Alignment and Reasoning. In the perception stage, a frozen Qwen3-VL-8B vision encoder extracts per-view feature maps 
+
+F(𝑛 ) ∈ R𝐻 𝑣 ×𝑊 𝑣 ×𝐷 𝑣 , and Adaptive Region Tokenizer (ART) con-verts each mask-grounded object into up to 𝐾 compact tokens 
+
+T(𝑛 ) 
+
+> 𝑖
+
+∈ R𝐾 ×𝐷 𝑣 . A retrieval module then computes coarse cross-view correspondences and reorders the target-view tokens into ˜T(𝑏 ) . In the alignment stage, Object-Centric Cross-View Aligner (OCVA) explicitly fuses each source object with its matched target coun-terpart while producing contrastive embeddings. Finally, in the reasoning stage, an LLM adapter projects aligned visual features into the language space and injects them at <REGION> positions together with global and target-object cues for answer generation. 
+
+## 4.3 1st Stage: Fine-Grained Perception 
+
+Adaptive Region Tokenizer. Objects can vary substantially in scale and visible extent across viewpoints, making fixed-resolution region pooling inefficient and unstable for cross-view matching. We therefore propose an Adaptive Region Tokenizer (ART) to convert each mask-grounded object into a compact token sequence. Given feature map F(𝑛 ) and mask 𝑚 , let B = (𝑡, 𝑙, 𝑏, 𝑟 ) be the tight bound-ing box of the mask with 2𝑝 padding, where 𝑝 is the patch size. To retain roughly 𝐾 informative tokens after pooling, we compute a scale factor from the mask area |𝑚 | = Í𝑥,𝑦 𝑚 𝑥,𝑦 :
+
+𝑠 =
+
+√︄ 
+
+𝐾 · 𝑃 2
+
+|𝑚 |
+
+
+
+, ℎ𝑟 =
+
+ (𝑏 − 𝑡 ) · 𝑠 𝑃 
+
+
+
+·𝑃, 𝑤 𝑟 =
+
+ (𝑟 − 𝑙 ) · 𝑠 𝑃 
+
+
+
+·𝑃, (2) where 𝑃 = 14 is the patch size and 𝐾 = 10 is the target token count. The crop is bilinearly resized to (ℎ𝑟 /𝑃 ) × ( 𝑤 𝑟 /𝑃 ) patch tokens so that small objects are upsampled to maintain token density while large objects are only mildly downsampled to control cost. We then add learnable absolute position embeddings, retain only masked tokens, run lightweight k-means, and project the resulting centroids with a shared two-layer MLP to obtain T(𝑛 ) 
+
+> 𝑖
+
+. Object token sequences are padded to a uniform length with token-validity masks. This crop-first design reduces background interference while pre-serving efficient batched multi-view processing. 
+
+Cross-View Object Retrieval. Exhaustively interacting every ob-ject across views would introduce many irrelevant pairs. Before feature fusion, the model must therefore determine which object in view 𝑏 corresponds to object 𝑖 in view 𝑎 . We masked-mean-pool the valid (non-padding) ART tokens of each object, where V (𝑎 ) 
+
+> 𝑖
+
+denotes the valid token positions of object 𝑖 , and project them through a shared contrastive head 𝑔 (·) :
+
+¯t(𝑎 ) 
+
+> 𝑖
+
+= 1
+
+|V (𝑎 ) 
+
+> 𝑖
+
+|∑︁ 𝑘 ∈ V (𝑎 )
+
+> 𝑖
+
+𝑇 (𝑎 ) 
+
+> 𝑖,𝑘
+
+,
+
+z(𝑎 ) 
+
+> 𝑖
+
+=
+
+𝑔 
+
+¯t(𝑎 )
+
+> 𝑖
+
+
+
+𝑔 
+
+¯t(𝑎 )
+
+> 𝑖
+
+
+
+> 2
+
+, 𝑆 𝑖 𝑗 = z(𝑎 )
+
+> 𝑖
+> ⊤
+
+z(𝑏 ) 
+
+> 𝑗
+
+, (3) where z(𝑎 ) 
+
+> 𝑖
+
+∈ S𝑑 𝑐 −1, S = [𝑆 𝑖 𝑗 ], and 𝑔 (·) is shared with OCVA; we set 𝑑 𝑐 =256 .CrossViewer supports three matching modes. GT follows the dataset’s canonical ordering and is used only as an oracle analysis branch. Greedy selects the highest-scoring unmatched pairs, while Hungarian solves the global 1-to-1 assignment when extra latency is acceptable. The recovered mapping 𝜋 reorders target-view tokens into ˜T(𝑏 ) before OCVA. For correspondence-heavy questions (Q1– Q5), S provides the explicit cross-view signal, while final answers still come from decoder scoring. 
+
+## 4.4 2nd Stage: Cross-View Alignment 
+
+Retrieval provides only a coarse correspondence hypothesis and does not yet model token-level interaction between matched ob-jects. After token reordering, OCVA processes each source-view object token sequence T(𝑎 ) 
+
+> 𝑖
+
+together with its matched target-view counterpart ˜T(𝑏 ) 
+
+> 𝑖
+
+to build a unified cross-view representation. It has two parallel paths: a cross-attention fusion path, which injects target-view context into source-view tokens for language decoding, and a contrastive alignment path, which trains the shared projection head 𝑔 (·) to sharpen the similarity matrix S (Eq. (3)). 
+
+Cross-Attention Fusion Path. Because each view often reveals only partial evidence of the same object, the source tokens should Wei Wang, Yuqian Yuan, Tianwei Lin, Wenqiao Zhang, Siliang Tang, Jun Xiao, and Yueting Zhuang 
+
+Figure 3: Overview of CrossViewer. Stage I extracts mask-grounded object tokens, Stage II aligns them across views, and Stage III performs region-guided reasoning. 
+
+explicitly absorb complementary cues from the matched target view. Using T(𝑎 ) 
+
+> 𝑖
+
+as queries and ˜T(𝑏 ) 
+
+> 𝑖
+
+as keys and values, we apply multi-head cross-attention: 
+
+ˆT(𝑎 ) 
+
+> 𝑖
+
+= LN 
+
+
+
+T(𝑎 ) 
+
+> 𝑖
+
++ MHA 
+
+
+
+T(𝑎 ) 
+
+> 𝑖
+
+, ˜T(𝑏 ) 
+
+> 𝑖
+
+, ˜T(𝑏 )
+
+> 𝑖
+
+ 
+
+, (4) followed by a standard FFN with residual layer normalisation. 
+
+Contrastive Alignment Path. Fusion contextualizes features for decoding, but it does not explicitly enforce stable identity struc-ture in the embedding space. The contrastive path uses the shared projection head 𝑔 (·) to place co-referent objects close on the unit hypersphere and separate non-matches. Object tokens T(𝑎 ) 
+
+> 𝑖
+
+and 
+
+˜T(𝑏 ) 
+
+> 𝑖
+
+are independently mean-pooled and projected through 𝑔 (·) to obtain embeddings z(𝑎 ) 
+
+> 𝑖
+
+, z(𝑏 ) 
+
+> 𝑖
+
+∈ S𝑑 𝑐 −1 (Eq. (3)). 
+
+Supervised Contrastive Loss. For an aligned view pair, let 𝑀 de-note the number of valid non-global object pairs after masking. We concatenate all valid object embeddings from both views into 2𝑀 
+
+vectors with track-id labels and optimize a supervised contrastive loss LSC following [ 18 ]. With temperature 𝜏 =0.07 , embeddings shar-ing the same track-id are treated as positives, so LSC can exploit multiple positives for the same physical entity within a batch. 
+
+Online Hard-Negative Triplet Loss. We additionally use an on-line hard-negative triplet term, where the negative for each anchor is mined from the valid target-side embeddings in the current mini-batch. The resulting triplet loss Ltri uses the matched object as the positive, the highest-similarity non-match z(𝑏 )
+
+> 𝑗 ∗
+> 𝑖
+
+selected from that set as the negative, Euclidean distance 𝑑 (· , ·) , and margin 𝑚 =0.5.This auxiliary term tightens the decision boundary around hard confusions. 
+
+## 4.5 3rd Stage: Region-Guided Reasoning 
+
+Even after alignment, object-level evidence can be diluted if it is passed to the decoder only as generic multi-image features. Af-ter explicit alignment, CrossViewer performs answer generation with a standard LLM decoder, but now conditioned on aligned object evidence rather than raw multi-image fusion alone. Each question contains one or more <region> placeholders together with a region_refs list of (𝑣, 𝑖 ) tuples indicating the referenced objects. For each referenced object, the aligned token sequence 
+
+ˆT(𝑣 ) 
+
+> 𝑖
+
+is projected by the LLM adapter ℎ(·) into region embeddings 
+
+R(𝑣 ) 
+
+> 𝑖
+
+= ℎ
+
+ ˆT(𝑣 )
+
+> 𝑖
+
+
+
+, and each placeholder expands into 𝑐 𝑖 <REGION> 
+
+tokens whose embeddings are replaced by R(𝑣 ) 
+
+> 𝑖
+
+.Beyond region-token injection, masked-pooled aligned features produce a global scene token and a target-object summary token, which are prepended as visual prefix cues before the question to-kens. Let g denote the projected global feature and o the projected target-object feature. The final reasoning input is formed as 
+
+e𝑞 = g; o; Tok (𝑞, {<REGION> ↦ → R}) , (5) where Tok (·) denotes token embeddings after region replacement. The LLM then autoregressively predicts the textual answer from e𝑞 .Although the decoder itself is standard, its reasoning is grounded on explicitly aligned cross-view object representations, allowing correspondence, visibility, geometric, and physical questions to be answered through a unified interface. 
+
+Training Objective. Answer supervision alone is insufficient to preserve stable cross-view correspondences during optimization. CrossViewer is trained with standard autoregressive answer cross-entropy together with the two cross-view alignment losses above: 
+
+L = 𝜆 VQA LVQA + 𝜆 SC LSC + 𝜆 tri Ltri , (6) where LVQA is the token-level answer cross-entropy on the gold response, and LSC and Ltri are the two alignment losses defined above. In all experiments, we set 𝜆 VQA =0.5, 𝜆 SC =1.0, and 𝜆 tri =0.1.CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark Q1                 
+
+> Q2
+> Q3
+> Q4
+> Q5
+> Q6
+> Q7
+> Q8
+> Q9
+> Q10
+> Q11
+> Q12
+> Q13
+> Q14
+> Q15
+> Q16
+> Q17
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Accuracy
+> 62.7
+> 42.7
+> Correspondence Visibility Geometric Physical
+> Solid: CrossViewer Faded: Qwen3-VL-8B
+> (a) Per-type accuracy on CrossViewBench. Overall Corr. Vis/Occ Geom. Phys.
+> 50
+> 75
+> 100
+> 62.7
+> 86.1 83.2
+> 87.5
+> 61.1
+> 80.2
+> 49.1
+> 86.5
+> 74.4
+> 93.6
+> Best Ref. CrossViewer HumanBase (b) Gap to the strongest reference and HumanBase. (a) Before training
+> Top-1 matching: 19.8%
+> (b) After training
+> Top-1 matching: 52.1%
+> View A View B
+> (c) t-SNE of Q1 correspondence embeddings before and after training.
+
+Figure 4: Overview panels of CrossView Suite and CrossViewer: per-type gains, gap to HumanBase, and t-SNE of Q1 correspon-dence embeddings before and after training. Table 3: Performance comparisons on CrossViewBench. The best results are bold and the second-best results are underlined.                                                                                           
+
+> Method Overall Corr. Vis/Occ Geometric Physical HumanBase 86.1 87.5 80.2 86.5 93.6
+> Proprietary Models
+> Gemini-3.1-Pro 51.5 60.0 39.0 50.5 56.0 GPT-5.2 49.5 41.5 45.1 54.5 58.3 Grok-4-Fast 42.5 38.8 33.3 45.8 59.0
+> Open-source Models
+> Qwen3.5-397B 51.7 50.1 41.0 54.1 72.6 Qwen3.5-35B 50.1 48.3 39.4 53.3 65.6 Qwen3-VL-235B-A22B-Instruct 47.7 46.3 37.5 50.2 65.3 InternVL2.5-38B 45.9 43.8 36.2 48.4 65.5 Qwen2.5-VL-72B 45.2 43.2 35.6 47.8 63.2 LLaVA-Video-Qwen2-72B 44.2 42.6 34.9 46.7 60.1 InternVL2.5-78B 43.7 42.4 34.3 46.4 56.8 LLaVA-OneVision-Qwen2-72B 43.6 42.2 34.5 45.7 61.1 DeepSeek-VL2 42.8 41.6 33.8 44.8 59.8 Qwen3-VL-8B 42.7 40.1 30.7 45.3 71.1 InternVL2.5-4B 42.0 40.2 33.5 44.4 57.3 InternVL2.5-2B 40.0 38.8 31.9 42.2 52.7
+> CrossViewer (ours) 62.7 83.2 61.1 49.1 74.4
+
+## 5 Experiments 5.1 Implementation Details 
+
+We instantiate CrossViewer on top of Qwen3-VL-8B-Instruct [ 3 ]. Unless otherwise noted, ART uses 𝐾 = 10 object tokens, the Object-Centric Cross-View Aligner adopts 8 attention heads, and the con-trastive embedding dimension is set to 𝑑 contrast = 256 . Training mainly targets the lightweight modules introduced by CrossViewer, including the ART projection layers, the cross-view alignment blocks, and the language-side adaptation layers. We use AdamW with lr = 10 −4 and a cosine decay schedule on 4 ×A100 GPUs. In the default configuration, we use greedy cross-view matching, fused region-token injection, and pairwise aggregation for VQA over the available view pairs; contrastive supervision follows the paired-view training path set by the configuration. Unless other-wise specified, training uses the full CrossViewSet split produced by our data generation pipeline. 
+
+## 5.2 Evaluation Setup 
+
+We evaluate CrossViewer on both CrossViewBench and MMVM-Bench [ 51 ]. On CrossViewBench, we report accuracy for each ques-tion type and overall accuracy. For CrossViewer, referenced objects are provided through the native <REGION> token-replacement in-terface described in Sec. 4.5. For baseline MLLMs without region-token inputs, we instead render each referenced mask as a semi-transparent colored overlay and rewrite the question to use the corresponding color cue, yielding a unified object-grounded evalu-ation protocol across models. 
+
+## 5.3 Main Results 
+
+CrossViewBench . Table 3 compares CrossViewer with 15 refer-ence MLLMs spanning both proprietary and open-source mod-els, while Fig. 4(b) highlights the remaining gap to HumanBase. CrossViewerachieves the best overall performance at 62.7 accu-racy, surpassing the strongest reference model, Qwen3.5-397B, by 11.0 points and the same-backbone Qwen3-VL-8B baseline by 20.0 points. The latter gap is particularly important: it shows that the gains are not explained by model scale or broader pretraining alone, but by the explicit object-centric alignment and reasoning design of CrossViewer. Fig. 4 (a) shows that the gains are broad rather than concentrated on a single task family. The largest improvements appear on Corre-spondence and Visibility/Occlusion, where general-purpose MLLMs still rely mostly on implicit multi-image matching and therefore struggle under viewpoint change and partial observation. Larger frontier models remain more competitive on Geometric reasoning, with GPT-5.2 and Qwen3.5-397B slightly ahead of CrossViewer, suggesting that global extent estimation and holistic spatial ab-straction are not fully solved by object-level alignment alone. By contrast, CrossViewerretains the best Physical score, indicating that explicit alignment helps the decoder ground higher-level relational reasoning on cleaner object evidence. 
+
+MMVMBench. To evaluate out-of-domain generalization, we fur-ther assess CrossViewer on the external benchmark MMVMBench [ 51 ]. Our model achieves an accuracy of 49.5% on 1,453 valid test cases us-ing the contrastive retrieval head, outperforming the native Qwen3-VL-8B baseline by 19.4 points. This gain shows that the benefits of CrossViewer are not limited to in-domain optimization, but transfer Wei Wang, Yuqian Yuan, Tianwei Lin, Wenqiao Zhang, Siliang Tang, Jun Xiao, and Yueting Zhuang 
+
+Table 4: Generalization Results on MMVMBench.                            
+
+> Method Overall CL SP TM SZ RP OO BR OM Qwen3-VL-8B 30.1 27.9 41.7 60.0 40.3 24.0 28.0 26.6 32.7
+> CrossViewer 49.5 (+19.4) 45.8 33.3 55.3 71.4 49.1 62.4 33.7 45.4
+
+Table 5: Ablation study on CrossViewBench.                                    
+
+> Variant Overall Corr. Vis/Occ Geometric Physical
+> Training Baselines
+> Vanilla SFT 46.1 41.3 31.5 50.8 71.6 w/ box-as-mask 51.5 68.7 50.4 41.2 61.4
+> Component Ablations
+> w/o ART (mean pool) 52.7 67.0 35.0 48.8 70.0 w/o CrossView Attn 47.6 54.0 35.6 45.3 72.4 w/o SupCon 47.8 53.0 38.1 45.5 71.6
+> Full Model
+> CrossViewer (full) 62.7 83.2 61.1 49.1 74.4
+
+to unseen benchmarks with different data distributions. Table 4 provides a detailed breakdown across the eight match types defined in MMVMBench [ 51 ]. The strongest gains appear on CL, SZ, RP, OO, and OM, while SP and TM remain closer to the baseline. This pattern is consistent with the strengths of CrossViewer: it most strongly improves settings that require stable cross-view associ-ation and object-level relational structure, rather than uniformly boosting every appearance-driven comparison. 
+
+## 5.4 Ablation Study 
+
+We next analyze which ingredients are responsible for the gains of CrossViewer on CrossViewBench. 
+
+Training Baselines And Mask Quality. Table 5 first compares CrossViewer against two training baselines. Vanilla SFT uses the same Qwen3-VL-8B backbone and the same CrossViewSet split, but without explicit cross-view alignment, and reaches only 46.1 Overall. This result shows that in-domain instruction tuning alone does not induce stable cross-view association. Replacing precise masks with box-as-mask supervision improves performance to 51.5, confirming that explicit object references are already helpful, but the model still trails the full system by 11.2 points. The remain-ing gap indicates that coarse localization cannot preserve the fine boundaries and partial-visibility cues needed for reliable object-level reasoning across views. 
+
+Component Contribution. The component ablations isolate the roles of ART, cross-view attention, and contrastive alignment. Re-placing ART with masked-region mean pooling especially hurts Vis/Occ (61.1 → 35.0), showing that a single pooled descriptor loses local evidence that is crucial for visibility and occlusion reasoning. Removing CrossView Attn causes the largest overall drop (62.7 →
+
+47.6), confirming that token-level cross-view interaction is the main mechanism that turns retrieval matches into usable reasoning evi-dence. Removing SupCon ( LSC ) sharply degrades Correspondence (83.2 → 53.0), indicating that discriminative cross-view embeddings are essential for stable identity recovery even when the fusion path-way remains intact. 
+
+Table 6: Hyperparameter sensitivity on CrossViewBench. 
+
+Factor Option A Option B Option C Option D ART token count 4: 58.0 8: 61.5 10: 62.4 16: 62.8 
+
+SupCon loss weight 0.5: 60.0 1.0: 62.4 – –Triplet loss weight 0: 62.0 0.05: 62.3 0.1: 62.4 0.2: 61.6 OCVA depth 2: 63.0 4: 62.5 – –
+
+Table 7: Effect of retrieval matching strategy on CrossView-Bench. 
+
+Matching Strategy Overall Corr. Vis/Occ Geometric Physical 
+
+Inference-time Matching 
+
+Greedy 62.7 83.2 61.1 49.1 74.4 
+
+Hungarian 61.9 82.6 60.6 49.5 73.9 
+
+Analysis-only Reference 
+
+GT ordering 52.8 69.4 51.3 42.2 69.3 
+
+Hyperparameter Sensitivity. We also vary ART token count, SupCon weight, triplet weight, and OCVA depth (Table 6). Increas-ing the ART token count from 4 to 16 steadily improves Overall accuracy from 58.0 to 62.8, with the gain largely saturating after 10 tokens. This suggests that ART benefits from preserving enough local structure, but does not require excessively long object token sequences. SupCon weight 1.0 and triplet weight 0.1 provide the best trade-off among the tested values, indicating that moderate metric supervision is sufficient. Finally, a 2-layer OCVA slightly out-performs a 4-layer variant, suggesting that this benchmark benefits more from precise alignment than from additional fusion depth. 
+
+Retrieval Matching Strategy. Table 7 shows that Greedy and Hungarian perform similarly, suggesting that the learned similar-ity space is already sharp enough for simple matching. In con-trast, GT ordering performs substantially worse, indicating a train-deployment mismatch between oracle ordering and inference-time retrieved correspondences. 
+
+## 5.5 Qualitative Analysis 
+
+We next visualize the learned correspondence space and summarize the source and task composition of CrossViewSet and CrossView-Bench. Fig. 4 (c) embeddings from the two views are strongly in-termixed before training and yield only 20.5% top-1 matching on the shown Q1 subset; after training, matched objects form tighter neighborhoods and top-1 matching rises to 52.7%, supporting the role of contrastive supervision. As shown in Fig. 5, most queries recover the correct target despite viewpoint changes, while the failure case highlights the remaining ambiguity between nearby instances. 
+
+## 6 Conclusion 
+
+We introduced CrossView Suite, which combines CrossViewSet, CrossViewBench, and CrossViewer for multi-view spatial intelli-gence. On CrossViewBench, CrossViewer reaches 62.7% overall accuracy, outperforming Qwen3-VL-8B by 20.0%. Our analyses show that ART, contrastive alignment, and cross-view attention are all important. We hope CrossViewBench will support future work CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark ✓      
+
+> ✓
+> ✓
+> ×
+> low
+> high
+> Similarity
+> Example I Example II
+> SOURCE TARGET SOURCE TARGET
+> Query object Ground truth Wrong prediction
+
+Figure 5: Qualitative cross-view retrieval results. 
+
+on richer multi-view settings and open-ended spatial reasoning in MLLMs. 
+
+## Acknowledgments 
+
+We thank the authors of Ego-Exo4D, EgoHumans, MessyTable, and MMPTracking for making their datasets publicly available. Wei Wang, Yuqian Yuan, Tianwei Lin, Wenqiao Zhang, Siliang Tang, Jun Xiao, and Yueting Zhuang 
+
+## References 
+
+[1] Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katie Millican, Malcolm Reynolds, Roman Ring, Eliza Rutherford, Serkan Cabi, Tengda Han, Zhitao Gong, Sina Samangooei, Marianne Monteiro, Jacob Menick, Sebastian Borgeaud, Andrew Brock, Aida Nematzadeh, Sahand Sharifzadeh, Mikolaj Binkowski, Ricardo Barreira, Oriol Vinyals, Andrew Zisserman, and Karen Simonyan. 2022. Flamingo: A Visual Lan-guage Model for Few-Shot Learning. Advances in Neural Information Processing Systems 35 (2022), 23716–23736. [2] Jinze Bai, Shuai Bai, Shusheng Yang, Shijie Wang, Sinan Tan, Peng Wang, Junyang Lin, Chang Zhou, and Jingren Zhou. 2023. Qwen-VL: A Versatile Vision-Language Model for Understanding, Localization, Text Reading, and Beyond. arXiv preprint arXiv:2308.12966 (2023). [3] Shuai Bai, Yuxuan Cai, Ruizhe Chen, Keqin Chen, Xionghui Chen, Zesen Cheng, Lianghao Deng, Wei Ding, Chang Gao, Chunjiang Ge, et al . 2025. Qwen3-VL Technical Report. arXiv preprint arXiv:2511.21631 (2025). [4] Zhongang Cai, Junzhe Zhang, Daxuan Ren, Cunjun Yu, Haiyu Zhao, Shuai Yi, Chai Kiat Yeo, and Chen Change Loy. 2020. Messytable: Instance association in multiple camera views. In European Conference on Computer Vision . Springer, 1–16. [5] Boyuan Chen, Zhuo Xu, Sean Kirmani, Brian Ichter, Danny Driess, Pete Florence, Dorsa Sadigh, Leonidas Guibas, and Fei Xia. 2024. SpatialVLM: Endowing Vision-Language Models with Spatial Reasoning Capabilities. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 14455–14465. [6] Zhe Chen, Jiannan Wu, Wenhai Wang, Weijie Su, Guo Chen, Sen Xing, Muyan Zhong, Qinglong Zhang, Xizhou Zhu, Lewei Lu, Bin Li, Ping Luo, Tong Lu, Yu Qiao, and Jifeng Dai. 2024. InternVL: Scaling up Vision Foundation Models and Aligning for Generic Visual-Linguistic Tasks. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 24185–24198. [7] An-Chieh Cheng, Hongxu Yin, Yang Fu, Qiushan Guo, Ruihan Yang, Jan Kautz, Xiaolong Wang, and Sifei Liu. 2024. SpatialRGPT: Grounded Spatial Reasoning in Vision-Language Models. arXiv preprint arXiv:2406.01584 (2024). [8] Wenliang Dai, Junnan Li, Dongxu Li, Anthony Meng Huat Tiong, Junqi Zhao, Weisheng Wang, Boyang Li, Pascale Fung, and Steven Hoi. 2023. InstructBLIP: Towards General-Purpose Vision-Language Models with Instruction Tuning. 
+
+Advances in Neural Information Processing Systems 36 (2023), 49250–49267. [9] Erik Daxberger, Nina Wenzel, David Griffiths, Haiming Gang, Justin Lazarow, Gefen Kohavi, Kai Kang, Marcin Eichner, Yinfei Yang, Afshin Dehghan, et al .2025. Mm-spatial: Exploring 3d spatial understanding in multimodal llms. In 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision . 7395– 7408. [10] Yuqian Fu, Runze Wang, Bin Ren, Guolei Sun, Biao Gong, Yanwei Fu, Danda Pani Paudel, Xuanjing Huang, and Luc Van Gool. 2024. ObjectRelator: Enabling Cross-View Object Relation Understanding Across Ego-Centric and Exo-Centric Perspectives. arXiv preprint arXiv:2411.19083 (2024). [11] Kristen Grauman, Andrew Westbury, Lorenzo Torresani, Kris Kitani, Jitendra Malik, et al . 2024. Ego-Exo4D: Understanding Skilled Human Activity from First-and Third-Person Perspectives. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 19383–19400. [12] Qiushan Guo, Shalini De Mello, Hongxu Yin, Wonmin Byeon, Ka Chun Cheung, Yizhou Yu, Ping Luo, and Sifei Liu. 2024. RegionGPT: Towards Region Under-standing Vision Language Model. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 13796–13806. [13] Xiaotian Han, Quanzeng You, Chunyu Wang, Zhizheng Zhang, Peng Chu, Houdong Hu, Jiang Wang, and Zicheng Liu. 2023. MMPTRACK: Large-scale densely annotated multi-camera multiple people tracking benchmark. In Pro-ceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision .4860–4869. [14] Junwen He, Yifan Wang, Lijun Wang, Huchuan Lu, Jun-Yan He, Jin-Peng Lan, Bin Luo, and Xuansong Xie. 2024. Multi-Modal Instruction Tuned LLMs with Fine-Grained Visual Perception. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 13980–13990. [15] Jiaxin Huang, Runnan Chen, Ziwen Li, Zhengqing Gao, Xiao He, Yandong Guo, Mingming Gong, and Tongliang Liu. 2025. Mllm-for3d: Adapting mul-timodal large language model for 3d reasoning segmentation. arXiv preprint arXiv:2503.18135 (2025). [16] Dongfu Jiang, Xuan He, Huaye Zeng, Cong Wei, Max W.F. Ku, Qian Liu, and Wenhu Chen. 2024. MANTIS: Interleaved Multi-Image Instruction Tuning. Trans-actions on Machine Learning Research (2024). arXiv:2405.01483. [17] Rawal Khirodkar, Aayush Bansal, Lingni Ma, Richard Newcombe, Minh Vo, and Kris Kitani. 2023. EgoHumans: An Egocentric 3D Multi-Human Benchmark. In 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision . 19750– 19762. [18] Prannay Khosla, Piotr Teterwak, Chen Wang, Aaron Sarna, Yonglong Tian, Phillip Isola, Aaron Maschinot, Ce Liu, and Dilip Krishnan. 2020. Supervised Contrastive Learning. CoRR abs/2004.11362 (2020). arXiv:2004.11362 [19] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C. Berg, Wan-Yen Lo, Piotr Dollár, and Ross Girshick. 2023. Segment Anything. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 4015–4026. [20] Xin Lai, Zhuotao Tian, Yukang Chen, Yanwei Li, Yuhui Yuan, Shu Liu, and Jiaya Jia. 2024. LISA: Reasoning Segmentation via Large Language Model. In Pro-ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition .9579–9589. [21] Feng Li, Renrui Zhang, Hao Zhang, Yuanhan Zhang, Bo Li, Wei Li, Zejun Ma, and Chunyuan Li. 2024. LLaVA-NeXT-Interleave: Tackling Multi-image, Video, and 3D in Large Multimodal Models. arXiv preprint arXiv:2407.07895 (2024). [22] Junnan Li, Dongxu Li, Silvio Savarese, and Steven Hoi. 2023. BLIP-2: Boot-strapping Language-Image Pre-training with Frozen Image Encoders and Large Language Models. In International Conference on Machine Learning . PMLR, 19730– 19742. [23] Tianwei Lin, Wenqiao Zhang, Sijing Li, Yuqian Yuan, Binhe Yu, Haoyuan Li, Wanggui He, Hao Jiang, Mengze Li, Xiaohui Song, et al . 2025. HealthGPT: A Medical Large Vision-Language Model for Unifying Comprehension and Gener-ation via Heterogeneous Knowledge Adaptation. arXiv preprint arXiv:2502.09838 
+
+(2025). [24] Bangwei Liu, Yicheng Bao, Shaohui Lin, Xuhong Wang, Xin Tan, Yingchun Wang, Yuan Xie, and Chaochao Lu. 2025. Idmr: Towards instance-driven precise visual correspondence in multimodal retrieval. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 6320–6329. [25] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2023. Visual In-struction Tuning. Advances in Neural Information Processing Systems 36 (2023), 34892–34916. [26] Chuofan Ma, Yi Jiang, Jiannan Wu, Zehuan Yuan, and Xiaojuan Qi. 2024. Groma: Localized Visual Tokenization for Grounding Multimodal Large Language Mod-els. In European Conference on Computer Vision . doi:10.1007/978-3-031-72658-3_24 [27] Wentao Mo, Qingchao Chen, Yuxin Peng, Siyuan Huang, and Yang Liu. 2025. Advancing 3D Scene Understanding with MV-ScanQA Multi-View Reasoning Evaluation and TripAlign Pre-training Dataset. In Proceedings of the 33rd ACM International Conference on Multimedia . 12973–12980. [28] Hanoona Rasheed, Muhammad Maaz, Sahal Shaji, Abdelrahman Shaker, Salman Khan, Hisham Cholakkal, Rao M. Anwer, Eric Xing, Ming-Hsuan Yang, and Fahad S. Khan. 2024. GLaMM: Pixel Grounding Large Multimodal Model. In Pro-ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition .13009–13018. [29] Nikhila Ravi, Valentin Gabeur, Yuan-Ting Hu, Ronghang Hu, Chaitanya Ryali, Tengyu Ma, Haitham Khedr, Roman Rädle, Chloe Rolland, Laura Gustafson, Eric Mintun, Junting Pan, Kalyan Vasudev Alwala, Nicolas Carion, Chao-Yuan Wu, Ross Girshick, Piotr Dollár, and Christoph Feichtenhofer. 2024. SAM 2: Segment Anything in Images and Videos. arXiv preprint arXiv:2408.00714 (2024). [30] Paul-Edouard Sarlin, Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabi-novich. 2020. Superglue: Learning feature matching with graph neural networks. In Proceedings of the IEEE/CVF conference on computer vision and pattern recogni-tion . 4938–4947. [31] Jiaming Sun, Zehong Shen, Yuang Wang, Hujun Bao, and Xiaowei Zhou. 2021. LoFTR: Detector-free local feature matching with transformers. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition . 8922–8931. [32] Luming Tang, Menglin Jia, Qianqian Wang, Cheng Perng Phoo, and Bharath Hariharan. 2023. Emergent correspondence from image diffusion. Advances in neural information processing systems 36 (2023), 1363–1389. [33] Shengbang Tong, Zhuang Liu, Yuexiang Zhai, Yi Ma, Yann LeCun, and Saining Xie. 2024. Eyes Wide Shut? Exploring the Visual Shortcomings of Multimodal LLMs. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 9568–9578. [34] Peng Wang, Shuai Bai, Sinan Tan, Shijie Wang, Zhihao Fan, Jinze Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Yang Fan, Kai Dang, Mengfei Du, Xuancheng Ren, Rui Men, Dayiheng Liu, Chang Zhou, Jingren Zhou, and Junyang Lin. 2024. Qwen2-VL: Enhancing Vision-Language Model’s Perception of the World at Any Resolution. arXiv preprint arXiv:2409.12191 (2024). [35] Yipu Wang, Yuheng Ji, Yuyang Liu, Enshen Zhou, Ziqiang Yang, Yuxuan Tian, Ziheng Qin, Yue Liu, Huajie Tan, Cheng Chi, et al . 2025. Towards cross-view point correspondence in vision-language models. arXiv preprint arXiv:2512.04686 
+
+(2025). [36] Chun-Hsiao Yeh, Chenyu Wang, Shengbang Tong, Ta-Ying Cheng, Ruoyu Wang, Tianzhe Chu, Yuexiang Zhai, Yubei Chen, Shenghua Gao, and Yi Ma. 2025. Seeing from Another Perspective: Evaluating Multi-View Understanding in MLLMs. 
+
+arXiv preprint arXiv:2504.15280 (2025). [37] Haoxuan You, Haotian Zhang, Zhe Gan, Xianzhi Du, Bowen Zhang, Zirui Wang, Liangliang Cao, Shih-Fu Chang, and Yinfei Yang. 2024. Ferret: Refer and Ground Anything Anywhere at Any Granularity. In International Conference on Learning Representations . 57153–57180. [38] Yuqian Yuan, Ronghao Dang, Long Li, Wentong Li, Dian Jiao, Xin Li, Deli Zhao, Fan Wang, Wenqiao Zhang, Jun Xiao, et al . 2025. EOC-Bench: Can MLLMs CrossView Suite: Harnessing Cross-view Spatial Intelligence of MLLMs with Dataset, Model and Benchmark 
+
+Identify, Recall, and Forecast Objects in an Egocentric World? arXiv preprint arXiv:2506.05287 (2025). [39] Yuqian Yuan, Wentong Li, Jian Liu, Dongqi Tang, Xinjie Luo, Chi Qin, Lei Zhang, and Jianke Zhu. 2024. Osprey: Pixel Understanding with Visual Instruction Tuning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 28202–28211. [40] Yuqian Yuan, Hang Zhang, Wentong Li, Zesen Cheng, Boqiang Zhang, Long Li, Xin Li, Deli Zhao, Wenqiao Zhang, Yueting Zhuang, et al . 2025. VideoRefer Suite: Advancing Spatial-Temporal Object Understanding with Video LLM. In 
+
+Proceedings of the Computer Vision and Pattern Recognition Conference . 18970– 18980. [41] Yuqian Yuan, Wenqiao Zhang, Xin Li, Shihao Wang, Kehan Li, Wentong Li, Jun Xiao, Lei Zhang, and Beng Chin Ooi. 2025. PixelRefer: A Unified Framework for Spatio-Temporal Object Referring with Arbitrary Granularity. arXiv preprint arXiv:2510.23603 (2025). [42] Yuqian Yuan, Wenqiao Zhang, Juekai Lin, Yu Zhong, Mingjian Gao, Binhe Yu, Yunqi Cao, Wentong Li, Yueting Zhuang, and Beng Chin Ooi. 2026. LMMs Meet Object-Centric Vision: Understanding, Segmentation, Editing and Generation. 
+
+arXiv preprint arXiv:2604.11789 (2026). [43] Wenqiao Zhang, Tianwei Lin, Jiang Liu, Fangxun Shu, Haoyuan Li, Lei Zhang, He Wanggui, Hao Zhou, Zheqi Lv, Hao Jiang, et al . 2024. HyperLLaVA: Dynamic Visual and Language Expert Tuning for Multimodal Large Language Models. 
+
+arXiv preprint arXiv:2403.13447 (2024). [44] Wenqiao Zhang, Changshuo Liu, Lingze Zeng, Beng Chin Ooi, Siliang Tang, and Yueting Zhuang. 2023. Learning in Imperfect Environment: Multi-Label Classification with Long-Tailed Distribution and Partial Labels. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 1423–1432. [45] Wenqiao Zhang, Zheqi Lv, Hao Zhou, Jia-Wei Liu, Juncheng Li, Mengze Li, Yunfei Li, Dongping Zhang, Yueting Zhuang, and Siliang Tang. 2024. Revisiting the Domain Shift and Sample Uncertainty in Multi-Source Active Domain Trans-fer. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 16751–16761. [46] Wenqiao Zhang, Lei Zhu, James Hallinan, Shengyu Zhang, Andrew Makmur, Qingpeng Cai, and Beng Chin Ooi. 2022. BoostMIS: Boosting Medical Image Semi-Supervised Learning with Adaptive Pseudo Labeling and Informative Active Annotation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 20666–20676. [47] Xiaohan Zhang, Tavis Shore, Chen Chen, Oscar Mendez, Simon Hadfield, and Safwan Wshah. 2025. VICI: VLM-Instructed Cross-view Image-localisation. In 
+
+Proceedings of the 3rd International Workshop on UAVs in Multimedia: Capturing the World from a New Perspective . 21–25. [48] Duo Zheng, Shijia Huang, Yanyang Li, and Liwei Wang. 2025. Learning from videos for 3d world: Enhancing mllms with 3d vision geometry priors. arXiv preprint arXiv:2505.24625 (2025). [49] Duo Zheng, Shijia Huang, and Liwei Wang. 2025. Video-3d llm: Learning position-aware video representation for 3d scene understanding. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 8995–9006. [50] Yu Zhong, Tianwei Lin, Ruike Zhu, Yuqian Yuan, Haoyu Zheng, Liang Liang, Wenqiao Zhang, Feifei Shao, Haoyuan Li, Wanggui He, et al . 2026. Unified Person-alized Understanding, Generating and Editing. arXiv preprint arXiv:2601.06965 
+
+(2026). [51] Yikang Zhou, Tao Zhang, Shilin Xu, Shihao Chen, Qiong Zhou, Yibing Tong, et al . 2025. Are They the Same? Exploring Visual Correspondence Shortcomings of Multimodal LLMs. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 17663–17674.
