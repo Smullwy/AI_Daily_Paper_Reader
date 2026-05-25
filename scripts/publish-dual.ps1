@@ -197,6 +197,7 @@ function Is-HardDeniedPath {
   param([string]$RepoPath)
   $patterns = @(
     "^secret\.private$",
+    "^docs/config\.yaml$",
     "^archive/",
     "^\.env($|\.)",
     "(^|/)\.env($|\.)"
@@ -212,6 +213,7 @@ function Is-AutoExcludedPath {
   $patterns = @(
     "^TODO\.md$",
     "^AGENTS\.md$",
+    "^docs/config\.yaml$",
     "^codex-httpserver\.(out|err)\.log$",
     "(^|/)__pycache__/",
     "(^|/)\.pytest_cache/",
@@ -283,12 +285,12 @@ if ($explicitPaths) {
 $publishFiles = New-Object System.Collections.Generic.List[string]
 $excludedFiles = New-Object System.Collections.Generic.List[string]
 foreach ($file in $candidateFiles) {
-  if (Is-HardDeniedPath $file) {
-    throw "Refusing to publish private/sensitive path: $file"
-  }
   if ((-not $explicitPaths) -and (Is-AutoExcludedPath $file)) {
     $excludedFiles.Add($file) | Out-Null
     continue
+  }
+  if (Is-HardDeniedPath $file) {
+    throw "Refusing to publish private/sensitive path: $file"
   }
   $publishFiles.Add($file) | Out-Null
 }

@@ -3,6 +3,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -36,7 +37,7 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
         spec.loader.exec_module(cls.mod)
 
     def test_parse_meta_from_front_matter(self):
-        md_path = Path("docs/201706/12/1706.03762v1-attention-is-all-you-need.md")
+        md_path = Path("docs_init/201706/12/1706.03762v1-attention-is-all-you-need.md")
         item = self.mod._parse_generated_md_to_meta(str(md_path), "pid", "quick")
         self.assertEqual(item["title_en"], "Attention Is All You Need")
         self.assertTrue(item["authors"].startswith("Ashish Vaswani"))
@@ -44,6 +45,20 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
         self.assertEqual(item["date"], "20170612")
         self.assertIn("https://arxiv.org/pdf", item["pdf"])
         self.assertEqual(item["selection_source"], "fresh_fetch")
+
+    def test_format_beijing_time_converts_utc_with_label(self):
+        generated_at = self.mod.format_beijing_time(
+            datetime(2026, 5, 23, 20, 41, 46, tzinfo=timezone.utc)
+        )
+
+        self.assertEqual(generated_at, "2026-05-24 04:41:46 北京时间")
+
+    def test_beijing_date_token_matches_display_date(self):
+        token = self.mod.beijing_date_token(
+            datetime(2026, 5, 23, 20, 41, 46, tzinfo=timezone.utc)
+        )
+
+        self.assertEqual(token, "20260524")
 
     def test_parse_fallback_to_legacy_meta_lines(self):
         with tempfile.TemporaryDirectory() as d:

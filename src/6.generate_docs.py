@@ -13,7 +13,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
 import fitz  # PyMuPDF
@@ -31,8 +31,9 @@ except Exception:  # pragma: no cover
     from src.paper_figures import ensure_paper_figures
 
 CONFIG_FILE = os.path.join(ROOT_DIR, "config.yaml")
-TODAY_STR = str(os.getenv("DPR_RUN_DATE") or "").strip() or datetime.now(timezone.utc).strftime("%Y%m%d")
 RANGE_DATE_RE = re.compile(r"^(\d{8})-(\d{8})$")
+BEIJING_TZ = timezone(timedelta(hours=8))
+TODAY_STR = str(os.getenv("DPR_RUN_DATE") or "").strip()
 
 # LLM 配置（通用 OpenAI-compatible Chat Completions）
 LLM_CLIENT = None
@@ -43,6 +44,24 @@ except Exception as exc:
     LLM_INIT_ERROR = str(exc)
 
 DEFAULT_DOCS_CONCURRENCY = 4
+
+
+def beijing_date_token(dt: datetime | None = None) -> str:
+    current = dt or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(BEIJING_TZ).strftime("%Y%m%d")
+
+
+def format_beijing_time(dt: datetime | None = None) -> str:
+    current = dt or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(BEIJING_TZ).strftime("%Y-%m-%d %H:%M:%S 北京时间")
+
+
+if not TODAY_STR:
+    TODAY_STR = beijing_date_token()
 
 
 def call_llm_text(
@@ -1768,7 +1787,7 @@ def build_day_report_markdown(
     recommend_exists: bool,
 ) -> str:
     effective_label = (date_label or "").strip() or format_date_str(date_str)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    generated_at = format_beijing_time()
     total = len(deep_entries) + len(quick_entries)
     run_status = "成功" if recommend_exists else "未产出 recommend 文件（视为无结果）"
     summary = build_daily_brief_summary(
@@ -2592,7 +2611,7 @@ def main() -> None:
         log_substep("6.3", "生成速读区文章", "END")
 
     log_substep("6.4", "生成当日日报并同步首页 README", "START")
-    run_generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    run_generated_at = format_beijing_time()
     day_readme = write_day_report_readme(
         docs_dir=docs_dir,
         date_str=date_str,

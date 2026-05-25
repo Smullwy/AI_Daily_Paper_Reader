@@ -1114,20 +1114,6 @@ window.SubscriptionsManager = (function () {
                     </div>
                   </div>
                 </div>
-                <div class="dpr-workflow-metric-grid">
-                  <div class="dpr-settings-card dpr-workflow-mini-card">
-                    <strong>日报抓取</strong>
-                    <span>抓取 → 召回 → 重排 → 生成 docs</span>
-                  </div>
-                  <div class="dpr-settings-card dpr-workflow-mini-card">
-                    <strong>同步代码</strong>
-                    <span>仅 Fork 仓库可用，面板会自动提示状态</span>
-                  </div>
-                  <div class="dpr-settings-card dpr-workflow-mini-card">
-                    <strong>危险重置</strong>
-                    <span>保留二次确认，入口仍在危险设置中</span>
-                  </div>
-                </div>
               </div>
             </section>
 

@@ -25,6 +25,7 @@ CONFIG_FILE = os.path.join(ROOT_DIR, "config.yaml")
 LONG_RANGE_DAYS_THRESHOLD = 10
 MAIN_DEFAULT_DAYS = 3
 SKIMS_FETCH_DAYS_THRESHOLD = 11
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 def run_step(label: str, args: list[str], env: dict[str, str] | None = None) -> None:
@@ -67,21 +68,32 @@ def should_skip_fetch(config: dict | None = None) -> bool:
     return True
 
 
-def build_sidebar_date_label(days: int) -> str:
+def beijing_today(now: datetime | None = None):
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(BEIJING_TZ).date()
+
+
+def beijing_today_token(now: datetime | None = None) -> str:
+    return beijing_today(now).strftime("%Y%m%d")
+
+
+def build_sidebar_date_label(days: int, now: datetime | None = None) -> str:
     safe_days = max(int(days), 1)
-    end_date = datetime.now(timezone.utc).date()
+    end_date = beijing_today(now)
     start_date = end_date - timedelta(days=safe_days - 1)
     return f"{start_date:%Y-%m-%d} ~ {end_date:%Y-%m-%d}"
 
 
-def build_run_date_token(days: int) -> str:
+def build_run_date_token(days: int, now: datetime | None = None) -> str:
     safe_days = max(int(days), 1)
-    end_date = datetime.now(timezone.utc).date()
+    end_date = beijing_today(now)
     start_date = end_date - timedelta(days=safe_days - 1)
     return f"{start_date:%Y%m%d}-{end_date:%Y%m%d}"
 
 
-def resolve_run_date_token(fetch_days: int | None) -> str:
+def resolve_run_date_token(fetch_days: int | None, now: datetime | None = None) -> str:
     """
     统一运行日期标识：
     - 大窗口（>=阈值）使用区间 token：YYYYMMDD-YYYYMMDD
@@ -89,8 +101,8 @@ def resolve_run_date_token(fetch_days: int | None) -> str:
     """
     if fetch_days is not None:
         if fetch_days >= LONG_RANGE_DAYS_THRESHOLD:
-            return build_run_date_token(fetch_days)
-        return datetime.now(timezone.utc).strftime("%Y%m%d")
+            return build_run_date_token(fetch_days, now=now)
+        return beijing_today_token(now)
 
     setting = load_arxiv_paper_setting()
     try:
@@ -98,15 +110,15 @@ def resolve_run_date_token(fetch_days: int | None) -> str:
     except Exception:
         days_window = MAIN_DEFAULT_DAYS
     if days_window >= LONG_RANGE_DAYS_THRESHOLD:
-        return build_run_date_token(days_window)
-    return datetime.now(timezone.utc).strftime("%Y%m%d")
+        return build_run_date_token(days_window, now=now)
+    return beijing_today_token(now)
 
 
-def resolve_sidebar_date_label(fetch_days: int | None) -> str | None:
+def resolve_sidebar_date_label(fetch_days: int | None, now: datetime | None = None) -> str | None:
     # 1) 显式传 --fetch-days 时，仅在大窗口模式下显示日期范围。
     if fetch_days is not None:
         if fetch_days >= LONG_RANGE_DAYS_THRESHOLD:
-            return build_sidebar_date_label(fetch_days)
+            return build_sidebar_date_label(fetch_days, now=now)
         return None
 
     # 2) 未显式传入时，按 config 的 days_window 判断：
@@ -117,7 +129,7 @@ def resolve_sidebar_date_label(fetch_days: int | None) -> str | None:
     except Exception:
         days_window = MAIN_DEFAULT_DAYS
     if days_window >= LONG_RANGE_DAYS_THRESHOLD:
-        return build_sidebar_date_label(days_window)
+        return build_sidebar_date_label(days_window, now=now)
     return None
 
 

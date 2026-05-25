@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -70,6 +71,20 @@ class MainPipelineTest(unittest.TestCase):
         self.assertEqual(env["DPR_LLM_API_KEY"], "workflow-key")
         self.assertEqual(env["DPR_LLM_BASE_URL"], "https://api.example.com/v1")
         self.assertEqual(env["DPR_LLM_SUMMARY_MODEL"], "gpt-4.1-mini")
+
+    def test_run_date_token_uses_beijing_date_for_single_day(self):
+        now = datetime(2026, 5, 23, 20, 41, 46, tzinfo=timezone.utc)
+
+        self.assertEqual(self.mod.resolve_run_date_token(1, now=now), "20260524")
+
+    def test_range_date_label_uses_beijing_end_date(self):
+        now = datetime(2026, 5, 23, 20, 41, 46, tzinfo=timezone.utc)
+
+        self.assertEqual(self.mod.build_run_date_token(3, now=now), "20260522-20260524")
+        self.assertEqual(
+            self.mod.build_sidebar_date_label(3, now=now),
+            "2026-05-22 ~ 2026-05-24",
+        )
 
     def test_main_skips_native_rerank_and_builds_fallback(self):
         with tempfile.TemporaryDirectory() as tmpdir:
