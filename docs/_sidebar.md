@@ -1,5 +1,10 @@
 * <a class="dpr-sidebar-root-link" href="#/">首页</a>
 * <a class="dpr-sidebar-root-link dpr-sidebar-noactive-link" href="javascript:void(0)" data-dpr-hash="#/tutorial/README">使用教程</a>
+* 本地 PDF 解析
+  * <a class="dpr-sidebar-brief-link" href="#/local-pdf">上传解析</a>
+  * 精读区
+    * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/local-pdf/20260525/local-20260525-105841-wang---2023---learning-multi-view-interactional-skeleton-graph-for-action-recognition-learning-multi-view-interactional-skeleton-graph-for-action-recognition" data-sidebar-item="{&quot;title&quot;: &quot;Learning Multi-View Interactional Skeleton Graph for Action Recognition&quot;, &quot;link&quot;: &quot;#/local-pdf/20260525/local-20260525-105841-wang---2023---learning-multi-view-interactional-skeleton-graph-for-action-recognition-learning-multi-view-interactional-skeleton-graph-for-action-recognition&quot;, &quot;score&quot;: &quot;local&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;paper&quot;, &quot;label&quot;: &quot;本地PDF&quot;}], &quot;evidence&quot;: &quot;学习多视角交互骨架图用于动作识别&quot;}">Learning Multi-View Interactional Skeleton Graph for Action Recognition</a>
+    * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/local-pdf/20260524/local-20260524-144442-lindenberger---2023---lightglue-local-feature-matching-at-light-speed-lightglue-local-feature-matching-at-light-speed" data-sidebar-item="{&quot;title&quot;: &quot;LightGlue: Local Feature Matching at Light Speed&quot;, &quot;link&quot;: &quot;#/local-pdf/20260524/local-20260524-144442-lindenberger---2023---lightglue-local-feature-matching-at-light-speed-lightglue-local-feature-matching-at-light-speed&quot;, &quot;score&quot;: &quot;local&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;paper&quot;, &quot;label&quot;: &quot;本地PDF&quot;}], &quot;evidence&quot;: &quot;LightGlue：光速局部特征匹配&quot;}">LightGlue: Local Feature Matching at Light Speed</a>
 * Daily Papers
   * 2026-05-24 <!--dpr-date:20260524-->
     * <a class="dpr-sidebar-brief-link" href="#/202605/24/README">📝 今日简报</a>
