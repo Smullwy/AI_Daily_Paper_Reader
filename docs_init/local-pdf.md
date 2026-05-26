@@ -20,8 +20,9 @@
     <h2 id="dpr-local-pdf-title" class="dpr-local-pdf-title"></h2>
     <p id="dpr-local-pdf-meta" class="dpr-local-pdf-meta"></p>
     <div class="dpr-local-pdf-result-actions">
-      <button id="dpr-local-pdf-deep-read" class="dpr-local-pdf-primary" type="button">后端精读生成</button>
+      <button id="dpr-local-pdf-deep-read" class="dpr-local-pdf-primary" type="button">后台精读生成</button>
     </div>
+    <div id="dpr-local-pdf-workflow" class="dpr-local-pdf-workflow" hidden></div>
 
     <div class="dpr-local-pdf-output-grid">
       <section class="dpr-local-pdf-panel">

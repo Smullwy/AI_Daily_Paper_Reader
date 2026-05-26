@@ -25,6 +25,8 @@ global.document = {
   },
 };
 
+global.btoa = global.btoa || ((value) => Buffer.from(value, 'binary').toString('base64'));
+
 require('../app/local-pdf-reader.js');
 
 const helpers = window.DPRLocalPdfReader.helpers;
@@ -32,6 +34,25 @@ const helpers = window.DPRLocalPdfReader.helpers;
 assert.strictEqual(typeof window.$docsify.plugins[0], 'function');
 assert.strictEqual(helpers.formatBytes(1536), '1.5 KB');
 assert.strictEqual(helpers.parsePdfDate('D:20260524091500Z'), '2026-05-24');
+assert.strictEqual(
+  helpers.sanitizePdfFileName('LightGlue: Local Feature Matching at Light Speed.pdf'),
+  'lightglue-local-feature-matching-at-light-speed.pdf',
+);
+assert.strictEqual(
+  helpers.encodeGitHubPath('docs/assets/local_pdfs/uploads/a paper.pdf'),
+  'docs/assets/local_pdfs/uploads/a%20paper.pdf',
+);
+assert.strictEqual(
+  helpers.arrayBufferToBase64(new Uint8Array([65, 66, 67]).buffer),
+  'QUJD',
+);
+assert.match(
+  helpers.buildUploadPath(
+    'LightGlue: Local Feature Matching at Light Speed.pdf',
+    new Date(Date.UTC(2026, 4, 25, 10, 11, 12)),
+  ),
+  /^docs\/assets\/local_pdfs\/uploads\/\d{8}-\d{6}-[a-z0-9]+-lightglue-local-feature-matching-at-light-speed\.pdf$/,
+);
 
 const sampleText = [
   'Activation Geometry for Neural Models',

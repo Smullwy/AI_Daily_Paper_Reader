@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import os
@@ -337,3 +338,50 @@ def generate_local_pdf_deep_doc(
         "pdf_path": str(pdf_asset_path),
         "figures_count": len(figures),
     }
+
+
+def generate_local_pdf_deep_doc_from_file(
+    *,
+    pdf_path: str,
+    filename: str | None = None,
+    llm_config_json: str | None = None,
+    docs_dir: str | None = None,
+    date_str: str | None = None,
+) -> Dict[str, Any]:
+    path = Path(pdf_path).resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"PDF 文件不存在：{path}")
+    return generate_local_pdf_deep_doc(
+        pdf_bytes=path.read_bytes(),
+        filename=filename or path.name,
+        llm_config_json=llm_config_json,
+        docs_dir=docs_dir,
+        date_str=date_str,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Generate a Daily Paper style deep-read page from a local PDF.")
+    parser.add_argument("--pdf-path", required=True, help="Path to the uploaded PDF file.")
+    parser.add_argument("--filename", default="", help="Original filename shown in generated metadata.")
+    parser.add_argument("--docs-dir", default=str(ROOT_DIR / "docs"), help="Docs directory to update.")
+    parser.add_argument("--date", default="", help="Optional YYYYMMDD date folder.")
+    parser.add_argument(
+        "--llm-config-json",
+        default="",
+        help="Optional temporary LLM JSON. GitHub Actions should prefer DPR_LLM_* secrets instead.",
+    )
+    args = parser.parse_args(argv)
+    result = generate_local_pdf_deep_doc_from_file(
+        pdf_path=args.pdf_path,
+        filename=args.filename or None,
+        llm_config_json=args.llm_config_json or None,
+        docs_dir=args.docs_dir,
+        date_str=args.date or None,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

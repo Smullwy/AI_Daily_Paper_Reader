@@ -8,6 +8,9 @@
   const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
   const PDF_PREVIEW_PAGE_LIMIT = 3;
   const DEEP_READ_TEXT_CHAR_LIMIT = 120000;
+  const LOCAL_PDF_WORKFLOW_ID = 'local-pdf-deep-read.yml';
+  const LOCAL_PDF_UPLOAD_DIR = 'docs/assets/local_pdfs/uploads';
+  const GITHUB_UPLOAD_MAX_BYTES = 80 * 1024 * 1024;
   const DEEP_READ_SYSTEM_PROMPT =
     '你是一名资深学术论文分析助手，请使用中文、以 Markdown 形式，'
     + '对给定论文做结构化、深入、客观的总结。';
@@ -205,6 +208,21 @@
     if (!el) return;
     el.textContent = message || '';
     el.dataset.tone = tone || '';
+  };
+
+  const escapeHtml = (value) =>
+    String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const setWorkflowInfo = (html) => {
+    const el = byId('dpr-local-pdf-workflow');
+    if (!el) return;
+    el.innerHTML = html || '';
+    el.hidden = !html;
   };
 
   const metricHtml = (label, value) =>
@@ -727,6 +745,316 @@
     }
   };
 
+  const getGithubTokenForActions = () => {
+    try {
+      const secret = window.decoded_secret_private || {};
+      if (secret.github && secret.github.token) {
+        return cleanLine(secret.github.token);
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      const tokenModule = window.SubscriptionsGithubToken || {};
+      if (typeof tokenModule.loadGithubToken === 'function') {
+        const data = tokenModule.loadGithubToken();
+        if (data && data.token) return cleanLine(data.token);
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      const raw = window.localStorage ? window.localStorage.getItem('github_token_data') : '';
+      if (!raw) return '';
+      const data = JSON.parse(raw);
+      return cleanLine(data && data.token);
+    } catch {
+      return '';
+    }
+  };
+
+  const ghApiFetch = (token, url, init) =>
+    fetch(url, {
+      ...(init || {}),
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        ...(init && init.headers ? init.headers : {}),
+      },
+    });
+
+  const parseGitHubError = async (resp) => {
+    const text = await resp.text().catch(() => '');
+    try {
+      const data = text ? JSON.parse(text) : null;
+      if (data && data.message) return data.message;
+    } catch {
+      // ignore
+    }
+    return text || `${resp.status} ${resp.statusText}`;
+  };
+
+  const encodeGitHubPath = (path) =>
+    String(path || '')
+      .split('/')
+      .map((part) => encodeURIComponent(part))
+      .join('/');
+
+  const readRepoFromConfig = async () => {
+    const candidates = ['config.yaml', 'docs/config.yaml', '../config.yaml', '/config.yaml'];
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) continue;
+        const text = await res.text();
+        const ownerMatch = text.match(/^\s*owner:\s*['"]?([^'"\n#]*)/m);
+        const repoMatch = text.match(/^\s*repo:\s*['"]?([^'"\n#]*)/m);
+        const owner = cleanLine(ownerMatch && ownerMatch[1]);
+        const repo = cleanLine(repoMatch && repoMatch[1]);
+        if (owner || repo) return { owner, repo };
+      } catch {
+        // ignore
+      }
+    }
+    return { owner: '', repo: '' };
+  };
+
+  const resolveRepoContextForActions = async (token) => {
+    const currentUrl = String(window.location && window.location.href || '');
+    const pagesMatch = currentUrl.match(/https?:\/\/([^.]+)\.github\.io\/([^/#?]+)/i);
+    let owner = pagesMatch ? cleanLine(pagesMatch[1]) : '';
+    let repo = pagesMatch ? cleanLine(pagesMatch[2]) : '';
+
+    if (!repo) {
+      const cfg = await readRepoFromConfig();
+      owner = owner || cfg.owner;
+      repo = repo || cfg.repo;
+    }
+
+    if (!owner) {
+      const userRes = await ghApiFetch(token, 'https://api.github.com/user');
+      if (!userRes.ok) {
+        throw new Error(`GitHub Token 验证失败：${await parseGitHubError(userRes)}`);
+      }
+      const user = await userRes.json().catch(() => null);
+      owner = cleanLine(user && user.login);
+    }
+    if (!repo) repo = 'AI_Daily_Paper_Reader';
+    if (!owner || !repo) throw new Error('无法确定要写入的 GitHub 仓库。');
+
+    const repoRes = await ghApiFetch(token, `https://api.github.com/repos/${owner}/${repo}`);
+    if (!repoRes.ok) {
+      throw new Error(`无法访问仓库 ${owner}/${repo}：${await parseGitHubError(repoRes)}`);
+    }
+    const repoData = await repoRes.json().catch(() => null);
+    if (repoData && repoData.permissions && !repoData.permissions.push) {
+      throw new Error(`当前 GitHub Token 没有仓库 ${owner}/${repo} 的写入权限。`);
+    }
+    return {
+      owner,
+      repo,
+      defaultBranch: cleanLine(repoData && repoData.default_branch) || 'main',
+    };
+  };
+
+  const sanitizePdfFileName = (name) => {
+    const raw = String(name || 'local-paper.pdf').replace(/\.pdf$/i, '');
+    const normalized = raw.normalize ? raw.normalize('NFKD') : raw;
+    const safe = normalized
+      .replace(/[^\w.-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[-_.]+|[-_.]+$/g, '')
+      .toLowerCase();
+    return `${safe || 'local-paper'}.pdf`;
+  };
+
+  const buildUploadPath = (fileName, now = new Date()) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const stamp = [
+      now.getFullYear(),
+      pad(now.getMonth() + 1),
+      pad(now.getDate()),
+      '-',
+      pad(now.getHours()),
+      pad(now.getMinutes()),
+      pad(now.getSeconds()),
+      '-',
+      Math.random().toString(36).slice(2, 8),
+    ].join('');
+    return `${LOCAL_PDF_UPLOAD_DIR}/${stamp}-${sanitizePdfFileName(fileName)}`;
+  };
+
+  const arrayBufferToBase64 = (buffer) => {
+    const bytes = new Uint8Array(buffer || []);
+    const chunkSize = 0x8000;
+    const chunks = [];
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      chunks.push(String.fromCharCode.apply(null, chunk));
+    }
+    return btoa(chunks.join(''));
+  };
+
+  const fileToBase64 = async (file) => arrayBufferToBase64(await file.arrayBuffer());
+
+  const uploadPdfToGithub = async ({ token, owner, repo, branch, file, uploadPath }) => {
+    const content = await fileToBase64(file);
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeGitHubPath(uploadPath)}`;
+    const resp = await ghApiFetch(token, url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `[chore] upload local PDF for deep read: ${file.name || 'local-paper.pdf'}`,
+        content,
+        branch,
+      }),
+    });
+    if (!resp.ok) {
+      throw new Error(`上传 PDF 到 GitHub 失败：${await parseGitHubError(resp)}`);
+    }
+    return resp.json().catch(() => null);
+  };
+
+  const dispatchLocalPdfWorkflow = async ({ token, owner, repo, branch, uploadPath, fileName }) => {
+    const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${encodeURIComponent(
+      LOCAL_PDF_WORKFLOW_ID,
+    )}/dispatches`;
+    const resp = await ghApiFetch(token, url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ref: branch,
+        inputs: {
+          upload_path: uploadPath,
+          original_filename: fileName || 'local-paper.pdf',
+          cleanup_upload: 'true',
+        },
+      }),
+    });
+    if (!resp.ok) {
+      const detail = await parseGitHubError(resp);
+      if (resp.status === 404) {
+        throw new Error(`未找到 ${LOCAL_PDF_WORKFLOW_ID}，请先把包含该 workflow 的代码推送到远程仓库并启用 Actions。`);
+      }
+      throw new Error(`触发 GitHub Actions 失败：${detail}`);
+    }
+  };
+
+  const waitForLocalPdfWorkflowRun = async ({ token, owner, repo, branch, createdAt }) => {
+    const workflowPath = encodeURIComponent(LOCAL_PDF_WORKFLOW_ID);
+    const sinceMs = createdAt.getTime() - 15000;
+    for (let i = 0; i < 18; i += 1) {
+      const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflowPath}/runs?event=workflow_dispatch&branch=${encodeURIComponent(branch)}&per_page=10`;
+      const resp = await ghApiFetch(token, url);
+      if (resp.ok) {
+        const data = await resp.json().catch(() => null);
+        const runs = Array.isArray(data && data.workflow_runs) ? data.workflow_runs : [];
+        const found = runs.find((run) => {
+          const t = new Date(run && run.created_at);
+          return !Number.isNaN(t.getTime()) && t.getTime() >= sinceMs;
+        });
+        if (found) return found;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+    return null;
+  };
+
+  const renderWorkflowStarted = ({ owner, repo, run }) => {
+    const workflowUrl = `https://github.com/${owner}/${repo}/actions/workflows/${encodeURIComponent(LOCAL_PDF_WORKFLOW_ID)}`;
+    const runUrl = run && run.html_url ? run.html_url : workflowUrl;
+    const runLabel = run && run.run_number ? `#${run.run_number}` : 'Actions';
+    setWorkflowInfo(
+      [
+        '<div class="dpr-local-pdf-workflow-card">',
+        `<span>后台精读已提交：${escapeHtml(runLabel)}</span>`,
+        `<a href="${escapeHtml(runUrl)}" target="_blank" rel="noopener">查看运行</a>`,
+        '</div>',
+      ].join(''),
+    );
+  };
+
+  const requestActionsDeepRead = async (file) => {
+    if (!file) {
+      throw new Error('请先选择 PDF 文件，再运行后台精读。');
+    }
+    if (Number(file.size || 0) > GITHUB_UPLOAD_MAX_BYTES) {
+      throw new Error(`PDF 超过 ${formatBytes(GITHUB_UPLOAD_MAX_BYTES)}，请压缩后再提交。`);
+    }
+    const token = getGithubTokenForActions();
+    if (!token) {
+      throw new Error('未检测到 GitHub Token。请先在首页完成 GitHub Token 配置，并确保具备 repo 与 workflow 权限。');
+    }
+
+    setWorkflowInfo('');
+    setStatus('正在确认 GitHub 仓库权限...', 'loading');
+    const repoContext = await resolveRepoContextForActions(token);
+    const uploadPath = buildUploadPath(file.name || 'local-paper.pdf');
+    setStatus(`正在上传 PDF 到 ${repoContext.owner}/${repoContext.repo}...`, 'loading');
+    await uploadPdfToGithub({
+      token,
+      owner: repoContext.owner,
+      repo: repoContext.repo,
+      branch: repoContext.defaultBranch,
+      file,
+      uploadPath,
+    });
+
+    setStatus('PDF 已上传，正在触发 GitHub Actions 后台精读...', 'loading');
+    const createdAt = new Date();
+    await dispatchLocalPdfWorkflow({
+      token,
+      owner: repoContext.owner,
+      repo: repoContext.repo,
+      branch: repoContext.defaultBranch,
+      uploadPath,
+      fileName: file.name || 'local-paper.pdf',
+    });
+    const run = await waitForLocalPdfWorkflowRun({
+      token,
+      owner: repoContext.owner,
+      repo: repoContext.repo,
+      branch: repoContext.defaultBranch,
+      createdAt,
+    });
+    renderWorkflowStarted({ owner: repoContext.owner, repo: repoContext.repo, run });
+    setStatus('后台精读已开始。运行成功后刷新页面，左侧本地 PDF 精读区会出现新条目。', 'success');
+    return { ok: true, uploadPath, run };
+  };
+
+  const isGitHubPages = () => /\.github\.io$/i.test(String(window.location && window.location.hostname || ''));
+
+  let localBackendHealthPromise = null;
+  const isLocalBackendAvailable = async () => {
+    if (isGitHubPages()) return false;
+    if (localBackendHealthPromise) return localBackendHealthPromise;
+    localBackendHealthPromise = (async () => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), 2500) : null;
+      try {
+        const resp = await fetch('/api/local-pdf/health', {
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined,
+        });
+        if (!resp.ok) return false;
+        const data = await resp.json().catch(() => null);
+        return !!(data && data.ok);
+      } catch {
+        return false;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    })();
+    return localBackendHealthPromise;
+  };
+
+  const requestDeepRead = async (file) => {
+    if (await isLocalBackendAvailable()) {
+      return requestBackendDeepRead(file);
+    }
+    return requestActionsDeepRead(file);
+  };
+
   const requestBackendDeepRead = async (file) => {
     if (!file) {
       throw new Error('请先选择 PDF 文件，再运行后端精读。');
@@ -889,6 +1217,7 @@
     if (deepSummary) deepSummary.innerHTML = '';
     const metrics = byId('dpr-local-pdf-metrics');
     if (metrics) metrics.innerHTML = '';
+    setWorkflowInfo('');
     setStatus('', '');
   };
 
@@ -1039,13 +1368,13 @@
     if (deepReadBtn) {
       deepReadBtn.addEventListener('click', () => {
         if (!lastFile) {
-          setStatus('请先选择 PDF 文件，再运行后端精读。', 'error');
+          setStatus('请先选择 PDF 文件，再运行后台精读。', 'error');
           return;
         }
         deepReadBtn.disabled = true;
-        requestBackendDeepRead(lastFile)
+        requestDeepRead(lastFile)
           .catch((error) => {
-            setStatus(error && error.message ? error.message : '后端精读生成失败。', 'error');
+            setStatus(error && error.message ? error.message : '后台精读生成失败。', 'error');
           })
           .finally(() => {
             deepReadBtn.disabled = false;
@@ -1112,6 +1441,10 @@
         deriveGlanceFields,
         extractChatResponseText,
         truncateForLLM,
+        sanitizePdfFileName,
+        buildUploadPath,
+        encodeGitHubPath,
+        arrayBufferToBase64,
       },
     };
 
