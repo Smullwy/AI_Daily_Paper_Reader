@@ -1,0 +1,4520 @@
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Zi-Hao Zhou * 1 2 Jun-Jie Wang * 1 2 Tong Wei 1 2 Min-Ling Zhang 1 2
+Abstract
+Contrastive learning has achieved remarkable suc-
+cess in learning effective representations, with
+supervised contrastive learning often outperform-
+ing self-supervised approaches. However, in real-
+world scenarios, data annotations are often am-
+biguous or inaccurate, meaning that class labels
+may not reliably indicate whether two examples
+belong to the same class. This limitation restricts
+the applicability of supervised contrastive learn-
+ing. To address this challenge, we introduce the
+concept of “continuous semantic similarity” to de-
+fine positive and negative pairs. Instead of directly
+relying on imprecise class labels, we measure
+the semantic similarity between example pairs,
+which quantifies how closely they belong to the
+same category by iteratively refining weak su-
+pervisory signals.
+Based on this concept, we
+propose a graph-theoretic framework for weakly-
+supervised contrastive learning, where semantic
+similarity serves as the graph weights. Our frame-
+work is highly versatile and can be applied to
+many weakly-supervised learning scenarios. We
+demonstrate its effectiveness through experiments
+in two common settings, i.e., noisy label and par-
+tial label learning, where existing methods can be
+easily integrated to significantly improve perfor-
+mance. Theoretically, we establish an error bound
+for our approach, showing that it can approximate
+supervised contrastive learning under mild con-
+ditions. The implementation code is available at
+https://github.com/Speechless-10308/WSC.
+*Equal contribution
+1School of Computer Science and Engi-
+neering, Southeast University, Nanjing, China 2Key Laboratory of
+Computer Network and Information Integration (Southeast Uni-
+versity), Ministry of Education, China. Correspondence to: Tong
+Wei <weit@seu.edu.cn>.
+Proceedings of the 42 st International Conference on Machine
+Learning, Vancouver, Canada. PMLR 267, 2025. Copyright 2025
+by the author(s).
+1. Introduction
+In recent years, there has been a resurgence of research in
+contrastive learning, which has led to significant advance-
+ments in the field of representation learning (He et al., 2020;
+Oord et al., 2018; Chen et al., 2020; Caron et al., 2020;
+Zbontar et al., 2021; Khosla et al., 2020). These works
+share a common underlying principle: they aim to pull an
+anchor and its corresponding “positive” examples closer to-
+gether in the embedding space, while simultaneously push-
+ing the anchor away from a set of “negative” examples. In
+self-supervised contrastive learning, positive examples are
+generated through various data augmentation techniques
+applied to the original samples, thereby creating different
+views or representations of the same data instance. Negative
+examples, on the other hand, are randomly selected from
+different samples, as illustrated in Figure 1(a). In contrast,
+fully-supervised contrastive learning utilizes additional su-
+pervisory information by treating samples from the same
+class as positive pairs, thereby constructing multiple pos-
+itive examples (Khosla et al., 2020), as shown in Figure
+1(b). However, real-world supervisory information is often
+inaccurate and ambiguous (Lin et al., 2023; Zhang et al.,
+2021b; Wang et al., 2022; Zhang et al., 2022; Guo et al.,
+2020; 2025), manifesting as weakly-supervised information
+such as noisy labels (Amsaleg et al., 2017; Yan et al., 2013)
+and partial labels (Luo and Orabona, 2010; Chen et al.,
+2018; Dong et al., 2023), which cannot directly indicate
+class membership between samples. As a result, traditional
+methods fail to effectively utilize weak supervisory infor-
+mation, significantly limiting the applicability of supervised
+contrastive learning in real-world tasks.
+To address the limitations of existing methods, we introduce
+a more general concept of positive and negative examples:
+continous semantic similarity. Samples with a higher likeli-
+hood of belonging to the same category are assigned higher
+semantic similarity, where values of 1 and 0 correspond to
+positive and negative pairs in traditional contrastive learning,
+respectively. This can be viewed as a continuous extension
+of the conventional positive-negative example framework.
+Furthermore, as illustrated in Figure 1(c), we extend the
+contrastive learning objective to align the feature similarity
+of two samples with their corresponding semantic similarity.
+Specifically, we formulate a graph-theoretic framework for
+1
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Anchor
+Positive
+Negative
+Negative
+Negative
+(a) Self-supervised Contrastive
+Anchor
+1
+0
+0
+1
+0
+0
+0
+0
+1
+0
+1
+0
+Positive
+Positive
+Negative
+Negative
+(b) Supervised Contrastive
+Anchor
+1
+0
+0
+1
+0
+0
+ൗ
+1 2
+ൗ
+1 2
+0
+0
+0
+1
+Similarity: 1
+Similarity: 1
+Similarity: 1/2
+Similarity: 0
+𝒯𝒯(𝑞𝑞)
+(c) Weakly-supervised Contrastive
+Figure 1. (a) Self-supervised contrastive learning constructs positive example pairs by using different views of the same image and
+constructs negative example pairs by using different images. (b) Supervised contrastive learning further regards different images of the
+same class as additional positive example pairs. (c) Our proposed weakly-supervised contrastive learning abandons the concepts of
+discrete positive and negative examples.
+weakly-supervised representation learning, where vertices
+represent augmented data points and edges are defined by
+their corresponding semantic similarity. The semantic simi-
+larity is constructed from two perspectives. First, data points
+derived from different views of the same instance are as-
+signed a relatively high semantic similarity. Second, we
+leverage the corresponding weakly-supervised information
+to approximate whether two samples belong to the same
+class, thereby constructing the semantic similarity between
+data points from different instances after augmentation.
+By modeling semantic similarities using the provided
+weakly-supervised information, our method is highly ver-
+satile and applicable to various weakly-supervised learning
+scenarios, including noisy label and partial label settings.
+The contrastive loss derived from our framework is straight-
+forward to implement, stable during training, and can be
+seamlessly integrated as a plug-and-play component, con-
+sistently enhancing the performance of existing methods in
+weakly-supervised learning.
+Additionally, we provide a comprehensive theoretical analy-
+sis of the method’s performance, deriving the downstream
+error bound for feature learning using our contrastive loss
+under various weakly-supervised settings. The analysis
+shows that, under mild conditions, our framework can ap-
+proximate the performance achievable with fully-supervised
+information, thus theoretically ensuring its effectiveness.
+In summary, our main contributions are summarized below:
+• We propose a unified framework for contrastive learn-
+ing that leverages weakly-supervised information, in-
+cluding noisy and partial labels. By introducing the
+concept of semantic similarity as a generalization of
+positive and negative examples, our framework offers
+new insights into how contrastive learning can effec-
+tively utilize ambiguous supervisory information.
+• The loss derived from our framework is highly versa-
+tile and can be seamlessly integrated into a wide range
+of weakly-supervised learning settings, consistently
+leading to performance improvements. Notably, our
+approach shows substantial gains in challenging set-
+tings with high noise and partial label rates, achieving
+improvements of 6.8% and 7.8%, respectively, under-
+scoring its robustness and effectiveness in addressing
+real-world weak supervision challenges.
+• Our theoretical analysis offers a rigorous performance
+guarantee for the proposed framework, showing that
+it can approximate supervised contrastive learning un-
+der mild conditions and elucidating how and to what
+extent weakly-supervised information can enhance the
+effectiveness of representation learning.
+2. Weakly-Supervised Contrastive Learning
+We describe the setup and goal of weakly-supervised learn-
+ing. Let X denote instance space and Y = {y1, y2, . . . , yc}
+denote label space.
+D denotes the joint distribution
+(X, Y).
+Furthermore, given Q = {q1, q2, . . . , qv} de-
+notes weakly-supervised information space.
+We de-
+note DQ as the joint distribution (X, Q) which gener-
+ated form D with process DQ(x)
+=
+D(x), DQ(q
+|
+x)
+=
+T (x)D(y
+|
+x), where DQ(q
+|
+x) and
+D(y
+|
+x) denote
+
+DQ(q1 | x), . . . , DQ(qv | x)
+T and
+
+D(y1 | x), . . . , D(yc | x)
+T , respectively and T (x)
+∈
+2
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Rv×c is the transition matrix with T (x)i,j = DQ(qi |
+x, yj). In this paper, we consider two popular weakly-
+supervised settings with different data generation processes,
+namely instance-independent and instance-dependent. The
+former satisfies the condition of T (x) is independent of
+the samples, whereas the latter does not. The objective of
+learning with weak supervision is to derive a multi-class
+predictive model h from weakly-supervised training set
+D = {(xi, qi)}m
+i=1 ∼Dm
+Q. For brevity, we denote P as
+probability of joint distribution (X, Y, Q) induced by D
+and DQ in the reminder of this paper.
+2.1. A Graph-Theoretic View
+To investigate representation learning in weakly-supervised
+settings, we adopt a novel view of contrastive learning
+(HaoChen et al., 2021), framing it as a graph spectral cluster-
+ing problem where data points serve as vertices and classes
+correspond to connected sub-graphs. Preliminarily, we con-
+sider representation learning under self-supervised condition
+by modeling an augmentation graph G where the vertices
+represent all augmented samples, and the edge weights are
+constructed based on self-supervised connectivity (Chen
+et al., 2020; HaoChen et al., 2021):
+wu
+x,x′ = E˜x∼P(X)[A(x | ˜x)A(x′ | ˜x)],
+(1)
+where A(· | ˜x) denotes distribution of augmentations such
+as Gaussian blur, color distortion and random cropping from
+natural data ˜x ∈X.
+The optimal features are obtained through graph spectral
+clustering of the given graph, where dense intra-class con-
+nectivity plays a key role in ensuring good clustering proper-
+ties (HaoChen et al., 2021; Sun et al., 2023). However, when
+the graph is constructed purely based on self-supervised con-
+nectivity, the assumption of dense intra-class connections
+implies that most distinct data points within the same class
+should share same augmented samples, a condition that may
+not hold in practice.
+Therefore, it is natural to consider incorporating additional
+intra-class connections by leveraging label information to
+further improve the quality of the graph, as follows:
+wl
+x,x′ ≜E(˜x,˜y),(˜x′,˜y′)∼P(X,Y)2
+[I [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)] ,
+(2)
+where I [·] denotes the indicator function.
+With the additional graph connectivity defined above, we
+can construct improved augmentation graph with perturba-
+tion edge weight:
+wx,x′ =
+αwu
+x,x′
+| {z }
+Self-supervised
++ βwl
+x,x′
+| {z }
+Supervised.
+(3)
+However, in weakly-supervised learning settings, the afore-
+mentioned edge weights cannot be directly derived due to
+the absence of true labels. In the next subsection, we pro-
+pose a framework that leverages weakly-supervised infor-
+mation to establish additional connectivity, thereby enabling
+weakly-supervised representation learning.
+2.2. Representation and Semantic Similarity Matching
+The main idea of our framework is to approximate wl
+x,x′
+in Equation 3 using weakly-supervised information. The
+following proposition demonstrates the existence of such an
+approximation.
+Proposition 2.1. For any S : X →Rc×v that satisfies
+the condition: P(y | x) = S(x)P(q | x) holds almost
+everywhere in X, the following equation holds:
+wwl
+x,x′(S) ≜E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2
+[S ((˜x, ˜q), (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)] = wl
+x,x′,
+(4)
+where S ((˜x, ˜q), (˜x′, ˜q′)) = S(˜x)T
+:,˜qS(˜x′):,˜q′.
+Remark: Proposition 2.1 reformulates the goal of ap-
+proximating supervised connections wl
+x,x′ using weakly-
+supervised information into constructing an S that satisfies
+specific properties. In the next subsection, we present meth-
+ods for constructing such S that meets, or approximately
+meets these properties. Furthermore, S ((˜x, ˜q), (˜x′, ˜q′)) in
+Equation 4 can be viewed as estimation of semantic simi-
+larity between two samples according to the corresponding
+weakly-supervised information. In this context, the graph in
+Equation 2 is discrete, edge existing only if they belong to
+the same class, while its approximation in Equation 4 rep-
+resents a continuous graph, where the connection strength
+corresponds to the estimated semantic similarity. The proof
+of Proposition 2.1 is in Appendix B.1.
+Based on the approximate wwl
+x,x′(S) provided in Proposi-
+tion 2.1, we now present a unified framework for weakly-
+supervised representation learning. To this end, we begin by
+providing a formal definition of the perturbation augmenta-
+tion graph.
+Definition 2.2. (Perturbation augmentation graph) We refer
+a graph where the vertices represent all augmented samples
+and adjacency matrix A constructed by perturbation con-
+nectivity as perturbation augmentation graph. Specifically,
+giving two augmentation data points x, x′:
+Ax,x′ = αwu
+x,x′ + βwwl
+x,x′(S).
+(5)
+Let F be an embedding matrix with F x,: ∈Rd is embed-
+ding of sample x, we consider optimal features derived
+from the graph spectral clustering of the given such graph
+in Definition 2.2 (Chung, 1997; HaoChen et al., 2021):
+F ∗= arg min
+ eA −F F T 
+F ,
+(6)
+3
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+where eA is normalized adjacency matrix of A with eAx,x′ =
+Ax,x′
+√
+AxAx′ , Ax = P
+x′ Ax,x′.
+Now, if we view each row of F as a scaled version of learned
+feature embedding f : X →Rd, the above optimal features
+can be obtained through minimize an end-to-end contrastive
+learning loss. We formalize this connection in following
+proposition.
+Proposition 2.3. We define F x,: = √Axfx and weakly-
+supervised contrastive loss Lwsc as follow:
+Lwsc(f) ≜−2αL1(f) −2βL2(f)
++ α2L3(f) + β2L4(f) + 2αβL5(f),
+(7)
+where
+L1(f) ≜E˜x∼P(X),x,x′∼A(·|˜x)
+
+fxf T
+x′
+
+,
+(8)
+L2(f) ≜E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2,x∼A(·|˜x),x′∼A(·|˜x′)
+
+S((˜x, ˜q), (˜x′, ˜q′))fxf T
+x′
+
+,
+(9)
+L3(f) ≜E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h fxf T
+x′
+2i
+,
+(10)
+L4(f) ≜E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)S′(˜x′, ˜q′)
+ fxf T
+x′
+2i
+,
+(11)
+L5(f) ≜E(˜x,˜q)∼P(X,Q),˜x′∼P(X),x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)
+ fxf T
+x′
+2i
+,
+(12)
+where S ((˜x, ˜q), (˜x′, ˜q′)) = S(˜x)T
+:,˜qS(˜x′):,˜q′, S′(˜x, ˜q) =
+S(˜x)T
+:,˜qP(y).
+Then the following equation holds:
+ eA −F F T 
+F = Lwsc(f) + Const.
+(13)
+Furthermore, when assuming uniform class distribution
+P(y) =
+ 1
+c, . . . , 1
+c
+T , Lwsc(f) can be rewritten as:
+Lwsc(f) ≜−2αL1(f) −2βL2(f) +
+
+α + β
+c
+2
+L3(f)
+(14)
+Remark: By the Eckart–Young–Mirsky theorem (Eckart
+and Young, 1936), F ∗in Equation 6 consists of the top-d
+eigenvectors of eA. This property enables clustering perfor-
+mance analysis via the connectivity of eA. Proposition 2.3
+outlines an end-to-end method for training a neural network
+to approximate these optimal features. The pseudo code
+for computing Lwsc in Equation 7 with batch data under
+a uniform class distribution is given in Algorithm 1, with
+the general version (without the uniform class assumption)
+provided in Appendix E. We can intuitively interpret Lwsc
+Algorithm 1 The calculation of Lwsc in uniform class dis-
+tribution case
+Input: features of two augmentation views of batch
+data with corresponding weakly-supervised information
+X1
+Q, X2
+Q ∈RBQ×d, Q ∈QBQ, features of two augmen-
+tation view of batch unlabeled data X1
+U, X2
+U ∈RBU×d,
+S in Proposition 2.1, coefficients α, β
+Output: batch data estimated loss bLwsc
+Compute S(X) ∈Rc×BQ, S(X):,x = S(x):,q
+Compute bL1 =
+Tr[X1
+Q(X2
+Q)T]+T r[X1
+U(X2
+U)T]
+BQ+BU
+Compute bL2 = ∥(S(X)T S(X))⊗(X1
+Q(X2
+Q)T)∥1
+B2
+Q
+Take X1 =
+
+X1
+Q; X1
+U
+
+, X2 =
+
+X2
+Q; X2
+U
+
+Compute bL3 = ∥X1(X2)T∥
+2
+2
+(BQ+BU)2
+Return: bLwsc = −2α bL1 −2β bL2 + (α + β/c)2 bL3
+as follows: L1 and L2 push the features of positive pairs to
+be closer, with L1 pulling closer features of two views of
+the same image, and L2 pulling closer features of different
+images with different weights which equal to continuous ad-
+jacency matrix S(X)S(X)T in Algorithm 1 of the sampled
+sub-graph. L3, L4, L5 are regularization terms to prevents
+feature collapse. Finally, Lwsc depends solely on S, hence
+it can be adapted to multiple weakly-supervised setting by
+constructing the corresponding S. The proof is provided in
+Appendix B.2.
+2.3. Instantiating under Various Weakly Information
+In this paper, we consider two typical paradigms of weakly
+supervision: noisy label learning (NLL), partial label learn-
+ing (PLL). For noisy label leaning, we have Q = Y but mis-
+takes exist DQ(T (X) ̸= Ic×c) > 0. For partial label learn-
+ing, we have Q = 2Y \ ∅and DQ(y ∈q | x) = 1, ∀x ∈X.
+In the following text, we show how to instantiate our frame-
+work into these two settings.
+Reviewing Proposition 2.1, a good S ought to satisfy or ap-
+proximately satisfy the condition P(y | x) = S(x)P(q | x).
+In this subsection, we provide methodologies for construct-
+ing it in various settings, thereby completing the instanti-
+ation of the framework. Next, we will separately discuss
+instance-independent and instance-dependent settings.
+Instance-Independent Setting. For this setting, we have
+instance-independent transition matrix T : there exists a T
+satisfies T = T (x) holding almost everywhere in X. The
+following proposition illustrates that S can be constructed
+by estimating the transition matrix T .
+Proposition 2.4. Under instance-independent assumption,
+we have the sufficient condition for S(x) = S, ∀x ∈X to
+4
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+satisfy condition in Proposition 2.1 as follows:
+ST = Ic×c.
+(15)
+where Ic×c denote the identity matrix of size c × c.
+Proof. When S satisfies the above condition, we have fol-
+lowing equation holds almost everywhere in X:
+SP(q | x) = ST P(y | x) = P(y | x).
+(16)
+Inspired by Proposition 2.4, we can use any matrix S for
+Lwsc that satisfies S bT = I, where bT is an estimate of T . In
+the noisy label setting, methods such as Liu and Tao 2016;
+Patrini et al. 2017; Xia et al. 2019; Li et al. 2021; Lin et al.
+2023 can estimate bT , and bS is its inverse. In the partial
+label setting, T ∈R(2c−1)×c is hard to estimate due to
+the curse of dimensionality, but with the assumption where
+labels are independent adopted into the candidate set (Cour
+et al., 2011; Lv et al., 2020; Feng et al., 2020b), bT can be
+estimated by c times of mixing proportion estimation (Garg
+et al., 2021), and bS can be derived through pseudo-inverse
+or constructive methods. See more details in Appendix F.
+Instance-Dependent Setting. In this setting, a universal
+transition matrix T applicable to all samples does not exist,
+thereby rendering the methods discussed previously ineffec-
+tive. However, according to Bayes theorem, we have:
+P(y | x) =
+X
+q∈Q
+P(y, q | x) =
+X
+q∈Q
+P(y | x, q)P(q | x).
+(17)
+Thus, we can construct bS as bS(x)y,q = bP(y | x, q) where
+bP(y | x, q) can be any estimation of P(y | x, q). Specifically,
+it is obtained through the current predictions of the model.
+This process is also called self-labeling and has been widely
+discussed. Specifically, in the context of noisy labels, related
+studies include Liu et al. 2020; Li et al. 2022; Ortego et al.
+2021; Liu et al. 2022; Xiao et al. 2023; Qiao et al. 2024;
+for partial labels, related studies are conducted by Xu et al.
+2021; Wang et al. 2022; Wu et al. 2022; Zhang et al. 2022;
+Qiao et al. 2023a; 2024. See more details in Appendix F.
+3. Theoretical Understanding
+We now present a theoretical analysis of the performance of
+features learned from weakly-supervised data. Following
+the traditional theoretical framework (Chen et al., 2020;
+HaoChen et al., 2021), we use the linear probe to evaluate
+the performance of representation learning. Concretely, we
+use a linear classifier with weights B ∈Rd×c and predict
+hf,B(x) = arg maxi∈Y BT
+:,if(x) for an augmented data
+x. Then given naturally data ex ∈X, we ensemble the
+predictions on augmented data and predict:
+˜hf,B(˜x) = arg max
+i∈Y Ex∼A(·|˜x) [I [hf,B(x) = i]] .
+(18)
+We define linear probe error of representation f as follow:
+ε(f) =
+min
+B∈Rd×c E(˜x,˜y)∼P(X,Y)
+h
+I
+h
+˜hf,B(˜x) ̸= ˜y
+ii
+. (19)
+Regarding the given constructed bS and training set D =
+DQ ∪DU, where DQ is set of training samples with corre-
+sponding weakly-supervised information and DU is set of
+unlabeled samples, we learn f through:
+bf(D) = arg min bLwsc(f),
+(20)
+where bLwsc(f) is the estimate of Lwsc(f) using data DQ
+and DU with constructed bS.
+In this section, we examine ε( bf(D)) through three steps:
+• We consider ε(f ∗), where f ∗is derived from the spec-
+tral clustering of the perturbation graph A.
+• We
+consider
+the
+gap
+between
+Lwsc(f ∗)
+and
+Lwsc( bf(D)). Specifically, such a gap is caused by two
+aspects. On the one hand, there is the estimation error
+resulting from the limited samples. On the other hand,
+the constructed bS cannot fully satisfy the properties in
+Proposition 2.1.
+• We control ε( bf(D)) −ε(f ∗) through Lwsc( bf(D)) −
+Lwsc(f ∗) to obtain the minimum downstream error.
+3.1. How Can Supervised Information Help
+Representation Learning
+In this subsection, we examine ε(f ∗) where f ∗is de-
+rived from graph spectral clustering of A with entries
+Ax,x′ = αwu
+x,x′ + βwwl
+x,x′(S). The two properties of a
+graph serve as crucial elements that have a significant im-
+pact on performance. Specifically, these properties are the
+density of connections within a class and the sparsity of con-
+nections between classes. The following several definitions
+respectively characterize these properties of the graph.
+Definition 3.1. (Data points from the different class hardly
+share augmented data) We refer data augmentation A as
+γ-consistent under joint distribution P(X, Y) if there exist
+a pseudo labeler ˆy(x) for augmentation data such that:
+E(˜x,˜y)∼P(X,Y),x∼A(·|˜x) [I [˜y = ˆy(x)]] ≤γ.
+(21)
+Small γ in Definition 3.1 implies the sparsity of connec-
+tions between different classes in Au which constructed by
+self-supervised connectivity. Next, to formulate density of
+connections within a class, we introduce Dirichlet conduc-
+tance and sparsest partition which are standard in spectral
+graph theory.
+5
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Definition 3.2. (Dirichlet conductance) For a graph
+G(X, w) and a subset Ω⊆X, we define the Dirichlet con-
+ductance of Ωas:
+ΦG(Ω) =
+P
+x∈Ω,x′ /∈Ωwx,x′
+P
+x∈Ωwx
+.
+(22)
+Definition 3.3. (Sparsest partition) For a graph G(X, w) and
+an integer i ∈[2, |X|], we define the sparsest i-partition:
+ρi =
+min
+Ω1,...,Ωi max{ΦG(Ω1), . . . , ΦG(Ωi)},
+(23)
+where Ω1, . . . , Ωi are non-empty sets that form a partition
+of X.
+Intuitively, Dirichlet conductance represents the fraction of
+edges from Ωto its complement, and sparsest partition rep-
+resent the number of edges between many disjoint subsets.
+When sparsity of connections between classes holds, we
+might expect ρc ≈0. Furthermore, any ρd where d > c
+needs to break one class into many pieces, hence a large ρd
+reflects density of connections within a class. Giving such
+definition for two main properties of graph, the following
+theorem bounds linear probe error of feature derived from
+perturbation graph.
+Theorem 3.4. Given augmentation graph G with pertur-
+bation adjacency matrix A = αAu + βAwl(S) where S
+stratify properties in Proposition 2.1, if A is γ-consistent
+with γ > 0 and representation dimension d > 2c, we have:
+ε(f ∗) ⪯eO
+ 
+γ
+
+α∗ρu
+⌊d
+2⌋+ β∗
+
+1 −2c
+d
+−2!
+,
+(24)
+where ρu is sparsest partition of self-supervised connectivity
+graph Au, and α∗=
+α
+α+β/c, β∗=
+β/c
+α+β/c.
+Remark: Theorem 3.4 bounds linear probe error of fea-
+ture derived from perturbation graph through properties of
+self-supervised connectivity graph and perturbation coef-
+ficients. Theorem 3.4 demonstrates that the perturbation
+graph increases the density of intra-class connections with-
+out adding extra-class connections, thereby improving the
+performance of feature. Specifically, when β∗in Theorem
+3.4 equals to zero, the theorem degenerates into Theorem
+3.8. in HaoChen et al. 2021 which bounds linear probe error
+of feature derived from self-supervised connectivity graph.
+When assuming ρu
+d/2 < 1 −2c
+d , bounds in Equation 24
+decrease as β∗increases. Such a condition is almost always
+satisfied in reality, due to ρi ≤eO(1 −1
+i ) for every graph
+and density of the graph constructed using self-connections
+is usually much smaller than this upper bound (HaoChen
+et al., 2021). The proof of Theorem 3.4 is in Appendix C.1.
+3.2. How Weakly-Supervised Information
+Approximates Supervised Information
+In this subsection, we first consider the gap between
+Lwsc( bf(D)) and Lwsc(f ∗).
+bf(D) is an optimal feature
+that minimizes empirical loss bLwsc(f; D) defined as:
+bLwsc(f; D) = EX1
+Q,X2
+Q∼f(A(·|DQ)2)X1
+U,X2
+U∼f(A(·|DU)2
+h
+bLwsc(f; X1
+Q, X2
+Q, X1
+U, X2
+U, bS, Q)
+i
+,
+(25)
+where bS is constructed to approximately satisfy the property
+in Proposition 2.1 and bLwsc in expectation is computed
+through Algorithm 1.
+To this end, we decouple Lwsc( bf(D)) −Lwsc(f ∗) into two
+parts, the finite sample error and the approximation error
+caused by the constructed bS. To analyze the first part, we
+introduce the Rademacher complexity which is a standard
+concept in generalization error analysis.
+Definition 3.5. (Maximal possible empirical Rademacher
+complexity for feature extractor) Let F be a hypothesis
+class of feature extractors from X to Rd, for n ∈Z+, we
+define Maximal possible empirical Rademacher complexity
+bRn(F) for feature extractor under X as:
+bRn(F) = max
+i∈[d]
+max
+{x1,...,xn}∈X n Eσ
+
+sup
+f∈F
+1
+n
+n
+X
+j=1
+σjfi(xj)
+
+,
+(26)
+where σ = {σ1, . . . , σn} are n Rademacher variables
+with σi independently uniform variable taking value in
+{+1, −1}.
+To analyze the second part, we introduce expected bias for
+approximated bS.
+Definition 3.6. (Expected bias for bS) We defined expected
+bias ∆(bS) under D(X) as follow:
+∆(bS) = Ex∼P(X)
+hP(y | x) −bS(x)P(q | x)
+
+1
+i
+. (27)
+Utilizing the above two definitions, we have following theo-
+rem bounds the gap Lwsc( bf(D)) −Lwsc(f ∗).
+Theorem 3.7. Given perturbation coefficients α, β satisfy
+α + β/c = 1, and assuming ∥F∥∞< +∞, for a random
+training dataset D = DQ ∪DU with nq and nu samples
+respectively. Then with probability at least 1 −δ, we have:
+Lwsc( bf(D)) −Lwsc(f ∗) ≤(α + 1)η0 bR nu+nq
+2
+(F)
++ (α + 1)η1η(nu + nq, δ) + βη2∆(bS)
++ β sup
+x∈X
+bS(x)T bS(x)
+
+∞
+
+η3 bR nq
+2 (F) + η4η(nq, δ)
+
+,
+(28)
+6
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+where η0, η1, η2, η3, η4 are constants related to ∥F∥∞and
+feature dimension d and η(n, δ) =
+q
+log 2/δ
+n
++ δ
+2.
+Remark: Theorem 3.7 demonstrates that in our framework,
+the features learned through finite samples and weak su-
+pervision information can approximate the features derived
+from the perturbation graph which incorporates supervision
+information and thus has been proved in the Theorem 3.4
+to possess good clustering properties. Specifically, the ap-
+proximation error can be regarded as two parts. The first
+part, comprising the first and second terms in Equation 28,
+is the finite sample error when using all the training samples
+to approximate the self-supervised graph, which is derived
+through the standard finite sample approximation analy-
+sis. The second part is the error when using the samples
+with weakly supervision information to approximate the
+perturbed part. The third and fourth terms in the Equation
+28 describe two aspects of this error respectively. The third
+term describes the estimation error brought about by the bias
+of bS , which can be regarded as the bias term of the error.
+The fourth term describes the approximation error due to
+limited samples and can be regarded as the variance term of
+the error. supx∈X
+bS(x)bS(x)T  illustrates that the presence
+of weakly-supervised information exacerbates the learning
+difficulty, even when an unbiased estimate of bS is utilized.
+From this perspective, the two terms can be regarded as the
+trade-off between variance and bias. The proof of Theorem
+3.7 is in Appendix C.2.
+Theorem D.7 in HaoChen et al. 2021 characterize the er-
+ror propagation from pre-training to the downstream task,
+combine with our Theorems 3.4 and 3.7, we can obtain final
+ϵ( bf(D)) as follows:
+Corollary 3.8. (Main results: linear probe error of feature
+learned from our framework) Given representation dimen-
+sion d > 4r, and α, β satisfy α+ β
+c = 1, A is γ-consistent
+with γ > 0, then with probability at least 1 −δ, we have:
+ε( bf(D)) ≤eO
+ 
+γ
+
+α∗ρu
+⌊d
+2⌋+ β∗
+
+1 −2c
+d
+−2!
++ (α + 1)
+
+η′
+0 bR n
+2 (F) + η′
+1η(n, δ)
+
++ βη′
+2∆(bS)
++ β sup
+x∈X
+bS(x)T bS(x)
+
+∞
+
+η′
+3 bR nq
+2 (F) + η′
+4η(nq, δ)
+
+,
+(29)
+where [η′
+0, η′
+1, η′
+2, η′
+3, η′
+4] =
+d
+∆2
+λ [η0, η1, η2, η3, η4] with ∆λ
+is the eigenvalue gap between the 3
+4d-th and the d-th eigen-
+value of perturbation graph, and n = nu + nq.
+Proof. By substituting Theorems 3.4 and 3.7 into Theorem
+D.7 in HaoChen et al. 2021, the corollary can be directly
+obtained. The restatement of Theorem D.7 in HaoChen et al.
+2021 can been found in Appendix C.3.
+Remark: Corollary 3.8 demonstrates that the performance
+of the features learned within our framework is determined
+by two aspects. Firstly, the quality of the clustering structure
+of the constructed augmented graph. Secondly, the error
+arising from approximating the constructed graph using fi-
+nite samples with weakly-supervised information. As β
+increases, the clustering structure of the constructed graph
+improves, but the approximation error also increase accord-
+ingly. This suggests that in practical representation learning,
+selecting an appropriate β is crucial for effectively integrat-
+ing self-supervised and supervised information.
+4. Experiment
+In this section, we empirically validate the efficacy of our
+framework across two paradigms of weakly-supervised
+learning, namely noisy label learning (NLL), partial label
+learning (PLL). For implementation, our weakly-supervised
+contrastive (WSC) loss is combined only with the simplest
+baseline. Detailed implementation can be found in Ap-
+pendix E.
+4.1. Learning with Noisy Labels
+Dataset and Experimental Setting. For the case of noisy
+label learning, following the settings in Li et al. 2020; Liu
+et al. 2020, we verify the effectiveness of our method on
+CIFAR-10 and CIFAR-100 (Krizhevsky, 2012) with two
+types of label noise: symmetric and asymmetric. Symmetric
+noise refers to the random reassignment of labels within the
+training set according to a predefined noise ratio. In con-
+trast, asymmetric noise is designed to replicate real-world
+label noise, where labels are replaced exclusively by those
+of similar classes (e.g., dog ↔cat). In order to fully ver-
+ify the effectiveness of the proposed method, we select ten
+baselines for NLL comparison under the same experimen-
+tal setting: DivideMix (Li et al., 2020), ELR (Liu et al.,
+2020), SOP (Liu et al., 2022), GFWS (Chen et al., 2024)
+and ProMix (Xiao et al., 2023), which do not incorporate
+contrastive learning, as well as MOIT (Ortego et al., 2021),
+Sel-CL (Li et al., 2022), and TCL (Huang et al., 2023),
+which leverage a contrastive learning module. Due to space
+limitations, the implementation details, along with addi-
+tional comparisons on the instance-dependent noisy dataset
+CIFAR-10N (Wei et al., 2022) and the realistic, larger-scale
+instance-dependent noisy dataset Clothing1M (Xiao et al.,
+2015), are provided in Appendix E.1.
+Experimental Result. Table 1 shows the classification
+accuracy for each comparative approach. Most of the ex-
+perimental results are the same as those reported in their
+original paper, except for ProMix, which we reproduce due
+to differences in our settings. The proposed method demon-
+strates competitive performance across various settings and
+datasets. It outperforms existing approaches in most sce-
+7
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Table 1. Comparisons with each methods on simulated NLL datasets. Each run has been three times with different randomly generated
+noise, and the mean of the last five epochs are reported.
+Dataset
+CIFAR-10
+CIFAR-100
+Noise Type
+Sym.
+Asym.
+Sym.
+Asym.
+Noise Ratio
+0.5
+0.8
+0.9
+0.4
+0.2
+0.5
+0.8
+0.9
+0.4
+CE
+80.70
+65.80
+42.70
+82.20
+58.10
+47.10
+23.80
+3.50
+43.34
+DivideMix
+94.60
+93.20
+76.00
+93.40
+77.10
+74.60
+60.20
+31.00
+55.57
+ELR
+94.80
+93.30
+78.70
+93.00
+77.90
+73.80
+60.80
+33.40
+69.94
+SOP
+95.50
+94.00
+-
+93.80
+78.80
+75.90
+63.30
+-
+69.53
+GFWS
+96.60
+94.12
+84.22
+94.75
+77.49
+75.51
+66.46
+45.82
+75.82
+ULAREF
+94.31
+91.47
+-
+92.56
+76.16
+72.39
+54.72
+-
+76.11
+ProMix
+93.23
+83.11
+-
+89.83
+75.43
+71.64
+43.35
+-
+72.13
+MOIT
+90.00
+79.00
+69.60
+92.00
+73.00
+64.60
+46.50
+36.00
+71.55
+Sel-CL
+93.90
+89.20
+81.90
+93.40
+76.50
+72.40
+57.70
+29.30
+74.20
+TCL
+93.90
+92.50
+89.40
+92.60
+78.00
+73.30
+65.00
+54.50
+73.10
+WSC (Ours)
+95.79±0.19
+94.62±0.07
+90.93±0.14
+95.22±0.09
+79.21±0.13
+77.51±0.17
+71.92±0.17
+61.32±0.15
+76.31±0.32
+Table 2. Comparisons with each methods on simulated PLL datasets. Each run has been repeated three times with different randomly
+generated partial labels, and the mean and standard deviation values of the last five epochs are reported.
+Dataset
+CIFAR-10
+CIFAR-100
+CUB-200
+Partial Ratio
+0.5
+0.6
+0.7
+0.8
+0.05
+0.1
+0.2
+0.3
+0.05
+LWS
+85.30±0.36
+80.33±1.33
+72.11±0.58
+58.49±0.33
+54.78±0.26
+50.44±0.38
+32.44±0.48
+25.49±0.58
+39.74±0.43
+PRODEN
+89.82±0.38
+87.44±0.35
+86.44±0.20
+85.78±0.55
+72.65±0.09
+71.05±0.23
+68.44±0.79
+55.21±0.44
+62.56±0.10
+CC
+82.30±0.28
+80.08±0.07
+77.15±0.45
+75.94±0.88
+63.74±0.51
+57.55±0.19
+50.41±0.47
+40.28±0.29
+55.61±0.02
+MSE
+75.47±0.85
+73.64±0.28
+69.09±0.67
+64.32±0.33
+51.17±0.25
+47.33±0.94
+42.55±0.33
+35.11±0.49
+22.07±2.36
+GFWS
+95.22±0.08
+95.01±0.03
+94.21±0.14
+93.58±0.21
+76.89±0.32
+75.95±0.10
+73.18±0.51
+60.25±0.37
+70.77±0.20
+RCR
+95.01±0.03
+94.37±0.07
+93.28±0.05
+91.67±0.10
+77.01±0.22
+75.85±0.35
+72.58±0.31
+57.48±0.95
+-
+PiCO
+94.63±0.21
+94.25±0.31
+93.68±0.06
+92.01±0.18
+74.19±0.28
+72.74±0.64
+70.89±0.44
+61.35±0.88
+72.12±0.74
+WSC (Ours)
+95.41±0.08
+95.22±0.10
+95.03±0.04
+94.41±0.05
+77.88±0.19
+77.26±0.30
+75.13±0.24
+69.15±0.05
+74.55±0.17
+narios, including those based on other contrastive learning
+techniques. Notably, our method shows significant improve-
+ments under high noise rates. For instance, on CIFAR-100
+with a 90% noise rate, it surpasses the previous best TCL by
+6.85%, highlighting the substantial performance gains our
+framework offers for NLL.
+4.2. Learning with Partial Labels
+Dataset and Experimental Setting. For the case of par-
+tial label learning, following Wang et al. 2022, we verify
+the effectiveness of our method on CIFAR-10 (Krizhevsky,
+2012), CIFAR-100 (Krizhevsky, 2012) and CUB-200 (Wah
+et al., 2011b) with different partial ratios. The partial label
+datasets are generated by flipping the negative labels to can-
+didate labels with a specified partial ratio. In other words,
+all c −1 negative labels can be uniformly aggregated into
+the ground truth label to form the set of candidate labels.
+We choose seven baselines for PLL using same experiment
+setting for comparison: LWS (Wen et al., 2021), PRODEN
+(Lv et al., 2020), CC (Feng et al., 2020b), MSE (Feng et al.,
+2020a), RCR (Wu et al., 2022) and GFWS (Chen et al.,
+2024), which do not incorporate contrastive learning, as
+well as PiCO (Wang et al., 2022), which employs a con-
+trastive learning module. The implementation details, along
+with additional comparisons using different partial label ra-
+tios on CUB-200 and the hierarchical-generated partial label
+dataset CIFAR-100-H (Wang et al., 2022), are provided in
+Appendix E.2.
+Experimental Result. Table 2 shows the main results for
+PLL. Our proposed method achieves the best performance
+across almost all settings compared to the baseline methods.
+It is worth noting that our method achieves a larger perfor-
+mance gap among the previous methods when the partial
+rate is large. Especially on CIFAR-100 with a partial ratio of
+0.3, the proposed method outperforms previous best method
+by 7.8%, which is a strong evidence that our method can
+achieve better results on these more difficult datasets.
+5. Conclusion
+This paper introduces a novel approach for contrastive
+learning that incorporates weakly-supervised information
+8
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+through graph spectral theory. Extensive experiments and
+theoretical analysis validate its effectiveness. We propose
+semantic similarity as a continuous measure of class mem-
+bership, offering new insights into utilizing ambiguous su-
+pervision in contrastive learning. Our framework has the
+potential to be extended to a wider range of scenarios, includ-
+ing bag-level weak supervision and multi-modal matching.
+Acknowledgements
+This work was supported by the National Science Foun-
+dation of China (62206049, 62176055), and the Big Data
+Computing Center of Southeast University. We would like
+to thank anonymous reviewers for their constructive sugges-
+tions.
+Impact Statement
+Our work may have broader implications, including the po-
+tential for increased unemployment among traditional data
+annotators as annotation quality standards decline. Addition-
+ally, careful attention is needed to address privacy concerns,
+as using raw data from web scraping can effectively train
+high-accuracy models.
+References
+Laurent Amsaleg, James Bailey, Dominique Barbe, Sarah
+Erfani, Michael E. Houle, Vinh Nguyen, and Miloˇs
+Radovanovi´c. The vulnerability of learning to adver-
+sarial perturbation increases with intrinsic dimensionality.
+In IEEE workshop on information forensics and security
+(WIFS), 2017.
+Eric Arazo, Diego Ortego, Paul Albert, Noel O’Connor, and
+Kevin McGuinness. Unsupervised label noise model-
+ing and loss correction. In International conference on
+machine learning (ICML), 2019.
+Mathilde Caron, Ishan Misra, Julien Mairal, Priya Goyal,
+Piotr Bojanowski, and Armand Joulin. Unsupervised
+learning of visual features by contrasting cluster assign-
+ments. Advances in neural information processing sys-
+tems (NeurIPS), 2020.
+Ching-Hui Chen, Vishal M. Patel, and Rama Chellappa.
+Learning from ambiguously labeled face images. IEEE
+transactions on pattern analysis and machine intelligence
+(TPAMI), 2018.
+Hao Chen, Ankit Shah, Jindong Wang, Ran Tao, Yidong
+Wang, Xing Xie, Masashi Sugiyama, Rita Singh, and
+Bhiksha Raj. Imprecise label learning: A unified frame-
+work for learning with various imprecise label configu-
+rations. In Advances in neural information processing
+systems (NeurIPS), 2024.
+Ting Chen, Simon Kornblith, Mohammad Norouzi, and
+Geoffrey Hinton. A simple framework for contrastive
+learning of visual representations. In International con-
+ference on machine learning (ICML), 2020.
+Fan RK Chung. Spectral Graph Theory, volume 92. Ameri-
+can Mathematical Soc., 1997.
+St´ephan Cl´emenc¸on, G´abor Lugosi, and Nicolas Vayatis.
+Ranking and empirical minimization of u-statistics. The
+Annals of Statistics, 2008.
+Timothee Cour, Ben Sapp, and Ben Taskar. Learning from
+partial labels. Journal of Machine Learning Research,
+2011.
+Jingyi Cui, Weiran Huang, Yifei Wang, and Yisen Wang.
+Rethinking weak supervision in helping contrastive learn-
+ing. In International conference on machine learning
+(ICML), 2023.
+Ruo-Jing Dong, Jun-Yi Hang, Tong Wei, and Min-Ling
+Zhang.
+Can label-specific features help partial-label
+learning? In AAAI Conference on Artificial Intelligence
+(AAAI), 2023.
+Carl Eckart and Gale Young. The approximation of one
+matrix by another of lower rank. Psychometrika, 1936.
+Lei Feng, Takuo Kaneko, Bo Han, Gang Niu, Bo An, and
+Masashi Sugiyama. Learning with multiple complemen-
+tary labels. In International conference on machine learn-
+ing (ICML), 2020a.
+Lei Feng, Jiaqi Lv, Bo Han, Miao Xu, Gang Niu, Xin Geng,
+Bo An, and Masashi Sugiyama.
+Provably consistent
+partial-label learning. In Advances in neural information
+processing systems (NeurIPS), 2020b.
+Saurabh Garg, Yifan Wu, Alex Smola, Sivaraman Balakrish-
+nan, and Zachary Lipton. Mixture proportion estimation
+and PU learning: A modern approach. In Advances in
+neural information processing systems (NeurIPS), 2021.
+Lan-Zhe Guo, Zhen-Yu Zhang, Yuan Jiang, Yu-Feng Li, and
+Zhi-Hua Zhou. Safe deep semi-supervised learning for
+unseen-class unlabeled data. In International conference
+on machine learning (ICML), 2020.
+Lan-Zhe Guo, Lin-Han Jia, Jie-Jing Shao, and Yu-Feng Li.
+Robust semi-supervised learning in open environments.
+Frontiers of Computer Science, 2025.
+Bo Han, Quanming Yao, Xingrui Yu, Gang Niu, Miao Xu,
+Weihua Hu, Ivor Tsang, and Masashi Sugiyama. Co-
+teaching: Robust training of deep neural networks with
+extremely noisy labels. In Advances in neural information
+processing systems (NeurIPS), 2018.
+9
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Jeff Z. HaoChen, Colin Wei, Adrien Gaidon, and Tengyu
+Ma. Provable guarantees for self-supervised deep learn-
+ing with spectral contrastive loss. In Advances in neural
+information processing systems (NeurIPS), 2021.
+Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross
+Girshick. Momentum contrast for unsupervised visual
+representation learning. In IEEE conference on computer
+vision and pattern recognition (CVPR), 2020.
+Shuo He, Guowu Yang, and Lei Feng. Candidate-aware
+selective disambiguation based on normalized entropy
+for instance-dependent partial-label learning. In Inter-
+national Conference on Computer Vision (ICCV), pages
+1792–1801, 2023.
+Zhizhong Huang, Junping Zhang, and Hongming Shan.
+Twin contrastive learning with noisy labels. In IEEE
+conference on computer vision and pattern recognition
+(CVPR), 2023.
+Aditya Khosla, Nityananda Jayadevaprakash, Bangpeng
+Yao, and Li Fei-Fei. Novel dataset for fine-grained image
+categorization. In First Workshop on Fine-Grained Visual
+Categorization, IEEE Conference on Computer Vision
+and Pattern Recognition, 2011.
+Prannay Khosla, Piotr Teterwak, Chen Wang, Aaron Sarna,
+Yonglong Tian, Phillip Isola, Aaron Maschinot, Ce Liu,
+and Dilip Krishnan.
+Supervised contrastive learning.
+In Advances in neural information processing systems
+(NeurIPS), 2020.
+Jonathan Krause, Michael Stark, Jia Deng, and Li Fei-Fei.
+3d object representations for fine-grained categorization.
+In 2013 IEEE International Conference on Computer
+Vision Workshops, pages 554–561, 2013.
+Alex Krizhevsky. Learning multiple layers of features from
+tiny images. University of Toronto, 05 2012.
+Hao-Tian Li, Tong Wei, Hao Yang, Kun Hu, Chong Peng, Li-
+Bo Sun, Xun-Liang Cai, and Min-Ling Zhang. Stochas-
+tic feature averaging for learning with long-tailed noisy
+labels. In International joint conference on artificial in-
+telligence (IJCAI), 2023.
+Junnan Li, Richard Socher, and Steven C.H. Hoi. Dividemix:
+Learning with noisy labels as semi-supervised learning.
+In International conference on learning representations
+(ICLR), 2020.
+Shikun Li, Xiaobo Xia, Shiming Ge, and Tongliang Liu.
+Selective-supervised contrastive learning with noisy la-
+bels. In IEEE conference on computervision and pattern
+recognition (CVPR), 2022.
+Xuefeng Li, Tongliang Liu, Bo Han, Gang Niu, and Masashi
+Sugiyama. Provably end-to-end label-noise learning with-
+out anchor points. In International conference on machine
+learning (ICML), 2021.
+Yong Lin, Renjie Pi, Weizhong Zhang, Xiaobo Xia, Jiahui
+Gao, Xiao Zhou, Tongliang Liu, and Bo Han. A holistic
+view of label noise transition matrix in deep learning
+and beyond. In International conference on learning
+representations (ICLR), 2023.
+Sheng Liu, Jonathan Niles-Weed, Narges Razavian, and
+Carlos Fernandez-Granda. Early-learning regularization
+prevents memorization of noisy labels. In Advances in
+neural information processing systems (NeurIPS), 2020.
+Sheng Liu, Zhihui Zhu, Qing Qu, and Chong You. Robust
+training under label noise by over-parameterization. In
+International conference on machine learning (ICML),
+2022.
+Tongliang Liu and Dacheng Tao. Classification with noisy
+labels by importance reweighting. IEEE transactions
+on pattern analysis and machine intelligence (TPAMI),
+2016.
+Anand Louis and Konstantin Makarychev. Approximation
+algorithm for sparsest k-partitioning. In ACM-SIAM sym-
+posium on discrete algorithms (SODA), 2014.
+Jie Luo and Francesco Orabona. Learning from candidate la-
+beling sets. In Advances in neural information processing
+systems (NeurIPS), 2010.
+Jiaqi Lv, Miao Xu, Lei Feng, Gang Niu, Xin Geng, and
+Masashi Sugiyama. Progressive identification of true la-
+bels for partial-label learning. In International conference
+on machine learning, 2020.
+Jiaqi Lv, Biao Liu, Lei Feng, Ning Xu, Miao Xu, Bo An,
+Gang Niu, Xin Geng, and Masashi Sugiyama. On the ro-
+bustness of average losses for partial-label learning. IEEE
+transactions on pattern analysis and machine intelligence
+(TPAMI), 2023.
+Subhransu Maji, Esa Rahtu, Juho Kannala, Matthew B.
+Blaschko, and Andrea Vedaldi. Fine-grained visual clas-
+sification of aircraft. CoRR, abs/1306.5151, 2013.
+Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Rep-
+resentation learning with contrastive predictive coding.
+arXiv preprint arXiv:1807.03748, 2018.
+Diego Ortego, Eric Arazo, Paul Albert, Noel E O’Connor,
+and Kevin McGuinness. Multi-objective interpolation
+training for robustness to label noise. In IEEE confer-
+ence on computer vision and pattern recognition (CVPR),
+2021.
+10
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Giorgio Patrini, Alessandro Rozza, Aditya Krishna Menon,
+Richard Nock, and Lizhen Qu. Making deep neural net-
+works robust to label noise: A loss correction approach.
+In IEEE conference on computer vision and pattern recog-
+nition (CVPR), 2017.
+Congyu Qiao, Ning Xu, and Xin Geng. Decompositional
+generation process for instance-dependent partial label
+learning. In International conference on learning repre-
+sentations (ICLR), 2023a.
+Congyu Qiao, Ning Xu, and Xin Geng. Decompositional
+generation process for instance-dependent partial label
+learning. In International Conference on Learning Rep-
+resentations (ICLR), 2023b.
+Congyu Qiao, Ning Xu, Yihao Hu, and Xin Geng. ULAREF:
+A unified label refinement framework for learning with
+inaccurate supervision. In International conference on
+machine learning (ICML), 2024.
+Harish Ramaswamy, Clayton Scott, and Ambuj Tewari. Mix-
+ture proportion estimation via kernel embeddings of distri-
+butions. In International conference on machine learning
+(ICML), 2016.
+Clayton Scott. A Rate of Convergence for Mixture Pro-
+portion Estimation, with Application to Learning from
+Noisy Labels. In International Conference on Artificial
+Intelligence and Statistics (AISTATS), 2015.
+Clayton Scott, Gilles Blanchard, and Gregory Handy. Clas-
+sification with asymmetric label noise: Consistency and
+maximal denoising. In Conference on learning theory
+(COLT), 2013.
+Yiyou Sun, Zhenmei Shi, and Yixuan Li.
+A graph-
+theoretic framework for understanding open-world semi-
+supervised learning. In Advances in neural information
+processing systems (NeurIPS), 2023.
+Daiki Tanaka, Daiki Ikami, Toshihiko Yamasaki, and Kiy-
+oharu Aizawa. Joint optimization framework for learning
+with noisy labels. In IEEE conference on computer vision
+and pattern recognition (CVPR), 2018.
+C. Wah, S. Branson, P. Welinder, P. Perona, and S. Belongie.
+Caltech-ucsd birds 200. Technical Report CNS-TR-2011-
+001, California Institute of Technology, 2011a.
+Catherine Wah, Steve Branson, Peter Welinder, Pietro Per-
+ona, and Serge J. Belongie. The caltech-ucsd birds-200-
+2011 dataset. 2011b.
+Haobo Wang, Ruixuan Xiao, Yixuan Li, Lei Feng, Gang
+Niu, Gang Chen, and Junbo Zhao. PiCO: Contrastive
+label disambiguation for partial label learning. In Interna-
+tional Conference on Learning Representations (ICML),
+2022.
+Yisen Wang, Xingjun Ma, Zaiyi Chen, Yuan Luo, Jinfeng
+Yi, and James Bailey. Symmetric cross entropy for robust
+learning with noisy labels. In IEEE/CVF international
+conference on computer vision (ICCV), 2019.
+Jiaheng Wei, Zhaowei Zhu, Hao Cheng, Tongliang Liu,
+Gang Niu, and Yang Liu. Learning with noisy labels
+revisited: A study using real-world human annotations.
+In International conference on learning representations
+(ICLR), 2022.
+Tong Wei, Hao-Tian Li, ChunShu Li, Jiang-Xin Shi, Yu-
+Feng Li, and Min-Ling Zhang. Vision-language models
+are strong noisy label detectors. In Advances in Neural
+Information Processing Systems (NeurIPS), 2024.
+Hongwei Wen, Jingyi Cui, Hanyuan Hang, Jiabin Liu, Yisen
+Wang, and Zhouchen Lin. Leveraged weighted loss for
+partial label learning. In International conference on
+machine learning (ICML), 2021.
+Dong-Dong Wu, Deng-Bao Wang, and Min-Ling Zhang.
+Revisiting consistency regularization for deep partial la-
+bel learning. In International conference on machine
+learning (ICML), 2022.
+Dong-Dong Wu, Deng-Bao Wang, and Min-Ling Zhang.
+Distilling reliable knowledge for instance-dependent par-
+tial label learning.
+In AAAI Conference on Artificial
+Intelligence (AAAI), 2024.
+Xiaobo Xia, Tongliang Liu, Nannan Wang, Bo Han, Chen
+Gong, Gang Niu, and Masashi Sugiyama.
+Are an-
+chor points really indispensable in label-noise learning?
+In Advances in neural information processing systems
+(NeurIPS), 2019.
+Ruixuan Xiao, Yiwen Dong, Haobo Wang, Lei Feng, Runze
+Wu, Gang Chen, and Junbo Zhao. Promix: Combat-
+ing label noise via maximizing clean sample utility. In
+International joint conference on artificial intelligence
+(IJCAI), 2023.
+Tong Xiao, Tian Xia, Yi Yang, Chang Huang, and Xiaogang
+Wang. Learning from massive noisy labeled data for
+image classification. In IEEE conference on computer
+sision and pattern recognition (CVPR), 2015.
+Qizhe Xie, Zihang Dai, Eduard Hovy, Thang Luong, and
+Quoc Le. Unsupervised data augmentation for consis-
+tency training. Advances in neural information processing
+systems (NeurIPS), 2020.
+Ning Xu, Congyu Qiao, Xin Geng, and Min-Ling Zhang.
+Instance-dependent partial label learning. In Advances in
+neural information processing systems (NeurIPS), 2021.
+11
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Yan Yan, R´omer Rosales, Glenn Fung, Subramanian Ra-
+manathan, and Jennifer G. Dy. Learning from multiple
+annotators with varying expertise. Machine Learning, 95:
+291 – 327, 2013.
+Fuchao Yang, Jianhong Cheng, Hui Liu, Yongqiang Dong,
+Yuheng Jia, and Junhui Hou. Mixed blessing: Class-
+wise embedding guided instance-dependent partial label
+learning. In ACM SIGKDD Conference on Knowledge
+Discovery and Data Mining (KDD), 2025.
+Jure Zbontar, Li Jing, Ishan Misra, Yann LeCun, and
+St´ephane Deny. Barlow twins: Self-supervised learning
+via redundancy reduction. In International conference on
+machine learning (ICML), 2021.
+Chiyuan Zhang, Samy Bengio, Moritz Hardt, Benjamin
+Recht, and Oriol Vinyals. Understanding deep learning
+(still) requires rethinking generalization. Communica-
+tions of the ACM, 2021a.
+Fei Zhang, Lei Feng, Bo Han, Tongliang Liu, Gang Niu,
+Tao Qin, and Masashi Sugiyama. Exploiting class acti-
+vation value for partial-label learning. In International
+conference on learning representations (ICLR), 2022.
+Yivan Zhang, Gang Niu, and Masashi Sugiyama. Learning
+noise transition matrix from only noisy labels via total
+variation regularization. In International Conference on
+Machine Learning (ICML), 2021b.
+Zhilu Zhang and Mert Sabuncu.
+Generalized cross en-
+tropy loss for training deep neural networks with noisy
+labels. Advances in neural information processing sys-
+tems (NeurIPS), 2018.
+Zi-Hao Zhou, Si-Yuan Fang, Zi-Jing Zhou, Tong-Wei,
+Yuan-Yu Wan, and Min-Ling Zhang. Continuous con-
+trastive learning for long-tailed semi-supervised recog-
+nition. In Advances in Neural Information Processing
+Systems (NeurIPS), 2024.
+12
+
+
+Supplementary Material
+A. Notation
+Table 3. List of common mathematical symbols used in this paper.
+Symbol
+Definition
+X, Y = {y1, . . . , yc}
+Instance space and label space respectively
+Q = {q1, . . . , qv}
+Weakly-supervised information space
+D
+Joint distribution on (X, Y) for target pattern
+DQ
+Joint distribution on (X, Q) for weakly-supervised pattern which generated form D
+T (x) ∈Rv×c
+Transition matrix with T (x)i,j = DQ(qi | x, yj)
+D(y | x)
+The abbreviation of vector
+
+D(y1 | x), . . . , D(yc | x)
+T
+DQ(q | x)
+The abbreviation of vector
+
+DQ(q1 | x), . . . , DQ(qv | x)
+T
+P
+The abbreviation of probability on joint distribution (X, Y, Q) induced by D and DQ
+DQ
+Set of training samples with corresponding weakly-supervised information
+DU
+Set of unlabeled training samples
+D = DQ ∪DU
+Final training dataset
+n, nq, nu
+Size of D, DQ, DU, respectively
+(˜x, ˜y), (˜x′, ˜y′)
+Two naturally data points with their label sampling form D
+x, x′
+Two augmentation data points form ˜x and ˜x′ respectively
+A(· · · | ˜x)
+Distribution of the data augmentation
+wx,x′
+The edge weight of the edge connecting the two augmented samples constructed
+wu
+x,x′
+The edge weight constructed through self-supervised connectivity
+wl
+x,x′
+The edge weight constructed through fully-supervised
+wwl
+x,x′
+The edge weight constructed through weakly-supervised connectivity
+α, β
+perturbation coefficients for integrating self-supervised and supervised information.
+A
+Adjacency matrix of constructed augmentation graph
+eA
+Normalized adjacency matrix of constructed augmentation graph
+S : X →Rc×v
+The recovery matrix used for compute the semantic similarity of samples
+S ((˜x, ˜q), (˜x′, ˜q′))
+Computed semantic similarity of samples with corresponding weakly-supervised information
+bS : X →Rc×v
+Constructed approximate recovery matrix
+F
+Embedding matrix with F x,: ∈Rd is embedding of sample x
+f : X →Rd
+Learned feature embedding
+B ∈Rd×c
+Linear classifier weight
+hf,B(x)
+Prediction for augmentation data x with feature f and classifier B
+ehf,B(˜x)
+Ensemble prediction for naturally data ˜x with feature f and classifier B
+g(x)
+Posterior category probability give x predicted by neural networks
+ε(f)
+Linear probe error of feature embedding f
+ρ
+Sparsest partition of a graph in Definition. 3.3
+ρu
+Sparsest partition of self-supervised connectivity graph Au
+η0, . . . , η4
+Constant only related to F∞and features dimension d
+∆λ
+Eigenvalue gap between the ⌊3d/4⌋-th and the d-th eigenvalue of graph A
+η′
+0, . . . , η′
+4
+Proportional amplification of constant η0, . . . , η4
+13
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+B. Proof of Section. 2
+In this section, we provide the proof details of the proposition in the Section. 2.
+B.1. Proof of Proposition. 2.1
+Proposition B.1. (Recap of Proposition 2.1). For any S : X →Rc×n that satisfies the condition: P(y | x) = S(x)P(q | x)
+holds almost everywhere in X, the following equation holds:
+wwl
+x,x′(S) ≜E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2 [S ((˜x, ˜q), (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)] = wl
+x,x′,
+(30)
+where S ((˜x, ˜q), (˜x′, ˜q′)) = S(˜x)T
+:,˜qS(˜x′):,˜q′.
+Proof. The proof is direct, on the one hand, we can expand wl
+x,x′ and obtain:
+wl
+x,x′ = E(˜x,˜y),(˜x′,˜y′)∼P(X,Y)2 [I [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)]
+=
+Z
+X
+˜y,˜y′∈Y2
+P(˜x, ˜y)P(˜x′, ˜y′)I [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)d˜xd˜x′
+=
+Z
+P(˜x)P(˜x′)d˜xd˜x′
+X
+˜y,˜y′∈Y2
+P(˜y | ˜x)P(˜y′ | ˜x′)I [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)
+=
+Z
+P(˜x)P(˜x′)d˜xd˜x′ X
+˜y∈Y
+P(˜y | ˜x)P(˜y | ˜x′)A(x | ˜x)A(x′ | ˜x′)
+=
+Z
+P(˜x)P(˜x′)d˜xd˜x′  P(y | ˜x)T P(y | ˜x′)
+
+A(x | ˜x)A(x′ | ˜x′)
+= E˜x,˜x′∼X 2 
+P(y | ˜x)T P(y | ˜x′)A(x | ˜x)A(x′ | ˜x′)
+
+.
+(31)
+On the other hand, we can expand the wwl
+x,x′ and obtain:
+wwl
+x,x′ = E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2 [S ((˜x, ˜q) , (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)]
+=
+Z
+X
+˜q,˜q′∈Q2
+P(˜x, ˜q)P(˜x′, ˜q′)S ((˜x, ˜q) , (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)d˜xd˜x′
+=
+Z
+P(˜x)P(˜x′)d˜xd˜x′
+X
+˜q,˜q′∈Q2
+P(˜q | ˜x)P(˜q′ | ˜x′)S(˜x)T
+:,˜qS(˜x′):,˜q′A(x | ˜x)A(x′ | ˜x′)
+=
+Z
+P(˜x)P(˜x′)d˜xd˜x′P(q | ˜x)T  S(˜x)T S(˜x′)
+
+P(q | ˜x′)A(x | ˜x)A(x′ | ˜x′)
+= E˜x,˜x′∼X 2 
+P(q | ˜x)T  S(˜x)T S(˜x′)
+
+P(q | ˜x′)A(x | ˜x)A(x′ | ˜x′)
+
+.
+(32)
+When S satisfies the condition of P(y | x) = S(x)P(q | x) holds almost everywhere in X, we have follow equation holds
+almost everywhere in X 2:
+P(q | ˜x)T  S(˜x)T S(˜x′)
+
+P(q | ˜x′) = (S(˜x)P(q | ˜x))T (S(˜x′)P(q | ˜x′)) = P(y | ˜x)T P(y | ˜x′)
+(33)
+Combining Equations 31, 32, and 33, we finish the proof.
+B.2. Proof of Proposition. 2.3
+Proposition B.2. (Recap of Proposition. 2.3). We define F x,: = √Axfx and weakly-supervised contrastive loss Lwsc as
+follows:
+Lwsc(f) ≜−2αL1(f) −2βL2(f) + α2L3(f) + β2L4(f) + 2αβL5(f),
+(34)
+where:
+L1(f) ≜E˜x∼P(X),x,x′∼A(·|˜x)
+
+fxf T
+x′
+
+,
+(35)
+14
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+L2(f) ≜E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2,x∼A(·|˜x),x′∼A(·|˜x′)
+
+S((˜x, ˜q), (˜x′, ˜q′))fxf T
+x′
+
+,
+(36)
+L3(f) ≜E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h fxf T
+x′
+2i
+,
+(37)
+L4(f) ≜E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)S′(˜x′, ˜q′)
+ fxf T
+x′
+2i
+,
+(38)
+L5(f) ≜E(˜x,˜q)∼P(X,Q),˜x′∼P(X),x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)
+ fxf T
+x′
+2i
+,
+(39)
+where S ((˜x, ˜q), (˜x′, ˜q′)) = S(˜x)T
+:,˜qS(˜x′):,˜q′, S′(˜x, ˜q) = S(˜x)T
+:,˜qP(y).
+Then the following equation holds:
+ eA −F F T 
+F = Lwsc(f) + Const,
+(40)
+Where Ax,x′ = αwu
+x,x′ + βwwl
+x,x′, and eAx,x′ =
+Ax,x′
+√Ax√
+Ax′ .
+Furthermore, when assuming uniform class distribution P(y) =
+ 1
+c, . . . , 1
+c
+T , above Lwsc(f) can also rewrite as:
+Lwsc(f) ≜−2αL1(f) −2βL2(f) +
+
+α + β
+c
+2
+L3(f).
+(41)
+Proof. First we can expand
+ eA −F F T 
+F as follows:
+ eA −F F T 
+F =
+X
+x,x′
+
+Ax,x′
+√Ax
+√Ax′ −F x,:F T
+x′,:
+2
+=
+X
+x,x′
+
+F x,:F T
+x′,:
+2
+−2
+Ax,x′
+√Ax
+√Ax′ F x,:F T
+x′,: + Const
+=
+X
+x,x′
+AxAx′  fxf T
+x′
+2 −2Ax,x′fxf T
+x′ + Const.
+(42)
+Next, We analyze the two terms in the RHS of Equation 42 separately. We first expand the second term in RHS of Equation
+42 as follows:
+X
+x,x′
+−2Ax,x′fxf T
+x′ =
+X
+x,x′
+−2(αwu
+x,x′ + βwwl
+x,x′)fxf T
+x′
+= −2α
+X
+x,x′
+E˜x∼P(X)[A(x | ˜x)A(x′ | ˜x)]fxf T
+x′
+−2β
+X
+x,x′
+E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2 [S ((˜x, ˜q) , (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)] fxf T
+x′
+= −2αE˜x∼P(X)
+
+X
+x,x′
+A(x | ˜x)A(x′ | ˜x)fxf T
+x′
+
+
+−2βE(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2
+
+X
+x,x′
+S ((˜x, ˜q) , (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)fxf T
+x′
+
+
+= −2αE˜x∼P(X)
+
+Ex∼A(·|˜x),x′∼A(·|˜x)
+
+fxf T
+x′
+
+−2βE(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2 
+S ((˜x, ˜q) , (˜x′, ˜q′)) Ex∼A(·|˜x),x′∼A(·|˜x′)
+
+fxf T
+x′
+
+.
+(43)
+By substituting the definitions of L1(f) and L2(f) into the Equation 43, we have:
+X
+x,x′
+−2Ax,x′fxf T
+x′ = −2αL1(f) −2βL2(f)
+(44)
+15
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+On the other hand, we have:
+Ax =
+X
+x′
+Ax,x′ = α
+X
+x′
+wu
+x,x′ + β
+X
+x′
+wwl
+x,x′
+= αE˜x∼P(X)
+"X
+x′
+A(x | ˜x)A(x′ | ˜x)
+#
+βE(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2
+"X
+x′
+S ((˜x, ˜q) , (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)
+#
+= αE˜x∼P(X) [A(x | ˜x)]
++ βE(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2
+"X
+x′
+S ((˜x, ˜q) , (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)
+#
+.
+(45)
+By the definition of S ((˜x, ˜q) , (˜x′, ˜q′)), we can rewrite the second term of RHS of Equation 45 as follows:
+E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2
+"X
+x′
+S ((˜x, ˜q) , (˜x′, ˜q′)) A(x | ˜x)A(x′ | ˜x′)
+#
+= E(˜x,˜q)∼P(X,Q)
+"
+A(x | ˜x)S(˜x)T
+:,˜qE˜x′∼X [S(˜x′)P(q | ˜x′)]
+X
+x′
+A(x′ | ˜x′)
+#
+= E(˜x,˜q)∼P(X,Q)
+
+A(x | ˜x)S(˜x)T
+:,˜qE˜x′∼X [P(y | ˜x′)]
+
+= E(˜x,˜q)∼P(X,Q)
+
+A(x | ˜x)S(˜x)T
+:,˜qP(y)
+
+= E(˜x,˜q)∼P(X,Q) [S′(˜x, ˜q)A(x | ˜x)] ,
+(46)
+where we defined S′(˜x, ˜q) = S(˜x)T
+:,˜qP(y) before. By substituting Equation 46 into Equation 45, we have:
+Ax = αE˜x∼P(X) [A(x | ˜x)] + βE(˜x,˜q)∼P(X,Q) [S′(˜x, ˜q)A(x | ˜x)] .
+(47)
+Using results of Equation 47, we can expand the first term in RHS of Equation 42 as follows:
+X
+x,x′
+AxAx′  fxf T
+x′
+2 =
+X
+x,x′
+ αE˜x∼P(X) [A(x | ˜x)] + βE(˜x,˜q)∼P(X,Q)[S′(˜x, ˜q)A(x | ˜x)]
+
+ αE˜x′∼P(X)[A(x′ | ˜x′)] + βE(˜x′,˜q′)∼P(X,Q)[S′(˜x′, ˜q′)A(x′ | ˜x′)]
+
+(fxf T
+x′)2
+= α2E˜x,˜x′∼P(X 2)
+
+X
+x,x′
+A(x | ˜x)A(x′ | ˜x′)
+ fxf T
+x′
+2
+
+
++ β2E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2
+
+X
+x,x′
+S′(˜x, ˜q)S′(˜x′, ˜q′)A(x | ˜x)A(x′ | ˜x′)
+ fxf T
+x′
+2
+
+
++ 2αβE(˜x,˜q)∼P(X,Q),˜x′∼P(X)
+
+S′(˜x, ˜q)
+X
+x,x′
+A(x | ˜x)A(x′ | ˜x′)
+ fxf T
+x′
+2
+
+.
+(48)
+By substituting the definitions of L3(f), L4(f) and L5(f) into RHS of Equation 48, we rewrite its three terms as follows,
+respectively:
+α2E˜x,˜x′∼P(X 2)
+
+X
+x,x′
+A(x | ˜x)A(x′ | ˜x′)
+ fxf T
+x′
+2
+
+= α2E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h fxf T
+x′
+2i
+= α2L3(f).
+(49)
+β2E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2
+
+X
+x,x′
+S′(˜x, ˜q)S′(˜x′, ˜q′)A(x | ˜x)A(x′ | ˜x′)
+ fxf T
+x′
+2
+
+
+= β2E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)S′(˜x′, ˜q′)
+ fxf T
+x′
+2i
+= β2L4(f).
+(50)
+16
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+2αβE(˜x,˜q)∼P(X,Q),˜x′∼P(X)
+
+S′(˜x, ˜q)
+X
+x,x′
+A(x | ˜x)A(x′ | ˜x′)
+ fxf T
+x′
+2
+
+
+= 2αβE(˜x,˜q)∼P(X,Q),˜x′∼P(X),x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)
+ fxf T
+x′
+2i
+= 2αβL5(f).
+(51)
+By combining the results of Equations 48, 49, 50, and 51, we obtain:
+X
+x,x′
+AxAx′  fxf T
+x′
+2 = α2L3 + β2L4 + 2αβL5.
+(52)
+By substituting the results of Equations 44 and 52 into Equation 42, we can obtain the Equation 40. Furthermore, when
+assume uniform class distribution P(y) =
+ 1
+c, . . . , 1
+c
+T , above L4(f) can be rewritten as follows:
+L4(f) = E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)S′(˜x′, ˜q′)
+ fxf T
+x′
+2i
+= E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+
+1
+c2
+X
+˜q∈Q,˜y′∈Y
+S(˜x)˜y,˜qP(˜q | ˜x)
+X
+˜q′∈Q,˜y′∈Y
+S(˜x′)˜y′,˜q′P(˜q′ | ˜x′)
+ fxf T
+x′
+2
+
+
+= E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+
+1
+c2
+X
+˜y∈Y
+(S(˜x)P(q | ˜x))˜y
+X
+˜y′∈Y
+(S(˜x′)P(q | ˜x′))˜y′
+ fxf T
+x′
+2
+
+
+= 1
+c2 E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h fxf T
+x′
+2i
+= 1
+c2 L3(f).
+(53)
+Similarly, L5(f) can be rewritten as follows:
+L5(f) = E(˜x,˜q)∼P(X,Q),˜x′∼P(X),x∼A(·|˜x),x′∼A(·|˜x′)
+h
+S′(˜x, ˜q)
+ fxf T
+x′
+2i
+= E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+
+1
+c
+X
+˜q∈Q,˜y′∈Y
+S(˜x)˜y,˜qP(˜q | ˜x)
+ fxf T
+x′
+2
+
+
+= 1
+c E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+
+X
+˜y∈Y
+(S(˜x)P(q | ˜x))˜y
+ fxf T
+x′
+2
+
+
+= 1
+c E˜x,˜x′∼P(X)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h fxf T
+x′
+2i
+= 1
+c L3(f).
+(54)
+Combining the results of Equations 53 and 54, Lwsc(f) can be rewritten as follows thus finishing the proof of Equation 41.
+Lwsc(f) = −2αL1(f) −2βL2(f) + α2L3(f) + β2L4(f) + 2αβL5(f)
+= −2αL1(f) −2βL2(f) +
+ 
+α2 +
+β
+c
+2
++ 2αβ
+c
+!
+L3(f)
+= −2αL1(f) −2βL2(f) +
+
+α + β
+c
+2
+L3(f).
+(55)
+17
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+C. Proof of Section. 3
+In this section, we provide the proof detail of theorems in the Section. 3. Our theoretical framework mainly follow theoretical
+framework in HaoChen et al. 2021. In order to eliminate technical complexity, we assume vertices of augmentation graph
+have to be a finite but exponentially large set. This is a reasonable assumption given that modern computers store data with
+finite bits so the possible number of all data has to be finite, and results can been easier generalized to the infinite case
+through Theorem F.2 in HaoChen et al. 2021. Moreover, without loss of generality, we assume a uniform class distribution
+to simplify the proof.
+C.1. Proof of Theorem 3.4
+Theorem C.1. (Recap of Theorem 3.4) Given augmentation graph G with perturbation adjacency matrix A = αAu +
+βAwl(S) where S stratify properties in Proposition. 2.1, if A is γ-consistent with γ > 0 and representation dimension
+d > 2c, we have:
+ε(f ∗) ⪯˜O
+ 
+γ
+
+α∗ρu
+⌊d
+2⌋+ β∗
+
+1 −2c
+d
+−2!
+,
+(56)
+where ρu is sparsest partition of self-supervised connectivity graph Au, and α∗=
+α
+α+β/c, β∗=
+β/c
+α+β/c.
+Lemma C.2. For any proportionality constant η > 0, then linear probe error of features derived from ηA is equal to
+features derived from A.
+Proof. Assuming that g∗is features derived form ηA, then through results of Proposition. B.2, we have g∗
+x =
+G∗
+x
+√ηAx where
+G∗define as follows:
+G∗= arg min
+η eA −GGT 
+F .
+(57)
+Since η eAx,x′ =
+ηAx,x′
+√ηAx√
+ηAx′ =
+A
+√Ax√
+Ax′ = eAx,x′, we have:
+G∗= arg min
+ eA −GGT 
+F = F ∗.
+(58)
+Hence features derived form ηA can be rewritten as:
+g∗
+x =
+G∗
+x
+√ηAx
+=
+F ∗
+x
+√ηAx
+= f ∗
+x
+√η .
+(59)
+For any linear classifier B ∈Rd×c, we have:
+hg∗,B(x) = arg max
+i∈Y BT
+:,ig∗(x) = arg max
+i∈Y
+1
+√η BT
+:,if ∗(x) = hf ∗,B(x).
+(60)
+In the end, we finish the proof with:
+ε(g∗) ==
+min
+B∈Rd×c E(˜x,˜y)∼P(X,Y)
+h
+I
+h
+˜hg∗,B(˜x) ̸= ˜y
+ii
+=
+min
+B∈Rd×c E(˜x,˜y)∼P(X,Y)
+h
+I
+h
+˜hf ∗,B(˜x) ̸= ˜y
+ii
+= ε(f ∗).
+(61)
+Using results of Lemma C.2, we can assume α + β
+c = 1 in Theorem C.1 (When α + β
+c ̸= 1, we consider perturbation graph
+with A =
+α
+α+β/cAu +
+β
+α+β/cAwl ).
+We are now ready to formally prove the theorem. Our proof relies partly on the theoretical results in HaoChen et al. 2021.
+For the sake of completeness, we will restate some of the theoretical results in HaoChen et al. 2021 in this section.
+Lemma C.3. If A is γ-consistent augmentation distribution, and ˆy(x) is corresponding pseudo labeler for augmentation
+data such that satisfy condition in Definition 3.1, then for any linear classifier B and feature f, we have:
+E(˜x,˜y)∼P(X,Y)
+h
+I
+h
+˜hf,B(˜x) ̸= ˜y
+ii
+≤2
+ E˜x∼P(X),x∼A(·|˜x) [I [hf,B(x) ̸= ˆy(x)]] + γ
+
+(62)
+18
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Proof. For any ˜x that satisfy ˜hf,B(˜x) ̸= ˜y, we claim:
+Ex∼A(·|˜x) [I [hf,B(x) ̸= ˜y]] ≥1
+2.
+(63)
+Hence, we have:
+E(˜x,˜y)∼P(X,Y)
+h
+I
+h
+˜hf,B(˜x) ̸= ˜y
+ii
+≤2E(˜x,˜y)∼P(X,Y),x∼A(·|˜x) [I [hf,B(x) ̸= ˜y]]
+= 2E(˜x,˜y)∼P(X,Y),x∼A(·|˜x) [I [hf,B(x) ̸= ˜y] (I [hf,B(x) = ˆy(x)] + I [hf,B(x) ̸= ˆy(x)])]
+≤2E(˜x,˜y)∼P(X,Y),x∼A(·|˜x) [I [ˆy(x) ̸= ˜y] + I [hf,B(x) ̸= ˆy(x)]]
+≤2
+ γ + E˜x∼P(X),x∼A(·|˜x) [I [hf,B(x) ̸= ˆy(x)]]
+
+.
+(64)
+Using results of Lemma C.3, the problem has been transformed into analyzing E˜x∼P(X),x∼A(·|˜x) [I [hf,B(x) ̸= ˆy(x)]]. We
+proceed with the following analysis.
+Lemma C.4. Given a real symmetric matrix L with size of N, and ϑi, i = 1, 2, . . . d, d < N be the top-d smallest unit-norm
+eigenvector of L with eigenvalue λi (make them orthogonal in case of repeated eigenvalue), then for any vector µ ∈RN,
+there exists a vector b ∈Rd, such that:
+µ −
+d
+X
+i=1
+biϑi
+
+2
+2
+≤R(µ)
+λd+1
+∥µ∥2
+2 ,
+(65)
+where R(µ) = µT Lµ
+µT µ is the Rayleigh quotient of u.
+Proof. We first decompose µ on the basis of the space spanned by the eigenvectors µ = PN
+i=1 biϑi, then we have:
+R(µ) =
+PN
+i=1 λib2
+i
+∥µ∥2
+2
+≥λd+1
+PN
+i=d+1 b2
+i
+∥µ∥2
+2
+= λd+1
+∥µ∥2
+2
+µ −
+d
+X
+i=1
+biϑi
+
+2
+2
+(66)
+Lemma C.5. Given the pseudo-label indicator function U define as U x,i = √AxI [ˆy(x) = i] and feature F ∗derived form
+perturbation graph A with perturbation coefficients α and β satisfy α + β/c = 1, then we have:
+min
+B∈Rd×c ∥U −F ∗B∥2
+2 ≤
+2γ
+λd+1
+,
+(67)
+where λd+1 is (d+1)-th smallest eigenvalue of normalized Laplacian matrix I −eA of perturbation augmentation graph.
+Proof. According to the Eckart-Young-Mirsky theorem (Eckart and Young, 1936), F ∗contains scaling of the top-d smaller
+eigenvectors of I −eA. Using results of Lemma C.4, we have:
+min
+B∈Rd×c ∥U −F ∗B∥2
+2 =
+c
+X
+i=1
+min
+b∈Rd ∥U :,i −F ∗b∥≤
+c
+X
+i=1
+1
+λd+1
+U T
+:,i(I −eA)U :,i
+=
+1
+λd+1
+c
+X
+i=1
+
+X
+x
+AxI[ˆy(x) = i] −
+X
+x,x′
+Ax,x′I[ˆy(x) = i]I[ˆy(x′) = i]
+
+
+=
+1
+λd+1
+c
+X
+i=1
+
+X
+x,x′
+Ax,x′I[(ˆy(x) = i ∧ˆy(x′) ̸= i) ∨(ˆy(x) ̸= i ∧ˆy(x′) = i)]
+
+
+=
+1
+λd+1
+X
+x,x′
+Ax,x′I[ˆy(x) ̸= ˆy(x′)]
+(68)
+19
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Furthermore, we have:
+X
+x,x′
+Ax,x′I[ˆy(x) ̸= ˆy(x′)] = α
+X
+x,x′
+wu
+x,x′I[ˆy(x) ̸= ˆy(x′)] + β
+X
+x,x′
+wwl
+x,x′(S)I[ˆy(x) ̸= ˆy(x′)]
+= α
+X
+x,x′
+wu
+x,x′I[ˆy(x) ̸= ˆy(x′)] + β
+X
+x,x′
+wl
+x,x′I[ˆy(x) ̸= ˆy(x′)]
+= αE˜x∼P(X)
+
+X
+x,x′
+I[ˆy(x) ̸= ˆy(x′)]A(x | ˜x)A(x′ | ˜x)
+
+
++ βE(˜x,˜y),(˜x′,˜y′)∼P(X,Y)2
+
+X
+x,x′
+I[ˆy(x) ̸= ˆy(x′)]I [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)
+
+
+≤αE˜x,˜y∼P(X,Y)
+
+X
+x,x′
+(I[ˆy(x) ̸= ˜y] + I[ˆy(x′) ̸= ˜y]) A(x | ˜x)A(x′ | ˜x)
+
+
++ βE(˜x,˜y),(˜x′,˜y′)∼P(X,Y)2
+
+X
+x,x′
+(I[ˆy(x) ̸= ˜y] + I[ˆy(x′) ̸= ˜y′]) I [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)
+
+
+= 2αE˜x,˜y∼P(X,Y),x∼A(·|˜x) [I [˜y = ˆy(x)]]
++ 2βE˜x,˜y∼P(X,Y),x∼A(·|˜x),˜y′∼P(Y) [I [˜y = ˆy(x)] I [˜y = ˜y′]]
+≤2(α + β/c)γ = 2γ,
+(69)
+here the first inequality holds because:
+I[ˆy(x) ̸= ˆy(x′)] ≤I[ˆy(x) ̸= ˜y] + I[ˆy(x′) ̸= ˜y].
+(70)
+I[ˆy(x) ̸= ˆy(x′)]I [˜y = ˜y′] ≤(I[ˆy(x) ̸= ˜y] + I[ˆy(x′) ̸= ˜y′]) I [˜y = ˜y′] .
+(71)
+Finally, we substitute Formula 69 into Formula 68 to complete the proof.
+Lemma C.6. Given the pseudo-label indicator function V define as V x,i = I [ˆy(x) = i] and feature f ∗(x) =
+1
+√Ax
+ F ∗
+x,:
+T
+then we have:
+min
+B∈Rd×c E˜x∼P(X),x∼A(·|˜x) [I [hf∗,B(x) ̸= ˆy(x)]] ≤2
+min
+B∈Rd×c E˜x∼P(X),x∼A(·|˜x)
+V T
+x,: −BT f ∗(x)
+
+2
+2
+
+≤
+4γ
+λd+1
+.
+(72)
+Proof. Firstly, we prove the first inequality in the Formula 72. For any x, hf ∗,B(x) ̸= ˆy(x) there exists y′ such that
+(BT f ∗(x))y′ > (BT f ∗(x))ˆy(x), hence, we have:
+V T
+x,: −BT f ∗(x)
+
+2
+2 ≥(1 −(BT f ∗(x))ˆy(x))2 + ((BT f ∗(x))y′)2
+≥1
+2(1 −(BT f ∗(x))ˆy(x) + (BT f ∗(x))y′)2 ≥1
+2.
+(73)
+Next, we can expand E˜x∼P(X),x∼A(·|˜x)
+V T
+x,: −BT f ∗(x)
+
+2
+2
+
+and obtain:
+E˜x∼P(X),x∼A(·|˜x)
+V T
+x,: −BT f ∗(x)
+
+2
+2
+
+=
+X
+x
+P(x)
+V T
+x,: −BT f ∗(x)
+
+2
+2
+(74)
+20
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+We claim P(x) = Ax when α + β/c = 1:
+Ax = α
+X
+x′
+wu
+x,x′ + β
+X
+x′
+wl
+x,x′
+= αE˜x∼P(X)[A(x | ˜x)
+X
+x′
+A(x′ | ˜x)] + βE(˜x,˜y),(˜x′,˜y′)∼P(X,Y)2
+"
+I [˜y = ˜y′] A(x | ˜x)
+X
+x′
+A(x′ | ˜x′)
+#
+= αE˜x∼P(X)[A(x | ˜x)] + βE(˜x,˜y)∼P(X,Y),˜y′∼P(Y) [I [˜y = ˜y′] A(x | ˜x)]
+= αP(x) + β
+c P(x) = P(x)
+(75)
+By substituting Equation 75 into Equation 74, we have:
+E˜x∼P(X),x∼A(·|˜x)
+V T
+x,: −BT f ∗(x)
+
+2
+2
+
+=
+X
+x
+Ax
+V T
+x,: −BT f ∗(x)
+
+2
+2
+=
+X
+x
+U T
+x,: −BT (F ∗
+x,:)T 
+2
+2
+= ∥U −F ∗B∥2
+2 .
+(76)
+Using the results of Lemma C.5, we finish the proof of the second inequality in the Formula 72.
+Combining Lemmas C.2, C.3, C.6 , we have prove under condition in Theorem C.1:
+ε(f ∗) ≤2
+
+4
+λd+1
++ 1
+
+γ,
+(77)
+where λd+1 is d + 1-th smallest eigenvalue of normalized Laplacian matrix of perturbation graph.
+The following lemma establishes the relationship between this eigenvalue and graph connectivity, allowing us to get rid of
+the dependency on λd+1.
+Lemma C.7. (Higher-order Cheeger’s inequality, Proposition. 1.2 in Louis and Makarychev 2014) Let G = (V, E) be a
+weight graph with |V | = N. Then for any t ∈[N] and ζ > 0 such that (1 + ζ)t ∈[N], there exist a partition Ω1, . . . , Ωt of
+V with:
+ΦG(Ωi) ⪯poly
+1
+ζ
+ q
+λ(1+ζ)t log t, ∀i ∈[t].
+(78)
+In Lemma C.7, we take ζ = 1 and (1 + ζ)t = 2t = d + 1, there exist a partition Ωi, . . . , Ω⌊d/2⌋such that
+maxi∈[⌊d/2⌋] ΦG(Ωi) ⪯
+p
+λd+1 log (d + 1). We take ρ as sparest partition of perturbation graph. By Definition 3.3,
+we have ρ⌊d/2⌋≤maxi∈[⌊d/2⌋] ΦG(Ωi) ⪯
+p
+λd+1 log (d + 1) which leads to there exist a constant η(d) such that
+1
+λd+1 ≤η(d)
+1
+ρ2
+⌊d/2⌋. The following lemma bounds the sparest partition of perturbation graph.
+Lemma C.8. Given perturbation graph with Ax,x′ = wx,x′ = αwu
+x,x′ + βwwl
+x,x′(S) where α + β/c = 1, and self-
+connectivity graph Au
+x,x′ with sparest partition ρu, then we have lower bounds of sparest partition ρ of graph A as
+follows:
+ρd ≥αρu
+d + β
+c (1 −c
+d).
+(79)
+21
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Proof. Firstly, for any subset Ωof augmentation data points, we have:
+ΦA(Ω) =
+P
+x∈Ω,x′ /∈Ωwx,x′
+P
+x∈Ωwx
+=
+P
+x∈Ω,x′ /∈Ωαwu
+x,x′ + βwwl
+x,x′(S)
+P
+x∈Ωwx
+=
+P
+x∈Ω,x′ /∈Ωαwu
+x,x′ + βwl
+x,x′
+P
+x∈Ωwx
+=
+P
+x∈Ω,x′ /∈Ωαwu
+x,x′ + βwl
+x,x′
+P(Ω)
+= α
+P
+x∈Ω,x′ /∈Ωwu
+x,x′
+P(Ω)
++ β
+P
+x∈Ω,x′ /∈Ωwl
+x,x′
+P(Ω)
+= α
+P
+x∈Ω,x′ /∈Ωwu
+x,x′
+P
+x∈Ωwux
++ β
+c
+P
+x∈Ω,x′ /∈Ωwl
+x,x′
+P
+x∈Ωwlx
+.
+= αΦAu(Ω) + β
+c ΦAl(Ω),
+(80)
+here the 4-th and 6-th equality derived from Equation 75.
+Hence we have lower bounds of ρd as follows:
+ρd =
+min
+Ω1,...,Ωd max{ΦA(Ω1), . . . , ΦA(Ωd)}
+=
+min
+Ω1,...,Ωd max{αΦAu(Ω1) + β
+c ΦAl(Ω1), . . . , αΦAu(Ωd) + β
+c ΦAl(Ωd)}
+≥α
+min
+Ω1,...,Ωd max{ΦAu(Ω1), . . . , ΦAu(Ωd)} + β
+c
+min
+Ω1,...,Ωd max{ΦAl(Ω1), . . . , ΦAl(Ωd)}
+= αρu
+d + β
+c ρl
+d,
+(81)
+here the inequality holds because taking the minimum separately is always less than taking the minimum simultaneously.
+In the following text, we prove that ρl
+d ≥(1 −c
+d) to finish the proof of Lemma C.8. For any subset Ω, we can compute
+ΦAl(Ω) as follows:
+ΦAl(Ω) =
+P
+x∈Ω,x′ /∈Ωwl
+x,x′
+P
+x∈Ωwx
+=
+P
+x∈Ω,x′ /∈Ωwl
+x,x′
+P(Ω)/c
+=
+E(˜x,˜y),(˜x′,˜y′)∼P(X,Y)2
+hP
+x∈Ω,x′ /∈ΩI [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)
+i
+Pc
+i=1
+1
+c2 P(Ω| ˜y = c)
+=
+E(˜x,˜y),(˜x′,˜y′)∼P(X,Y)2
+hP
+x∈Ω,x′ /∈ΩI [˜y = ˜y′] A(x | ˜x)A(x′ | ˜x′)
+i
+Pc
+i=1
+1
+c2 P(Ω| ˜y = c)
+=
+1
+c2
+Pc
+i=1 E(˜x,˜x′)∼P(·|˜y=i)2
+hP
+x∈Ω,x′ /∈ΩA(x | ˜x)A(x′ | ˜x′)
+i
+Pc
+i=1
+1
+c2 P(Ω| ˜y = c)
+=
+Pc
+i=1 E(˜x,˜x′)∼P(·|y=i)2
+hP
+x∈Ω,x′ /∈ΩA(x | ˜x)A(x′ | ˜x′)
+i
+Pc
+i=1 P(Ω| ˜y = i)
+=
+Pc
+i=1 P(Ω| ˜y = i)(1 −P(Ω| ˜y = i))
+Pc
+i=1 P(Ω| ˜y = i)
+.
+(82)
+For any partition Ω1, . . . , Ωd of augmentation graph, we claim that they must satisfy conditions as follows:
+Pd
+i=1 P(Ωi | ˜y = j) = 1,
+∀j ∈[c]
+Pc
+j=1 P(Ωi | ˜y = j) > 0,
+∀i ∈[d].
+.
+22
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Hence, when take P(Ωi | ˜y = j) = ωi,j, we have:
+ρl
+d ≥min
+w Ψ(ω) = min
+ω
+max
+i∈[d]
+Pc
+j=1 ωi,j(1 −ωi,j)
+Pc
+j=1 ωi,j
+s.t.
+d
+X
+i=1
+ωi,j = 1,
+∀j ∈[c]
+c
+X
+j=1
+ωi,j > 0,
+∀i ∈[d]
+0 ≤ωi,j ≤1,
+∀i ∈[c], j ∈[d].
+(83)
+We claim that the ω∗that minimizes the constrained minimization problem defined by Formula 83 should satisfy the
+condition: there exists i∗, j∗= arg mini,j:ω∗
+i,j>0 ω∗
+i,j such that ω∗
+i∗,j = 0, ∀j ∈[c] \ j∗and Ψ(ω∗) = 1 −ω∗
+i∗,j∗.
+To view that, one the one hand, for any ω break this condition, we can construct a w′ such that Ψ(ω′) < Ψ(ω) as follows:
+ω′
+i∗,j∗= 0, ω′
+1,j∗= ω1,j∗+ ωi∗,j∗
+ω′
+i,j = ωi,j,
+otherwise,
+(84)
+here we assume ω1,j∗> 0. In order to verify Ψ(ω′) < Ψ(ω), we first notice that:
+Pc
+j=1 ω′
+i∗,j(1 −ω′
+i∗,j)
+Pc
+j=1 ω′
+i∗,j
+=
+P
+j̸=j∗ωi∗,j(1 −ωi∗,j)
+P
+j̸=j∗ωi∗,j
+≤
+Pc
+j=1 ωi∗,j(1 −ωi∗,j)
+Pc
+j=1 ωi∗,j
+,
+(85)
+here the inequality holds because for any j ̸= j∗, we have 1 −ωi∗,j ≤1 −ωi∗,j∗.
+Furthermore, we also notice that:
+Pc
+j=1 ω′
+1,j(1 −ω′
+1,j)
+Pc
+j=1 ω′
+1,j
+=
+P
+j̸=j∗ω1,j(1 −ω1,j) + (ω1,j∗+ ωi∗,j∗)(1 −ω1,j∗−ωi∗,j∗)
+P
+j̸=j∗ω1,j + ω1,j∗+ ωi∗,j∗
+≤
+P
+j̸=j∗ω1,j(1 −ω1,j) + ω1,j∗(1 −ω1,j∗)
+P
+j̸=j∗ω1,j + ω1,j∗
+=
+Pc
+j=1 ω1,j(1 −ω1,j)
+P
+j̸=j∗ω1,j
+.
+(86)
+Combining Formulas 85 and 86, we have Ψ(ω′) < Ψ(ω).
+On the other hand, when the condition is met, for any i ̸= i∗, we have:
+Pc
+j=1 ωi,j(1 −ωi,j)
+Pc
+j=1 ωi,j
+≤1 −wi∗,j∗,
+(87)
+here the inequality holds because for any j with ωi,j ̸= 0, we have 1 −wi,j < 1 −wi∗,j∗.
+Utilizing the above results, we can rewrite the constrained optimization problem as follows:
+min
+ω 1 −ωi∗,j∗
+s.t.
+d
+X
+i=1
+ωi,j = 1,
+∀j ∈[c]
+c
+X
+j=1
+ωi,j > 0,
+∀i ∈[d]
+0 ≤ωi,j ≤1,
+∀i ∈[c], j ∈[d]
+ωi∗,j = 0, ∀j ∈[c] \ j∗,
+(88)
+where i∗, j∗= arg mini,j ωi,j. Furthermore, for any ω that satisfies the constraint of the above Formula 88, we have
+c = P
+i,j ωi,j ≥dωi∗,j∗through there are at least d non-zero elements in ωi,: for any i ∈[d]. Substituting this result into
+Equation 83, We have proved that ρl
+d ≥1 −c
+d, thereby completing the proof.
+23
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Finally, we combine the results of Lemma C.8 and Equation 77 to complete the final proof of Theorem C.1.
+Proof of Theorem C.1. By substituting Formula 79 into Formula 77 using Lemma C.7, we obtain the following bound,
+thereby completing the proof of Theorem C.1.
+ε(f ∗) ≤2
+
+4
+λd+1
++ 1
+
+γ ≤η(d)
+γ
+ρ2
+⌊d/2⌋
+≤η(d)
+ 
+γ
+
+αρu
+⌊d/2⌋+ β
+c (1 −2c
+d )
+−2!
+(89)
+C.2. Proof of Theorem 3.7
+Theorem C.9. (Recap of Theorem 3.7) Given F, assuming ∥F∥∞= κ < +∞, for a random training dataset D = DQ∪DU
+with nq and nu samples respectively. Then with probability at least 1 −δ, we have:
+Lwsc( bf(D, c
+S)) −Lwsc(f ∗) ≤
+ α + (α + β/c)2
+ 
+η0 bR nq+nu
+2
+(F) + η1
+ s
+log 2/δ
+nq + nu
++ δ
+2
+!!
++ β sup
+x∈X
+bS(x)T bS(x)
+
+∞
+ 
+η2 bR nq
+2 (F) + η3
+ s
+log 2/δ
+nq
++ δ
+2
+!!
++ βη4∆(bS),
+(90)
+where η0 ⪯κd + κ2d2; η1 ⪯κ2d + κ4d2; η2 ⪯κd; η3, η4 ⪯κ2d are constants related to ∥F∥∞and feature dimension d.
+Definition C.10. (Empirical weakly-supervised spectral contrastive loss under uniform class distribution) Given constructed
+bS : X →Rc×n and considering training dataset with corresponding weakly-supervised information DQ = {(xi, qi)nq
+i=1}
+and training dataset without any supervised information DU = {(xi)nq+nu
+i=nq+1}, we define empirical weakly-supervised
+spectral contrastive under uniform class distribution as follows:
+bLwsc(f; D, bS) = EX1
+Q,X2
+Q∼f(A(·|DQ)2),)X1
+U,X2
+U∼f(A(·|D)2
+h
+bLwsc(X1
+Q, X2
+Q, X1
+U, X2
+U, bS, Q)
+i
+= Ex1
+i ,x2
+i ∼A(·|xi)2
+
+−2α
+1
+nu + nq
+nu+nq
+X
+i=1
+f(x1
+i )f(x2
+i )T + (α + β/c)2
+1
+(nu + nq)2
+nu+nq
+X
+i=1
+nu+nq
+X
+j=1
+ f(x1
+i )f(x2
+i )T 2
+
+
++ Ex1
+i ,x2
+i
+
+−2β 1
+n2q
+nq
+X
+i=1
+nq
+X
+j=1
+bS(xi)T
+:,qi bS(xi):,qjf(x1
+i )f(x2
+i )T
+
+
+(91)
+Giving bf(D, bS) = arg min bLwsc(f; D, bS) in Definition C.10.
+The follow lemma decompose the error bound of
+Lwsc( bf(D, c
+S)) −Lwsc(f ∗) .
+Lemma C.11. We define bLwsc(f; bS) as expected weakly-supervised spectral contrastive loss using constructed bS, then we
+have:
+Lwsc( bf(D, bS)) −Lwsc(f ∗) ≤2 sup
+f∈F
+
+bLwsc(f; D, bS) −bLwsc(f; bS)
+
++ 2 sup
+f∈F
+ bLwsc(f; bS) −bLwsc(f)
+
+(92)
+Proof. On the one hand, we have:
+
+Lwsc( bf(D, bS)) −Lwsc(f ∗)
+
+−
+
+bLwsc( bf(D, bS); bS) −bLwsc(f ∗; bS)
+
+≤
+Lwsc( bf(D, bS)) −bLwsc( bf(D, bS); bS)
+ +
+Lwsc(f ∗) −bLwsc(f ∗; bS)
+
+≤2 sup
+f∈F
+ bLwsc(f; bS) −Lwsc(f)
+ .
+(93)
+24
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+On the other hand, we have:
+bLwsc( bf(D, bS); bS)−bLwsc(f ∗; bS) = bLwsc( bf(D, bS); bS) −bLwsc( bf(D, bS); D, bS)
++ bLwsc( bf(D, bS); D, bS) −bLwsc(f ∗; D, bS) + bLwsc(f ∗; D, bS) −bLwsc(f ∗; bS)
+≤2 sup
+f∈F
+
+bLwsc(f; D, bS) −bLwsc(f; bS)
+
+.
+(94)
+Combining Formulas 93 and 94 completes the proof.
+We first bounds the first term in Formula 92. It is direct to see that bLwsc(f; D, bS) is an unbiased estimator of bLwsc(f; bS),
+to make use of the Rademacher complexity theory to given a generalize bound of this term, we convert the non sum of i.i.d
+pairwise function to a sum of i.i.d form by using perturbations in U-process (Cl´emenc¸on et al., 2008).
+Definition C.12. (Sub-sampling for empirical weakly-supervised spectral contrastive loss) We sample tuples to calculate
+the empirical weakly-supervised spectral contrastive loss as follows:
+x1
+i , x2
+i ∼A(· | xi)2,
+i = 1, . . . , nq + nu
+(95)
+bLwsc(f; D, bS) = −2α 2
+n
+n/2
+X
+i=1
+f(x1
+i )f(x2
+i )T + (α + β/c)2 2
+n
+n/2
+X
+i=1
+
+f(x1
+i )f(x2
+i+(n/2))T 2
+−2β 2
+nq
+nq/2
+X
+i=1
+bS(xi)T
+:,qi bS(xi+nq/2):,qi+nq/2f(x1
+i )f(x2
+i+nq/2)T
+= bLu
+wsc(f; D, bS) + bLl
+wsc(f; D, bS)
+(96)
+The following lemma reveals the relationship between the Rademacher complexity of feature extractors and the Rademacher
+complexity of the loss defined on U-process sub-sampling.
+Lemma C.13. Let F be a hypothesis class of feature extractors from X to R. Assume ∥F∥∞= κ and let bRn(F) be
+maximal possible empirical Rademacher complexity for feature extractor in Definition 3.5, then we can bounds empirical
+Rademacher complexity on sub-sampling samples as follows:
+Eσ
+
+sup
+f∈F
+1
+n/2
+n/2
+X
+i=1
+σif(x1
+i )f(x2
+i )T
+
+≤8dκ bRn/2(F)
+(97)
+Eσ
+
+sup
+f∈F
+1
+n/2
+n/2
+X
+i=1
+σi
+
+f(x1
+i )f(x2
+i+n/2)T 2
+
+≤16d2κ2 bRn/2(F)
+(98)
+Eσ
+
+sup
+f∈F
+1
+nq/2
+nq/2
+X
+i=1
+σibS(xi)T
+:,qi bS(xi+nq/2):,qi+nq/2f(x1
+i )f(x2
+i+nq/2)T
+
+≤sup
+x∈X
+bS(x)T bS(x)
+
+∞8dκ bRnq/2(F)
+(99)
+Proof. We first proof Formula 97 as follows:
+Eσ
+
+sup
+f∈F
+1
+n/2
+n/2
+X
+i=1
+σif(x1
+i )f(x2
+i )T
+
+= Eσ
+
+sup
+f∈F
+1
+n/2
+n/2
+X
+i=1
+σi
+d
+X
+j=1
+fj(x1
+i )fj(x2
+i )
+
+
+≤d max
+x1
+i ,x2
+i
+max
+j∈[d] Eσ
+
+sup
+fj∈Fj
+1
+n/2
+n/2
+X
+i=1
+σifj(x1
+i )fj(x2
+i )
+
+.
+(100)
+25
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+For any x1
+i , x2
+i and j, we use Talagrand’s lemma to bound the end term of Formula 100:
+Eσ
+
+sup
+fj∈Fj
+1
+n/2
+n/2
+X
+i=1
+σifj(x1
+i )fj(x2
+i )
+
+
+= Eσ
+
+sup
+fj∈Fj
+1
+n/2
+n/2
+X
+i=1
+σi
+1
+2
+ fj(x1
+i ) + fj(x2
+i )
+2 −1
+2
+ fj(x1
+i ) −fj(x2
+i )
+2
+
+≤1
+2Eσ
+
+sup
+fj∈Fj
+1
+n/2
+n/2
+X
+i=1
+σi
+ fj(x1
+i ) + fj(x2
+i )
+2
+
++ 1
+2Eσ
+
+sup
+fj∈Fj
+1
+n/2
+n/2
+X
+i=1
+σi
+ fj(x1
+i ) −fj(x2
+i )
+2
+
+
+≤4κ
+
+Eσ
+
+sup
+fj∈Fj
+1
+n/2
+n/2
+X
+i=1
+σifj(x1
+i )
+
++ Eσ
+
+sup
+fj∈Fj
+1
+n/2
+n/2
+X
+i=1
+σifj(x2
+i )
+
+
+
+.
+(101)
+Combining results of Formulas 100 and 101, we can get Formula 97.
+Next, we also use Talagrand’s lemma to bound LHS of Formula 98 as follows:
+Eσ
+
+sup
+f∈F
+1
+n/2
+n/2
+X
+i=1
+σi
+
+f(x1
+i )f(x2
+i+n/2)T 2
+
+≤2dκEσ
+
+sup
+f∈F
+1
+n/2
+n/2
+X
+i=1
+σif(x1
+i )f(x2
+i+n/2)T
+
+
+≤2d2κ
+max
+x1
+i ,x2
+i+n/2
+max
+j∈[d] Eσ
+
+σ 1
+n/2
+n/2
+X
+i=1
+σifj(x1
+i )fj(x2
+i+n/2)
+
+
+≤16d2k2 bRn/2(F),
+(102)
+where the first inequality follows from Talagrand’s lemma, and the second and third inequalities result from Formulas 100
+and 101, respectively.
+In the end, we consider gbS,q(f(x1
+i )f(x2
+i+nq/2)) = bS(xi)T
+:,qi bS(xi):,qjf(x1
+i )f(x2
+i+nq/2)T is supx∈X
+bS(x)T bS(x)
+
+∞- Lip-
+chitz continuous, hence we can use Talagrand’s lemma to bound LHS of Formula 99:
+Eσ
+
+sup
+f∈F
+1
+nq/2
+nq/2
+X
+i=1
+σibS(xi)T
+:,qi bS(xi+nq/2):,qi+nq/2f(x1
+i )f(x2
+i+nq/2)T
+
+
+≤sup
+x∈X
+bS(x)T bS(x)
+
+∞Eσ
+
+sup
+f∈F
+1
+nq/2
+nq/2
+X
+i=1
+σif(x1
+i )f(x2
+i+nq/2)T
+
+
+≤8dκ sup
+x∈X
+bS(x)T bS(x)
+
+∞
+bRnq/2(F),
+(103)
+where the second inequality is directed results of Formula 97 which we have already proved in the previous text.
+Lemma C.14. Let F be a hypothesis class of feature extractors from X to R. Assuming ∥F∥∞= κ. Then with probability
+at least 1 −δ over random training set Dq and Du, we have :
+sup
+f∈F
+
+bLwsc(f; D, bS) −bLwsc(f; bS)
+
+≤
+ α + (α + β/c)2
+ 
+η0 bR nq+nu
+2
+(F) + η1
+ s
+log 2/δ
+nq + nu
++ δ
+2
+!!
++ β sup
+x∈X
+bS(x)T bS(x)
+
+∞
+ 
+η2 bR nq
+2 (F) + η3
+ s
+log 2/δ
+nq
++ δ
+2
+!!
+,
+(104)
+where η is constant related to ∥F∥∞and feature dimension d.
+26
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Proof. For convenience, we will abbreviate α + (α + β/c)2 as η(α, β). On one hand, note that fact −2αf(x1
+i f(x2
+i )T ) +
+(α + β/c)2 
+f(x1
+i )f(x2
+i+(n/2))T 2
+takes values in range
+
+−2ακ2d, 2ακ2d + (α + β/c)2κ4d2
+, we apply standard gener-
+alization analysis based on Rademacher complexity and get: with probability at least 1 −δ2
+4 over the randomness of D and
+corresponding sub-sampling tuples, we have, for any f ∈F:
+bLu
+wsc(f; D, bS) −ED
+h
+bLu
+wsc(f; D, bS)
+i
+≤η(α, β)
+ 
+32
+ κd + κ2d2 bRn/2(F) +
+ 4κ2d + κ4d2
+s
+log 2/δ
+nq + nu
+!
+.
+(105)
+This means with probability at least 1−δ over D, we have: with probability at least 1−δ/2 over corresponding sub-sampling
+tuples condition on D, Formula 105 holds. Hence, with probability at least probability 1 −δ/2 over D, we have:
+bLu
+wsc(f; D, bS) −ED
+h
+bLu
+wsc(f; D, bS)
+i
+≤η(α, β)
+ 
+32
+ κd + κ2d2 bRn/2(F) +
+ 4κ2d + κ4d2
+ s
+log 2/δ
+nq + nu
++ δ
+2
+!!
+.
+(106)
+On the other hand, note that fact −2βf(x1
+i )f(x2
+i+nq/2)T takes values in range
+
+−2βκ2d, 2βκ2d
+
+and using the exact same
+analysis process as above, we can obtain: with probability at least 1 −δ/2 over the randomness of D, for any f ∈F:
+bLl
+wsc(f; D, bS) −ED
+h
+bLl
+wsc(f; D, bS)
+i
+≤β sup
+x∈X
+bS(x)T bS(x)
+
+∞
+ 
+32κd bR nq
+2 (F) + 4κ2d
+ s
+log 2/δ
+nq
++ δ
+2
+!!
+(107)
+By combining Formulas 106 and 107 with facts bLwsc(f; bS) = ED
+h
+bLu
+wsc(f; D, bS) + bLl
+wsc(f; D, bS)
+i
+, The proof can be
+concluded.
+We next bound the second term in Formula 92. The following lemma bounds supf∈F
+ bLwsc(f; bS) −Lwsc(f)
+.
+Lemma C.15. Let F be a hypothesis class of feature extractors from X to Rd with ∥F∥∞= κ. Then we have:
+sup
+f∈F
+ bLwsc(f; bS) −Lwsc(f)
+ ≤6κ2d∆(bS)
+(108)
+Proof. We expand
+ bLwsc(f; bS) −bLwsc(f)
+ and obtain for any f ∈F:
+ bLwsc(f; bS) −bLwsc(f)
+ ≤2β
+E(˜x,˜q),(˜x′,˜q′)∼P(X,Q)2,x∼A(·|˜x),x′∼A(·|˜x′)
+h
+bS(˜x)T
+:,˜q bS(˜x′):,˜q′ −S(˜x)T
+:,˜qS(˜x′):,˜q′
+
+fxf T
+x′
+i
+≤2κ2dβ
+E˜x,˜x′∼P(X)2
+h
+bS(˜x)T
+:,˜q bS(˜x′):,˜q′ −S(˜x)T
+:,˜qS(˜x′):,˜q′
+i
+= 2κ2dβ
+E˜x,˜x′∼P(X)2
+h
+P(q | ˜x)T 
+bS(˜x)T bS(˜x′) −S(˜x)T S(˜x′)
+
+P(q | ˜x′)
+i
+= 2κ2dβ
+E˜x,˜x′∼P(X)2
+h
+P(q | ˜x)T bS(˜x)T bS(˜x′)P(q | ˜x′) −P(y | ˜x)T P(y | ˜x′)
+i
+≤6κ2dβE˜x∼P(X)
+hP(y | ˜x) −bS(˜x)P(q | ˜x)
+
+1
+i
+= 6κ2d∆(bS),
+(109)
+here the 5-th inequality holds because we have:
+|P(q | ˜x)T bS(˜x)T bS(˜x′)P(q | ˜x′) −P(y | ˜x)T P(y | ˜x′)| ≤|P(y | ˜x′)T 
+P(y | ˜x) −bS(˜x)P(q | ˜x)
+
+|
++ |P(y | ˜x)T 
+P(y | ˜x′) −bS(˜x′)P(q | ˜x′)
+
+|
++ |
+
+P(y | ˜x) −bS(˜x)P(q | ˜x)
+T 
+P(y | ˜x′) −bS(˜x′)P(q | ˜x′)
+
+|
+≤2
+P(y | ˜x) −bS(˜x)P(q | ˜x)
+
+1 +
+P(y | ˜x′) −bS(˜x′)P(q | ˜x′)
+
+1
+(110)
+27
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Finally, we combine the results of Lemmas C.11, C.14, C.15 to complete the final proof of Theorem C.9.
+Proof of Theorem C.9. Take η0 = 64(κd+κ2d2), η1 = 8κ2d+2κ4d2, η2 = 64κd, η3 = 8κ2d, η4 = 24κ2d.By substituting
+the results of Lemmas C.14 and C.11 into Formula 92, and then the proof can be completed.
+C.3. Detail of Corollary 3.8
+By substituting Theorems 3.4 and 3.7 into Theorem D.7 in HaoChen et al. 2021, the corollary can be directly obtained. We
+restate Theorem D.7 in HaoChen et al. 2021 as follows:
+Theorem C.16. (Theorem D.7 in HaoChen et al. 2021) Assume representation dimension d > 4r + 2, Recall λi be the i-th
+largest eigenvalue of the normalized adjacency matrix. Then, for any ϵ > 0 and bf ∈F such that Lwsc( bf) ≤Lwsc(f ∗) + ϵ,
+we have:
+ε( bf) ≤ε(f ∗) + d
+∆2
+λ
+ϵ,
+(111)
+where ∆λ ≜λ⌊3d/4⌋−λd is the eigenvalue gap between the ⌊3d/4⌋-th and the d-th eigenvalue.
+D. Related Work
+Many methods have been developed to solve various weakly-supervised learning problems. At the same time, research on
+representation learning has also made significant breakthroughs in recent years. In this section, we revisit these related work
+and divide them into two parts: weakly-supervised learning and representation learning.
+D.1. Weakly-Supervised Learning
+In real world, the widely existing supervised information is weakly-supervised information which is either inaccurate or
+ambiguous. In order to enable effective and accurate learning from this weakly-supervised information, previous work
+has proposed a series of methods for weakly-supervised learning. The two typical paradigms related to weakly-supervised
+learning are noisy label learning (NLL) and partial label learning (PLL) , which is what we will introduce in this section.
+Noisy Label Learning (NLL). Noisy labels may be caused by annotation errors, and overfitting to these label errors
+will lead to poor model performance (Zhang et al., 2021a; Wei et al., 2024; Li et al., 2023). Several strategies have been
+developed to mitigate the label noise. The mainstream of NLL methods cover the following aspects: using robust loss
+function (Zhang and Sabuncu, 2018; Wang et al., 2019), modeling the noise transfer matrix, performing sample selection
+and correcting incorrect labels. In particular, label correction methods have shown promising results than other methods in
+noisy label learning. Liu et al. 2020 prove that the model can accurately predict a subset of mislabeled examples during the
+early learning phase. This observation implies a potential strategy for rectifying the corresponding labels, which can be
+achieved by generating novel labels tantamount to either soft or hard pseudo-labels estimated via the model (Tanaka et al.,
+2018). Han et al. 2018 propose Co-teaching which trains two different networks for the label correction. Inspired by the fact
+that clean samples have a smaller loss in the early learning stage, Arazo et al. 2019 apply a mixture model to the losses
+of each sample to estimate the probability that a sample is mislabeled and correct the loss based on the prediction of the
+network. Similar to the previous two methods, DivideMix (Li et al., 2020), deploys two neural networks to conduct mutual
+sample selection and apply semi-supervised learning methodology, where the targets are computed based on the average
+predictions obtained from different data augmentations.
+Partial Label Learning (PLL). Partial labels, while preventing the omission of the correct label, introduce greater ambiguity
+into the labeling process. The prior works can be divided into average-based strategies and identification-based strategies.
+The average-based methods usually treat all candidate labels equally. Lv et al. 2023 discussed and analyzed the robustness
+performance of different average-based loss. However, those methods may introduce the misleading false positive label into
+the training process. To overcome these limitations, identification-based strategies, which regard the correct label as a latent
+variable and aim to identify it from the candidate label set, have drawn intensive attention and achieved remarkable progress.
+PRODEN (Lv et al., 2020) and CC (Feng et al., 2020b) utilize the predictions generated by the predictive model as label
+information, thus assigning more weights to labels that are more likely to be correct. Wen et al. 2021 propose a family of
+loss functions for label disambiguation. Wu et al. 2022 perform supervised learning on non-candidate labels and employ
+consistency regularization on candidate labels.
+28
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+In recent years, a more practical setting called instance-dependent partial label learning (IDPLL) has also received
+considerable attention. In IDPLL, the candidate set is generated from labels that have a certain semantic similarity with
+the true label, which also increases the difficulty of disambiguation. Qiao et al. 2023b propose to explicitly model the
+instance-dependent generation process by decomposing it into separate generation steps. Wu et al. 2024 introduce a novel
+rectification process to ensure that candidate labels consistently receive higher confidence than non-candidates. He et al.
+2023 propose a two-stage framework employing normalized entropy for selective disambiguation of well-disambiguated
+examples. CEL (Yang et al., 2025) employs a class associative loss to enforce intra-candidate similarity and inter-set
+dissimilarity among the class-wise embeddings for each sample.
+Some research has also turned to trying to use a more unified framework to solve both NLL and PLL problems. ULAREF
+(Qiao et al., 2024) improves the reliability of label refinement by globally detecting the reliability of the prediction model
+and locally enhancing the supervision signal, thereby improving the performance of the prediction model. GFWS (Chen
+et al., 2024) treat the ground-truth labels as latent variables and try to model the entire distribution of all possible labeling
+entailed by weakly-supervised information, thus allowing a unified solution to deal with NLL and PLL. Although these
+methods try to uniformly exploit the common features of weakly-supervised information to solve the weakly-supervised
+learning challenges, they all ignore the potential of high-quality representations to achieve label disambiguation.
+D.2. Representation Learning and Weakly-Supervised Representation Learning
+In recent years, contrastive learning has become dominant in representation learning because they can learn more distinct
+representations. A plethora of works has explored the effectiveness of contrastive learning in unsupervised representation
+learning (He et al., 2020; Oord et al., 2018; Chen et al., 2020; Caron et al., 2020; Zbontar et al., 2021). Meanwhile, there are
+also many works trying to introduce more information into contrastive learning or bring new insights from different views
+(Khosla et al., 2020; HaoChen et al., 2021; Sun et al., 2023; Cui et al., 2023; Zhou et al., 2024).
+Khosla et al. 2020 attempt to introduce supervised information into contrastive learning. The approach regards samples
+in same classes as positive samples and achieves significant performance improvements on multiple supervised learning
+tasks. Due to the success of contrastive learning, many researchers have made a lot of attempts to improve the performance
+on weakly-supervised learning incorporated with the advantages of contrastive learning. On the line of NLL, the role of
+contrastive learning is different. MOIT (Ortego et al., 2021) uses the agreement between the features learned by contrastive
+learning and the original labels to identify mislabeled samples. Sel-CL (Li et al., 2022) utilizes k-nn nearest neighbors to
+select confident sample pairs and use these sample pairs for supervised contrastive learning. TCL (Huang et al., 2023) uses a
+Gaussian mixture model to disambiguate labels, and then uses self-supervised contrastive learning to further learn more
+robust representations. For PLL, PiCO (Wang et al., 2022) integrates contrastive learning with prototype learning. The
+former facilitates the formation of well-structured clusters, which in turn enables prototype learning to acquire prototype
+representations. The latter assists in the selection of positive samples for contrastive learning.
+On the other hand, some researchers try to view and explain contrastive learning from different perspectives. Inspired
+by the widespread application of spectral graph theory in the field of machine learning, HaoChen et al. 2021 first regard
+contrastive learning as a problem of graph clustering on augmentation graph and introduce a spectral contrastive loss, which
+greatly promoted the progress of unsupervised contrastive learning. Along this line, Sun et al. 2023 introduce supervised
+information to this spectral contrastive learning framework, transforming the augmentation graph in the original problem
+into a perturbation graph, thus achieving great performance improvement on open-world semi-supervise learning task.
+Despite their success in the respective field, they all overlooked the importance of correctly utilizing weakly-supervised
+information. Relevant theories and experiments have verified that simply introducing inaccurate noise labels for contrastive
+learning is ineffective and even harmful (Cui et al., 2023). Therefore, it is necessary to design a special contrastive learning
+framework for weakly-supervised information. Overall, our method is the first approach to utilize weakly-supervised
+information for contrastive learning from a graph spectral theory perspective. Sufficient experiments and complete and
+rigorous theory guarantee the effectiveness of the proposed method.
+E. Implementation Details
+In this section, we provide more details on the implementation of our approach. In general, our proposed framework contains
+three training strategies: supervised loss, strong-weak augmentation consistency regularization (Xie et al., 2020), and the
+proposed weakly-supervised contrastive learning (WSC) loss. Among them, the supervised loss varies with different settings,
+29
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+while the other two losses do not change with the setting.
+Specifically, given any sample x, its weakly-supervised information can be denoted as q ∈Q. Let the extracted feature
+embedding be f(x), the final probability prediction of the neural network be g(x), and the strong augmentation function be
+As(·). Our method can be formalized as:
+L(x, q) = Lsup(g(x), q) + LCE(g(As(x)), ˜g(Aw(x))) + Lwsc(f),
+(112)
+where ˜g(x) means the prediction is made by a fixed copy of current model, indicating that the gradient is not propagated.
+The first term in equation 112 means the supervised loss which will be introduced next. The second term is the so called
+strong-weak augmentation consistency regularization, which consistently utilize the prediction of the weakly-augmented
+data to train the strongly-augmented data, and it is commonly used in weakly-supervised learning (Xie et al., 2020; Wang
+et al., 2022; Wu et al., 2022; Chen et al., 2024). The third term is the proposed WSC loss, which needs at least three inputs:
+the embeddings of the features of two different views of the sample and the constructed matrix bS. In this paper, we compute
+this loss through Algorithm 1 which assumes a uniform class distribution, pseudo code of computing WSC loss without this
+assumption can be found in Algorithm 2. We left method for construct bS in next section.
+E.1. Noisy Label Learning
+Setup. For CIFAR-10 and CIFAR-100, an 18-layer PreAct ResNet is employed and stochastic gradient descent (SGD) is
+utilized for training with a momentum value of 0.9, a weight decay factor of 0.001, and a batch size of 128 over a total
+of 250 epochs. The initial learning rate is set to 0.02 and adjusted by a cosine learning rate scheduler. In our framework,
+both the projection head and the classification head are configured as a two-layer Multilayer Perceptron (MLP) with a
+dimension of 256 and the number of classes. The parameters are set to α = 1, β = 12 for CIFAR-10 and α = 2, β = 300
+for CIFAR-100. Additionally, for CIFAR-100, the last term of our loss function is scaled by a factor of 3. In addition, we
+also conduct experiments on CIFAR-10N and CIFAR-100N, where we use a 34-layer ResNet as the backbone for feature
+extraction, others are same as the previous one. Besides, a 50-layer ResNet pretrained with ImageNet-1K was used to train
+for 15 epochs on Clothing1M. The batch size are set to be 64 and the initial learning rate is 0.002 and then multiply by a
+factor of 0.1 in the 7th epoch. We also set α = 1, β = 28. The detailed hyper-parameters are presented in Table 4.
+Table 4. Hyper-parameters for noisy label learning used in experiments.
+Hyper-parameter
+CIFAR-10 (CIFAR-10N)
+CIFAR-100 (CIFAR-100N)
+Clothing1M
+Image Size
+32
+32
+224
+Model
+PreAct-ResNet-18 (ResNet-34)
+PreAct-ResNet-18 (ResNet-34)
+ResNet-50
+(ImageNet-1K Pretrained)
+Batch Size
+128
+128
+64
+Learning Rate
+0.02
+0.02
+0.002
+Weight Decay
+1e-3
+1e-3
+1e-3
+LR Scheduler
+Cosine
+Cosine
+MultiStep
+Training Epochs
+250
+250
+15
+Classes
+10
+100
+14
+α
+1
+2
+1
+β
+12(6)
+300
+28
+Baselines. The performance of proposed method for noisy label is compared against ten baselines:
+• CE, which utilizes the standard cross-entropy loss directly to train the model in a batch.
+• DivideMix (Li et al., 2020), which regards noisy instances as unlabeled data and employs the strategy involving label
+co-refinement and co-guessing.
+• ELR (Liu et al., 2020), which focuses on early learning via regularization to preclude the memorization of incorrect
+labels.
+• SOP (Liu et al., 2022), which models the noise with sparse over-parameterization and exploits implicit regularization.
+30
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Table 5. Comparisons with each methods on CIFAR-10N, CIFAR-100N and Clothing1M. Each runs has been repeated 3 times with
+different randomly-generated noise and we report the best accuracy.
+Dataset
+CIFAR-10N
+CIFAR-100N
+Clothing1M
+Noisy Type
+Random1
+Aggregate
+Worst
+Clean
+Noisy
+Ins.
+CE
+85.02±0.65
+87.77±0.38
+77.69±1.55
+76.70±0.74
+55.50±0.66
+69.10
+Forward
+86.88±0.50
+88.24±0.22
+79.79±0.46
+76.18±0.37
+57.01±1.03
+-
+Co-teaching
+90.33±0.13
+91.20±0.13
+83.83±0.13
+73.46±0.09
+60.37±0.27
+-
+ELR
+94.43±0.41
+94.83±0.10
+91.09±1.60
+78.57±0.12
+66.72±0.07
+72.90
+GFWS
+94.86±0.07
+95.30±0.03
+93.55±0.14
+78.53±0.21
+68.07±0.33
+74.02
+CORES
+94.45±0.14
+95.25±0.09
+91.66±0.09
+73.87±0.16
+55.72±0.42
+73.20
+SOP
+95.28±0.13
+95.61±0.13
+93.24±0.21
+78.91±0.43
+67.81±0.23
+73.50
+WSC (Ours)
+96.13±0.52
+96.50±0.72
+93.60±0.21
+81.31±0.16
+71.00±0.16
+74.75±0.18
+• GFWS (Chen et al., 2024), which is a unified framework that uses Expectation-Maximization to model noisy label as
+latent variables.
+• ULAREF (Qiao et al., 2024), which trains the predictive model with refined labels through global detection and local
+enhancement.
+• ProMix (Xiao et al., 2023), which meticulously selects, dynamically extends, and optimally utilizes clean sample sets
+within the devised semi-supervised learning framework.
+• MOIT (Ortego et al., 2021), which jointly exploits contrastive learning and classification to enhance performance
+against label noise, with contributions including an ICL loss, a novel label noise detection method, and a fine-tuning
+strategy.
+• Sel-CL (Li et al., 2022), which leverages nearest neighbors to select confident pairs for supervised contrastive learning.
+• TCL (Huang et al., 2023), which disambiguate labels by a Gaussian mixture model and uses self-supervised contrastive
+learning to further learn more robust representations.
+Discussion. Recent works on NLL can be categorized into three types, with methods based on the noise transition matrix
+demonstrating empirical effectiveness. In our proposed framework, we use the cross-entropy loss to align the model output
+conditioned by the estimated noisy transition matrix and the noisy label. Besides, in order to better learn from the noisy
+label, we follow Li et al. 2021 and impose the following regularization constraints on the estimated noise transition matrix
+T . The above two terms will construct the supervised loss as:
+Lsup(g(x), q) = LCE(g(x)T , q) + λ log det(T ),
+(113)
+where λ is a regularization coefficient.
+Additional Experiments. In addition to the results we present in the main paper which mainly focuses on the the simulated
+datasets, we also verify the effectiveness of the proposed method on the CIFAR-N dataset (Wei et al., 2022), which equips
+the training samples of CIFAR dataset with human-annotated noisy label. On CIFAR-10N, we used three noise types:
+Aggregate, Random1, and Worst, with corresponding noise rates of 9.03%, 17.23%, and 40.21%. For CIFAR-100N, we
+compared the model performance under Clean and Noisy settings with a noise rate of 40.21%. We also include a full
+comparison on Clothing1M which has more realistic and large-scale instance noise (Xiao et al., 2015).
+The results shown in Table 5 show the superiority of our method on these datasets. It is particularly noteworthy that our
+method performs very well on CIFAR-100N, which should be due to the fact that our contrastive learning method specially
+designed for weakly supervised learning helps learn more and better feature representations. It is worth noting that since
+the noise type of these datasets is not suitable for estimation using a noise transition matrix, we ignore the second term of
+Equation 113 during training.
+Qualitative Results. Figure 2 visualizes the learned representations under a high noise ratio. Compared to ELR+, which
+employs two distinct backbones to obtain more meaningful representations, our method generates well-defined structures
+with semantically meaningful information, leading to superior accuracy in these settings.
+31
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+(a) WSC on CIFAR-10
+(b) ELR+ on CIFAR-10
+(c) WSC on CIFAR-100
+(d) ELR+ on CIFAR-100
+Figure 2. We present t-SNE visualizations of the learned representations on the CIFAR dataset with 90% symmetric noise. Figure 2(a)
+and Figure 2(b) illustrate the results for WSC and ELR+ on CIFAR-10, while Figure 2(c) and Figure 2(d) display the results for WSC and
+ELR+ on CIFAR-100 under the same noise condition, where only 20 categories with the highest accuracy for each model are shown.
+E.2. Partial Label Learning
+Setup. For simulated PLL settings, we use Wide-ResNet-28-2 trained from scratch and ResNet-18 pre-trained with
+ImageNet-1K as our feature extractors on the CIFAR dataset and CUB-200 dataset, respectively. Following most of
+experimental setups conducted on the contrastive network, we use a 2-layer MLP that outputs 128-dimensional embeddings
+as our projection head. The batch size is 256 and the weight decay is 0.0001 across all the PLL settings. We set the initial
+learning rate to be 0.1 and adjust it by MultiStep and Cosine scheduler on CIFAR datasets and CUB-200 respectively.
+On CIFAR-10 and CIFAR-100 (CIFAR-100-H), we train our model for 200 epochs using parameters α = 1, β = 12 for
+CIFAR-10 and α = 2, β = 300 for CIFAR-100. For the CUB dataset, we train for 300 epochs with parameters α = 2 and β
+linearly increasing from 0 to 400. The detailed choice of hyper-parameters is provided in Table 6. Furthermore, for IDPLL
+settings, we use ResNet-34 pre-trained with ImageNet-1K as our feature extractors following (Yang et al., 2025). We train
+our model for 500 epochs and set the initial learning rate be 0.1 and adjust it by Cosine scheduler on both four fine-grained
+datasets. The detailed choice of hyper-parameters is provided in Table 7.
+Table 6. Hyper-parameters for simulated partial label learning used in experiments.
+Hyper-parameter
+CIFAR-10
+CIFAR-100 (CIFAR-100H)
+CUB-200
+Image Size
+32
+32
+224
+Model
+Wide-ResNet-28-2
+Wide-ResNet-28-2
+ResNet-18
+(ImageNet-1K Pretrained)
+Batch Size
+256
+256
+256
+Learning Rate
+0.1
+0.1
+0.01
+Weight Decay
+1e-4
+1e-4
+1e-5
+LR Scheduler
+MultiStep
+MultiStep
+Cosine
+Training Epochs
+200
+200
+300
+Classes
+10
+100
+200
+α
+1
+2
+2
+β
+12
+300
+0-400
+Discussion. We provide the detailed implementation of Lsup on PLL setting here. The average-based methods has been
+widely used in recent PLL works. Given the probability prediction g(x), we can denote the classifier as h(x) = arg min
+i∈Y
+gi(x).
+Besides, the candidate set q can be derived from the weakly supervised information, thus, the family of average partial label
+losses can be formally writen as:
+Lavg(h(x), q) = 1
+|q|
+X
+i∈q
+ℓ(h(x), i),
+(114)
+32
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Table 7. Hyper-parameters for instance-dependent partial label learning used in experiments.
+Hyper-parameter
+CUB200
+CARS196
+DOGS120
+FGVC100
+Model
+ResNet-34(Pretrained)
+ResNet-34(Pretrained)
+ResNet-34(Pretrained)
+ResNet-34(Pretrained)
+Image Size
+224
+224
+224
+224
+Batch Size
+256
+256
+256
+256
+Learning Rate
+0.01
+0.01
+0.01
+0.01
+Weight Decay
+1e-5
+1e-5
+1e-5
+1e-5
+LR Scheduler
+Cosine
+Cosine
+Cosine
+Cosine
+Training Epochs
+500
+500
+500
+500
+Classes
+200
+196
+120
+100
+α
+2
+2
+2
+2
+β
+0-400
+0-400
+0-240
+0-200
+where | · | represents the cardinality. There are different loss functions ℓthat can be chosen, and we use the commonly used
+cross-entropy loss to implement our framework. The supervised loss can then be obtained from the above average partial
+label loss.
+Baselines. We compare the proposed framework with seven methods handling partial labeled data:
+• LWS (Wen et al., 2021), which weights candidate labels and non-candidate labels through a leverage parameter.
+• PRODEN (Lv et al., 2020), which progressively identifies correct labels through the model output.
+• CC (Feng et al., 2020b), which derives a classifier consistent risk estimator through a transition matrix.
+• MSE (Feng et al., 2020a), which uses Mean Square Error loss to learn with multiple complementary labels.
+• RCR (Wu et al., 2022), which performs supervised learning on non-candidate labels and employ consistency regular-
+ization on candidate labels.
+• PiCO (Wang et al., 2022), which utilizes a contrastive loss term to enhance the model disambiguation ability.
+We also include four IDPLL methods to compare:
+• IDGP (Qiao et al., 2023b), which proposes to explicitly model the instance-dependent generation process by decompos-
+ing it into separate generation steps.
+• DIRK (Wu et al., 2024), which introduces a novel rectification process to ensure that candidate labels consistently
+receive higher confidence than non-candidates.
+• NPELL (He et al., 2023), which proposes a two-stage framework employing normalized entropy for selective disam-
+biguation of well-disambiguated examples.
+• CEL (Yang et al., 2025), which employs a class associative loss to enforce intra-candidate similarity and inter-set
+dissimilarity among the class-wise embeddings for each sample.
+Additional Experiments. To further investigate the performance of our proposed method on fine-grained image classification
+tasks, we conduct additional experiments using CIFAR-100 with hierarchical labels (CIFAR-100-H) (Wang et al., 2022),
+where candidate labels are generated from the 20 superclasses in CIFAR-100. Furthermore, we extend our experiments on
+CUB-200, as presented in the main paper, to include a wider range of partial label ratios, specifically 0.01, 0.05, 0.1. We
+also extend our experiments on IDPLL setting. Following previous work (Wu et al., 2024; Yang et al., 2025), we conduct
+experiments on four fine-grained datasets: CUB-200 (Wah et al., 2011a), CARS-196 (Krause et al., 2013), DOGS-120
+(Khosla et al., 2011), and FGVC-100 (Maji et al., 2013), and we employed the IDPLL noisy label generation method
+proposed by VALEN (Xu et al., 2021) to generate instance-dependent noisy labels which is the standard experimental
+protocol in IDPLL settings.
+33
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Table 8. Comparisons with each methods on simulated PLL datasets. Each runs has been repeated 3 times with different randomly-
+generated partial labels and we report the mean and std values of last 5 epochs.
+Dataset
+CIFAR-100-H
+CUB-200
+Partial Ratio
+0.1
+0.5
+0.8
+0.01
+0.05
+0.1
+PiCO
+76.55±0.68
+74.98±0.42
+66.38±0.24
+74.14±0.28
+72.12±0.74
+62.02±1.16
+LWS
+63.88±0.10
+59.37±0.25
+40.33±0.19
+73.74±0.23
+39.74±0.43
+12.30±0.77
+PRODEN
+67.42±0.91
+64.89±0.75
+50.41±0.38
+72.34±0.04
+62.56±0.10
+35.89±0.05
+CC
+58.11±0.46
+56.44±0.37
+30.11±0.48
+56.63±0.01
+55.61±0.02
+17.01±1.44
+MSE
+57.88±0.85
+51.13±0.32
+28.33±0.44
+61.12±0.51
+22.07±2.36
+11.40±2.42
+GFWS
+77.10±0.18
+76.08±0.25
+61.35±0.71
+73.19±0.42
+70.77±0.20
+47.44±0.15
+RCR
+77.38±0.33
+75.78±0.25
+65.31±0.19
+-
+-
+-
+WSC (Ours)
+78.31±0.17
+76.67±0.11
+66.77±0.05
+76.88±0.39
+74.55±0.17
+56.13±0.34
+Table 9. Comparisons with each methods on IDPLL settings with four fine-grained datasets. Each runs has been repeated 3 times with
+different randomly-generated partial labels and we report the mean and std values of last 5 epochs.
+Dataset
+WSC (Ours)
+CEL
+DIRK
+NEPLL
+IDGP
+PiCO
+PRODEN
+CUB-200
+68.90±0.27
+68.60±0.10
+66.60±1.07
+62.88±1.66
+58.16±0.58
+58.56±0.90
+65.05±0.14
+CARS-196
+87.88±1.18
+86.22±0.08
+85.31±0.77
+85.05±0.17
+79.56±0.46
+70.15±1.63
+83.35±0.05
+DOGS-120
+79.75±0.32
+78.18±0.12
+75.97±0.29
+74.84±0.09
+66.79±0.38
+67.80±0.06
+70.94±0.43
+FGVC-100
+77.80±0.39
+78.36±0.19
+76.86±3.54
+75.36±0.59
+72.48±0.86
+63.52±0.94
+69.34±0.39
+Our method outperforms other methods except the experiment on CUB-200 with 0.1 partial ratio as shown in Table 8.
+The improvement can be attributed to PiCO’s class prototype-based pseudo-labeling mechanism for disambiguation, a
+strategy that has proven effective in several fine-grained classification tasks. Moreover, our approach avoids the need for
+additional complex techniques. By incorporating our contrastive loss into the training objective, we achieve an 8.69%
+improvement over GFWS in this setting, highlighting the potential for even greater performance gains. Similarity, our
+WSC method demonstrates strong performance in the instance-dependent partial label learning (IDPLL) setting as shown
+in Table 9 without introducing any complex modules or additional technical components. The results further validate that
+WSC can effectively address the challenges of instance-dependent label ambiguity while maintaining a straightforward
+implementation.
+E.3. Ablation Study
+We conduct ablation experiments on CIFAR-100, as shown in Table 10. The results demonstrate that the proposed WSC
+loss consistently improves performance, especially under high noise rates, where it increases performance by 16.22% and
+8.99%, respectively, further validating the effectiveness of the proposed method.
+Table 10. Ablation studies of our proposed algorithm on CIFAR-100 with different ratio of noisy label and partial label.
+Components
+Noisy Label
+Partial Label
+Supervised Loss
+Consistency Regularizer
+WSC Loss
+0.5
+0.8
+0.9
+0.1
+0.2
+0.3
+✓
+53.89
+41.35
+20.11
+61.50
+55.22
+35.44
+✓
+✓
+75.43
+66.40
+45.10
+75.80
+73.12
+60.16
+✓
+✓
+✓
+77.51
+71.92
+61.32
+77.26
+75.13
+69.15
+F. Details of Construction of Semantic Similarity under Different Scenarios
+In this section, we will introduce more details respectively regarding the construction of bS in the scenarios of noisy label
+learning and partial label learning.
+34
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Algorithm 2 batch data estimation of Lwsc under general scenario
+Input: features of two augmentation view of batch data with corresponding weakly-supervised information X1
+Q, X2
+Q ∈
+RBQ×d, Q ∈QBQ, features of two augmentation view of batch data without any supervised information X1
+U, X2
+U ∈
+RBU×d, S in Proposition. 2.1, class prior P(y) ∈Rc×1, proportional coefficients α, β
+Output: batch data estimated loss bLwsc
+Compute S(X) ∈Rc×BQ, S(X):,x = S(x):,q
+Compute S′(X) ∈R1×BQ, S′(X) = P(y)T S(X)
+Compute bL1 =
+Tr[X1
+Q(X2
+Q)T]+T r[X1
+U(X2
+U)T]
+BQ+BU
+Compute bL2 = ∥(S(X)T S(X))⊗(X1
+Q(X2
+Q)T)∥1
+B2
+Q
+Compute bL3 = ∥X1
+Q(X2
+Q)T∥
+2
+2+∥X1
+U(X2
+U)T∥
+2
+2
+B2
+Q+B2
+U
+Compute bL4 =
+√
+S′(X)T S′(X)⊗(X1
+Q(X2
+Q)T)
+
+2
+2
+B2
+Q
+Take XQ = [X1
+Q; X2
+Q], XU = [X1
+U; X2
+U], S′(X) = [S′(X), S′(X)]
+Compute bL5 =
+
+q
+Diag(S′(X))XQXT
+U
+
+2
+2
+4BQ×BU
+.
+Return: bLwsc(X1
+Q, X2
+Q, X1
+U, X2
+U, S, Q) = −2α bL1 −2β bL2 + α2 bL3 + β2 bL4 + 2αβ bL5
+F.1. Details of Construction of Semantic Similarity under Noisy Label Setting
+Using Environment Information. For instance-independent noisy label setting, there exists a T satisfies T = T (x) holding
+almost everywhere in X. Hence, inspired by our Proposition 2.4, in this setting, we can use bS(x) = (bT )−1 for any x ∈X,
+where bT is estimated noisy transition matrix. Quite a number of studies have already investigated how to estimate the noise
+transition matrix (Liu and Tao, 2016; Patrini et al., 2017; Xia et al., 2019; Li et al., 2021; Zhang et al., 2021b; Lin et al.,
+2023). These methods are usually divided into two categories: anchor-based methods and anchor-free methods. The former
+(Liu and Tao, 2016; Patrini et al., 2017; Xia et al., 2019) usually fits the noise posterior directly, and then estimates the
+noise matrix by this estimated noise posterior probability on the data of reliable anchor points. In recent years, it is the
+latter (Li et al., 2021; Zhang et al., 2021b; Lin et al., 2023) that has achieved better results. They obtain the estimated noise
+matrix by searching for the matrix that minimizes a specific metric within the matrix family that can linearly represent all
+noise posteriors. Specifically, Li et al. 2021 uses volume of estimated noisy matrix as this specified metric and Zhang et al.
+2021b uses total variation as this specified metric. Lin et al. 2023 additionally adopts a bi-level optimization to increase
+the robustness against the error of the estimation of the noise posterior and thus achieving better performance. All above
+methods can be used to construct bS.
+Using Both Environment and Samples Information. However, the aforementioned way of constructing semantic
+similarity only takes into account the weakly-supervised information while ignoring the information of the samples
+themselves. Therefore, even if we obtain a completely accurate noise matrix through estimation, such a construction method
+will still add a variance term to the learning error (supx∈X
+bS(x)T bS(x)
+
+∞in Formula 29), thus resulting in sub-optimal
+performance in practice. Recalling Bayes theorem:
+P(y | x) =
+X
+q∈Q
+P(y, q | x) =
+X
+q∈Q
+P(y | x, q)P(q | x).
+(115)
+Thus we can take bS(x)y,q = bP(y | x, q) where bP(y | x, q) is estimation posterior with corresponding weakly-supervised
+information. With a estimated noisy transition matrix bT , we can estimate bP(y | x, q) as follows:
+bP(y | x, q) ∝bP(y, q | x) = bP(y | x)bT q,y = g(Aw(x))bT q,y,
+(116)
+where g(Aw(x)) denotes posterior probability predicted by the current neural network.
+Such a construction method can be regarded as constructing semantic similarity by integrating the information of the current
+neural network, the sample information and the estimated environmental information. Therefore, better performance has
+been achieved in practice.
+35
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Using Samples Information. For instance-dependent setting which we do not assume that all samples share the same noise
+transition matrix, the methods mentioned above become invalid. In such setting, we are unable to utilize the environmental
+information and can only rely on the properties of the neural network itself as well as the sample information for estimation
+bP(y | x, q). This type of method has also been widely discussed in noisy label learning (Liu et al., 2020; Li et al., 2022;
+Ortego et al., 2021; Liu et al., 2022; Xiao et al., 2023; Huang et al., 2023; Qiao et al., 2024) and has achieved higher
+performance in practice. The main idea of this method can be summarized by the following equation:
+bP(y | x, q) = bP(y | x, by) =
+I[by = y]
+x ∈Dr
+g(Aw(x))y
+x /∈Dr ,
+(117)
+where the by denotes corresponding noisy label, and Dr is a “reliable” set of noisy labels which are screened out using a
+specific method.
+Specifically, such screening methods are usually carried out based on empirical observation that the neural networks tend to
+learn easy (correct) samples first, and then start to fit onto the hard (corrupt) samples in the later phase of training, hence
+the samples with small loss values are presumed to be reliable, while those with large loss values are not. The specific
+implementation of screening is diverse. Any screening method can be used in our framework to construct the corresponding
+bS. In this paper, we will not describe these methods in more details.
+Construct of Main Experiments. To avoid introducing more details into the methods in the main paper, the bS selected in
+the main experiments of this paper only adopts the simplest form and does not use any screening mechanisms that have
+been proven to be effective. We simply take bS as bS(x)y,q = bP(y | x, q) = g(Aw(x))y for any x. More experiment of using
+different bS can be referred to in the Table 11. For the sake of simplicity in this experiment, the first way to construct S is to
+use a fixed real noise matrix. The second way to construct S is the same as the method used in our main paper. In the third
+approach, we construct bP(y | x, q) as a convex combination of the original noisy label and the model predictions, with the
+weights predicted by a two-component Gaussian mixture model. This method is a commonly used label bootstrap technique,
+as demonstrated by (Huang et al., 2023). The second method achieves the best results, as it leverages both the overall
+environmental information and the sample information more effectively. Additionally, due to the accuracy of clean sample
+screening in the early learning stage, the third method achieves performance similar to the second method. In contrast,
+using the inverse of the noise transition matrix alone, even with the true noise transition matrix, leads to suboptimal results
+because it neglects the sample information.
+F.2. Details of Construction of Semantic Similarity under Partial Label Setting
+Using Environment Information. For instance-independent partial label setting, unlike the situation of noisy label, it is
+generally quite difficult to directly estimate the transition matrix T due to the curse of dimensionality. However, when using
+the commonly assumption that labels are independent adopted into the candidate set (Cour et al., 2011; Lv et al., 2020; Feng
+et al., 2020b), the problem can be simplified. We formally present this assumption as follows:
+Assumption F.1. (Selected candidate at uniform and independent (SCUI) assumption) The partial label problem satisfies
+the SCUI assumption if its generation process meets follow equation:
+P(q | x, yi) = I[yi ∈q]
+Y
+y∈Y,y̸=yi
+P(y /∈q | x, yi)I[y /∈q]P(y ∈q | x, yi)I[y∈q]
+= I[yi ∈q]
+Y
+y∈Y,y̸=yi
+(1 −σy)I[y /∈q]σI[y∈q]
+y
+,
+(118)
+where P(y ∈q | x, yi) = µy for any y ̸= yi.
+Giving this assumption, we can decompose the partial label problem into c times independent binary classification noisy
+label problems. When each σy in known, it is easy to see follow S will satisfy ST = Ic×c:
+Sy,q =
+(
+1
+y ∈q
+−σy
+1−σy
+y /∈q ,
+(119)
+Hence, if we can get estimated bσy for any y ∈Y , we can take bSy,q through Equation 119.
+36
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+Now we consider how to estimate this σy. We assume a uniform class distribution and encode q = l ∈[0, 1]c, where li = 1
+indicates yi ∈q. The following equation holds:
+P(x | li = 1) = P(x, Y = yi, li = 1) + P(x, Y ̸= yi, li = 1)
+P(li = 1)
+= (1/c)P(x | Y = yi) + (1 −1/c)σiP(x | Y ̸= yi)
+(1/c) + (1 −1/c)σi
+= (1/c)P(x | Y = yi) + (1 −1/c)σiP(x | li = 0)
+(1/c) + (1 −1/c)σi
+= (1 −θi)P(x | Y = yi) + θiP(x | li = 0),
+(120)
+where θi =
+(c−1)σy
+1+(c−1)σy .
+Using Equation 120, we transform the problem of estimating σi into the problem of estimating θi. The later is a mixture
+proportion estimation problem to estimate θi given samples sampled from the P(x | li = 1) and P(x | li = 0). Under many
+assumptions to ensure identifiability, including the irreducibility assumption (Scott et al., 2013; Garg et al., 2021), the anchor
+point assumption (Scott, 2015; Liu and Tao, 2016), the separability assumption (Ramaswamy et al., 2016), θi can been
+estimated through many off-the-shelf methods (Scott et al., 2013; Scott, 2015; Ramaswamy et al., 2016; Garg et al., 2021).
+Using Both Environment and Samples Information. Similar to the noisy label setting, the above method for constructing
+semantic similarity overlooks the information contained in the samples themselves. To address this, we can incorporate
+sample information by applying Bayes’ theorem. The estimation of bP(y | x, q) can then be expressed as follows:
+bP(y | x, q) ∝bP(y | x)P(q | x, y) = bP(y | x)
+Q
+y′∈q σy′ Q
+y′ /∈q(1 −σy′)
+σy
+I[y ∈q] ∝g(Aw(x))y
+σy
+I[y ∈q].
+(121)
+Such a construction method can be regarded as constructing semantic similarity by integrating the information of the current
+neural network, the sample information and the estimated environmental information. Therefore, better performance has
+been achieved in practice. When σy is unknown, we can simply assume that σy = σ for any y ∈Y, Equation 121 can still
+be used to construct semantic similarity.
+Using Samples Information. In the instance-dependent partial label setting proposed in recent years (Xu et al., 2021;
+Qiao et al., 2023a), the SCUI assumption does not hold, the methods mentioned above become invalid. To estimate
+bP(y | x, q) in this situation, Xu et al. 2021 proposes a variational label enhancement method which relies solely on current
+neural network. Additionally, Qiao et al. 2023a parameterizes bP(q | x, y) and uses maximum likelihood estimation to
+learn these parameters. Given this estimation bP(q | x, q), we can also estimate bP(y | x, q) using the Bayes theorem:
+bP(y | x, q) ∝bP(y | x)bP(q | x, y).
+Construct of Main Experiments. To avoid introducing more details into the methods in the main paper, the bS selected
+in the main experiments of this paper only adopts the simplest form. We simply assume that σy = σ for any y ∈Y and
+apply Equation 121. Specifically, we take bS(x)y,q = bP(y | x, q) = I[y ∈q]
+g(Aw(x))y
+P
+y′∈q g(Aw(x))y′ for any x. More experiments
+using different bS can be found in Table 11. For the sake of simplicity in this experiment, the first way to construct S is to
+use a fixed real partial ratio. The second way to construct S is the same as the method used in our main paper. In the third
+approach, we construct bP(y | x, q) by using variational label enhancement method proposed in (Xu et al., 2021). The second
+Table 11. Comparisons with each methods for constructing bS on CIFAR-100 with different ratio of noisy label and partial label. We
+report the mean and std values of last 5 epochs. Env., Sap. denote the environment information and sample information, respectively.
+Type
+Noisy Label
+Partial Label
+Ratio
+0.5
+0.8
+0.9
+0.05
+0.1
+0.2
+WSC w/ Env.
+75.29±0.15
+67.34±0.34
+55.01±0.14
+76.31±0.25
+75.85±0.54
+71.33±1.33
+WSC w/ Env. & Sap.
+77.51±0.07
+71.92±0.17
+61.32±0.15
+77.88±0.19
+77.26±0.30
+75.13±0.24
+WSC w/o Env.
+76.83±0.91
+71.18±0.75
+59.58±0.38
+78.01±0.45
+76.88±0.25
+74.50±0.25
+37
+
+
+Weakly-Supervised Contrastive Learning for Imprecise Class Labels
+method achieves the best results, as it leverages both the overall environmental information and the sample information.
+Additionally, because Xu et al. 2021 also uses the sample information, hence achieves performance similar to the second
+method. In contrast, using the environment information alone, even with the true σ, leading to suboptimal results because it
+neglects the sample information.
+38
