@@ -1,66 +1,66 @@
 ## 最新日报
-- 最新运行日期：2026-05-26
-- 运行时间：2026-05-26 04:27:31 北京时间
+- 最新运行日期：2026-05-27
+- 运行时间：2026-05-27 04:51:32 北京时间
 - 运行状态：成功
 - 本次总论文数：16
 - 精读区：6
 - 速读区：10
 
 ### 今日简报（AI）
-今日精读两篇高分研究，揭示大脑与大语言模型的对齐程度真实反映训练数据而非抽象类型，并成功用稀疏自编码器将其映射到皮层语义拓扑图上。
-上下文线索能显著重塑人脑对物体的表征几何，而生成先验驱动的多视角重建与自校正规范建模则为脑科学与计算机视觉提供了新工具。
-建议关注脑-模型对齐背后的数据驱动本质，可进一步探索如何用这些发现优化训练策略或诊断个体脑功能差异。
-- 详情：[/202605/26/README](/202605/26/README)
+今日聚焦大脑视觉解码前沿：两篇高分精读分别提出即插即用的高效跨被试调优与基于神经解剖先验的球面解码框架。  
+最值得关注的是让脑机接口“省力又精准”的两条路径——用极少校准量适应新用户，以及将大脑结构约束融入模型，显著提升解码鲁棒性。  
+若你对神经科学或生成式AI感兴趣，不妨将脑解码的效率优化与3D头像生成的新方法对比阅读，感受“数据高效”与“生成一致性”如何驱动技术落地。
+- 详情：[/202605/27/README](/202605/27/README)
 
 ### 精读区论文标签
-1. [Brain-LLM Alignment Tracks Training Data, Not Typology](/202605/26/2605.23032v1-brain-llm-alignment-tracks-training-data-not-typology)  
+1. [MindAdapter: Few-Shot Parameter-Efficient Residual Calibration of Cross-Subject Brain-to-Visual Decoding Models](/202605/27/2605.24679v1-mindadapter-few-shot-parameter-efficient-residual-calibration-of-cross-subject-brain-to-visual-decoding-models)  
    标签：评分：9.0/10、query:fclip
-   evidence：直接对齐跨语言大脑fMRI表征与LLM表征
-2. [Sparse Autoencoders Map Brain-LLM Alignment onto Cortical Semantic Topography](/202605/26/2605.23035v1-sparse-autoencoders-map-brain-llm-alignment-onto-cortical-semantic-topography)  
+   evidence：通过残差适配进行跨被试脑视觉解码校准
+2. [NeurIPS: Neuro-anatomical Inductive Priors for Sphere-based Brain Decoding](/202605/27/2605.24993v1-neurips-neuro-anatomical-inductive-priors-for-sphere-based-brain-decoding)  
    标签：评分：9.0/10、query:fclip
-   evidence：稀疏自编码器将大模型特征映射到脑语义拓扑图
-3. [STAMBRIDGE: Spectral-Temporal Amplitude-aware Mid-Feature Bridge for EEG Visual Decoding](/202605/26/2605.23137v1-stambridge-spectral-temporal-amplitude-aware-mid-feature-bridge-for-eeg-visual-decoding)  
-   标签：评分：9.0/10、query:fclip
-   evidence：EEG视觉解码框架将神经信号桥接到视觉-语言空间
-4. [From Activation to Causality: Discovery of Causal Visual Representations in the Human Brain](/202605/26/2605.23895v1-from-activation-to-causality-discovery-of-causal-visual-representations-in-the-human-brain)  
-   标签：评分：9.0/10、query:fclip
-   evidence：使用生成模型和脑模型发现人脑中的因果视觉表征
-5. [NiCLIP: Neuroimaging contrastive language-image pretraining model for predicting text from brain activation images](/202605/26/biorxiv-10-1101-2025-06-14-659706-v3-niclip-neuroimaging-contrastive-language-image-pretraining-model-for-predicting-text-from-brain-activation-images)  
-   标签：评分：9.0/10、query:fclip
-   evidence：NiCLIP将对CLIP与跨被试fMRI脑激活图对齐
-6. [Expanded Group-Constrained Parcels Enhance Coverage and Reproducibility of the Scene-Selective Cortex](/202605/26/biorxiv-10-64898-2026-05-16-725633-v2-expanded-group-constrained-parcels-enhance-coverage-and-reproducibility-of-the-scene-selective-cortex)  
-   标签：评分：9.0/10、query:fclip
-   evidence：fMRI群体约束分区用于场景选择皮层，匹配脑表征与视觉编码
+   evidence：利用解剖变异作为fMRI脑解码的归纳先验
+3. [Why We Look Where We Look: Emergent Human-like Fixations of a Foveated Visual Language Model Maximizing Scene Understanding](/202605/27/2605.17823v1-why-we-look-where-we-look-emergent-human-like-fixations-of-a-foveated-visual-language-model-maximizing-scene-understanding)  
+   标签：评分：8.0/10、query:fclip
+   evidence：凹视觉语言模型中出现类人注视模式
+4. [Not Too Generative, Not Too Discriminative: The Human Alignment Sweet Spot](/202605/27/2605.23819v1-not-too-generative-not-too-discriminative-the-human-alignment-sweet-spot)  
+   标签：评分：8.0/10、query:fclip
+   evidence：通过判别与生成目标研究视觉表征的人类对齐
+5. [Brain-to-Image Retrieval and Reconstruction via Multimodal EEG Alignment](/202605/27/2605.23996v1-brain-to-image-retrieval-and-reconstruction-via-multimodal-eeg-alignment)  
+   标签：评分：8.0/10、query:fclip
+   evidence：利用多模态EEG对齐进行脑到图像检索
+6. [MindAlign: Bridging EEG, Vision, and Language for Zero-Shot Visual Decoding](/202605/27/2605.24523v1-mindalign-bridging-eeg-vision-and-language-for-zero-shot-visual-decoding)  
+   标签：评分：8.0/10、query:fclip
+   evidence：三模态对比对齐EEG、视觉和语言
 
 ### 速读区论文标签
-1. [Contextual Role Modulates Object Representational Geometry in the Human Brain](/202605/26/2605.23111v1-contextual-role-modulates-object-representational-geometry-in-the-human-brain)  
+1. [Multi-view Consistent 3D Gaussian Head Avatars 'without' Multi-view Generation](/202605/27/2605.25220v1-multi-view-consistent-3d-gaussian-head-avatars-without-multi-view-generation)  
    标签：评分：8.0/10、query:fclip
-   evidence：跨情境物体表征几何的fMRI研究
-2. [GenRecon: Bridging Generative Priors for Multi-View 3D Scene Reconstruction](/202605/26/2605.23888v1-genrecon-bridging-generative-priors-for-multi-view-3d-scene-reconstruction)  
+   evidence：通过状态空间模型实现多视图一致性
+2. [TopoAlign: Topology-Aware Visual Representation Alignment](/202605/27/2605.25541v1-topoalign-topology-aware-visual-representation-alignment)  
    标签：评分：8.0/10、query:fclip
-   evidence：多视图3D场景重建的生成先验
-3. [Generalized Normative Modeling: A One-Step Hierarchical Kernel Framework for Multi-Site Brain Charts with Self-Correcting Z-Scores](/202605/26/biorxiv-10-64898-2026-05-17-725772-v1-generalized-normative-modeling-a-one-step-hierarchical-kernel-framework-for-multi-site-brain-charts-with-self-correcting-z-scores)  
+   evidence：提出TopoAlign，一种拓扑感知的视觉表征对齐框架，适用于多视图结构约束
+3. [Monosynaptic connections link functionally similar regions in human cortex](/202605/27/biorxiv-10-64898-2026-05-19-726279-v1-monosynaptic-connections-link-functionally-similar-regions-in-human-cortex)  
    标签：评分：8.0/10、query:fclip
-   evidence：用于群体级脑先验的规范建模框架
-4. [Dynamic Estimation of Spatially Interactive Networks (DESINE) Reveals Constrained Brain Repertoire in Schizophrenia Linked to Clinical and Cognitive Symptoms](/202605/26/biorxiv-10-64898-2026-05-20-726604-v1-dynamic-estimation-of-spatially-interactive-networks-desine-reveals-constrained-brain-repertoire-in-schizophrenia-linked-to-clinical-and-cognitive-symptoms)  
+   evidence：使用电刺激功能磁共振成像（es-fMRI）绘制人类皮层中连接功能相似区域的单突触连接
+4. [A simple model of the co-emergence of grid and place fields](/202605/27/biorxiv-10-64898-2026-05-20-726574-v1-a-simple-model-of-the-co-emergence-of-grid-and-place-fields)  
    标签：评分：8.0/10、query:fclip
-   evidence：动态fMRI网络估计匹配跨被试脑表征需求
-5. [Atoms of Thought: Universal EEG Representation Learning with Microstates](/202605/26/2605.20182v1-atoms-of-thought-universal-eeg-representation-learning-with-microstates)  
+   evidence：统一循环模型实现网格细胞和位置细胞的共同涌现作为群体神经先验
+5. [What Are We Actually Decoding? Source Attribution for Non-Invasive Brain-to-Language Retrieval](/202605/27/2605.24524v1-what-are-we-actually-decoding-source-attribution-for-non-invasive-brain-to-language-retrieval)  
    标签：评分：7.0/10、query:fclip
-   evidence：基于微状态的通用脑电表示学习用于脑机对齐
-6. [Multimodal LLMs under Pairwise Modalities](/202605/26/2605.21059v1-multimodal-llms-under-pairwise-modalities)  
+   evidence：脑到语言解码源归因
+6. [Decoding Phonetic Features: Somatotopic and Sensorimotor Representations in Native and Non-native Consonant Perception](/202605/27/biorxiv-10-64898-2026-03-06-709780-v2-decoding-phonetic-features-somatotopic-and-sensorimotor-representations-in-native-and-non-native-consonant-perception)  
    标签：评分：7.0/10、query:fclip
-   evidence：利用成对模态进行多模态表示对齐
-7. [Multimodal Distribution Matching for Vision-Language Dataset Distillation](/202605/26/2605.23482v1-multimodal-distribution-matching-for-vision-language-dataset-distillation)  
+   evidence：使用fMRI和跨模态分类分析跨被试语音特征
+7. [Prior scene context reshapes feature reliance during rapid perception](/202605/27/biorxiv-10-64898-2026-05-10-724088-v1-prior-scene-context-reshapes-feature-reliance-during-rapid-perception)  
    标签：评分：7.0/10、query:fclip
-   evidence：视觉-语言对齐的多模态分布匹配
-8. [A cognitive map of subjective value space for human risky choice](/202605/26/biorxiv-10-64898-2026-05-19-726239-v1-a-cognitive-map-of-subjective-value-space-for-human-risky-choice)  
+   evidence：基于特征的面部检测编码模型
+8. [Task context is broadly encoded in the human brain](/202605/27/biorxiv-10-64898-2026-05-14-724660-v1-task-context-is-broadly-encoded-in-the-human-brain)  
    标签：评分：7.0/10、query:fclip
-   evidence：fMRI研究决策中的认知地图
-9. [Learning to Think in Physics: Breaking Shortcut Learning in Scientific Diffusion via Representation Alignment](/202605/26/2605.20780v1-learning-to-think-in-physics-breaking-shortcut-learning-in-scientific-diffusion-via-representation-alignment)  
+   evidence：人脑任务上下文编码
+9. [Interpretability Transfer from Language to Vision via Sparse Autoencoders](/202605/27/2605.24946v1-interpretability-transfer-from-language-to-vision-via-sparse-autoencoders)  
    标签：评分：6.0/10、query:fclip
-   evidence：中间特征对齐物理状态可迁移至多视图约束
-10. [Supervised Classification Heads as Semantic Prototypes: Unlocking Vision-Language Alignment via Weight Recycling](/202605/26/2605.22484v1-supervised-classification-heads-as-semantic-prototypes-unlocking-vision-language-alignment-via-weight-recycling)  
+   evidence：将视觉token对齐到文本SAE空间以实现可解释性迁移
+10. [Uncertainty-DTW for Sequences and Visual Tokens](/202605/27/2605.25110v1-uncertainty-dtw-for-sequences-and-visual-tokens)  
    标签：评分：6.0/10、query:fclip
-   evidence：利用分类头作为语义原型进行VLM对齐
+   evidence：面向序列和视觉标记的不确定性感知对齐方法
 

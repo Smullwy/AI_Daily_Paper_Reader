@@ -1,0 +1,840 @@
+Title: Why We Look Where We Look: Emergent Human-like Fixations of a Foveated Visual Language Model Maximizing Scene Understanding
+
+URL Source: https://arxiv.org/pdf/2605.17823v1
+
+Published Time: Tue, 19 May 2026 02:13:14 GMT
+
+Number of Pages: 60
+
+Markdown Content:
+# Why We Look Where We Look: Emergent Human-like Fixations of a Foveated Visual Language Model Maximizing Scene Understanding 
+
+# Shravan Murlidaran 1∗† , Ziqi Wen 3, Sana Shehabi 1, Miguel P. Eckstein 1,2,3†
+
+> 1
+
+Psychological & Brain Sciences, University of California, Santa Barbara & 93106, USA. 
+
+> 2
+
+Electrical and Computer Engineering, University of California, Santa Barbara & 93106, USA. 
+
+> 3
+
+Computer Science, University of California, Santa Barbara & 93106, USA. 
+
+> ∗
+
+Corresponding author. Email: smurlidaran@ucsb.edu 
+
+> †
+
+These authors contributed equally to this work. 
+
+When humans view scenes without a specific task (free-viewing), they initially direct their eye movements toward the scene center and then fixate on people, text, objects being gazed at or grasped, and semantically meaningful regions. What these signature fixation patterns reflect and whether they optimize an un-derlying perceptual task remain unknown. We show that a computational agent with simulated foveation, trained to optimize scene comprehension, exhibits emer-gent human fixation signature patterns. In contrast, versions of the agent trained to search or classify scenes, or equipped with peripheral vision that was better or worse than human vision, predicted human fixation patterns less accurately. Thus, human free-viewing fixation patterns may emerge as a functional byproduct of optimizing scene comprehension under the biological constraints of foveated vision. 
+
+1
+
+> arXiv:2605.17823v1 [cs.CV] 18 May 2026
+
+# Introduction 
+
+Humans explore the visual world through eye movements, directing central vision (the fovea) to regions of interest to process them with greater spatial detail. Decades of research show that these rapid eye movements are guided to locations and visual attributes that help us attain maximum accuracy when searching for targets ( 1–4 ), identifying faces ( 5), or executing actions such as grasping and walking ( 6–9 ). But where humans look when free-viewing a scene without a particular task, such as when leisurely sitting at an outdoor cafe, glancing from a bus window, or entering a room, is not well understood. The notion that during free-viewing humans look at low-level salient regions defined by contrast, color, and orientation has been repeatedly challenged over the last 20 years ( 10–14 ). There is converging evidence for a set of landmark signatures of human eye movement behavior during free-viewing. Humans look at other people ( 15, 16 ), text ( 17, 18 ), and objects ( 10, 19 ). In particular, they look at objects judged meaningful, objects that are gazed at, and objects that are grasped ( 13, 20, 21 ). And when they first look at an image, they tend to look at the center ( 22, 23 ), an effect known as the central bias. But how might the characteristic and pervasive human fixation behaviors arise? Could these emerge as byproducts of optimizing the visual system for a single task or a small number of specific tasks? We will call such a theory the task-optimization of free-viewing eye movements. It asserts that where humans look emerges from learning to efficiently explore a scene to attain the highest possible accuracy in performing some type of visuo-cognitive task. The frequent free-viewing fixation patterns to people, text, and objects are what we might expect from an organism whose visual system has varying spatial processing fidelity (foveation) and optimizes some underlying perceptual task. If so, a computational agent equipped with human-like foveated vision and sequential eye movements optimized for a visual task should naturally produce fixation patterns that mirror those of humans. There are various challenges in implementing such a computational agent. The first challenge is determining what task humans might be engaged in during free-viewing. One view is that different individuals are engaged in different subtasks based on their individual-specific interests or idiosyncratic tasks. A car lover might look at a ’60s classic Citroen 12V, a bird-watcher on a purple martin, and a music lover on a vintage poster of Sonic Youth on the wall. Thus, we may be unable to 2Figure 1 : Semantic accuracy metric and foveated RL-scene understanding (fRL-SU) model training pipeline. (a) Schematic of a vision language model (VLM) description with and without foveation. As the number of fixations increases, the foveated description agrees more with the unfoveated de-scription, matching it by the fourth fixation. Semantic accuracy is quantified as the cosine similarity between text-embedding vectors of the foveated and unfoveated descriptions. (b) Flowchart of the fRL-SU model’s training process. After each fixation, the semantic accuracy is computed and used as a reward for the RL model. The RL model takes hidden layer features corresponding to VLM visual tokens as input, processes them using a CNN, and outputs a probability map of possible fixation locations. The RL model then selects the next fixation, and the process repeats until the model has made 4 fixations following the initial fixation. 3define a common task that governs how most people view scenes naturally. Another view suggests that a default task most humans engage in involves comprehending scenes and events ( 24–27 ). Furthermore, a recent study showed that the locations humans look in scenes when free-viewing are similar to those where they look when explicitly instructed to describe the scene. ( 14 ). Thus, a good starting point is to assess which fixation patterns are optimal for a foveated agent maximizing scene comprehension, and whether those patterns resemble human free-viewing eye movements. This leads to the second challenge in creating such a computational agent: a model that can accurately comprehend scenes and capture how different fixations (and foveations) translate into scene comprehension accuracy. Recent advances in compact visual language models (VLMs), which can describe scenes at human-level and run on local GPUs, provide a viable path to implement the model ( 28–31 ). Implementing existing fixation-dependent visual loss techniques ( 32 ) on the image can degrade the model’s scene comprehension accuracy with varying fixation points in the scene (Fig. 1a). The third challenge is how to optimize the agent’s eye movement exploration to maximize the understanding of scenes. This requires a metric to measure the accuracy of scene descriptions. We measure semantic accuracy by representing both the agent’s scene description (after N fixations) and the ground-truth description (no foveation, full resolution) as text vectors (embeddings), then taking their cosine similarity (Fig. 1a). This metric correlates well with human judgments ( 14 ). To maximize semantic accuracy, the model should use its current foveated view to select the next fixation that most improves scene description. Traditional approaches use a Bayesian ideal observer constrained by a foveated visual system and provide closed-form mathematical expressions to estimate accuracy-maximizing fixation locations or eye movement actions ( 2, 33–35 ). These methods cannot be applied to real-world scenes without making a large number of assumptions because the probability density functions of the stimuli are unknown. Reinforcement learning techniques allow for optimization of actions by rewarding the association of actions and states (4,36,37 ). Neural networks provide a method to learn a mapping between multi-dimensional states describing features of a scene and actions ( 38 ), and have been shown to approximate optimality of eye movements for simpler search tasks where the Bayesian ideal is computable ( 39 ). 4Here, we combine a compact visual language model ( 28 ), simulated foveation ( 32 ), and re-inforcement learning (RL) to develop a model that learns eye movements to maximize scene understanding (the foveated RL for scene understanding, or fRL-SU, model). We hypothesize that the signature fixation patterns humans exhibit when viewing real-world scenes emerge from a near-optimal eye movement strategy for scene comprehension. We note that previous studies have developed deep neural network models that can be trained to successfully predict human fixation patterns on scenes (e.g., DeepGaze ( 40 ), ScanDiff ( 41 ), PathGan ( 42 ), etc.). An important distinc-tion is that these models are trained on large datasets of human fixations. They do not execute any perceptual task, do not incorporate the foveated processing of the human visual system, and do not estimate task-optimal eye movements. They therefore do not address how these fixation patterns could arise in an organism whose foveated visual system is optimized for ecologically relevant tasks. The fRL-SU model is not trained on human fixations. It is trained to generate fixations that optimize scene understanding under constraints of foveated vision. We compare the fixations of the fRL-SU model to those of 50 human observers free-viewing 147 images. Our main metric is the frequency of fixations to different categories: people, text, objects relevant to scene understanding, and objects gazed at or grasped by people in the scene. We reason that if humans are optimizing scene comprehension during free-viewing, then training the fRL model to maximize accuracy on other tasks, such as identifying the smallest object in the scene or categorizing the scene ( 43 ), should predict fixations that do not match free-viewing human patterns as well. Furthermore, if the fRL-SU model fails to predict human fixations under either minimal or extreme foveation, this would indicate that human fixation patterns are a consequence of an interaction between the human foveated visual system and scene-comprehension optimization. As additional control models, we compare the fRL-SU model to saliency models (GBVS ( 44 )and Itti ( 45 )) and also DeepGaze, which serves as an upper-bound prediction model of human fixations, given that it is trained on human eye movement data. Finally, to assess the generalization of our model across observers and images, we evaluate the fRL-SU model on a recently published dataset that quantifies how fixations to text, people, and touched objects vary with age for 6,720 individuals ( 46 ). 5Results 
+
+# Foveated Reinforcement Learning Scene Understanding Model (fRL-SU) 
+
+We incorporated foveation using an image-based method that applies progressively stronger linear filtering with increasing retinal eccentricity (distance from fixation) and de-blurs the image with subsequent fixations ( 32 ). This might be an incomplete model of foveation, but implementing other methods, such as spatial pooling of the model’s internal feature representations ( 47 ), required extensive retraining of the VLM. As fixations accumulate, progressively more of the image is represented at high resolution. Fig. 1a illustrates how the VLM’s description evolves as fixations accumulate. The model’s degradation with retinal eccentricity was calibrated to match that of humans. This was carried out using a separate psychophysical study in which participants (N=20) viewed 277 images on a gaze-contingent display and described each image after two or four fixations. The model’s foveation was adjusted so that, when it followed the measured fixations of individual humans, the accuracy of its generated scene descriptions matched that of humans (see Materials and Methods). Once the foveation parameters were set for the separate psychophysical dataset, we trained the fRL-SU model using a CNN (four 1x1 convolutional layers with ReLU activations and a softmax output). The CNN received VLM features extracted from an image foveated at all previous fixation locations and output a probability distribution over the next fixation location that maximized scene-description accuracy. Fig. 1b depicts a detailed flow chart of the training process. Training used 24,000 images split evenly across MS-COCO ( 48 ), MPII Human Pose ( 49 ), and FindingEmo ( 50 ). fRL-SU was then tested on the 147 test images (not seen during RL training), generating four fixations following an initial fixation at the bottom center, with ten descriptions generated after each fixation reflecting the cumulatively deblurred image up to that point (see Materials and Methods). People were present in 85 of those images, and the remaining 62 had objects and no people. The images depicted human actions, social situations, or implied actions based on the placement of objects within the scene. To dissociate low-level saliency from scene-relevant content, we selected images that contained salient regions distant from the image center and from objects or regions critical for scene understanding (see Materials and Methods). To ensure reproducibility, we trained five independent instances of the fRL-SU model. 6Figure 2 : Fixation frequencies across scene-element categories. (a) Experimental flow for the free-viewing eye-tracking study. Fifty participants freely viewed 147 images for 2 s. (b) Example image segmentation (using SAM3) used to define scene-element categories for quantifying fixation frequencies. (c) Fixation frequencies across scene-element categories for participants (box plots) and models (bar plots). Hatched bars show a random-fixation baseline reflecting category size in the image. Heatmaps above each panel show example model predictions on the scene. The model predictions for these categories were compared with human free-viewing fixation distributions using the Negative Normalized Log Likelihood distance (NNLL), normalized to the distance observed between the Itti-Koch saliency model and human fixation distributions. The fRL-Scene Understanding (fRL-SU) model matches human data significantly better than fRL models trained on either search or scene classification. Furthermore, the fRL-SU model significantly outperforms DeepGaze and traditional saliency models. 7Human and model comparison of fixation frequencies 
+
+We compared the fRL-SU fixations to those of 50 participants (different from those in the foveation calibration experiment) who viewed the 147 scenes for 2 s each, with no specific instructions other than to view them freely (see Fig. 2a). We also compared the fRL-SU model to saliency models (GBVS and Itti-Koch) and with fRL models trained to maximize accuracy on alternative tasks. The fRL-Scene Classification model was trained to execute eye movements that maximize accuracy in superordinate scene classification (e.g., semantic content, 3D spatial structure, and 2D image appearance ( 43 )). The fRL-Search model was trained to execute eye movements to maximize accuracy in identifying the smallest object in the scene. Regions within the images in our dataset were segmented as shown in Fig. 2b and categorized into scene elements: people, text, and objects. We quantified the frequency of fixations on these scene elements. Fixations were counted to a scene element if it fell within 0.7 deg of the segmentation edge to match the spatial sampling of the fRL model’s action space (see fig. S1 for generalization of results for different spatial thresholds). Based on prior studies ( 51 ), center bias was defined as fixations falling within a 2.5 deg radius circle centered on the image (see fig. S2 for generalization of results for different definitions of center bias). Objects were classified as scene understanding-relevant (SU-R object) or scene understanding-irrelevant (SU-I Object). SU-R Object was defined as an object that, when digitally removed from the image, maximally changed the VLM’s scene description. Scene-understanding-irrelevant objects (SU-I objects) were defined as objects that, when removed from the scene, did not impact the scene description. Classification of SU-R and SU-I objects was based on automatically segmenting objects, placing masks, deleting them, and assessing the impact of the object removal on scene description accuracy using the VLM (see Materials and Methods, and validation of method in ( 52 )). Fixations for objects were quantified separately for scenes with and without people. In scenes containing people, the SU-R objects were typically gazed at or grasped by a person in the scene. SU-R objects in scenes without people did not include gaze or grasp cues. Fig. 2c shows example fixation heatmaps of each model on the sample image from Fig. 1a. 8The heatmap shows how the fRL-SU and DeepGaze models fixate on the text sign on the left, matching human participants’ fixations. In contrast, the other models do so to a lesser extent (RL-SC and GBVS) or not at all (RL-Search and Itti-Koch saliency). Additional fixation heatmaps for each scene-element category across all models are shown in fig. S3. Our results showed that, averaged across images, the human fixations exhibited frequency patterns similar to those observed in prior studies. People were significantly fixated more often than any other category (p < 0.0001 for all comparisons). Objects critical to scene understanding were fixated more often than both unimportant objects and salient regions defined by GBVS (p <0.0001, for both comparisons). Regions with text were fixated more often than salient regions (p < 0.0001, all the comparisons above have FDR-adjusted p-values). The fRL-SU fixation frequencies closely matched those of human participants across all scene-element categories (Fig. 2c). The model primarily fixated on people, prioritizing objects they are looking at or holding over those they are not interacting with. In scenes without people, grasp or gaze cues, the fRL-SU model still fixated more on SU-R objects than SU-I objects. The model also captured the large proportion of text fixations. In addition, first fixations were biased towards the image center, exceeding the frequency expected under the random-fixation baseline. The largest human-fRL-SU discrepancy was the model’s lower frequency of fixations on people relative to participants (see Discussion). In contrast to the fRL-SU, the saliency models generated fixation frequencies that differed from the participants’ fixation frequencies. As expected, the saliency models primarily fixated on low-level salient regions and underpredicted fixation frequencies across most categories, except for SU-I objects. DeepGaze overpredicted human fixation frequencies on people, text, and SU-R objects. Fig. 2c also shows that the fRL-Search and fRL-SC models (control models) generated patterns closer to those of humans than the saliency models, but to a lesser degree than the fRL-SU model. The control RL models showed reduced fixations on text, SU-R objects (those not gazed at or grasped), and people. To quantify the distance between the models and human fixation frequencies (excluding those to the most salient objects to avoid over-penalizing GBVS), we calculated a negative normalized log-likelihood (NNLL). A lower number reflects better agreement between model and human data. The fRL-SU were closer to participant fixation frequencies than the fRL-SC, fRL-Search ( 𝑝 < 0.0001 vs. fRL-SC; 𝑝 < 0.0001 vs. fRL-search), saliency models ( 𝑝 < 0.0001 9vs. GBVS; 𝑝 < 0.0001 vs. Itti-Koch), and DeepGaze ( 𝑝 < 0.0001) due to the higher fixation frequencies than participants to categories like people, SU-R objects, and text. The main analysis assumed that the categories were independent while computing the NNLL scores. The NNLL scores were similar even when dependencies between categories were taken into account (fig. S4) We complemented our fixation frequency analyses by using other metrics, such as AUROC and heatmap correlations. In both AUROC and heatmap correlations, DeepGaze performed best, followed by fRL-SU ( 𝑝 < 0.001). fRL-SU significantly outperformed fRL-SC, fRL-Search, and the saliency models on both metrics ( 𝑝 < 0.001 for all comparisons, table S1). 
+
+# The Influence of Foveation in fRL-SU Fixation Predictions 
+
+We hypothesized that the close correspondence between fRL-SU and human fixation frequencies is an emergent property arising from the interaction between two factors: optimization of scene understanding and the foveated nature of the human visual system. Under this hypothesis, agreement with human fixation frequencies should be lower if the fRL-SU model is trained with foveation substantially weaker or stronger than that of humans. To test this prediction, we retrained the model with extremely low and high foveation. Fig. 3a shows that an fRL-SU model trained with much weaker or much stronger foveation than that of humans achieved lower agreement with human fixation frequencies (p < 0.0001 for comparisons against lower and higher foveation). In particular, fixations on text and objects were reduced compared to humans, suggesting that constraints induced by foveation play a crucial role in shaping the fixation patterns observed in participants. 
+
+# No Groundtruth Training: Foveated Reinforcement Learning with Entropy Minimization 
+
+Our approach relied on groundtruth scene descriptions (no foveation) to train the fRL-SU model. Such a training scheme might parallel some real-world situations: a parent describing to their child what is happening in a picture book or a real-world scene provides a verbal ground truth before the child explores it with their eyes. However, access to groundtruth descriptions during training is unlikely to be the norm when children learn to explore scenes. This raises a question: can an agent 10 Figure 3 : Effect of foveation and fRL-Entropy model results. (a) Fixation frequencies from fRL-SU models trained with extremely low (left) or high (right) foveation. Images at the top show the foveated input to the VLM at each foveation level. Both extremes yield significantly worse agreement with human fixation frequencies than the human-calibrated fRL-SU model. (b) fixation frequencies from an alternative model, fRL-Entropy, trained to minimize entropy of the VLM’s next token distribution (heatmap shows example fixation density). fRL-Entropy significantly outperforms the fRL-SU model in matching human fixation frequencies. with foveated vision learn to exhibit human-like eye movements without access to groundtruth descriptions? We modified the fRL-SU loss function so that the model was instead trained to minimize the VLM’s uncertainty in generating descriptions. Specifically, for each foveated image, 11 we sampled 10 high-probability yet semantically distinct candidate descriptions from the VLM and minimized the average per-token (word chunks) entropy across these candidates. (see Materials and Methods and fig. S5). Thus, the model (fRL-Entropy) learned to make eye movements to minimize this uncertainty without access to the ground truth (unfoveated descriptions). Fig. 3b shows the predicted fixation heatmap of the fRL-Entropy model for a sample image. The fRL-Entropy matched human fixation frequencies as well as, or even better than, fRL-SU ( 𝑝 = 0.001). 
+
+# Generalization to other images and eye movement datasets 
+
+To assess the generalization of our model and findings to other images and eye movement datasets, we evaluated the fRL-SU model’s fixation frequencies on a recently published dataset ( 46 ) of free-viewing fixations from 6,720 human observers aged 5 to 72, and on a set of 40 images intended to study how age influences free-viewing fixation (see Materials and Methods for details on this dataset). The fRL-SU model was applied with its trained parameters unchanged. We only modified the subtended angles of the images to match the range (the upper and lower bounds) of stimulus dimensions and viewing distances reported in the original study ( 46 ). We first compared model and human fixation frequencies. Using the three scene-element categories reported in the original study (people, grasped (touched) objects, and text), fRL-SU reproduced the relative fixation frequencies observed in human participants (Fig. 4a). We then analyzed fixation frequencies, including additional categories: SU-R objects, SU-I objects (using our automated method), and the most salient region (based on GBVS, Fig. 4b). The agreement between fRL-SU and human fixation frequencies of the adult population (ages 18 to 72) on this dataset was similar to that observed in our own data and significantly better than that achieved by control models (p < 0.0001 for all comparisons, Fig. 4c). See fig. S6 for the corresponding frequency distributions. 
+
+# Discussion 
+
+Why humans look at scenes the way they do during free-viewing and what they aim to accomplish remain poorly understood. Here, we addressed these questions by developing a computational agent with simulated human foveated vision that learns optimal (accuracy-maximizing) eye movements for different visual tasks on real-world scenes. The model optimized for scene understanding produced 12 Figure 4 : fRL-SU model results on a publicly available free-viewing dataset ( 46 ) (a) The dataset contains human free-viewing data across different ages, 5-72 years (N=6,720). Solid lines show human fixation frequencies across ages for three image categories: people, touched objects, and text. Dashed lines indicate fRL-SU model predictions. (b) Applying our category definitions to this dataset yields similar fixation patterns. The fRL-SU model successfully matches human data across these categories (measured and predicted heatmaps shown). (c) The NN-Loglikelihood score shows that the fRL-SU model best matches human data, consistent with the results observed in our dataset (d). However, the model exhibits mismatched predictions regarding fixations on specific body parts. While the model correctly prioritizes people present in the scene, it focuses disproportionately on the body, whereas humans typically fixate on the head (example heatmaps shown). emergent fixation patterns that matched those of humans: increased fixation frequencies on people, text, scene-relevant objects (relative to scene-irrelevant objects), gazed or grasped objects, and 13 even the initial center bias. This pattern held in both our own data (50 participants viewing 147 images) and a large, previously published dataset (6720 participants and 40 images). Training the model to optimize different tasks (e.g., searching for the smallest object or superordinate-level scene classification) resulted in worse predictions of human fixation frequencies. Training fRL-SU with very low or very high foveation also decreased agreement with humans, specifically reducing the model’s fixations on text and scene-relevant objects. Notably, reducing the model’s foveation also weakened the initial center bias, suggesting that this prevalent human behavior is not solely a byproduct of photographer bias (placing content at image centers) ( 23, 53 ) but also reflects a near-optimal strategy given foveated vision: an initial central fixation minimizes the distance of all image regions to central vision. Together, these results suggest that human free-viewing fixations emerge from the interaction between optimization for scene understanding and the specific properties of the human foveated visual system. The fRL-SU model outperformed DeepGaze in predicting human fixation frequencies. This finding might seem puzzling, since DeepGaze is trained on human fixations and would, by design, be expected to provide the best predictions. One explanation is that DeepGaze is trained on fixation maps accumulated over 3 to 5 seconds of viewing (about 10 to 12 fixations), whereas our analyses focus on only the first four fixations. Early human fixations are more strongly constrained by peripheral visibility and foveation than later fixations, which may explain why a model built on foveation principles (fRL-SU) better predicts early fixations than a model trained on later-or longer-time-course data (DeepGaze). This seems qualitatively consistent with the finding that DeepGaze fixates on text more frequently than humans and the fRL-SU in their first four fixations. Furthermore, when evaluating the precise location of the human fixations using AUROC and heat maps, DeepGaze outperformed the fRL-SU model, as expected. An important finding is that an fRL model that learns eye movements with a reward function that minimizes sentence entropy also resulted in emergent human-like fixations. This might provide a way for humans to learn optimal fixations for scene comprehension without a priori access to the ground truth before eye-movement exploration. 14 The fRL-SU or fRL-Entropy results should not be interpreted as suggesting that language is needed to learn eye movements that optimize scene comprehension. That would imply that humans who never acquire language would be unable to learn to optimize eye movements for scene comprehension, which is unlikely. Language is a convenient representation of scene meaning for training, but visual representations aligned with language’s semantic space should yield similar emergent fixation patterns (except for text, which inherently requires a language representation). One limitation of our modeling effort is that the fRL-SU model resulted in fewer fixations on people than human observers for both our dataset and that of Linka et al. ( 46 ). Furthermore, a breakdown of fixations to bodies and heads shows a dissociation. The fRL-SU model fixated on bodies more often, while humans fixated on faces more frequently (see Fig. 4d). This suggests that humans might not be solely optimizing scene comprehension when free-viewing. There might be a complementary task to identify people, their gender, age, and affective state. When the fRL model was implemented with two tasks: scene understanding and identifying a person’s age, emotion, and gender, it fixated on people more frequently, yielding results comparable to human gaze patterns (see fig. S7). However, even that model did not attain the high fixation frequency on faces that humans showed. Two factors contribute to this limitation. One, the VLMs we used are compact, can be implemented in our local GPU cluster to speed up the RL training, but do not reach human understanding of the real world ( 54, 55 ), including not achieving human-level face-processing performance. Second, our model relies on a simplified linear filtering approach for foveation. As a result, it does not account for the non-linear effects of crowding, which selectively degrade the peripheral processing of text and faces ( 56 ) and might influence the learned eye movement strategy. In conclusion, our results indicate that eye movements during free-viewing of scenes reflect a task-driven strategy shaped by the goal of comprehending the visual world. The characteristic pattern of fixations on people, text, scene-relevant objects, and gazed or grasped objects emerges from the interaction between scene-understanding optimization and the foveated architecture of the human visual system. 15 References and Notes 
+
+1. M. P. Eckstein, B. R. Beutter, L. S. Stone, Quantifying the performance limits of human saccadic targeting during visual search. Perception 30 (11), 1389–1401 (2001). 2. J. Najemnik, W. S. Geisler, Optimal eye movement strategies in visual search. Nature 
+
+434 (7031), 387–391 (2005), doi:10.1038/nature03390. 3. G. L. Malcolm, J. M. Henderson, Combining top-down processes to guide eye movements during real-world scene search. Journal of Vision 10 (2), 4–4 (2010). 4. D. Hoppe, C. A. Rothkopf, Multi-step planning of eye movements in visual search. Scientific reports 9 (1), 144 (2019). 5. M. F. Peterson, M. P. Eckstein, Looking just below the eyes is optimal across face recognition tasks. Proceedings of the National Academy of Sciences 109 (48), E3314–E3323 (2012). 6. K. R. Gegenfurtner, The interaction between vision and eye movements. Perception 45 (12), 1333–1357 (2016). 7. A. J. de Brouwer, J. R. Flanagan, M. Spering, Functional use of eye movements for an acting system. Trends in Cognitive Sciences 25 (3), 252–263 (2021). 8. M. M. Hayhoe, R. A. Lerch, Visual Guidance of Natural Behavior (2022), doi:10. 1093/acrefore/9780190236557.013.848, https://oxfordre.com/psychology/view/10. 1093/acrefore/9780190236557.001.0001/acrefore-9780190236557-e-848 .9. C. A. Rothkopf, M. M. Hayhoe, Computational elements of natural vision. Journal of Vision 
+
+25 (12), 4–4 (2025). 10. W. Einh¨ auser, M. Spain, P. Perona, Objects predict fixations better than early saliency. Journal of vision 8 (14), 18–18 (2008). 11. K. Koehler, F. Guo, S. Zhang, M. P. Eckstein, What do saliency models predict? Journal of vision 14 (3), 14–14 (2014). 16 12. J. M. Henderson, T. R. Hayes, Meaning-based guidance of attention in scenes as revealed by meaning maps. Nature human behaviour 1 (10), 743–747 (2017). 13. C. E. Peacock, T. R. Hayes, J. M. Henderson, The role of meaning in attentional guidance during free viewing of real-world scenes. Acta Psychologica 198 , 102889 (2019). 14. S. Murlidaran, M. P. Eckstein, Eye movements during free viewing to maximize scene under-standing. Nature Communications 17 (1) (2025), doi:10.1038/s41467-025-67673-w. 15. M. Cerf, E. P. Frady, C. Koch, Faces and text attract gaze independent of the task: Experimental data and computer model. Journal of Vision 9 (12), 10–10 (2009). 16. E. Birmingham, W. F. Bischof, A. Kingstone, Gaze selection in complex social scenes. Visual cognition 16 (2-3), 341–355 (2008). 17. H.-C. Wang, M. Pomplun, The attraction of visual attention to texts in real-world scenes. 
+
+Journal of vision 12 (6), 26–26 (2012). 18. B. De Haas, A. L. Iakovidis, D. S. Schwarzkopf, K. R. Gegenfurtner, Individual differences in visual salience vary along semantic dimensions. Proceedings of the National Academy of Sciences 116 (24), 11687–11692 (2019). 19. A. Nuthmann, J. M. Henderson, Object-based attentional selection in scene viewing. Journal of vision 10 (8), 20–20 (2010). 20. M. Land, N. Mennie, J. Rusted, The roles of vision and eye movements in the control of activities of daily living. Perception 28 (11), 1311–1328 (1999). 21. M. S. Castelhano, M. Wieth, J. M. Henderson, I see what you see: Eye movements in real-world scenes are affected by perceived direction of gaze, in International Workshop on Attention in Cognitive Systems (Springer) (2007), pp. 251–262. 22. K. H. Ruddock, D. S. Wooding, S. K. Mannan, The relationship between the locations of spatial features and those of fixations made during visual examination of briefly presented images. 
+
+Spatial vision 10 (3), 165–188 (1996). 17 23. B. W. Tatler, The central fixation bias in scene viewing: Selecting an optimal viewing position independently of motor biases and image feature distributions. Journal of vision 7 (14), 4–4 (2007). 24. L. C. Loschky, A. M. Larson, T. J. Smith, J. P. Magliano, The scene perception & event comprehension theory (SPECT) applied to visual narratives. Topics in Cognitive Science 
+
+12 (1), 311–351 (2020). 25. M. I. Coco, F. Keller, Scan patterns predict sentence production in the cross-modal processing of visual scenes. Cognitive science 36 (7), 1204–1223 (2012). 26. M. I. Coco, F. Keller, Classification of visual and linguistic tasks using eye-movement features. 
+
+Journal of Vision 14 (3), 11–11 (2014). 27. L. C. Loschky, et al. , The role of event understanding in guiding attentional selection in real-world scenes: The scene perception & event comprehension theory (spect). Attention, Perception, & Psychophysics 88 (3), 92 (2026). 28. S. Lu, et al. , Ovis: Structural Embedding Alignment for Multimodal Large Language Model. 
+
+arXiv:2405.20797 (2024). 29. Y. Yao, et al. , Minicpm-v: A gpt-4v level mllm on your phone. arXiv preprint arXiv:2408.01800 
+
+(2024). 30. S. Bai, et al. , Qwen3-vl technical report. arXiv preprint arXiv:2511.21631 (2025). 31. C. Clark, et al. , Molmo2: Open Weights and Data for Vision-Language Models with Video Understanding and Grounding. arXiv preprint arXiv:2601.10611 (2026). 32. J. S. Perry, W. S. Geisler, Gaze-contingent real-time simulation of arbitrary visual fields, in 
+
+Human vision and electronic imaging VII (SPIE), vol. 4662 (2002), pp. 57–69. 33. M. P. Eckstein, W. Schoonveld, S. Zhang, S. C. Mack, E. Akbas, Optimal and human eye movements to clustered low value cues to increase decision rewards during search. Vision Research 113 , 137–154 (2015). 18 34. S. Zhang, M. P. Eckstein, Evolution and optimality of similar neural mechanisms for perception and action during search. PLoS Computational Biology 6 (9), e1000930 (2010). 35. J. F. Ackermann, M. S. Landy, Choice of saccade endpoint under risk. Journal of vision 13 (3), 27–27 (2013). 36. T. H. Weisswange, C. A. Rothkopf, T. Rodemann, J. Triesch, Can reinforcement learning explain the development of causal inference in multisensory integration?, in 2009 IEEE 8th International Conference on Development and Learning (IEEE) (2009), pp. 1–7. 37. B. Sullivan, L. Johnson, D. Ballard, M. Hayhoe, A modular reinforcement learning model for human visuomotor behaviour in a driving task, in Proc. AISB 2011 Symposium (2011), pp. 33–40. 38. V. Mnih, et al. , Human-level control through deep reinforcement learning. nature 518 (7540), 529–533 (2015). 39. W. Zhou, M. P. Eckstein, A deep Q-learning method for optimizing visual search strategies in backgrounds of dynamic noise, in Medical Imaging 2022: Image Perception, Observer Performance, and Technology Assessment (SPIE), vol. 12035 (2022), pp. 60–67. 40. M. K¨ ummerer, M. Bethge, T. S. Wallis, DeepGaze III: Modeling free-viewing human scanpaths with deep learning. Journal of Vision 22 (5), 7–7 (2022). 41. G. Cartella, et al. , Modeling Human Gaze Behavior with Diffusion Models for Unified Scanpath Prediction, in Proceedings of the IEEE/CVF International Conference on Computer Vision 
+
+(2025), pp. 16206–16216. 42. M. Assens, X. Giro-i Nieto, K. McGuinness, N. E. O’Connor, PathGAN: Visual scanpath prediction with generative adversarial networks, in Proceedings of the European Conference on Computer Vision (ECCV) Workshops (2018), pp. 0–0. 43. M. D. Anderson, E. W. Graf, J. H. Elder, K. A. Ehinger, W. J. Adams, Category systems for real-world scenes. Journal of vision 21 (2), 8–8 (2021). 19 44. J. Harel, C. Koch, P. Perona, Graph-based visual saliency. Advances in Neural Information Processing Systems 19 (2006). 45. L. Itti, C. Koch, E. Niebur, A model of saliency-based visual attention for rapid scene analysis. 
+
+IEEE Transactions on Pattern Analysis and Machine Intelligence 20 (11), 1254–1259 (1998), conference Name: IEEE Transactions on Pattern Analysis and Machine Intelligence, doi: 10.1109/34.730558. 46. M. Linka, H. Karimpur, B. de Haas, Protracted development of gaze behaviour. Nature Human Behaviour 9 (9), 1887–1897 (2025). 47. E. Akbas, M. P. Eckstein, Object detection through search with a foveated visual system. PLoS computational biology 13 (10), e1005743 (2017). 48. T.-Y. Lin, et al. , Microsoft COCO: Common Objects in Context. arXiv:1405.0312 [cs] (2015), arXiv: 1405.0312, http://arxiv.org/abs/1405.0312 .49. M. Andriluka, L. Pishchulin, P. Gehler, B. Schiele, 2D Human Pose Estimation: New Bench-mark and State of the Art Analysis, in IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2014). 50. L. Mertens, E. Yargholi, H. Op de Beeck, J. Van den Stock, J. Vennekens, Findingemo: An image dataset for emotion recognition in the wild. Advances in Neural Information Processing Systems 37 , 4956–4996 (2024). 51. A. D. Clarke, B. W. Tatler, Deriving an appropriate baseline for describing fixation behaviour. 
+
+Vision research 102 , 41–51 (2014). 52. S. Murlidaran, Z. Wen, J. Skaza, W. Wang, M. P. Eckstein, Semantic Saliency from Multi-Modal Large Language Model Scene Understanding Maps (2025). 53. P.-H. Tseng, R. Carmi, I. G. Cameron, D. P. Munoz, L. Itti, Quantifying center bias of observers in free viewing of dynamic natural scenes. Journal of vision 9 (7), 4–4 (2009). 20 54. G. Rosenberg, S. Stadhard, B. C. Hansen, M. R. Greene, The Limits of Learning from Pic-tures and Text: Vision-Language Models and Embodied Scene Understanding. arXiv preprint arXiv:2603.26589 (2026). 55. F. A. Wichmann, R. Geirhos, Are deep neural networks adequate behavioral models of human visual perception? Annual review of vision science 9 (1), 501–524 (2023). 56. M. Martelli, N. J. Majaj, D. G. Pelli, Are faces processed like words? A diagnostic test for recognition by parts. Journal of Vision 5 (1), 6–6 (2005). 57. M. Jiang, S. Huang, J. Duan, Q. Zhao, SALICON: Saliency in Context, in The IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2015). 58. Z. Ouyang, Image Foveation Python: Python implementation of image foveation, https: //github.com/ouyangzhibo/Image_Foveation_Python (2018), gitHub repository, ac-cessed: 2018. 59. S. Lu, et al. , Ovis2.5 Technical Report. arXiv:2508.11737 (2025). 60. M. Dehghani, et al. , Patch n’pack: Navit, a vision transformer for any aspect ratio and resolution. 
+
+Advances in Neural Information Processing Systems 36 , 2252–2274 (2023). 61. A. Yang, et al. , Qwen3 technical report. arXiv preprint arXiv:2505.09388 (2025). 62. D. Zhang, J. Li, Z. Zeng, F. Wang, Jasper and stella: distillation of sota embedding models. 
+
+arXiv preprint arXiv:2412.19048 (2024). 63. R. J. Williams, Simple statistical gradient-following algorithms for connectionist reinforcement learning. Machine learning 8 (3), 229–256 (1992). 64. W. Kwon, vLLM: An Efficient Inference Engine for Large Language Models , Ph.D. thesis, UC Berkeley (2025). 65. I. Oruc, F. Shafai, S. Murthy, P. Lages, T. Ton, The adult face-diet: A naturalistic observation study. Vision research 157 , 222–229 (2019). 21 66. A. Linardos, M. K¨ ummerer, O. Press, M. Bethge, DeepGaze IIE: Calibrated prediction in and out-of-domain for state-of-the-art saliency modeling, in Proceedings of the IEEE/CVF International Conference on Computer Vision (2021), pp. 12919–12928. 67. M. K¨ ummerer, Deep Gaze ii, https://github.com/matthias-k/DeepGaze (2016). 68. M. K¨ ummerer, Saleincy Models Implementation, https://github.com/matthias-k/ pysaliency (2015). 69. N. Carion, et al. , Sam 3: Segment anything with concepts. arXiv preprint arXiv:2511.16719 
+
+(2025). 70. M. Linka, B. de Haas, OSIEshort: A small stimulus set can reliably estimate individual differ-ences in semantic salience. Journal of vision 20 (9), 13–13 (2020). 71. J. Xu, M. Jiang, S. Wang, M. S. Kankanhalli, Q. Zhao, Predicting human gaze beyond pixels. 
+
+Journal of Vision 14 (1), 28–28 (2014). 
+
+# Acknowledgments 
+
+We would like to thank Professor William Wang of the Computer Science Department for his invaluable support and guidance throughout this project. We also extend our gratitude to our lab members, Srijita, Parsa, and Anqi, for their thoughtful insights and suggestions throughout this work. 
+
+Funding: This research received no specific grant from any funding agency in the public, com-mercial, or not-for-profit sectors 
+
+Author contributions: S.M. and M.P.E. contributed equally to the study design, experimentation, data collection, analysis, and manuscript writing. Z.W. provided the AutoSUM measurements for the test dataset and assisted with proofreading the Methods section. S.S. generated images for the test dataset and proofread the Introduction, Results, Figure captions, and Discussion sections. 
+
+Competing interests: There are no competing interests to declare. 22 Data and materials availability: Data, Images, model weights, and code to run the models will be publicly available upon acceptance. 
+
+# Supplementary materials 
+
+Materials and Methods Table S1 Figs. S1 to S7 23 Supplementary Materials for Why We Look Where We Look: Emergent Human-like Fixations of a Foveated Visual Language Model Maximizing Scene Understanding 
+
+Shravan Murlidaran ∗† , Ziqi Wen, Sana Shehabi, Miguel P. Eckstein †
+
+> ∗
+
+Corresponding author. Email: smurlidaran@ucsb.edu 
+
+> †
+
+These authors contributed equally to this work. 
+
+This PDF file includes: 
+
+Materials and Methods Table S1 Figures S1 to S7 S1 Materials and Methods 
+
+# Dataset 
+
+Training Set 
+
+To train a model to make eye movements while understanding scenes, we required a dataset of images depicting complex social activities, as such scenes would require the model to explore different regions of the image to understand what is happening. To this end, we combined images from three datasets: the MPII Human Pose dataset ( 49 ), developed by the Max Planck Institute for Informatics (MPII), which comprises 25,000 images featuring over 40,000 people performing 410 different activities; the FindingEmo dataset ( 50 ), consisting of 25,000 images from online sources that depict complex emotions among people in naturalistic settings; and the MSCOCO dataset ( 48 ), consisting of 330,000 images commonly used for image captioning. A subset of 8,000 images was selected from each dataset (see below for details on image selection), resulting in a final training set of 24,000 images. 
+
+Testing Set 
+
+To test our model, we curated a dataset comprising 147 images: 24 from the MS-COCO validation set, 47 screenshots of movie scenes depicting complex social interactions, and 76 images that were a mix of in-house photographs and AI-generated images created with tools such as Google Nano Banana Pro. The images were chosen so that the semantic accuracy of the VLM model’s descriptions relative to the human ground-truth description exceeded 0.5. We used embedding models and computed cosine similarity between description embeddings to determine the score. The images were also ensured to have at least 2 − 𝐷𝑉 𝐴 between the most salient and critical regions of the scene. 
+
+# Eye Movement Study 
+
+Using the test dataset, we conducted a free-viewing study in which 50 participants viewed each scene for 2 seconds without any explicit task. We tracked eye movements using an EyeLink 1000+ desktop-mounted system (spatial resolution 0.01 °) operating at 2,000 Hz. Participants were S2 positioned 75 cm ( 𝑫 𝒐𝒃𝒔 ) from a 19-inch display, which subtended a visual angle of 26.6 ° × 21.8 °
+
+at a resolution of 1,280 × 1,024 (pixel size ( 𝒔 ) = 0.0293 cm). The stimulus images were scaled to fit the monitor width (without altering the aspect ratio) and were centrally positioned. Participants fixated a cross located 480 pixels (10.1 °) below the center of the monitor and pressed the spacebar to begin each trial. To reduce head motion, participants used a chin rest. Saccades were identified using velocity (22 °/s) and acceleration (4,000 °/s 2) thresholds. Recordings were taken from the left eye, and the experiment was run using SR Research Experiment Builder. 
+
+# Modeling Foveation 
+
+Simulation: 
+
+To simulate foveation, we require a method that degrades the information available in an image as a function of eccentricity from the fixation location. To this end, we employed the method developed by Perry and Geisler ( 32 ) and later implemented by Jiang et al. ( 57, 58 ) for modeling foveation while exploring scenes through mouse movements. Their method applies Gaussian blurring to the image, with the blur bandwidth (half-max) increasing as a function of eccentricity from the fixation point. This function is referred to as the resolution map ( 𝑹 ). Jiang et al. ( 57 ) define the following resolution map: 
+
+𝑹 (𝒙 , 𝒚 ) = 𝜶 𝜶 + 𝜽 (𝒙 , 𝒚 ) ,
+
+𝜽 (𝒙 , 𝒚 ) = 𝑫 (𝒙 , 𝒚 )
+
+𝒑 ,
+
+(S1) S3 where, 
+
+𝒙 , 𝒚 are pixel coordinates in the image, 
+
+𝜶 is a hyper-parameter controlling how quickly resolution falls off with eccentricity (smaller 𝜶 yields a faster drop), 
+
+𝜽 (𝒙 , 𝒚 ) is the eccentricity of pixel location (𝒙 , 𝒚 ) from the fixation point, expressed in degrees of visual angle, 
+
+𝑫 (𝒙 , 𝒚 ) is the Euclidean distance of location (𝒙 , 𝒚 ) from the fixation location, 
+
+𝒑 is the number of pixels per degree of visual angle, and 
+
+𝑹 (𝒙 , 𝒚 ) is the resolution map (half-max bandwidth at (𝒙 , 𝒚 )). In vision research, the number of pixels per degree ( 𝒑 ) is a critical metric used to standardize stimulus size relative to the observer’s perspective. It is calculated from the observer distance (𝑫 𝒐𝒃𝒔 ) and the physical pixel size ( 𝒔 ) using the following geometric relationship: 
+
+𝒑 =
+
+ 𝑫 𝒐𝒃𝒔 · tan (1◦)
+
+𝒔 
+
+
+
+,
+
+where, 
+
+𝒑 is the number of pixels per degree of visual angle, 
+
+𝑫 𝒐𝒃𝒔 is the observer distance (distance from eye to screen), 
+
+𝒔 is the physical size of a single pixel, and 
+
+⌊. . . ⌋ denotes the floor function (integer truncation). (S2) 
+
+Approximating Gaussian Blur Using Gaussian Pyramids: 
+
+Convolving an image with a Gaussian kernel to produce blur is computationally expensive, with even efficient implementations typically running in 𝑶 (𝑵 log 𝑵 ) time, where 𝑵 is the number of pixels in the image. To address this, Perry and Geisler ( 32 ) introduced the use of Gaussian pyramids, a multi-scale representation in which the image is iteratively downsampled by a factor of two and S4 then upsampled back to the original resolution. Perry and Geisler empirically showed that this process approximates Gaussian blurring with specific half-max bandwidths. These functions are referred to as the transfer functions ( 𝑻 𝒊 ). The standard deviations of these transfer functions in spatial frequency are given by: 
+
+𝝈 𝑻 1 ≈ 0.124 cycles/pixel ,
+
+𝝈 𝑻 2 ≈ 0.056 cycles/pixel ,
+
+𝝈 𝑻 3 ≈ 0.0267 cycles/pixel ,
+
+𝝈 𝑻 𝑖 ≈ 𝝈 
+
+2𝒊 cycles/pixel ,
+
+where, 
+
+the first three values are empirically derived from Perry & Geisler ( 32 ), and the general formula approximates the pattern across pyramid levels. 
+
+𝝈 𝑻 𝑖 denotes the standard deviation of transfer function 𝑻 𝑖 
+
+in spatial frequency, 
+
+𝝈 is the standard deviation of the base Gaussian blur, and 
+
+𝒊 indexes the Gaussian pyramid level. (S3) 
+
+𝑻 0 corresponds to the original image and can be assumed to be part of the Gaussian pyramid, originating from an even larger pyramid. Therefore, the standard deviation of 𝑻 0 can be taken as 0.248. By interpolating between these predefined transfer functions, one can efficiently approximate a Gaussian blur of any desired half-max bandwidth, thereby achieving linear time complexity. Following Perry and Geisler, the transfer functions are expressed on a relative spatial frequency axis, where 1 .0 corresponds to 0 .25 cycles/pixel. The function used in our study is defined as: S5 𝑻 𝒊 ( 𝒇 ) =
+
+
+
+𝑒 −(( 𝒇 /4)/( 𝝈 /2 𝒊 ))2
+
+, 𝒊 = 1, . . . , 10 ,
+
+0, 𝒊 = 11 ,
+
+where, 
+
+𝑻 𝒊 ( 𝒇 ) is the transfer function at pyramid level 𝑖, 
+
+𝒇 is the relative spatial frequency, normalized such that 𝑓 = 1.0corresponds to 0 .25 cycles/pixel, 
+
+𝝈 is the standard deviation of the base Gaussian blur in spatial frequency (𝜎 = 0.248 cycles/pixel for 𝑇 0), and 
+
+𝒊 is the index of the Gaussian pyramid level (𝑖 = 1 is the finest blur, and larger 𝑖 correspond to coarser scales. )
+
+(S4) 
+
+Interpolation Between Transfer Functions: 
+
+To achieve arbitrary levels of blurring, the following interpolation function is used: 
+
+𝑩 𝒊 (𝒙 , 𝒚 ) =
+
+
+
+0, 𝑹 (𝒙 , 𝒚 ) ≤ 𝑹 𝒊 ,
+
+0.5 − 𝑻 𝒊 ( 𝑹 (𝒙 , 𝒚 )/ 2)
+
+𝑻 𝒊 −1 ( 𝑹 (𝒙 , 𝒚 )/ 2) − 𝑻 𝒊 ( 𝑹 (𝒙 , 𝒚 )/ 2) , 𝑹 𝒊 < 𝑹 (𝒙 , 𝒚 ) < 𝑹 𝒊 −1,
+
+1, 𝑹 (𝒙 , 𝒚 ) ≥ 𝑹 𝒊 −1,
+
+(S5) S6 where, 
+
+𝑩 𝒊 (𝒙 , 𝒚 ) is the interpolation weight at pixel (𝑥, 𝑦 ) for pyramid level 𝑖, 
+
+𝑹 (𝒙 , 𝒚 ) is the half-max bandwidth given by the resolution map, 
+
+𝑹 (𝒙 , 𝒚 )/ 2 converts this bandwidth to the normalized frequency axis used by the transfer functions 
+
+𝑹 𝒊 , 𝑹 𝒊 −1 are the half-max bandwidths corresponding to transfer functions 𝑇 𝑖 and 𝑇 𝑖 −1,
+
+𝑻 𝒊 
+
+ 𝑹 (𝒙 ,𝒚 )
+
+> 2
+
+
+
+is the Gaussian transfer function at scale 𝑖 evaluated at the half-max bandwidth 𝑅 (𝑥, 𝑦 ), and 0 .5 is the half-maximum sensitivity used to interpolate between adjacent scales. 
+
+Multiple Fixations: 
+
+To incorporate multiple fixations, the eccentricity maps 𝜽 𝒋 (𝒙 , 𝒚 ) generated by each fixation are combined using the following equation: 
+
+𝜽 combined (𝒙 , 𝒚 ) = min  𝜽 1 (𝒙 , 𝒚 ), 𝜽 2 (𝒙 , 𝒚 ), . . . , 𝜽 𝑵 (𝒙 , 𝒚 ),
+
+where, 
+
+𝑵 is the number of fixations made, and 
+
+𝜽 𝒋 (𝒙 , 𝒚 ) is the eccentricity map for the 𝑗 th fixation. (S6) This combined eccentricity map effectively deblurs all previously fixated locations. This provides a convenient way of combining the information gained from multiple fixation locations into a single foveated representation. 
+
+# Vision Language Model (VLM) 
+
+In this study, we use Ovis2.5 ( 28, 59 ) as our base vision-language model (VLM). Ovis2.5 is a decoder-only transformer that accepts multimodal inputs (text, images, and videos) and produces multimodal outputs in the same domains. Here, we restrict the inputs to images (both foveated and unfoveated) and text, and generate two complementary outputs: natural-language descriptions of S7 the scene (the standard capability of the model) and predictions of the next fixation location (our novel extension). Internally, Ovis2.5 incorporates the Native Vision Transformer (NaViT) ( 60 ) for image encoding. NaViT partitions an input image into contiguous 16 × 16 pixel patches, transforms each patch into a feature vector, and then projects these vectors into a 4096-dimensional embedding space shared across modalities. For text, Ovis2.5 relies on the Qwen3 large language model ( 61 ), which likewise projects token embeddings into a 4096-dimensional space. The vision and language embeddings are concatenated and passed into a cross-attentional decoder. In Ovis2.5, the decoder produces a corresponding 4096-dimensional output vector for every input patch or text token embedding. The outputs aligned with image tokens are routed into our eye movement model to predict the next fixation, while the decoder outputs at text positions are passed through the language modeling head to generate the sentence. 
+
+# Eye Movement Model 
+
+The eye movement model uses average spatial pooling with a stride length of two on the input image tokens from Ovis2.5, followed by a Convolutional Neural Network (CNN) with Pointwise Convolution, i.e., convolution layer with 1 × 1 kernel, combined with layer normalization and ReLU activations, to sequentially project the 4096-dimensional decoder feature vector for each image token into a lower-dimensional space: 
+
+Input ∈ R4096 ×2𝐻 ×2𝑊 Spatial Pooling 
+
+↦−−−−−−−−−−−→ R4096 ×𝐻 ×𝑊 
+
+↦→ R1024 ×𝐻 ×𝑊 ↦ → R256 ×𝐻 ×𝑊 ↦ → R64 ×𝐻 ×𝑊 ↦ → R1×𝐻 ×𝑊 
+
+where, 
+
+𝐻 and 𝑊 are the height and width of the action space. (S7) Each decoder feature corresponding to an image patch encodes not only the visual content of that patch but also its semantic and spatial relationships with other patches. The initial average S8 pooling halves the number of input image tokens, thereby reducing the total computational cost of the subsequent convolution layers. To predict eye movements, it is crucial to preserve the spatial alignment while extracting the relevant features. The Pointwise Convolutions ensure that information is processed independently for each token (i.e., without pooling across neighboring patches), while the dimensionality reduction progressively distills the features into a single scalar value per patch. These scalars form a map over the pooled image tokens ( 𝑴 ∈ R𝑯 ×𝑾 ), which is then passed through a softmax layer to produce a probability distribution over possible fixation locations 
+
+𝒑 (𝒙, 𝒚 ). The model outputs the next fixation location ( 𝑿, 𝒀 ) by either sampling (during training) or greedy selection (during inference) (i.e., (𝑿, 𝒀 ) = arg max 𝒙,𝒚 𝒑 (𝒙, 𝒚 )) from this probability distribution. 
+
+𝒑 (𝒙 , 𝒚 ) = exp ( 𝑴 𝒙 ,𝒚 /𝝉 )
+
+Í𝑯 𝒊 =1
+
+Í𝑾 𝒋 =1 exp ( 𝑴 𝒊 , 𝒋 /𝝉 )
+
+where, 
+
+𝝉 is the temperature parameter controlling the sharpness of the softmax distribution. (S8) To determine the size of the action space, we note that the VLM maps the input image from pixel space to token space with a reduction factor of 32, and the subsequent pooling introduces an additional reduction factor of 2. Thus, for an image of height 𝑯 𝒊𝒎𝒂 𝒈𝒆 and width 𝑾 𝒊𝒎𝒂 𝒈𝒆 , the action space is given by: action space = 𝑯 𝒊𝒎𝒂 𝒈𝒆 × 𝑾 𝒊𝒎𝒂 𝒈𝒆 
+
+64 2 ,
+
+where, 
+
+the factor 64 arises from a 32 × tokenization reduction followed by 2 × spatial pooling. (S9) S9 To standardize the action space across images of different sizes, we define a fixed field of view in degrees of visual angle (DVA) within which all images are embedded (see below). Finally, to simplify training, we train a separate model for each fixation step, all sharing the same architecture described above. Thus, for 𝑵 fixations, we train 𝑵 independent models. 
+
+# Reinforcement Policy 
+
+To train our model, we need to assign rewards to the actions taken by the model. The goal of our eye movement model is to make eye movements that maximize scene understanding. To facilitate this, we convert the VLM into a scene-understanding model by providing the following text prompts along with the image it has to interpret: 
+
+Text prompt 1: ”Provide your best guess of what is happening in the scene in a sentence. Do not mention the blur seen in the picture.” 
+
+Text prompt 2: ”In one sentence, describe what is happening in the scene and, if people are present, identify the person if possible, determine how they appear to feel, and their gender. Do not mention the blur seen in the picture. If you do not know who the person is, simply refer to them as man, woman, girl, boy, or person.” 
+
+The main analysis in this paper covers the results for prompt 1. The results for prompt 2 are provided in fig. S7. The prompt includes an instruction not to mention blur because VLMs often explicitly describe visual artifacts such as blur when they are present in an image. Since our foveation method introduces blur in the peripheral regions of the image, we include this instruction to ensure that the model focuses on describing the scene content rather than commenting on the blur introduced by foveation. Now suppose the model has made 𝒋 fixations ( 𝒋 ≤ 𝑵 ), where the initial fixation corresponds to 
+
+𝒋 = 0. Using the foveation technique discussed above, this corresponds to deblurring 𝒋 + 1 regions on the image (at 𝒋 model fixations and one initial fixation). With this setup, an ideal reward function should satisfy the following properties: S10 • Fixating regions whose information content is important for understanding the scene should yield a high reward. Since we want the model to preferentially fixate such informative regions, the reward function should assign higher values to fixations that reveal useful scene information. 
+
+• The cumulative reward should be monotonically increasing as a function of the number of fixations. In other words, the reward after a single fixation should be the lowest, and subsequent fixations should increase or at least maintain the reward. This reflects the intuition that revealing additional regions of the image through deblurring should not decrease the information available about the scene. Using the VLM’s descriptions after 𝒋 + 1 fixations, we explored the following options as possible reward functions that satisfy the above conditions. 
+
+Semantic Accuracy of Descriptions 
+
+We get semantic accuracy by computing similarity between the VLM’s descriptions when the image is foveated (an image with 𝒋 + 1 deblurred regions), and the descriptions generated when the image is unfoveated (the intact original image), which represents the maximum level of understanding the model can achieve for that image. For each image, we generate 𝑴 descriptions for both the foveated and unfoveated conditions after each fixation. These descriptions are converted into embeddings using a Large Language Model called Jasper ( 62 ). Jasper is an open-source model trained to produce sentence embeddings by distilling representations from larger closed-source embedding models. The embeddings are then used to compute the mean pairwise cosine similarity ( 𝑪𝑺 ) between the foveated and unfoveated descriptions. Let 𝑬 𝒊 and 𝑬 𝒇 𝒐𝒗 𝒊 𝒋 denote the embeddings of the 𝒊 th unfoveated description and the 𝒊 th foveated description after 𝒋 model fixations. Then the cosine similarity between the two sets of descriptions is given by: S11 𝑪𝑺 ( 𝒋 ) = 1
+
+𝑴 
+
+> 𝑴
+
+∑︁ 
+
+> 𝒊 =1
+
+𝑬 𝑓 𝑜𝑣  
+
+> 𝒊 𝒋
+
+· 𝑬 𝒊 
+
+∥𝑬 𝑓 𝑜𝑣  
+
+> 𝒊 𝒋
+
+∥∥ 𝑬 𝒊 ∥ ,
+
+where, 
+
+𝑬 𝒊 is the embedding of the 𝒊 th unfoveated description, 
+
+𝑬 𝑓 𝑜𝑣  
+
+> 𝒊 𝒋
+
+is the embedding of the 𝒊 th foveated description after 
+
+𝒋 model fixations, and 
+
+𝑴 is the number of generated descriptions. (S10) The cosine similarity after 𝒋 model fixations, defined above, acts as a cumulative metric indicating how effective the first 𝒋 model fixations are in revealing information needed to understand the scene. To compute the reward 𝑹 ( 𝒋 ) for choosing model fixation 𝒋 , we measure how much the current cosine similarity improves upon the best similarity obtained from previous fixations. In other words, a positive reward is obtained only when the current fixation reveals additional information that increases the similarity between the foveated descriptions and the unfoveated descriptions beyond what has already been achieved by earlier fixations. 
+
+𝑹 ( 𝒋 ) = 𝑪𝑺 ( 𝒋 ) − max  
+
+> 𝒌 <𝒋
+
+ 𝑪𝑺 (𝒌 ), 𝒋 ≥ 1,
+
+𝑹 (0) = 𝑪𝑺 (0), initial fixation 
+
+where, 
+
+𝑪𝑺 ( 𝒋 ) denotes the cosine similarity after 𝒋 model fixations. 
+
+𝑹 ( 𝒋 ) denotes the semantic reward for choosing 𝒋 𝒕𝒉 model fixation. (S11) Theoretically, as we increase the number of fixated locations, the model descriptions can ultimately approach the unfoveated descriptions (i.e., the case in which the entire image is deblurred), thereby representing the upper limit of scene understanding. Therefore, to standardize the computed rewards across images, we normalize the rewards using the mean pairwise cosine similarity among the S12 unfoveated descriptions, denoted by 𝑪𝑺 upper limit . To ensure boundedness, the normalized rewards are clipped to lie between 0 and 1: 
+
+𝑹 norm ( 𝒋 ) = 𝑹 ( 𝒋 )(𝑪𝑺 upper limit − 𝑹 (0)) + 𝜖 , 𝒋 ≥ 1,
+
+𝑹 norm (0) = 0, initial fixation 
+
+𝑹 norm ( 𝒋 ) = 1, ∀ 𝑹 norm ( 𝒋 ) > 1,
+
+𝑹 norm ( 𝒋 ) = 0, ∀ 𝑹 norm ( 𝒋 ) < 0,
+
+where, 
+
+𝑪𝑺 upper limit is the mean pairwise cosine similarity computed among the unfoveated descriptions for a given image. 
+
+𝑹 norm ( 𝒋 ) is the normalized semantic reward for choosing the 𝒋 𝒕𝒉 
+
+model fixation. 
+
+𝝐 is a small constant for numerical stability (S12) 
+
+Conditional Entropy 
+
+Another possible reward function stems from the idea that the uncertainty introduced by foveation in the image pixel space should translate into uncertainty in the model’s generated descriptions. Since VLMs such as Ovis2.5 are next-token predictors given an input, description generation involves predicting tokens that correspond to words. Each predicted token is associated with a probability distribution over the vocabulary, which can be used to compute the entropy rate. Let X0, X1, . . . , XT denote the sequence of tokens forming a generated sentence, where Xt is the tth 
+
+token predicted given input image I and the previously predicted tokens {X0, X1, . . . , Xt−1}. The conditional entropy rate of the generated sequence can be written as: S13 𝑯 ( 𝑿 0, 𝑿 1, . . . , 𝑿 𝑇 | 𝑰 ) =
+
+> 𝑻
+
+∑︁ 
+
+> 𝒕 =0
+
+𝑯 ( 𝑿 𝑡 | 𝑿 0, . . . , 𝑿 𝒕 −1, 𝑰 ) ,
+
+𝑯 ( 𝑿 𝑡 | 𝑿 0, . . . , 𝑿 𝒕 −1, 𝑰 ) = −∑︁ 
+
+> 𝒌 ∈V
+
+𝒑 𝒌 log 𝒑 𝒌 ,
+
+where, 
+
+𝒑 𝒌 = 𝑝 (𝑥 𝑡 = 𝑘 | 𝑋 0, . . . , 𝑋 𝑡 −1, 𝐼 ),
+
+V is the vocabulary (i.e., the set of all possible tokens), and 
+
+𝑯 (·) denotes Shannon entropy. (S13) For 𝑴 generated sentences from the VLM after 𝒋 model fixations, the average entropy rate ¯𝑯 ( 𝒋 )
+
+is given by: ¯𝑯 ( 𝒋 ) = 1
+
+𝑴 
+
+> 𝑴
+
+∑︁ 
+
+> 𝒎 =1
+
+1
+
+𝑻 𝒎 𝒋 
+
+𝑯 
+
+
+
+𝑿 (𝒎 𝒋 ) 
+
+> 0
+
+, 𝑿 (𝒎 𝒋 ) 
+
+> 1
+
+, . . . , 𝑿 (𝒎 𝒋 ) 
+
+> 𝑻 𝒎 𝒋
+
+| 𝑰 
+
+
+
+,
+
+where, 
+
+𝑴 is the number of generated sentences, 
+
+𝑻 𝒎 𝒋 is the length (number of tokens) of sentence 𝑚 obtained from VLM after 𝒋 fixations, and 
+
+𝑿 (𝒎 𝒋 ) 
+
+> 𝒕
+
+is the 𝑡 th token in sentence 𝑚 obtained from VLM after 
+
+𝒋 model fixations. (S14) Similar to the cosine similarity reward, we compute the reward at each fixation based on whether the current fixation reduces the model’s uncertainty beyond what has already been achieved by previous fixations. Specifically, we compare the average entropy at the current fixation to the minimum average entropy obtained across all earlier fixations. A positive reward is obtained only when the current fixation leads to a new minimum entropy, i.e., when it reduces uncertainty more than any previous fixation. If the current fixation does not improve upon the best (lowest) S14 entropy observed so far, the reward becomes negative and is clipped to zero. Unlike the cosine similarity reward, this formulation does not rely on unfoveated VLM descriptions. Instead, it more directly captures the idea that scene exploration should be rewarded when it progressively reduces uncertainty about what is being seen. Therefore, 
+
+𝑹 𝒆 ( 𝒋 ) = max 
+
+
+
+0, min  
+
+> 𝒌 <𝒋
+
+  ¯𝑯 (𝒌 ) − ¯𝑯 ( 𝒋 )
+
+
+
+, 𝒋 ≥ 1,
+
+𝑹 𝒆 (0) = 0, initial fixation 
+
+where, 
+
+¯𝑯 ( 𝒋 ) denotes the average entropy after 𝒋 model fixations. 
+
+𝑹 𝒆 ( 𝒋 ) denotes the entropy reward for choosing 𝒋 𝒕𝒉 model fixation. (S15) 
+
+REINFORCE Algorithm 
+
+The fixation prediction problem can be formulated as a reinforcement learning problem in which the eye movement model represents a stochastic policy that selects fixation locations on the image. After each fixation, the model predicts a probability distribution over all possible image patches. Sampling from this distribution corresponds to selecting the next fixation location. Given that we train separate models for each fixation step, let 𝝅 𝝓 𝒋 (𝒂 𝒋 |𝒔 𝒋 −1) denote the probability of selecting the current fixation location 𝒂 𝒋 given the previous state 𝒔 𝒋 −1, where 𝝓 𝒋 represents the parameters of the eye movement model for predicting 𝒋 th model fixation. The state 𝒔 𝒋 −1 corresponds to the foveated image after 𝒋 − 1 model fixations. The goal of training is to maximize the expected reward associated with the fixation actions. Using the REINFORCE algorithm ( 63 ), the gradient of the expected reward with respect to the policy parameters can be written as: S15 ∇𝝓 𝒋 𝑱 (𝝓 𝒋 ) = E 𝑹 ( 𝒋 )∇ 𝝓 𝒋 log 𝝅 𝝓 𝒋 (𝒂 𝒋 |𝒔 𝒋 −1) ,
+
+where, 
+
+𝑱 (𝝓 𝒋 ) is the expected reward objective for the policy choosing 𝒋 𝒕𝒉 model fixation .
+
+(S16) In practice, this expectation is approximated using a batch of sampled fixation trajectories from 𝑩 
+
+images. To reduce the variance of the gradient estimate, we subtract a baseline corresponding to the average reward across the batch: 
+
+∇𝝓 𝒋 𝑱 (𝝓 𝒋 ) = 1
+
+𝑩 
+
+> 𝑩
+
+∑︁ 
+
+> 𝒊 =1
+
+ 𝑹 𝒊 ( 𝒋 ) − ¯𝑹 ( 𝒋 ) ∇𝝓 𝒋 log 𝝅 𝝓 𝒋 (𝒂 𝒊 𝒋 |𝒔 𝒊 𝒋 −1),
+
+¯𝑹 ( 𝒋 ) = 1
+
+𝑩 
+
+> 𝑩
+
+∑︁ 
+
+> 𝒊 =1
+
+𝑹 𝒊 ( 𝒋 ),
+
+where, 
+
+𝑹 𝒊 ( 𝒋 ) is the reward for choosing image 𝒋 𝒕𝒉 model fixation for image 𝒊 ,
+
+𝒂 𝒊 𝒋 is the sampled fixation 𝒋 for image 𝒊 ,
+
+𝒔 𝒊 𝒋 −1 is the image 𝒊 foveated at the initial and 𝒋 − 1 previous model fixation locations ¯𝑹 ( 𝒋 ) is the average reward across the batch for choosing fixation 𝒋 .
+
+(S17) Since fixation locations correspond to spatial positions on the image grid, nearby patches often reveal similar visual information. To encourage spatially smooth learning, we apply Gaussian smoothing to the policy gradient. Instead of assigning the gradient update only to the sampled fixation location, the update is distributed to neighboring patches according to a spatial weighting function. Note that the weights are not normalized. The Gaussian kernel is used purely as a spatial decay function. S16 Let 𝒌 denote a patch index and 𝒙 𝒌 the spatial coordinate of that patch. The Gaussian weighting function is defined as: 
+
+𝒘 (𝒂 , 𝒌 ) = exp 
+
+
+
+− ∥𝒙 𝒂 − 𝒙 𝒌 ∥2
+
+2𝝈 2
+
+
+
+,
+
+where, 
+
+𝒙 𝒂 is the spatial coordinate of the sampled fixation location 𝑎, 
+
+𝒙 𝒌 is the spatial coordinate of patch 𝑘, and 
+
+𝝈 controls the spatial spread of the smoothing kernel. (S18) Using this weighting, the smoothed policy gradient becomes: 
+
+∇𝝓 𝒋 𝑱 smooth (𝝓 𝒋 ) = 1
+
+𝑩 
+
+> 𝑩
+
+∑︁ 
+
+> 𝒊 =1
+
+∑︁ 𝒌 
+
+𝒘 (𝒂 𝒊 𝒋 , 𝒌 )  𝑹 𝒊 ( 𝒋 ) − ¯𝑹 ( 𝒋 ) ∇𝝓 𝒋 log 𝝅 𝝓 𝒋 (𝒌 |𝒔 𝒊 𝒋 −1),
+
+where, 
+
+𝒘 (𝒂 𝒊 𝒋 , 𝒌 ) distributes the update from sampled fixation 𝑎 𝑖 𝑗 
+
+to neighboring patch 𝑘. 
+
+(S19) This smoothing distributes the gradient update to nearby spatial locations, reflecting the fact that neighboring patches often contain similar information relevant for scene understanding. In practice, this leads to more stable learning and encourages the model to learn coherent spatial fixation policies. Finally, the weights of the model corresponding to each fixation are updated to maximize reward S17 by performing a gradient ascent using the AdamW optimizer, as shown 
+
+𝒈 𝒕 = ∇𝝓 𝒋 𝑱 (𝝓 𝒋 ),
+
+𝒎 𝒕 = 𝜷 1 𝒎 𝒕 −1 + ( 1 − 𝜷 1) 𝒈 𝒕 ,
+
+𝒗 𝒕 = 𝜷 2𝒗 𝒕 −1 + ( 1 − 𝜷 2) 𝒈 2 
+
+> 𝒕
+
+,
+
+ˆ𝒎 𝒕 = 𝒎 𝒕 
+
+1 − 𝜷 𝒕 
+
+> 1
+
+,
+
+ˆ𝒗 𝒕 = 𝒗 𝒕 
+
+1 − 𝜷 𝒕 
+
+> 2
+
+,
+
+𝝓 (𝒕 +1) 
+
+> 𝒋
+
+= 𝝓 (𝒕 ) 
+
+> 𝒋
+
++ 𝜼 ˆ𝒎 𝒕 
+
+√ ˆ𝒗 𝒕 + 𝝐 − 𝜼𝝀𝝓 (𝒕 ) 
+
+> 𝒋
+
+,
+
+(S20) 
+
+where, 
+
+𝒈 𝒕 is the gradient of the objective at iteration 𝑡, 
+
+𝒎 𝒕 and 𝒗 𝒕 are the first and second moment estimates, 
+
+𝜷 1, 𝜷 2 are the exponential decay rates for these moments, 
+
+𝜼 is the learning rate, 
+
+𝝀 is the weight decay coefficient, and 
+
+𝝐 is a small constant for numerical stability. 
+
+# Implementation details 
+
+Stimuli 
+
+To enable valid comparisons between human and model eye movements, it is necessary to ensure that the images used by the model correspond to approximately the same visual angles as the images shown to participants during the eye-tracking study. To achieve this, the model’s field of view was set to a square region of size 26 .6◦ × 26 .6◦ of visual angle, corresponding to a resolution of 1280 × 1280 pixels at an observer distance of 75 cms. All images were embedded within this S18 space at the appropriate size and spatial location to match the presentation conditions used in the eye-tracking experiment. Unless stated otherwise, all analyses described in this Methods section are performed on images embedded within this standardized space. The training dataset consists of 24,000 images compiled from three publicly available datasets (as described above). From each dataset, a subset of 8,000 images was selected to construct the final training set. Our goal was to ensure that the selected images required more than the initial fixation for the model to understand the scene. To approximate this criterion, we computed the cosine similarity between the descriptions generated from foveated and unfoveated versions of each image. For this comparison, the foveation was placed at the corner of the image. This ensured that the initially revealed region was unlikely to correspond to an informative part of the scene, thereby avoiding the possibility of accidentally selecting a location that might already contain critical information for that specific image. By using a corner location, we ensured that the revealed region was consistently uninformative across images. Images were then ranked by cosine similarity, and we selected the 8,000 images with the lowest similarity values from each dataset. These images correspond to scenes in which the model’s understanding improves substantially when additional regions are revealed, thereby encouraging the model to perform exploratory fixations. 
+
+Hardware and Software 
+
+Model training was performed using seven NVIDIA RTX A6000 GPUs, each with 48 GB of memory. Since the VLM (OVIS2.5) is used only for inference during training, we employed the vLLM library ( 64 ) to increase inference efficiency. We hosted the VLM on five GPUs and used the remaining two GPUs as client nodes to request outputs from the hosted VLM instances. These two GPUs were responsible for training the eye movement model. Training was performed synchronously across the two GPUs using PyTorch’s Distributed Data Parallel (DDP). We modified the vLLM implementation to additionally output the hidden states and token probabilities needed to train the eye movement model. S19 Description Sampling from VLM using vLLM library 
+
+Given that we generate 𝑴 descriptions from the VLM, a common approach would be to use beam search to obtain the top candidate descriptions. However, beam search often produces sentences that follow very similar token trajectories, resulting in highly similar descriptions. This behavior is not ideal in our case because we wish to capture the uncertainty introduced by foveation in the image. To obtain more diverse yet deterministic descriptions, we modified the sampling procedure in vLLM. Specifically, we perform 𝑴 separate greedy decoding runs, each seeded with one of the top-M first tokens. This produces 𝑴 descriptions that differ in their initial token while remaining deterministic during generation, ensuring each description is obtained from a unique trajectory. This sampling method for descriptions was used for all training and analysis done as part of this study. 
+
+Foveation Parameters Calibration 
+
+To enable fair comparison with humans, we aimed to set the foveation parameters (discussed above) to approximate properties of human vision. An observer distance of 75 cm sets the pixels-per-degree value ( 𝑷 ) to 44 pixels/deg, matching our human studies. A Gaussian pyramid of depth 10 was sufficient to cover the resolution drop at any arbitrary distance from the fixation point within the visual field (26 .6◦ × 26 .6◦). To match the resolution map of the human eye, we adjusted the 𝜶 value using a separately conducted limited-fixation (two or four) scene description study on humans ( 𝑵 = 20) with 277 images (86 overlapping with the free-viewing dataset). The participant’s eyes were tracked using the same setup as in the free-viewing study. A gaze-contingent display was implemented to ensure the image presentation stopped after four fixations for each participant. Since the VLM (OVIS2.5) may not describe all images as accurately as humans with unlimited viewing time, we first selected a subset of 124 images in which the average similarity of VLM descriptions (without foveation) matched the within-human description similarity (unlimited viewing time). Using this subset, we chose 𝜶 such that the cosine similarity between VLM descriptions of foveated S20 images (based on human fixations from the scene description study) and human descriptions with unlimited viewing time matched the cosine similarity between human descriptions after two or four fixations and those with unlimited viewing time. The resulting value of 𝜶 was 0 .63. Although participants in our study viewed stimuli from an observer distance of 75 cm, human visual expertise is honed through real-world exposure to objects and faces at specific visual angles. To ensure that our models were trained on ecologically valid scales, we referenced naturalistic observation data from Oruc ¸ et al. ( 65 ). Their findings indicate that while the median face size in the adult ”face-diet” is approximately 6 .0 − 𝐷𝑉 𝐴 , unfamiliar faces, which more closely resemble our test stimuli, subtend a median visual angle of 4 .9 − 𝐷𝑉 𝐴 .In our training dataset, a sample of 1000 images containing people yielded an average face size of only 2 .6 − 𝐷𝑉 𝐴 at the initial 75 cm observer distance. To align these stimuli with the median 4.9 − 𝐷𝑉 𝐴 value encountered in daily life, we recomputed the required observer distance ( 𝑫 ) to be 39.3 cm. Consequently, the models were trained using the human-calibrated foveation parameter (𝜶 = 0.63), but at this adjusted observer distance, to better approximate the high-resolution features characteristic of natural human social interaction. Testing was still conducted at an observer distance of 75 cm to match human experiments. 
+
+Action space for the models 
+
+Given a fixed field of view of 1280 × 1280 pixels, the action space of the eye movement model consists of 400 possible locations (1280 2/64 2, see Methods), arranged as a 20 × 20 grid. Each grid cell corresponds to a square region of 64 × 64 pixels or 1 .4 × 1.4 − 𝐷𝑉 𝐴 overlaid on the image. An action (𝑿, 𝒀 ) corresponds to selecting the center of a grid cell as the fixation location. Thus, 
+
+( 𝑿 = 0, 𝒀 = 0) corresponds to the center of the top-left cell, while ( 𝑿 = 19 , 𝒀 = 19 ) corresponds to the center of the bottom-right cell. S21 Training procedure 
+
+The eye movement model is trained to generate four sequential fixations following an initial fixation, and each model is trained for a total of five epochs. The effective batch size across two GPUs is 60 images. For each batch, the initial fixation is randomly selected from five predefined locations: the four corners of the image and a location 300 pixels below the center of the field of view. With the current setup, it took 4 days to train a model. To ensure reproducibility, we trained five independent instances of the fRL-SU model and report fixation frequencies and metrics averaged across these instances. Control models (fRL-SC, fRL-Search, and fRL-Entropy) were each trained as a single instance. Since each fixation is modeled by a separate but architecturally identical Convolutional Neural Network (CNN), the models are trained sequentially. Specifically, each CNN model is trained on five batches (300 images). During training to predict the 𝒋 𝒕𝒉 fixation, the corresponding CNN model receives the intermediate visual output from the VLM, conditioned on the input image and the previous 𝒋 − 1 model fixations. The CNN outputs are then transformed into a softmax distribution with temperature 𝝉 = 3, from which the 𝒋 𝒕𝒉 fixation is sampled. The preceding 𝒋 − 1
+
+fixations are obtained via greedy selection from their corresponding frozen CNN models. The learning rate ( 𝜼 ) for the AdamW optimizer is set to 0 .0002, with weight decay ( 𝝀 ) set to 0 .0001, and all other hyperparameters use the default values provided by the PyTorch implementation of AdamW. The spatial smoothing Gaussian applied in the loss function has a standard deviation of 
+
+𝝈 = 1.5. 
+
+# Control Tasks 
+
+To train the eye movement model, the input prompt to the VLM is fixed, instructing it to describe the given input image. As a control, we also train the eye movement model using alternative input prompts corresponding to different tasks and compare the resulting eye movements with human eye movements. Specifically, we trained two additional models: one performing a search task and another performing a scene categorization task based on categories from Anderson et al. ( 43 ). We use the following prompts for the respective tasks. S22 Text prompt 1 (Search task): 
+
+“Provide your best description of the smallest man-made object present and clearly visible in the image in a sentence. Do not mention the blur seen in the picture.” 
+
+Text prompt 2 (Scene Classification task): 
+
+“Analyze this scene and classify it by selecting exactly one label from each of the three dimensions below. Do not use any outside vocabulary. Semantic Content: Nature, Road, Residence, Farm, Beach, Car Park 3D Spatial Structure: Cluttered, Closed Off, Flat, Tunnel 2D Image Appearance: Dark, Bright, Blue, Green, Brown Format your output strictly as: Semantic: [label] Spatial: [label] Appearance: [label]” 
+
+For simplicity, the models trained using the above prompts were optimized solely using the semantic accuracy reward. Additionally, we trained models with very high ( 𝜶 = 0.2) and very low foveation (𝜶 = 20 ). All models were trained, at an observer distance of 39.3 cm, to make four fixations after the initial fixation (see details above). 
+
+# Existing fixation prediction models 
+
+DeepGaze 
+
+DeepGaze ( 66 ) is a neural network model that combines low-level image features from a ResNet-50 CNN and human fixation data to predict a fixation density map. This study uses an implementation provided by K¨ ummerer ( 67 ). Since this results in a static map for each image, we adapt it to generate sequential fixations in our test dataset by smoothing the DeepGaze map with a 2 − 𝐷𝑉 𝐴 circular average kernel and selecting four fixation locations sequentially using inhibition of return (IOR). The IOR is modeled as a circular patch whose size is set to match the average saccade distance per fixation observed in human free-viewing data. For DeepGaze, the diameter of the IOR patch is 2.6 − 𝐷𝑉 𝐴 .
+
+Saliency Models 
+
+As part of this study, we compare two low-level saliency models: Itti Koch ( 45 ) and Graph-Based Visual Saliency (GBVS) ( 44 ). The Itti-Koch model predicts fixation locations by combining multi-scale feature contrasts (color, intensity, orientation) into a bottom-up saliency map. GBVS extracts S23 similar low-level features but constructs a graph over them and uses Markov chains to generate a saliency map. This study uses an implementation provided by K¨ ummerer ( 68 ). Similar to DeepGaze, we generate sequential fixations by selecting four locations per image through iterative maximum selection on smoothed (2 − 𝐷𝑉 𝐴 kernel) saliency maps with inhibition of return matched to human data. For GBVS, the IOR diameter is 2 .8 − 𝐷𝑉 𝐴 , while for the Itti-Koch model, it is 2 − 𝐷𝑉 𝐴 . The differences in IOR diameters reflect the sparsity of the predicted saliency maps, with sparser maps requiring smaller IOR regions. 
+
+Random 
+
+For the random baseline, 1000 samples of four fixations were uniformly drawn from the pixels corresponding to the image region within the field of view. The resulting average inter-fixation distance was substantially larger (11 − 𝐷𝑉 𝐴 ) than that observed in human data, even without applying inhibition of return. Nevertheless, we imposed an IOR constraint with a diameter of 2 − 𝐷𝑉 𝐴 during sampling. 
+
+# Fixation prediction heatmaps for trained models 
+
+The eye movement model outputs a probability map of size 20 × 20 for each predicted fixation; thus, four fixations yield four such maps. To obtain a single static fixation prediction map, we compute the element-wise maximum across these maps. This operation aggregates the most probable regions from each fixation step, assuming that each map highlights distinct regions of interest. Taking the maximum, therefore, combines these high-probability regions into a single map, providing a consolidated estimate of likely fixation locations. 
+
+# Measured fixations heatmaps 
+
+Fixations on an image were represented as pixel-wise white dots on a blank canvas and convolved with a Gaussian kernel with a standard deviation of 0 .25 ◦ visual angle. OpenCV2’s GaussianBlur 
+
+function was used for this purpose. The convolved fixation points were superimposed onto a blank S24 map at their corresponding (𝒙, 𝒚 ) locations to generate the heatmap. To match the trained models, the heatmaps were generated for the first four measured fixations after the initial fixation. 
+
+# Fixation prediction heatmap comparison metrics 
+
+In this study, we use the following standard metrics from the literature: Area Under ROC (AUC) and Correlation Coefficient. 
+
+• AUC: Measures how well a saliency map discriminates fixation locations from non-fixated locations. 
+
+• CC: Measures the linear similarity between the predicted saliency map and the human fixation density map. This study uses an implementation of these metrics provided by K¨ ummerer ( 68 ). 
+
+# Fixation frequency to categories comparisons 
+
+To compare fixation patterns, we classified the visual elements in each scene and quantified how frequently the first four subsequent fixations fell within these categories. We generated binary segments for each object or region, using a spatial tolerance of 0 .7 − 𝐷𝑉 𝐴 from the segment edges to determine category membership (see fig.S1 for generalization of results with other tolerances). This analysis was applied across humans, saliency models, and our trained and control models. The categories are as follows: 
+
+People: 
+
+This category corresponds to all people present in an image. The Segment Anything Model 3 (SAM3) ( 69 ) was used to detect and segment people in each scene, and the resulting masks were used. Of the 147 test images, 85 contain people. 
+
+Center bias: 
+
+This corresponds to the central 5 − 𝐷𝑉 𝐴 region in each image. A circular binary mask of size 5 − 𝐷𝑉 𝐴 centered in each image was used to count fixations falling into this category. All 147 S25 images in the dataset include a center bias mask. 
+
+SU-R Object: 
+
+This corresponds to objects that are critical for understanding the given image. Based on previous work on scene understanding maps (SUMs) ( 14, 52 ), these critical objects were identified by quantifying the impact of removing objects/people from a scene on the scene descriptions generated by a Multi-Modal Large Language Model (MLLM). The object/people removal, scene description generation, and impact measurement using embedding-based description ratings were all automated (AUTOSUM), as detailed in ( 52 ). To ensure consistency with the SU-R Object criteria, we excluded any people present in the scene from the AUTOSUM predictions. The remaining scores were normalized relative to the most impactful object in each image. Segments achieving a normalized score of 0.95 or higher were classified as SU-Relevant (SU-R) Objects; these segments then served as masks for calculating fixation frequency. The SU-R object category was further split into the following subcategories: 
+
+SU-R Object (Gaze/Grasp) These are images where the SU-R Object is either grasped or gazed at by people present in the scene. Naturally, this forms a subset of images that contain people. Of the 85 images with people, 53 include gaze or grasp cues directed toward the SU-R Object, and the SU-R masks for these 53 images are included in this category. 
+
+SU-R Object (No Gaze/Grasp) These are images in which the SU-R Object has no gaze or grasp cues directed toward it. All images without people naturally fall into this category. There are 45 such images that contain SU-R Objects with no gaze/grasp cues, and their masks are included here. We ignore images that contain people but lack gaze/grasp cues toward the SU-R Object due to the limited number of such cases (only 9 images). 
+
+SU-I Objects: 
+
+All objects with an AUTOSUM score below 0.95 were considered SU-Irrelevant (SU-I) Objects. Since there are typically many SU-I objects in each scene, their masks were normalized by the S26 number of SU-I objects per image to ensure fair comparison with other categories. Similar to SU-R Objects, SU-I Objects were split using the same set of images as the two SU-R categories (53 and 45 images, respectively), ensuring fair comparisons. 
+
+Text: 
+
+Images containing text were manually segmented, and 4-sided polygon masks were created for text regions. Of the 147 images, 51 contain text regions. 
+
+Saliency (GBVS): 
+
+This category corresponds to regions identified by the top prediction of the GBVS saliency map. For images containing an SU-R Object, a circular patch centered at the top prediction location, with an area matching the SU-R Object segment, was used as the mask. For images without an SU-R Object, a circular patch matching the average size of SU-R Objects across the test dataset was used. All 147 images include a saliency mask. 
+
+Comparison of model and human fixation frequency distributions 
+
+To assess how well the models predict the distribution of human fixation frequencies across these categories, we measure the divergence between the models’ predicted fixation frequencies and the empirical human distribution. We frame this as a Negative Log-Likelihood (NLL) problem. By modeling the human fixation frequencies across object categories as a multivariate Gaussian distribution N ( 𝜇, Σ), we calculate the NLL of the model’s predictions under this human prior. We compute two variants of NLL: one assuming the categories are independent (the main results), and the other assuming they are not (see fig. S4). The independent variation is as follows: S27 NLL indep = −
+
+> 𝒌
+
+∑︁ 
+
+> 𝒊 =1
+
+"
+
+(𝒙 𝒊 − 𝝁 𝒊 )2
+
+2SE 2
+
+> 𝒊
+
++ 12 ln (2𝜋 SE 2 
+
+> 𝒊
+
+)
+
+#
+
+where, 
+
+𝒌 is total number of object categories 
+
+𝒙 𝒊 is the model’s predicted fixation frequency for category 𝒊 𝝁 𝒊 is the mean empirical human fixation frequency for category 𝒊 
+
+SE 𝒊 is the standard error of the human frequencies for category 𝒊 
+
+(S21) In the dependent variation, we calculate the covariance between categories based on the fixation frequencies of 50 participants in the free-viewing study, averaged across all 147 images in the test dataset. The NLL is computed as follows: 
+
+NLL mvn = −( 12 (𝒙 − 𝝁 )𝑻 𝚺 −1 (𝒙 − 𝝁 ) + 12 ln |𝚺 | + 𝒌 
+
+2 ln (2𝝅 )) 
+
+where, 
+
+𝒙 is the vector of the model’s predicted fixation frequencies across all categories 
+
+𝝁 is the vector of the mean empirical human fixation frequencies 
+
+𝚺 is the covariance matrix of the empirical human data 
+
+𝚺 −1 is the inverse of the covariance matrix (precision matrix) 
+
+|𝚺 | is the determinant of the covariance matrix 
+
+𝑻 is the transpose operator 
+
+𝒌 is the total number of object categories (S22) To allow comparison across datasets, the NLL scores were normalized by the NLL score of the Itti-Koch saliency model, yielding the Normalized NLL (NNLL): NNLL = NLL model 
+
+NLL Itti-Koch 
+
+(S23) A score closer to 0 indicates better agreement with human fixation frequencies, while a score of 1 indicates performance equivalent to the Itti-Koch baseline, the worst-performing model in this study. S28 Description similarity comparisons 
+
+Given that the VLM generates image descriptions in response to the text prompt (defined above) and that the eye movement model can be constrained to fixate at specified locations, we use fixation sequences from various models and participants in the test dataset and force the eye movement model to follow these sequences. We then record the model-generated descriptions for each fixation sequence. These descriptions are compared to the unfoveated model descriptions of the same image using cosine similarity between sentence embeddings obtained from the Jasper embedding model ( 62 ). To compute the description similarities for the random model, we used only 10 out of the 1000 generated samples (see Methods above) to keep the computation tractable. 
+
+# Testing on publicly available dataset 
+
+To evaluate our models, we use an external dataset from a recent free-viewing study by Linka et al. ( 46 ). This dataset comprises a subset of the OSIE dataset (40 images; OSIE 40, ( 70, 71 )) and includes a substantial amount of participant data ( 𝑵 = 6, 720 ) collected across different age groups. Linka et al. analyzed these data by calculating the proportion of fixations falling into four distinct categories: 1) Head, 2) Body, 3) Touched (objects actively touched by people present in the scene), and 4) Text. 
+
+Stimuli Dimensions 
+
+Because observer distance in the Linka et al. ( 46 ) study varied between 50 cm and 90 cm, the subtended visual angle of the images was not constant. Therefore, we maintained the original stimulus resolution of 1000 × 750 pixels and positioned the images centrally within the models’ field of view. We fixed the observer distance to 75 cm to match our testing conditions. Given that the pixel pitch (0.294 mm) of the monitor used in their study (ProLite T1931SR-B5) is nearly identical to ours (0.293 mm), the centrally placed images subtend 21 ◦ × 16 ◦ − 𝐷𝑉 𝐴 within the models’ field of view. S29 Fixation Analysis 
+
+Participants in the Linka et al. ( 46 ) study initiated viewing from the screen center. To ensure a fair comparison, the initial fixation for all baseline models (DeepGaze, other saliency models, and the Random baseline), as well as the participants, is set to the screen center. In contrast, our trained models inherently predict the first fixation toward the center, so their starting point is 10 .1◦
+
+below the center of the field of view, consistent with our primary analyses. For all comparative analyses, these respective initial starting points are treated as the ”first fixation” across all models and participants. Consistent with the methodology used for our primary dataset, we evaluate the first four fixations. Furthermore, we compute fixation frequencies—rather than proportions—for both the four original categories from Linka et al. For our categories, we use data from adults only (ages 18-72) and the SU-R Object and SU-I Object categories derived from AutoSUM. We also calculate fixation frequencies at the top-saliency location predicted by the GBVS model. Finally, we compute the cosine similarity across the first four fixations for all models and participants. 
+
+# Bootstrap Analysis 
+
+Error bars for fixations to categories were obtained using 10000 bootstrap resampling of participants. The images were not bootstrapped as doing so would change the number of images in each category. For the AUCs and correlation coefficients, error bars were obtained using 1000 bootstrap resampling of participants and images. S30 Figure S1 : Model-human fixation frequency agreement across segmentation distance thresholds. Normalized Negative Log Likelihood (NNLL) scores, normalized to Itti-Koch Saliency scores, quantifying how closely each model’s fixation frequencies match those of human participants. Lower values indicate closer agreement. Each panel corresponds to a different distance threshold used to assign a fixation to a scene element. Across all thresholds, fRL-SU and fRL-Entropy show the closest agreement with human data, while fRL-Search and Itti-Koch show the largest deviations. The relative ordering of the models is the same regardless of the distance threshold, indicating that the main findings are not an artifact of the 0 .7 − 𝐷𝑉 𝐴 criterion. S31 Figure S2 : Center bias fixation frequency across various degrees of visual angle (DVA). Fixation frequency within the central region of the image for human free-viewing participants (box plots) and the fRL-SU model (orange bars), computed using circular central regions of 3,4,5,6 and 7-DVA. The DVA size of 5, used in all main analyses, was selected based on prior human fixation data. At this size, fRL-SU central fixation frequency falls within the human subject distribution. 
+
+# Supplementary Tables and Figures 
+
+Model AUC CC p-value 
+
+fRL-SU 0.9046 ± 0.0038 0.3715 ± 0.0121 -fRL-Scene Classification 0.8707 ± 0.0049 0.2785 ± 0.0090 *** fRL-Search 0.8088 ± 0.0061 0.1832 ± 0.0097 *** DeepGaze 0.9312 ± 0.0036 0.6281 ± 0.0164 *** GBVS 0.8451 ± 0.0051 0.2382 ± 0.0086 *** Itti Koch 0.5329 ± 0.0048 0.0596 ± 0.0093 *** 
+
+Table S1 : AUROC and correlational coefficient (CC) metrics comparison of different models. fRL-SU is significantly better than other models in comparison, except DeepGaze. DeepGaze is the best-performing model across both metrics. S32 Figure S3 : Fixation heatmap examples across models and scene element categories. Example images from four scene element categories are shown in columns: scenes with people, scenes with SU-relevant objects gazed or grasped, scenes with SU-relevant objects without gaze or grasp, and scenes containing text. Rows show fixation heatmaps generated by human free-viewing participants and each computational model. S33 Figure S4 : Category independent vs category dependent NNLL comparisons. NNLL scores, nor-malized to Itti-Koch, comparing each model’s fixation frequencies to human data. Solid bars show the NNLL computed with category covariance, treating categories as dependent. Hatched bars show the NNLL computed using only category-specific variances, treating categories as independent. The values are similar, indicating that dependencies within the categories minimally affect the NNLL scores. S34 Figure S5 : fRL-Entropy model architecture and training pipeline. (a) Entropy as a reward signal. A VLM generates descriptions word-by-word, producing a probability distribution at each word. Token-level entropy is averaged across tokens to obtain a sentence-level entropy score, then averaged across ten candidate descriptions to estimate overall uncertainty. Reward is defined as the negative of this uncertainty. (b) Schematic of the fRL-Entropy model, which shares the fRL-SU architecture but replaces the cosine-similarity reward with the entropy-based reward, removing the need for ground-truth descriptions during training. S35 Figure S6 : Generalization to the Linka et al. ( 46 ) dataset. Fixation frequencies per image across scene element categories for each model compared to the free-viewing participants in the dataset. Box plots show the human subject distribution; the bars show model predictions; hatched bars show the random baseline. S36 Figure S7 : Model results for detailed prompt. The fRL-SU model trained on a prompt asking the model to provide the age, gender, and emotional expressions of people while describing the scene increased the fixations to people in both (a) our dataset and (b) the OSIE short dataset from ( 46 ). However, the model still looks at bodies disproportionately more than faces. S37

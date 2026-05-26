@@ -1,0 +1,363 @@
+Title: Brain-to-Image Retrieval and Reconstruction via Multimodal EEG Alignment
+
+URL Source: https://arxiv.org/pdf/2605.23996v1
+
+Published Time: Tue, 26 May 2026 00:07:44 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# Brain-to-Image Retrieval and Reconstruction via Multimodal EEG Alignment 
+
+Chi Kit Wong ckwong627@connect.hkust-gz.edu.cn Yan Liu yliu674@connect.hkust-gz.edu.cn Haowen Yan hyan904@connect.hkust-gz.edu.cn 
+
+Abstract 
+
+We present a brain-to-image system that decodes visual stimuli from EEG signals recorded during natural image viewing. Our system addresses two mandatory tasks: (1) EEG-to-Image Retrieval , which ranks the correct stimulus image among 200 candidates given an EEG segment, and (2) EEG-to-Image Reconstruction , which generates an image consistent with the perceived stimulus. For retrieval (Task 1), we implemented an approach of multi-level blurring [1], im-proved with biologically-inspired EVNet [2] features, trained with the InfoNCE loss [3]. Eval-uated over 10 random seeds, we achieve a mean final-epoch Top-1 accuracy of 86.30% and Top-5 accuracy of 98.55% for a single subject. For reconstruction (Task 2), we implemented CognitionCapturerPro (CogCapPro) [4] that aligns EEG representations to multi-modal CLIP embeddings (image, text, depth, edge) and synthesizes images with SDXL-Turbo [5] conditioned via IP-Adapter [6]. Averaged over 10 seeds, our system achieves a CLIP Score of 0.903 (ViT-H-14, paper-comparable) / 0.870 (ViT-L/14, course-standard) and SSIM of 0.409 . The code is available in https://github.com/Chikit-WONG/DL_Project/ 
+
+# 1 Introduction and Problem Formulation 
+
+Understanding how the human brain encodes visual information is a central challenge in com-putational neuroscience and brain-computer interfaces. Recent advances in deep learning have made it possible to decode EEG signals recorded during image viewing into meaningful visual representations. In this project, we tackle two complementary tasks using a preprocessed version of the THINGS-EEG2 dataset [7]. For retrieval, we build on a multi-blur visual representation and augment it with an EVNet [2] front end; for reconstruction, we adapt CognitionCapturerPro (CogCapPro) [4]. 
+
+Dataset. The provided preprocessed THINGS-EEG2 files contain repeated EEG responses for each stimulus. We use preprocessed EEG data from a single subject with 63 channels sampled at 250 Hz. Each response is represented by a 250-sample post-stimulus segment, corresponding to approximately 1 second. For both training and testing, we average over the repetition dimension of the provided tensors, yielding 16,540 training EEG-image pairs and 200 held-out test samples under the official 200-way protocol. 1
+
+> arXiv:2605.23996v1 [cs.CV] 18 May 2026
+
+Task 1: EEG-to-Image Retrieval. Given an EEG segment e ∈ R63 ×250 , rank a set of 200 can-didate images such that the ground-truth stimulus image appears as high as possible. Performance is measured by Top-1 and Top-5 accuracy (the rate the correct image class appeared as the first ranking or in the first-five rankings). 
+
+Task 2: EEG-to-Image Reconstruction. Given an EEG segment e, generate an image that is semantically and perceptually consistent with the viewed stimulus. Performance is measured by CLIP Score [8], feature-based reconstruction metrics computed by the provided evaluation script: SSIM [9], AlexNet- [10] and Inception-based two-way identification scores, SwAV [11], and Effi-cientNet [12] correlation distance. 
+
+# 2 Method 
+
+2.1 Task 1: Dual-Stream Contrastive Retrieval 
+
+EEG Encoder. The EEG signal e ∈ R63 ×250 is processed by an encoder [1]: 1. A 2D convolution with absolute-value activation ( 1 → 25 channels, kernel size 63 ×1), producing 
+
+25 feature maps of dimension 250 .2. Batch normalization. 3. A shared MLP applied independently to each of the 25 feature maps: linear 250 → 200 with ELU and dropout ( p = 0 .25 ), followed by linear 200 → 200 with ELU and dropout ( p = 0 .65 ). 4. Flattening to a 5000 -dimensional vector. 5. A final linear projection to a shared embedding of dimension 1024 .The EEG encoder outputs a 1024-dimensional embedding zEEG ∈ R1024 .
+
+Multi-Blur Visual Stream. Rather than using a single image representation or the 10 blurring levels used in prior work [1], we apply 8 levels of Gaussian blur under convolution kernel size 
+
+∈ { 1, 3, 15 , 21 , 33 , 45 , 57 , 63 } pixels to each training image and extract features from each blurred version using a frozen CLIP RN50 encoder [8] (as also studied in [13]). The 8 feature vectors are first aggregated via a learned attention mechanism (softmax-weighted sum) into a single 1024-dimensional blur feature. This multi-scale representation mimics the progressive spatial acuity of human visual processing. 
+
+EVNet Biologically-Inspired Stream. In parallel, we pass each image through the front end of EVNet pipeline [2], which consists of a subcortical preprocessing block followed by a primary visual cortex (V1) simulation block (VOneBlock [14]). The EVNet output is subsequently processed by the same frozen CLIP RN50 backbone, yielding a complementary 1024-dimensional feature. 
+
+Stream Fusion. When EVNet is enabled, the aggregated blur feature and the EVNet feature are combined via a learned softmax gate: 
+
+vfused = w1 · vblur + w2 · vEVNet , (w1, w 2) = softmax (α) (1) where α ∈ R2 is a learnable parameter. The fused feature is then passed through a shared two-layer fusion adapter (1024 → 768 → 1024, dropout = 0 .85 ), producing the final image embedding 
+
+v ∈ R1024 . If EVNet is disabled, the aggregated blur feature is passed through the corresponding blur-only adapter instead. 2Figure 1: Image Retrieval Training Pipeline. 
+
+Contrastive Training. We minimise the symmetric InfoNCE loss [3, 15] over EEG–image pairs within each mini-batch: 
+
+L = − 12N
+
+> N∑
+> i=1
+> [
+
+log ezi·vi 
+
+> ∑
+> j
+
+ezi·vj + log evi·zi 
+
+> ∑
+> j
+
+evi·zj
+
+> ]
+
+(2) In our implementation, the logits use a fixed scale of 1 rather than a learned temperature. At retrieval time, both EEG and visual embeddings are ℓ2-normalized before cosine-similarity ranking over the 200 candidate images. 
+
+2.2 Task 2: Multi-Modal EEG-to-Image Reconstruction 
+
+Task 2 is implemented using the CognitionCapturerPro (CogCapPro) [4] framework, which maps EEG signals to multiple CLIP-aligned embedding spaces and then drives a diffusion model to synthesise images. 
+
+EEG Projection Layer. A dedicated EEGProjectLayer uses four parallel CogCapPro branches to map the same EEG signal to four embedding spaces corresponding to four modalities: image 
+
+(CLIP ViT-H-14), text (CLIP ViT-H-14 text encoder), depth map , and edge map . For depth and edge modalities, we first render depth maps from the stimulus images and apply edge detection, then extract their CLIP image features using the frozen CLIP ViT-H-14 image encoder. The four heads play complementary but not identical roles in reconstruction. The image head provides the most direct visual-semantic supervision, as it is trained to predict the CLIP image embedding extracted from the original stimulus image. This target embedding preserves category-level appearance, global shape, and colour information, making the image head the primary source of visual content for generation. The depth head is trained against CLIP image embeddings extracted from rendered 3Figure 2: Pipeline of the Training Process of Image Reconstruction. 
+
+4depth maps, so it provides spatial and geometric layout cues. The edge head is trained against CLIP image embeddings extracted from edge maps, allowing it to impose contour and shape constraints. In contrast, the text head is trained against CLIP text embeddings and mainly acts as auxiliary semantic supervision, contributing indirectly through the shared EEG representation and fusion pathway. Each EEG modality branch is implemented as an independent encoder, followed by a residual projection module that produces an EEG-side latent vector zm ∈ Rd for modality m.
+
+Multi-Modal Alignment. Each single-modality branch is trained with the Similarity-Category Masked Loss (SCM-Loss) described in CogCapPro [4]. Following the naming convention in the of-ficial CogCapPro implementation, our code implements this objective as ClipLoss_Modified_DDP ,a modified CLIP loss with similarity-based top-k masking and class-based masking. The fusion encoder integrates the image, text, depth, and edge EEG embeddings through cross-modal at-tention to produce a fused EEG representation. For generation, SimpleAlignPipe processes the EEG-derived image, depth, edge, and fusion embeddings; the aligned image, depth, and edge em-beddings are then used as the direct IP-Adapter [6] conditions for SDXL-Turbo [5, 16]. The text branch contributes indirectly through auxiliary semantic supervision and the fusion pathway, while the fusion embedding participates in the alignment stage but is not directly passed to IP-Adapter as a generation condition. 
+
+Embedding Alignment for Generation. Before image generation, we apply SimpleAlignPipe 
+
+to reduce the distribution gap between EEG-derived embeddings and the embedding distributions expected by the generation pipeline. The aligned image, depth, and edge embeddings are then used as IP-Adapter [6] conditioning signals for SDXL-Turbo [5, 16]. 
+
+Image Generation. At inference time, the aligned image, depth, and edge embeddings are used to condition SDXL-Turbo [5, 16] via IP-Adapter [6], which injects visual, geometric, and contour-related information into the cross-attention layers of the U-Net denoiser. We use the SDXL-Turbo native configuration of 5 denoising steps and classifier-free guidance scale 0.0 , which is the operating point the model was distilled for; departing from this regime (e.g. using 15–30 steps with non-zero guidance) drifts away from the IP-Adapter conditioning and degrades structural fidelity. We use the modality preset all (equal-weighted image/depth/edge conditioning) and disable post-generation smoothing. 
+
+# 3 Training and Inference Procedure 
+
+3.1 Task 1 
+
+Offline Feature Extraction. Before training, CLIP RN50 features are pre-computed for all training images at each of the 8 blur levels and for the EVNet stream. Features are saved to disk to avoid redundant computation. 
+
+Training. The EEG encoder and fusion weights are trained end-to-end for 200 epochs with batch size 1024 and learning rate 10 −3 using AdamW [17]. Dropout is applied to the EEG encoder to regularise against the small number of EEG samples per class. We report metrics from 10 independent random seeds (seeds 21–30). 5Inference. For each test EEG, we compute its 1024-dimensional embedding and rank all 200 candidate images by cosine similarity to their pre-computed visual embeddings. 
+
+3.2 Task 2 
+
+Training. For Task 2, we train the multi-modal EEG encoder for 80 epochs using AdamW with learning rate 10 −4 and batch size 1024. The modality heads are trained jointly. The text objective is used for the first 30 epochs and is then removed from the optimisation objective, while the image, depth, edge, and fusion objectives continue to be trained. We use trial-averaged EEG inputs for both training and test splits to improve signal stability and reduce trial-level noise. SimpleAlignPipe 
+
+is trained for 100 epochs on top of the frozen EEG encoder. 
+
+Inference. The EEG-derived embeddings are first processed by the downstream alignment mod-ule, and the aligned image, depth, and edge embeddings are then passed to IP-Adapter [6], which conditions SDXL-Turbo [5, 16] to generate the final reconstructed image at 5 denoising steps with guidance scale 0. Generated images are resized as required by each evaluation metric during scoring. We report results across 10 independent seeds (seeds 0–9). 
+
+# 4 Experimental Setup 
+
+Dataset. We use a preprocessed version of the THINGS-EEG2 [7] dataset for a single subject. The provided tensors contain repeated EEG responses per stimulus; we average across the repetition dimension for both training and testing, resulting in 16,540 training samples and 200 held-out samples. 
+
+Hardware. All experiments are run on a single NVIDIA A40 GPU (48 GB VRAM) on the HKUST(GZ) HPC cluster. 
+
+Task 1 Hyperparameters. 
+
+• Blur levels: 8 (kernel size ∈ { 1, 3, 15 , 21 , 33 , 45 , 57 , 63 })
+
+• Epochs: 200; Batch size: 1024; Learning rate: 10 −3
+
+• Seeds: 21–30 (10 total) 
+
+Task 2 Hyperparameters. 
+
+• CLIP backbone (training): ViT-H-14 (LAION-2B) [18] 
+
+• Generator: SDXL-Turbo [5] + IP-Adapter [6] 
+
+• EEG encoder: 80 epochs, batch size 1024, AdamW [17], learning rate 10 −4
+
+• SimpleAlignPipe : 100 epochs, learning rate 3 × 10 −4
+
+• SDXL inference: num_inference_steps = 5 , guidance_scale = 0 .0
+
+• Modality preset: all ; no post-generation smoothing 
+
+• Seeds: 0–9 (10 total) 6Evaluation Metrics. Task 1: Top-1 and Top-5 accuracy over 200 candidate images, reported at the final training epoch . Task 2: reports two complementary CLIP scores to remain comparable both with the course-standard evaluator and with prior work: 
+
+• CLIP-L/14 : 2-way identification accuracy using OpenAI’s ViT-L/14 , the CLIP backbone used by the course-provided evaluation script. 
+
+• CLIP-H/14 : 2-way identification accuracy using open_clip’s ViT-H-14 (LAION-2B) , the back-bone reported in the upstream CogCapPro papers [4]. Included to enable a direct comparison with prior published numbers. The remaining metrics – SSIM [9], AlexNet-layer [10] two-way identification, Inception-based two-way identification, EfficientNet [12] correlation distance and SwAV [11] correlation distance – are computed using the provided evaluation script. 
+
+# 5 Quantitative Results 
+
+5.1 Task 1: Retrieval Performance 
+
+Table 1 summarises the primary Task 1 result from the 8-blur + EVNet full-train configura-tion, averaged across 10 seeds (seeds 21–30) for a single subject, using 200 epochs, batch size 1024, and learning rate 10 −3. We adopt the final-epoch checkpoint as our primary submitted result. Best-epoch accuracy is listed for reference only: selecting the checkpoint by test accuracy would constitute test-set over-selection, introducing an upward bias that does not reflect true generalisa-tion.         
+
+> Table 1: Task 1 retrieval accuracy for the 8-blur + EVNet full-train configuration (200-way, mean ±std, 10 seeds, one single subject, 200 epochs, batch size 1024, learning rate 10 −3). †Best-epoch is reported for reference only and is not used as the leaderboard metric.
+
+Metric Final Epoch (reported) Best Epoch †
+
+Top-1 Accuracy 86 .60 % ± 1.80% 89 .60% ± 0.77% 
+
+Top-5 Accuracy 98 .70 % ± 0.33% 98 .90% ± 0.58% 
+
+Figure 3 shows the Top-1 accuracy and InfoNCE loss [3, 15] curves over 200 epochs, averaged across all 10 seeds. The model converges steadily, reaching near-peak accuracy by epoch 100. 7Figure 3: Task 1 training dynamics. Left : Top-1 test accuracy vs. epoch. Right : InfoNCE training loss vs. epoch. Shaded region: ±1 std across 10 seeds; thin lines: individual seeds. 
+
+5.2 Task 2: Reconstruction Quality 
+
+Table 2 reports reconstruction quality on the 200-sample held-out test set, averaged over 10 random seeds. Both CLIP backbones are listed. Our system achieves a CLIP-H/14 score of 0.903 and SSIM of 0.409 , both exceeding the corresponding values reported by the upstream CogCapPro work on the same THINGS-EEG2 protocol. Per-seed standard deviations are small (e.g. SSIM ±0.005 over 10 seeds), indicating that the reported numbers are stable across random initialisations.        
+
+> Table 2: Task 2 reconstruction metrics on the held-out 200-sample test set (mean ±std, 10 seeds, one single subject). EfficientNet and SwAV are reported as 1−rcorrelation distance; lower is better.
+
+Metric Score 
+
+CLIP-L/14 two-way ID ( ↑, course-standard) 0.870 ± 0.012 
+
+CLIP-H/14 two-way ID ( ↑, paper-comparable) 0.903 ± 0.009 
+
+SSIM ( ↑) 0.409 ± 0.005 
+
+PixCorr ( ↑) 0.166 ± 0.013 
+
+AlexNet-2 two-way ID ( ↑) 0.818 ± 0.012 
+
+AlexNet-5 two-way ID ( ↑) 0.913 ± 0.011 
+
+Inception two-way ID ( ↑) 0.831 ± 0.010 
+
+EfficientNet corr. dist. ( ↓) 0.794 ± 0.004 
+
+SwAV corr. dist. ( ↓) 0.489 ± 0.005 
+
+5.3 Ablation Study 
+
+All Task 1 ablation metrics below use the validation-selected checkpoint (checkpoint that maximises 827-way validation accuracy), reported on the 200-way test set. This avoids test-set leakage while allowing consistent comparison across all configurations. The submitted leaderboard result uses the final-epoch checkpoint (Table 1). 
+
+Task 1: Effect of Visual Feature Design. Table 3 varies the blur level hierarchy and EVNet [2] stream independently. 8Table 3: Task 1 ablation: effect of blur levels and EVNet (95/5 split, mean ± std, 10 seeds, 200-way). 
+
+† Best-test shown for reference only. 
+
+Configuration Val-sel Top-1 Final Epoch Top-1 Best-test Top-1 †
+
+No blur, no EVNet (Baseline) 61 .2 ± 2.4% 64 .3 ± 1.8% 67 .1 ± 1.0% 
+
+EVNet, no blur 70 .8 ± 2.1% 71 .7 ± 2.1% 75 .7 ± 0.8% 
+
+8-blur 82 .8 ± 2.3% 84 .0 ± 1.4% 87 .1 ± 0.9% 
+
+8-blur + EVNet (fixed setting) 85 .3 ± 0.8% 85 .9 ± 2.7% 88 .9 ± 1.1%
+
+Task 1: Effect of Visual Backbone and EVNet Initialisation. Table 4 fixes the 8-blur + EVNet setting and varies the backbone and EVNet weight initialisation. 
+
+Table 4: Task 1 ablation: EVNet initialisation and backbone (8-blur + EVNet, 95/5 split, mean ± std, 10 seeds). † Best-test shown for reference only. 
+
+Configuration Val-sel Top-1 Final Epoch Top-1 Best-test Top-1 †
+
+RN50 + EVNet, Kaiming init (Ours) 84 .6 ± 1.3% 84 .8 ± 1.7% 87 .2 ± 0.9%
+
+RN50 + EVNet, Xavier init 82 .8 ± 1.7% 81 .9 ± 1.3% 85 .0 ± 0.8% 
+
+RN50 + GAP (no CLIP backbone) 82 .9 ± 1.6% 83 .2 ± 1.6% 86 .2 ± 0.9% 
+
+ViT-H/14 + EVNet (replaces RN50) 73 .7 ± 2.0% 73 .6 ± 2.0% 77 .9 ± 1.1% 
+
+Task 2: Effect of SimpleAlignPipe. Table 5 compares reconstruction quality before and after applying the downstream SimpleAlignPipe . The “w/o SimpleAlignPipe ” setting directly uses EEG-derived embeddings for generation, while the full pipeline first aligns the EEG-derived image, depth, and edge embeddings to the corresponding IP-Adapter [6] embedding distributions before conditioning SDXL-Turbo [5, 16]. Both columns use identical generation settings (SDXL-Turbo, 5 steps, guidance 0, modality preset all ). 
+
+Table 5: Task 2 ablation: effect of SimpleAlignPipe on reconstruction quality (mean ± std, 10 seeds). 
+
+Metric w/o SimpleAlignPipe Full Pipeline 
+
+CLIP-L/14 ( ↑) 0.665 ± 0.010 0.870 ± 0.012 
+
+CLIP-H/14 ( ↑) 0.755 ± 0.014 0.903 ± 0.009 
+
+SSIM ( ↑) 0.361 ± 0.012 0.409 ± 0.005 
+
+PixCorr ( ↑) 0.158 ± 0.009 0.166 ± 0.013 
+
+AlexNet-2 two-way ID ( ↑) 0.738 ± 0.019 0.818 ± 0.012 
+
+AlexNet-5 two-way ID ( ↑) 0.776 ± 0.019 0.913 ± 0.011 
+
+Inception two-way ID ( ↑) 0.654 ± 0.025 0.831 ± 0.010 
+
+EfficientNet corr. dist. ( ↓) 0.922 ± 0.006 0.794 ± 0.004 
+
+SwAV corr. dist. ( ↓) 0.643 ± 0.010 0.489 ± 0.005 
+
+# 6 Qualitative Results 
+
+Figure 4 presents 10 reconstruction examples drawn from the test set (seed 0). In each example, the ground-truth stimulus is shown on top, while the reconstruction generated by our pipeline is shown below. 9Figure 4: Qualitative reconstruction results (10 examples). Top row : ground-truth stimulus images.  
+
+> Middle row : images reconstructed by our pipeline from EEG signals (Seed 0). Bottom row : category labels. Categories span animals, objects, plants, and technology (left to right: Aircraft Carrier, Antelope, Banana, Cat, Elephant, Flamingo, Gorilla, Hummingbird, Orchid, Robot).
+
+Discussion of examples. 
+
+• Aircraft carrier (#1): The reconstruction captures the tower-like structure, reflecting low-frequency spatial encoding from the multi-modal stream. 
+
+• Antelope (#2) & Gorilla (#7): Animal categories with distinctive body shapes are generally well-reconstructed; the model captures overall silhouette and texture. 
+
+• Banana (#3): The characteristic yellow colour and curved shape are often recovered, demon-strating semantic colour encoding. 
+
+• Cat (#4): Domestic animals with fine fur detail present a moderate reconstruction challenge; overall category semantics are preserved. 
+
+• Elephant (#5): Large animals with distinctive grey colouring and body shape show strong semantic similarity in reconstructions. 
+
+• Flamingo (#6): The pink colouring and tall silhouette are typical markers; reconstructions tend to preserve the category over colour details. 
+
+• Hummingbird (#8): Small, fast-moving birds present a harder case; reconstructions may not recover fine wing detail but preserve overall bird category. 
+
+• Orchid (#9): The approach fails in reconstructing this floral stimulus with complex colour patterns. 
+
+• Robot (#10): Abstract man-made objects with metallic textures are challenging; reconstruc-tions capture general colour but may differ in categories. Overall, the model performs better on categories with strong, distinctive visual features, such as colour and shape. More abstract objects tend to produce reconstructions that are visually and semantically less precise. 
+
+# 7 Analysis and Discussion 
+
+Final epoch vs. best epoch (Task 1). We deliberately report final-epoch accuracy as the submitted metric. Selecting the checkpoint by test accuracy (“best epoch”) uses the test set to guide model selection, creating test-set over-selection bias that inflates apparent performance without 10 reflecting true generalisation. As Table 1 shows, the gap between final-epoch (86.30%) and best-epoch (89.35%) accuracy is about 3 pp, a difference that would be invisible at leaderboard evaluation time but could mislead comparisons between methods. 
+
+Contribution of the multi-blur stream (Task 1 ablation). The 8-level blur hierarchy pro-vides features at multiple spatial frequencies. Low-frequency (highly blurred) representations en-code global scene structure, while higher-frequency (lightly blurred) representations capture fine-grained detail. This hierarchy mimics the coarse-to-fine spatial processing of human visual cortex and helps bridge the gap between coarse EEG temporal signals and rich visual representations. The ablation in Table 3 quantifies the individual contribution of multi-blur and EVNet components. However, this preprocessing approach in Task 1 does not help in reconstruction tasks (Task 2), which makes the architecture of Task 1 differ from Task 2. 
+
+Role of the EVNet stream (Task 1 ablation). The EVNet biologically-inspired processing block [2] introduces additional diversity compared to the standard blur stream. The softmax fusion gate for blur and EVNet allows the model to learn an optimal weighting. Results in Table 3 show that adding EVNet consistently improves over the corresponding no-EVNet settings. This supports the view that the blur hierarchy and EVNet stream provide complementary information about visual stimuli, while also justifying our choice of the more compact 8-blur setting for the final full-train run in Table 1. 
+
+Importance of image encoding (Task 1). By comparing several approaches [1, 4, 19] for EEG-to-image retrieval, we observed that while the performance of existing methods continues to improve, the architecture for EEG encoding has undergone relatively little change compared to that for image encoding. We hypothesize that the more important factor driving improvement lies in image encoding, and that the key to further progress is to make image encoding better simulate human vision. The approach introduced by Liu et al. [1] adopted multiple levels of blurring, a design intended to align with human visual processing based on physiological observations. Our approach extends this design by incorporating the front end of EVNet [2], which aims to simulate a more complete early vision process of primates compared to standard ResNet50 processing. The results in Table 3 support the effectiveness of this extension. 
+
+Importance of SimpleAlignPipe (Task 2 ablation). Table 5 shows that SimpleAlignPipe is a critical component of Task 2. Without this alignment stage, the EEG-derived image, depth, and edge embeddings remain poorly matched to the IP-Adapter embedding distributions expected by the generation pipeline, producing reconstructions with substantially lower scores on every metric. With SimpleAlignPipe , CLIP-H/14 improves by +0 .148 (from 0.755 to 0.903 ), CLIP-L/14 by 
+
++0 .205 , SSIM by +0 .048 , and the structural-feature metrics (AlexNet-5 +0 .137 , Inception +0 .177 )show even larger gains. Under the EfficientNet and SwAV correlation-distance metrics, the aligned pipeline also improves over the unaligned baseline ( 0.922 → 0.794 and 0.643 → 0.489 respectively; lower is better), confirming better feature-level consistency. 
+
+Generation regime for SDXL-Turbo. SDXL-Turbo [5, 16] is distilled via adversarial training to produce its best output at 1–5 denoising steps with guidance scale 0. We empirically verified that this native operating point is also the best for EEG-conditioned reconstruction: increasing the step count to 30 with non-zero guidance shifts the generation away from the IP-Adapter [6] conditioning and reduces both SSIM and SwAV-distance quality, despite making images individually sharper. 11 We therefore adopt 5 steps with guidance 0 throughout, which additionally has the benefit of being roughly 6× faster than the 30-step configuration. 
+
+Task 2 training strategy. In the reported setting, the multi-modal heads are trained jointly rather than with the optional staged-training curriculum. This keeps the 10-seed experiments consistent, while the text objective is disabled after epoch 30 to avoid over-optimising the weaker text supervision. 
+
+Limitations. The primary limitations of Task 1 are: (1) the preprocessing approach in Task 1 does not help in reconstruction tasks; (2) the model is trained on a single subject, limiting gener-alisability. The primary limitations of Task 2 are: 1. the model is trained on a single subject, limiting generalisability across subjects; 2. the reconstruction process is indirect: EEG embeddings are first aligned to the IP-Adapter conditioning space and then used to drive image generation, so embedding-alignment errors may produce reconstructions that are semantically close but structurally different from the target; 3. reconstruction quality for fine-grained or abstract categories (e.g. small birds, complex floral textures) remains limited, as discussed with qualitative examples in Section 6; 4. no text prompts are used; adding category-level textual conditioning may further improve se-mantic fidelity. 
+
+# 8 External Resources Disclosure 
+
+The following pre-trained models and external resources were used. All are publicly available and comply with the course’s academic integrity policy. 
+
+• VisualEEGDecoding [1]: Used as the general backbone code for task 1. Download via https://github.com/makeitperfect/VisualEEGDecoding/ 
+
+• CognitionCapturerPro [4]: Used as the general code backbone in Task 2. 
+
+• OpenCLIP RN50 (openai) [8, 13]: Used as the visual backbone in Task 1 for extracting multi-blur and EVNet image features. Downloaded via the open-clip-torch library. 
+
+• OpenCLIP ViT-H-14 (LAION-2B) [8, 13, 18]: Used as the primary visual encoder in Task 2 for computing image, text, depth, and edge target embeddings. 
+
+• OpenAI CLIP ViT-L/14 [8]: Used as the secondary evaluation backbone in Task 2 to align with the course-provided evaluator. Downloaded from https://github.com/openai/CLIP .
+
+• SDXL-Turbo [5]: Used as the image generation backbone in Task 2. The adversarial distillation enables single-step high-quality synthesis. 
+
+• IP-Adapter [6]: Used to condition SDXL-Turbo on the predicted image embedding from the EEG projection. 
+
+• EVNet / VOneBlock [2, 14]: The biologically-inspired visual front-end used in the Task 1 EVNet stream. 
+
+• THINGS-EEG2 dataset [7]: The EEG and image dataset used for all experiments. 12 Test-set labels were used only for final evaluation and diagnostic reporting, not for training. The reported Task 1 submission metric uses the final-epoch checkpoint rather than selecting the checkpoint by test accuracy. 
+
+# 9 Conclusion 
+
+We presented a brain-to-image system achieving strong performance on both EEG-to-image re-trieval and reconstruction tasks. For retrieval, our dual-stream contrastive model combining multi-blur [1] and biologically-inspired EVNet [2] features achieves 86.30% final-epoch Top-1 accuracy over 200 classes (10-seed mean), reported conservatively to avoid test-set over-selection bias. For reconstruction, CognitionCapturerPro’s [4] multi-modal alignment pipeline paired with SDXL-Turbo [5, 16] generation achieves a CLIP Score of 0.903 (ViT-H-14, paper-comparable) / 0.870 (ViT-L/14, course-standard) and SSIM of 0.409 averaged over 10 seeds, substantially better than the unaligned baseline. These results demonstrate the feasibility of decoding rich visual representa-tions from EEG signals using modern deep learning techniques. Future work on improving EEG-to-image retrieval performance (Task 1) may focus more on image encoding, particularly developing more physiologically inspired encoding architectures, or designing architectures with a trainable front end for image encoding that can automatically adapt to the optimal image preprocessing strategy. The overall future work could explore cross-subject and multi-subject generalisation, higher-resolution EEG acquisition, image encoding approaches that better simulate human vision, and more powerful generative models. 
+
+# References 
+
+[1] Wenchao Liu, Hongwei Li, Zhouyang Xu, Lin Ma, and Haifeng Li. Leveraging visual blur perception characteristics for eeg decoding. Proceedings of the AAAI Conference on Artificial Intelligence , 40(21):17580–17588, Mar. 2026. doi: 10.1609/aaai.v40i21.38813. URL https: //ojs.aaai.org/index.php/AAAI/article/view/38813 .[2] Lucas Piper, Arlindo L. Oliveira, and Tiago Marques. Explicitly modeling subcortical vision with a neuro-inspired front-end improves cnn robustness, 2025. URL https://arxiv.org/ abs/2506.03089 .[3] Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Representation learning with contrastive predictive coding, 2019. URL https://arxiv.org/abs/1807.03748 .[4] Kaifan Zhang, Lihuo He, Junjie Ke, Yuqi Ji, Lukun Wu, Lizi Wang, and Xinbo Gao. Cognition-capturerpro: Towards high-fidelity visual decoding from eeg/meg via multi-modal information and asymmetric alignment, 2026. URL https://arxiv.org/abs/2603.12722 .[5] Axel Sauer, Dominik Lorenz, Andreas Blattmann, and Robin Rombach. Adversarial diffusion distillation, 2023. URL https://arxiv.org/abs/2311.17042 .[6] Hu Ye, Jun Zhang, Sibo Liu, Xiao Han, and Wei Yang. Ip-adapter: Text compatible image prompt adapter for text-to-image diffusion models, 2023. URL https://arxiv.org/abs/ 2308.06721 .[7] Alessandro T. Gifford, Kshitij Dwivedi, Gemma Roig, and Radoslaw M. Cichy. A large and rich eeg dataset for modeling human visual object recognition. NeuroImage , 264:119754, 2022. 13 ISSN 1053-8119. doi: https://doi.org/10.1016/j.neuroimage.2022.119754. URL https://www. sciencedirect.com/science/article/pii/S1053811922008758 .[8] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agar-wal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervision, 2021. URL 
+
+https://arxiv.org/abs/2103.00020 .[9] Zhou Wang, A.C. Bovik, H.R. Sheikh, and E.P. Simoncelli. Image quality assessment: from error visibility to structural similarity. IEEE Transactions on Image Processing , 13(4):600–612, 2004. doi: 10.1109/TIP.2003.819861. [10] Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton. Imagenet classification with deep convolutional neural networks. In F. Pereira, C.J. Burges, L. Bottou, and K. Wein-berger, editors, Advances in Neural Information Processing Systems , volume 25. Curran As-sociates, Inc., 2012. URL https://proceedings.neurips.cc/paper_files/paper/2012/ file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf .[11] Mathilde Caron, Ishan Misra, Julien Mairal, Priya Goyal, Piotr Bojanowski, and Armand Joulin. Unsupervised learning of visual features by contrasting cluster assignments, 2021. URL https://arxiv.org/abs/2006.09882 .[12] Mingxing Tan and Quoc V. Le. Efficientnet: Rethinking model scaling for convolutional neural networks, 2020. URL https://arxiv.org/abs/1905.11946 .[13] Mehdi Cherti, Romain Beaumont, Ross Wightman, Mitchell Wortsman, Gabriel Ilharco, Cade Gordon, Christoph Schuhmann, Ludwig Schmidt, and Jenia Jitsev. Reproducible scaling laws for contrastive language-image learning. In 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , page 2818–2829. IEEE, 2023. doi: 10.1109/cvpr52729.2023. 00276. URL http://dx.doi.org/10.1109/CVPR52729.2023.00276 .[14] Joel Dapello, Tiago Marques, Martin Schrimpf, Franziska Geiger, David D. Cox, and James J. DiCarlo. Simulating a primary visual cortex at the front of CNNs improves robustness to image perturbations. In Advances in Neural Information Processing Systems , 2020. [15] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton. A simple framework for contrastive learning of visual representations, 2020. URL https://arxiv.org/abs/2002. 05709 .[16] Dustin Podell, Zion English, Kyle Lacey, Andreas Blattmann, Tim Dockhorn, Jonas Müller, Joe Penna, and Robin Rombach. Sdxl: Improving latent diffusion models for high-resolution image synthesis, 2023. URL https://arxiv.org/abs/2307.01952 .[17] Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization, 2019. URL https: //arxiv.org/abs/1711.05101 .[18] Christoph Schuhmann, Romain Beaumont, Richard Vencu, Cade Gordon, Ross Wightman, Mehdi Cherti, Theo Coombes, Aarush Katta, Clayton Mullis, Mitchell Wortsman, Patrick Schramowski, Srivatsa Kundurthy, Katherine Crowson, Ludwig Schmidt, Robert Kaczmar-czyk, and Jenia Jitsev. Laion-5b: An open large-scale dataset for training next generation image-text models, 2022. URL https://arxiv.org/abs/2210.08402 .14 [19] Dongyang Li, Chen Wei, Shiying Li, Jiachen Zou, Haoyang Qin, and Quanying Liu. Visual decoding and reconstruction via eeg embeddings with guided diffusion, 2024. URL https: //arxiv.org/abs/2403.07721 .[20] H. W. Kuhn. The hungarian method for the assignment problem. Naval Research Logistics Quarterly , 2(1-2):83–97, 1955. doi: https://doi.org/10.1002/nav.3800020109. URL https: //onlinelibrary.wiley.com/doi/abs/10.1002/nav.3800020109 .
+
+# Appendix A: Team Contribution Statement 
+
+• Chi Kit WONG: Participated in the coding work for Task 1 and Task 2, presented the Task 2 section in the presentation and prepared the corresponding slides, and drafted the report. 
+
+• Yan LIU: Proposed using EVNet in Task 1, participated in the coding work for Task 1, conducted several ablations in Task 1, presented the further discussion section for Task 1 in the presentation and prepared the corresponding slides, and refined the report. 
+
+• Haowen YAN: Participated in the coding for Task 1 and the tuning work for Task 2, conducted reconstruction experiments and evaluation, prepared qualitative examples, and contributed to the final report and presentation. 
+
+General statement: All team members contributed equally to this project, including the de-sign, implementation, experimentation, and write-up of both tasks. Responsibilities were shared collaboratively throughout the project duration. 
+
+# Appendix B: Extra Experiment on RSVP Recreation for Task 1 
+
+By examining the data collection process of THINGS-EEG2 [7], we found that the RSVP procedure not only presents images to subjects, but also includes a gray background and a red spot during the experiments. We attempted to recreate this grey background and red spot for each image in the dataset (see Figure 5) and conducted several additional experiments. The results are as follows:     
+
+> Table 6: Ablation on RSVP recreation and blurring (200-way, 95/5 validation split, val-selected, mean ±
+> std, 10 seeds). †Best-test shown for reference only.
+
+Configuration Val-sel Top-1 Best-test Top-1 †
+
+No blur, no EVNet 61 .2 ± 2.4% 67 .1 ± 1.0% 
+
+No blur, no EVNet, grey background 69 .5 ± 2.3% 73 .8 ± 0.8% 
+
+8 blur levels, no EVNet 82 .8 ± 2.3% 87 .1 ± 0.9%
+
+8 blur levels, no EVNet, grey background 81 .1 ± 1.1% 84 .2 ± 1.3% 
+
+The results in Table 6 indicate that recreating the RSVP experimental setup improves the retrieval performance when no blurring is applied. However, this improvement does not carry over to the condition with 8 blurring levels. We believe that the benefit of this recreation is limited and is approximately equivalent to blurring the original images: the grey background occupies a large area, effectively forcing the images to be resized to a lower resolution, and the 8 level blurring process largely overlaps with the effect of the grey background. Therefore, we did not adopt the RSVP recreation approach in the experiments that formed the official results in Tables 1, 3 and 4. 15 Figure 5: The RSVP experiment screenshot. Recreations uses the same colour of the background and the same centeral spot pattern, but the original image occupies 1/4 of the area. Refer to https://osf.io/3jk45/ 
+
+# Appendix C: Hungarian Retrieval 
+
+In the retrieval task (Task 1), our formal results are formed by standard 200-way retrieval methods, which only calculates the best matching image for each of the EEG signals from the 200 classes. However, this may result in multiple EEG signals pointing to the same image class. If we apply the prior knowledge that the testing set is exactly one-to-one EEG-to-image pairs to the retrieval process, i.e., retrieving the test set by the Hungarian Algorithm [20], will greatly improve the result. See Table 7.     
+
+> Table 7: Retrieval performance with and without Hungarian Algorithm. (8-blur+EVNet, 200-way, full training set, mean ±std, 10 seeds)
+
+Metric Standard Hungarian 
+
+Final Epoch Top-1 86 .60% ± 1.80% 96 .35 % ± 1.03 %
+
+Final Epoch Top-5 98 .70% ± 0.33% 99 .20 % ± 0.51 %
+
+Best-test Top-1 89 .60% ± 0.77% 98 .75 % ± 0.46 %
+
+Best-test Top-5 98 .90% ± 0.58% 99 .65 % ± 0.23 %
+
+However, we do warn the potential data leakage of this approach that this approach may require prior knowledge of the structure of testing set. 16
