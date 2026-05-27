@@ -1,0 +1,1056 @@
+Title: Signal-to-Noise Ratio and Sample Size Govern Representational Alignment in Neural Networks
+
+URL Source: https://arxiv.org/pdf/2605.26973v1
+
+Published Time: Wed, 27 May 2026 01:09:01 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Signal-to-Noise Ratio and Sample Size Govern Representational Alignment in Neural Networks 
+
+Ali Hussaini Umar ∗
+
+SISSA Trieste, Italy 
+
+aumar@sissa.it 
+
+Alessandro Laio ∗† 
+
+SISSA & ICTP Trieste, Italy 
+
+laio@sissa.it 
+
+# Abstract 
+
+Neural networks are known to develop latent representations that are aligned ,namely structurally similar across networks trained with different architectures, training protocols, or training datasets. We study this phenomenon in a controlled setting, where we train an ensemble of networks on regression and classification tasks using training sets perturbed by independent realizations of a noise process. We show that the signal-to-noise ratio (SNR) and the training sample size influ-ence the alignment in qualitatively similar ways in networks trained on real-world datasets and in an extremely simple linear network with a single hidden layer, for which the alignment can be estimated analytically. Across linear and nonlinear net-works, regression and classification tasks, and both synthetic and real-world data, we consistently observe that alignment varies monotonically with SNR but non-monotonically with training sample size. In particular, the alignment is minimized near the interpolation threshold, and a stronger alignment does not necessarily correspond to better generalization error. These findings reveal a non-trivial depen-dence of alignment on data quality and quantity, decoupled from generalization performance. 
+
+# 1 Introduction 
+
+Deep learning has achieved remarkable empirical success across a wide range of domains, including computer vision [ 43 , 37 ], natural language processing [ 16 , 58 ], and speech recognition [ 27 ]. A common hypothesis attributes this success to neural networks’ ability to learn meaningful internal representations of data [ 12 , 43 , 23 ]. This perspective has motivated a growing body of work aimed at quantifying, understanding, and predicting representational alignment [ 56 ]. In particular, the mechanism by which independently trained networks differ in initialization, architecture, training objectives, or training datasets converges to similar internal representations [ 35 , 52 , 33 , 8, 28 , 1, 24 ]. Despite significant empirical advances, a theoretical and mechanistic understanding of such a mech-anism remains elusive. Most existing studies focus on quantifying alignment – using tools such as representational similarity analysis (RSA) [ 35 ], singular vector canonical correlation analysis (SVCCA) [ 52 ], centered kernel alignment (CKA) [ 33 ], generalized shape metrics [ 59 ], and nearest-neighbor metrics [ 32 , 28 ] – but leave several fundamental questions open: (i) how alignment depends on the quality and quantity of training data; (ii) whether the mechanism driving alignment differs between the underparameterized and overparameterized regimes; and (iii) whether representational alignment is predictive of the quality of the model, measured by generalization error. Addressing these questions would be of help for developing a principled theory of representation learning and 
+
+> ∗Theoretical and Scientific Data Science (TSDS) group at the International School for Advanced Studies (SISSA).
+> †Condensed Matter and Statistical Physics section at the International Centre for Theoretical Physics (ICTP). Preprint.
+> arXiv:2605.26973v1 [stat.ML] 26 May 2026
+
+for characterizing the conditions under which independently trained networks encode the same information. We first explore these questions in a setting where the learning problem is sufficiently simple to admit exact analysis, yet rich enough to exhibit the development of nontrivial alignment phenomena in the hidden representations. With this goal in mind, we consider a two-layer linear network, for which we are able to quantify the properties of the hidden representation by a rigorous analytic treatment. Although deep linear networks ultimately implement a linear transformation of the input, they do so through a layered, compositional process that gives rise to intermediate hidden representations [ 54 ]. Moreover, their loss landscape is non-convex, and the set of global minima forms a high-dimensional solution manifold whose geometry is shaped by both the statistics of the training data and the network architecture [ 7, 54 ]. These properties make linear networks a useful surrogate model for investigating representation learning [ 55 , 14 , 21 ]. We then extend our analysis to nonlinear networks via numerical simulation, on the same tasks using the linear network, and on different tasks using real-world datasets, with the aim of identifying similarities and differences with respect to the linear setting. Our analysis focuses on two factors that can affect hidden representations: the noise in the training set, and the training sample size. The effect of those two factors can be quantified rigorously by analytic tools in simple networks and through extensive numerical analysis in generic networks. Since our analysis extends to networks in which the representation manifold is highly curved and nonlinear [ 3], we do not use alignment measures such as CKA [ 33 ] and SVCCA [ 52 ], which are designed to capture correspondences expressible by a linear transformation and are therefore ill-suited for such settings (see related work section Sec. A for more reasons why such measures are not suited). In this work, we say that two representations are aligned if the knowledge of the neighbors in one representation allows predicting the neighbors in the other [ 28 , 1, 32 ]. We quantify this predictability by a novel statistical measure inspired by the Information Imbalance (II) [ 22 ], defined as the entropy of the rank distribution in the target representation conditioned on the observation that the rank in the source representation is small [ 19 ]. This quantity, which we call Conditional Copula Entropy (CCE), at variance with the II, can be estimated analytically in deep linear networks. The availability of a reference system (deep linear network) on which our statistical measure can be computed analytically and compared with simulations provides a robust theoretical foundation for our analysis. Our main contributions are summarized as follows: • We develop a theoretical framework for analyzing representational alignment using the conditional distribution of copula variables and derive closed-form expressions for alignment in two-layer linear neural networks. • We show analytically in linear networks and numerically in nonlinear networks, that align-ment depends on signal-to-noise ratio (SNR) and training sample size across regression and classification tasks with real-world datasets. In all the cases we considered, alignment increases monotonically with SNR but varies non-monotonically with training sample size, attaining a minimum near the interpolation threshold, akin to the behavior observed in the generalization error. For the classification task, label noise plays the role of an inverse SNR. • We show that better generalization performances does not necessarily imply more aligned internal representations. This decoupling is proved analytically in the linear network and numerically in the other cases we considered. • Finally, we show that task performance is an insufficient proxy for representation quality; a network can achieve higher task performance, and yet learn less informative internal representations than a network with lower performance, highlighting the limitations of using performance metrics as a proxy for representation quality. In general, our results provide theoretical and numerical insights that contribute toward building a solid theoretical foundation for representation learning, as well as identifying the conditions under which independently trained networks end up forming similarly structured internal representations. 22 Representational Alignment from the Conditional Entropy of Rank Distribution 
+
+Information Imbalance. The statistic we use to quantify the alignment between representations is directly related to the Information Imbalance (II) [ 22 ], which quantifies the relative information content of one representation space with respect to another by comparing how the distance ranks change between the two representations. For N data points, the II from space A to space B is 
+
+∆( A → B) = 2
+
+N (N − 1) 
+
+X 
+
+> i,j |rAi,j =1
+
+rBi,j , (1) where rAi,j ∈ { 1, . . . , N − 1} denotes the rank of the distance between points i and j in space 
+
+A, ordered from nearest to farthest from i; rBi,j is defined analogously. Eq. 1 thus captures how well proximity in A predicts proximity in B. Values near zero indicate strong alignment, while 
+
+∆( A → B) ≈ 1 indicates that A carries no information about B. The measure is generally asymmetric: ∆( A → B) < ∆( B → A) implies that A is more informative than B.
+
+From II to Conditional Copula Entropy. In this work, we use an information-theoretic quantity related to the II, which can be computed analytically in some data scenarios of relevance for our analysis. In ref. [ 19 ], it is shown that II provides an upper bound of a function of the conditional entropy of the copula variables associated with the pairwise distance variables in spaces A and B:
+
+∆( A → B) ≳ 2 exp 
+
+
+
+lim  
+
+> η→0
+
+H(cB | cA = η) − 1
+
+
+
+, (2) where cA and cB are the copula variables. The negative of the entropy 3 term measures how much knowing that two points are infinitesimally close in A reduces uncertainty about their distance in B –a geometric characterization of local representational alignment via information-theoretic quantity. Motivated by this interpretation, we measure representational alignment by the entropy entering the relation in 2, which, for brevity, we call Conditional Copula Entropy (CCE): CCE (A → B) = − lim  
+
+> η→0
+
+H(cB | cA = η). (3) If CCE (A → B) = CCE (B → A) = 0 , the two representations are geometrically independent and thus misaligned. Positive values indicate that the neighborhood structure of one space is informative about the other, with larger values reflecting stronger alignment. Like the II, the CCE can be asymmetric: CCE (A → B) > CCE (B → A) implies that A is more informative about B than vice versa. For more about CCE check Sec. B in the Appendix. 
+
+Estimating the CCE. In practice, the conditional distribution p(cB | cA) is unknown and must be estimated from data. Let dA and dB denote the pairwise distance random variables in spaces A and 
+
+B. The copulas variables associated with dA and dB are defined as 
+
+(cA, c B ) = ( FA(dA), F B (dB )) ,
+
+with joint density p(cA, c B ) where FA and FB are the cumulative distribution functions of dA and 
+
+dB , respectively. Since the marginals of cA and cB are uniform on [0 , 1] [ 15 ], the copula variable 
+
+cA(i, j ) can be estimated empirically as rAi,j /N (and analogously for cB ). Consequently, distance ranks and copula variables are statistically identical; this relation allows us to estimate the CCE directly from the conditional rank samples. Therefore, given a set of N conditional ranks 
+
+RB|A = rBi,j ∈ [1 , N − 1] : rAi,j = 1 ,
+
+we partition the rank support [1 , N − 1] into M ≈ √N equal bins and estimate the entropy via the histogram-based estimator of ranks in RB|A [10 , 34 ]. Letting pi denote the empirical density in bin i,CCE (Eq. 3) is approximated as CCE (A → B) ≈ log M +
+
+> M
+
+X
+
+> i=1
+
+pi log pi. (4) We find that Eq. 4 provides a good estimate of the true entropy for sufficiently large N , and we use it to compute CCE numerically [10].               
+
+> 3−lim η→0H(cB|cA=η) = lim η→0DKL
+> p(cB|cA=η)∥p(cB)
+
+3CCE for one-dimensional embedding spaces. In ref. [ 57 ], it is shown that a closed-form ex-pression for the CCE can be derived when A and B are one-dimensional projections of a Gaussian random vector. This result is as follows: given x ∼ N (0 , I d), and define A = u⊤x and B = v⊤x,where u, v ∈ Rd. Then A and B are jointly Gaussian, and the CCE admits the following closed-form expression CCE (A → B) = CCE (B → A) = − 12 log(1 − ρ2) − 12 ρ2, (5) where ρ = Eu⊤v/
+
+q
+
+E∥u∥2 E∥v∥2 denotes the correlation coefficient between A and B. In this work, we leverage this result to derive the closed-form expression for the CCE between the representations of independently trained linear networks. 
+
+# 3 Linear Teacher-Student Setting 
+
+In this work, we analyze the alignment between representations of independently trained networks in different settings (a regression task on synthetic data and a classification task on real data). First, we consider a setting in which a rigorous analytic treatment is possible; this allows us, among other reasons, to verify that our alignment estimator agrees with theoretical predictions. Following Ref. [ 26 ], we consider a supervised learning problem based on data generated via a noisy linear teacher of the form: 
+
+yi = w∗ · xi + ϵi, (6) where xi ∈ Rd are input features, w∗ ∈ Rd is the teacher weight vector and ϵi ∈ R is additive Gaus-sian noise. The inputs are drawn independently and identically distributed (i.i.d.) from N (0 , I d/d ).The entries of w∗ and ϵi are i.i.d. drawn from N (0 , σ 2
+
+> w
+
+) and N (0 , σ 2 
+
+> ϵ
+
+), respectively. We define the SNR = σ2
+
+> w
+
+/σ 2 
+
+> ϵ
+
+.Using the setup in Ref. [2], the student is a two-layer linear network with input-output mapping 
+
+ˆyi = W2W1xi =: Wtot xi, (7) where W1 ∈ Rk×d and W2 ∈ R1×k. The network is trained on n samples D = {(xi, y i)}i≤n
+
+generated from Eq. 6 using full-batch gradient descent to minimize the mean squared error (MSE) 
+
+L(W1, W 2) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(ˆ yi − yi)2 = 1
+
+n ∥Wtot X⊤ − y∥2, (8) where X ∈ Rn×d is the data matrix and y ∈ Rn the vector of the corresponding responses. Here, we shift focus from studying the student’s performance on unseen data to understanding how the internal representations of identical student networks – each trained by gradient descent on independent datasets generated by the same teacher using independent realizations of the inputs and noise – align with one another. Specifically, our objective is to characterize how CCE depends on SNR and the number of training data n. In this work, we study only the learned representation at the global minimum of the loss ; we leave the study of the dynamics for future work. 
+
+Gradient flow dynamics and fixed points. Under the MSE loss (Eq. 8), the gradient flow dynamics of the two-layer linear network (Eq.7) weights are: 
+
+τ dW 1
+
+dt = W ⊤
+
+> 2
+
+ yX − W2W1X⊤X, (9) 
+
+τ dW 2
+
+dt =  yX − W2W1X⊤XW ⊤ 
+
+> 1
+
+, (10) where τ = n/ 2 is a time constant. Equations 9–10 admit a manifold of stable fixed points [7, 54]: 
+
+{W1, W 2 | W2W1X⊤X = yX }.
+
+We work in the small-initialization (rich) regime [ 60 ], and adopt the low-rank parameterization of Advani et al. [2] , which exploits the singular value decomposition (SVD) of the input covariance. Specifically, we set W1 = r2 zV ⊤, W 2 = u r ⊤ 
+
+> 2
+
+, where V contains the right singular vectors of 
+
+X, z ∈ Rd encodes alignment with the input principal components, r2 ∈ Rk is a unit-norm vector capturing representational degrees of freedom, and u ∈ R is a scalar. With this parameterization, u
+
+and z are the only variational parameters. Setting v = uz , at the global minimum 
+
+v∗ = w∗V + ˜ ϵ Λ−1/2 (11) where Λ is the diagonal matrix of eigenvalues of X⊤X and ˜ϵ ∼ N (0 , σ ϵId).44 Results 
+
+We present our results, organized as follows. We begin by presenting a closed-form expression for the CCE between the representations of linear networks trained on independent realizations of the inputs and noise, followed by simulation results that validate the theory. We then demonstrate that qualitatively similar behavior emerges in nonlinear networks, and show that these findings extend to real-world classification tasks. All simulations were conducted on NVIDIA RTX 6000 Ada Generation GPUs. 
+
+4.1 Representational alignment in Deep Linear Network (a) (b) 
+
+Figure 1: Representational alignment depends on the signal-to-noise (SNR) ratio and increases non-monotonically with training sample size (n) . Panel (a): presents the generalization error of a two-layer linear network as a function of training sample size divided by the network’s parameters for different SNR (at global minimum). The solid lines correspond to the theoretical predictions, while the dots with bars denote average results from numerical simulation. Panel (b): presents the Conditional Copula Entropy (CCE) between hidden representations of identical networks trained on independent datasets for different SNR. The solid line indicates the theoretical CCE, while dots with bars indicate the empirical CCE. Parameters: d = 200 (input dimension), k = 100 (hidden units), 
+
+ntest = 10 4 (test samples). We estimate the asymptotic alignment using the following theorem. 
+
+Theorem 1 (Asymptotic Representational Alignment from Independent Training) . Consider two deep linear networks 
+
+ˆyai = W a 
+
+> 2
+
+W a 
+
+> 1
+
+xi, ˆybi = W b 
+
+> 2
+
+W b 
+
+> 1
+
+xi,
+
+trained independently by gradient descent from small random initializations on independent datasets 
+
+Da = {Xa, y a} and Db = {Xb, y b}, drawn independently from the data distribution (6) . Suppose the input covariance matrices are simultaneously diagonalizable with a shared eigenbasis, 
+
+Xa⊤Xa = V ΛaV ⊤, Xb⊤Xb = V ΛbV ⊤,
+
+and that the first-layer weights admit the aligned low-rank parameterization 
+
+W a 
+
+> 1
+
+= razaV ⊤, W b 
+
+> 1
+
+= rbzbV ⊤,
+
+where ra, r b are unit-norm vectors. As training time t → ∞ , gradient descent converges to a global minimum, and the asymptotic correlation between za and zb satisfies 
+
+ρ∗ =
+
+
+
+SNR SNR + 1
+
+> α−1
+
+, α > 1,α · SNR SNR + 11−α
+
+, α < 1,
+
+(12) 
+
+where ρ∗ = lim t→∞ ρ(t), SNR = σ2
+
+> w
+
+/σ 2 
+
+> ϵ
+
+, and α = n/d denotes the ratio of training samples to input dimension. 
+
+The full derivation of this Theorem is presented in the Appendix (see Sec. E). In summary, the result in Eq. 12 follows from the global minimum structure of the solution (Eq. 11). At convergence, z∗a
+
+takes the form 
+
+z∗a = 1
+
+u∗
+
+
+
+w∗V + ˜ ϵa(Λ a)−1/2
+
+, (13) 5where Λa is the diagonal matrix of eigenvalues of Xa⊤Xa, ˜ϵa ∼ N (0 , σ 2 
+
+> ϵ
+
+Id), and u∗ is the magnitude of the learned weight. An analogous expression holds for z∗b. The correlation between the two representations is then 
+
+ρ∗ = Ez∗az∗b⊤q
+
+E∥z∗a∥2 E∥z∗b∥2 =
+
+PRi=1 σ2
+
+> w
+
+s PRi=1 
+
+
+
+σ2 
+
+> w
+
++ σ2
+
+> ϵ
+> λai
+
+  PRi=1 
+
+
+
+σ2 
+
+> w
+
++ σ2
+
+> ϵ
+> λbi
+
+  ,
+
+where {λai } and {λbi } are the non-zero eigenvalues of Xa⊤Xa and Xb⊤Xb, respectively, R is the rank of the input covariance matrix, and σ2
+
+> w
+
+, σ2 
+
+> ϵ
+
+are the variances of the teacher weights and noise. In the proportional high-dimensional limit n, d → ∞ with α = n/d fixed, the empirical spectral distribution of X⊤X converges to the Marchenko–Pastur law [45, 6], 
+
+f (λ) = 
+
+p(λ+ − λ)( λ − λ−)2πλ + (1 − α)+δ(λ), (14) where λ± = (1 ± √α)2 and (·)+ = max( ·, 0) . The first term describes the continuous bulk supported on [λ−, λ +]; the second captures the point mass at zero that arises when α < 1. Replacing the empirical average over eigenvalues with an integral against f yields the closed-form result in Eq. 12. By means of Theorem 1, we can now compute the degree of alignment between representations of independently trained deep linear networks via the CCE. Let A = W a 
+
+> 1
+
+X⊤ 
+
+> test
+
+and B = W b 
+
+> 1
+
+X⊤
+
+> test
+
+denote the hidden representations obtained from the test set. In terms of pairwise distances, A and B
+
+are equivalent to one-dimensional projections ˜A = ˜ zaX⊤ 
+
+> test
+
+and ˜B = ˜ zbX⊤
+
+> test
+
+. Applying the result in Eq. 5, the CCE has the following closed-form expression 
+
+CCE( A → B) = − 12 log  1 − ρ∗2 − 12 ρ∗2, (15) with ρ∗ given by Eq. 12. It is worth noting that this result relies on two key assumptions. First, we assume that the input correlation matrices Xa⊤Xa and Xb⊤Xb share the same orthogonal singular vector matrix V . This assumption is common in other theoretical analyses of deep linear networks [ 54 , 41 , 55 , 2, 5 , 20 , 29 ]. Second, we assume that the learned first-layer weights have a low-rank structure. It is a well-known result from prior work that deep linear networks tend to extract low-rank structures when initialized with small weights [ 4, 54 ], which is a form of implicit inductive bias by the training algorithm [ 30 , 53 ]. Both these assumptions will be validated by comparing the theory with the numerical simulation. Fig. 1 (Panel (a)) shows the average generalization error of a two-layer linear network as a function of the training sample size divided by the input dimension α = n/d . The solid curve corresponds to the theoretical prediction (see Sec. D in Appendix for its explicit form), while the dots with bars correspond to the numerical simulation results, averages over 50 independent experiments. The networks are evaluated after convergence, and we set d = 200 and k = 100 . The empirical results agree with the theoretical curves. In particular, we recover the characteristic generalization behavior observed in shallow linear models reported by [ 38 , 26 , 2 ], including the double descent phenomenon. The interpolation threshold occurs at n = d, reflecting that the network is functionally equivalent to a linear model with d effective parameters. We now shift to our main focus: understanding the relationship between internal representations learned by identical networks trained on independent datasets. Let A and B denote the hidden representations of two such networks evaluated on a common test input Xtest . Eq. 15 characterizes the directional alignment measures CCE (A → B) and CCE (B → A), which are symmetric in this case, and thus we only report one. Fig. 1 (Panel (b)) shows CCE (A → B) as a function of α for different SNR. We observe a strong dependence on SNR both in the underparameterized (α > 1) 
+
+and overparameterized (α < 1) regimes, with alignment (i.e., higher CCE (A → B)) improving as SNR increases. For any finite SNR > 0, CCE (A → B) exhibits a non-monotonic dependence on 
+
+α, mirroring the double descent behavior of the generalization error: it vanishes at the interpolation threshold α = 1 and increases as α → ∞ , with a SNR -dependent rate. At the interpolation threshold, CCE (A → B) ≈ 0, regardless of the SNR. This value of CCE indicates essentially no alignment 6between A and B. This is consistent with the divergence of the generalization error at interpolation. Overall, representation alignment is governed by the SNR and varies non-monotonically with training sample size. Remarkably, the SNR influences representational alignment and generalization errors in different manners. In the underparameterized regime ( α > 1), networks trained with different values of SNR achieve the same generalization error, yet their internal representations differ: in this regime, a larger SNR leads to stronger alignment despite identical performance. In contrast, in the overparameterized regime ( α < 1), a larger SNR degrades the performance as α → 0, even though the corresponding representations are more strongly aligned than those of networks trained with a smaller SNR, which achieve better generalization in this regime. 
+
+4.2 Alignment in Non-Linear Networks (a) (b) 
+
+Figure 2: Empirical results for non-linear neural network . Panel (a): presents the average general-ization error of a two-layer network with ReLU activation as a function of training sample size divided by the network’s parameters for different SNR values. Panel (b): presents the average Conditional Copula Entropy between hidden representations of identical networks trained on independent datasets. Numerical results are averaged over 50 independent experiments. Parameters: d = 200 (input dimension), k = 20 (number of hidden units), ntest = 10 4 (test samples). In this section, we extend our analysis to nonlinear networks by introducing a ReLU activation within the same architectural setting previously studied for linear models. The data-generative model and the training procedure remain unchanged. The presence of nonlinearity makes obtaining analytical results for CCE significantly more challenging. We therefore study the representations numerically. Fig. 2 presents the results. Panel (a) shows the generalization error of ReLU networks for various values of the SNR, while Panel (b) reports the CCE between representations of networks trained on independent datasets with common SNR. Both quantities are plotted as a function of the ratio between the number of training samples n and the number of network parameters p = d × k. The curves are averaged over 50 independent experiments, with d = 200 and k = 20 .Let γ = n/p . The generalization error exhibits a double descent phenomenon [ 11 ], with a peak around γ ≈ 1. For γ > 1, the error is largely independent of the SNR, whereas in the regime 
+
+γ → 0, the networks trained with smaller SNR perform better, consistent with the results for linear networks. Similarly, CCE between independently trained networks displays non-monotonic behavior, with a sharp minimum near the same value where the generalization reached it peak (γ ≈ 1). In both the underparameterized ( γ > 1) and overparameterized ( γ < 1) regimes, the CCE varies significantly with the SNR, with larger values of SNR leading to better alignment between representations. However, unlike the linear case, the generalization error does not diverge at the interpolation threshold, and the CCE does not approach zero as in the linear case. Instead, CCE converges to an SNR-dependent value, suggesting that even at the threshold, the learned representations share some information. Besides this difference, the qualitative behavior of both the generalization error and CCE is akin to that observed in the linear setting. Next, we compare the representations learned by the two networks we considered so far — one with linear activation and one with ReLU activation — trained on the same dataset ( d = 200 , k = 20 ,and SNR = 5 ). Fig. 3 (a) shows the generalization error as a function of γ. The two networks exhibit markedly different behaviors: the linear network (orange) consistently achieves a lower generalization error than the ReLU network (blue), except at the linear network’s interpolation threshold ( n/d × k = 0 .05 ), where the error diverged [ 26 , 2 ]. This result is a direct consequence 7(a) (b) Figure 3: Alignment between Representations of Linear and Nonlinear Network . Panel (a): presents the average generalization error of a two-layer network with linear (orange curve) and ReLU (blue curve) activation as a function of training sample size divided by the network’s parameters for SNR = 5 . Panel (b): presents the average Conditional Copula Entropy between hidden representations of networks with Linear and ReLU activation trained on the same datasets. Orange curves represent CCE(Linear → ReLU), and blue curves represent CCE(ReLU → Linear). Numerical results are averaged over 20 independent experiments. Parameters: d = 200 (input dimension), k = 20 (number of hidden units), ntest = 10 4 (test samples). of the structure of the learning problem — by construction, the optimal student in this setting is linear [13], so the linear network operates closer to the Bayes-optimal learner [13, 17, 18]. Strikingly, however, as shown in panel (b) of Fig. 3, the ReLU network learns internal representations that are more informative — as measured by the CCE — than those of the linear network, despite the latter achieving a better generalization error. At n/d × k = 0 .05 , the CCE collapses to zero, due to the lack of structure in the learned representation of the linear network, making the two representations mutually unpredictable. The CCE also exhibit a local minimum at the interpolation threshold of the ReLU network ( n/d × k = 1 ), where the network interpolates the noisy training data [ 11 , 61 , 46 ]. Notably, even at this threshold, the representations learned by the ReLU network remain more informative than those of the linear network. This behavior is likely due to the well-known greater expressivity of nonlinear models compared to linear ones [ 9], which enables them to capture richer and more structured representations. 
+
+4.3 Beyond synthetic settings: classification on real-world data (a) (b) 
+
+Figure 4: Representational alignment of independently trained classification networks : Panel (a) presents the generalization error of the trained networks for various label noise. Panel (b) presents the CCE between penultimate representations of identical networks trained on independent datasets, starting from the same initialization. All curves are plotted as a function of the ratio between the training sample size and the number of network parameters. Finally, we evaluate whether our findings extend to real-world classification tasks. We consider the CIFAR-10 object classification task [ 36 ], using a standard convolutional neural network (CNN), and train two identical networks independently using the same training protocol on non-overlapping subsets of the training set of size n, with n ranging from 10 2 to half of the full training set size (see Sec. F.1 for details). The CNN is configured with 40 feature maps in the last convolutional layer. We artificially introduce label noise by independently replacing each training label with a random label with probability p, where p denotes the label noise rate (e.g., p = 0 .1 corresponds to 10% random 8labels). The noise is applied once and fixed throughout training, while test labels remain clean. In this case the label noise plays the role of inverse SNR. Panels (a) of Fig. 4 show the generalization error as a function of γ = n/p for different levels of label noise. We observe the classical double descent pattern. As the label noise increases, the peak in the generalization error becomes more pronounced [ 49 ], consistently with what was shown above for synthetic data. Notably, a peak is also present even at 0% label noise, which may be due to implicit label noise in the ground-truth labels [ 51 ]. The network’s performance resembles (qualitatively) the behavior observed in a regression task. Next, we move to the learned representations. Panels (b) of Fig. 4, we present the CCE between the penultimate representations as a function of γ for different label noise. We observed that the penultimate representations learned with small label noise align better than those learned with higher label noise, in both underparameterized and overparameterized regimes. Similarly, the alignment varies non-monotonically as a function of γ, with a minimum near the interpolation threshold, akin to what observe for synthetic data. Qualitatively, we observed similar results for the MNIST digit recognition ([ 42 ]) using a fully connected neural network (see Sec. F.2 of the Appendix). 
+
+# 5 Conclusion and Discussion 
+
+We presented a theoretical and computational analysis aimed at studying the alignment between the latent representations in neural networks. To quantify the alignment, we use the Conditional Copula Entropy (CCE), a statistics that in some simple but relevant reference cases can be estimated analytically. The picture which emerges from our analysis is that the CCE behaves qualitatively in the same manner in all the neural networks we considered, including the linear network: the CCE increases monotonically with the signal-to-noise (SNR) ratio, and varies non-monotonically as a function of training sample size, attaining a minimum near the interpolation threshold (see Fig. 1, Fig. 2, Fig. 3, and Fig. 4). We further find that different subgroups of networks can achieve the same performance (measured by the generalization error) while exhibiting different degrees of intragroup representational alignment (see Fig. 1 and Fig. 2). In contrast, a group of networks can outperform another group in a task while showing lower internal alignment than the worst-performing group. This result is consistent with recent work documenting the dissociation between representations and outputs behavior [ 39 , 14 , 40 ]. Morever, we show that a network can achieve higher task performance, and yet learn less informative internal representations than a network with lower performance (see Fig. 3); such differences in representational informativeness (quality) cannot be detected by symmetric measures such as CKA. This underscores the value of asymmetric alignment measures [ 8 , 56 , 57 , 1 ]. This mismatch between generalization performance and representational informativeness highlights that task performance alone is an insufficient proxy for representation quality. A related finding was reported in the context of self-supervised learning, where non-linear autoencoders can produce higher reconstruction loss, yet learn better, more complete representations compared to linear methods with lower reconstruction loss [47]. All together, our results contribute to emerging cross-disciplinary perspectives on representational alignment [ 56 , 32 ] by identifying two key factors that govern alignment — SNR and training sample size — and by providing the first analytic prediction of how these factors shape alignment in a controlled setting. 
+
+Limitations and Future Directions. Our analysis is currently restricted to single-modality settings. However, representational convergence has also been observed across networks trained on different modalities, such as vision and language [ 28 , 1, 24 ]. Extending our framework to the multimodal setting is a natural and important direction for future work. Additionally, generalizing the theoretical analysis from a linear to a nonlinear setting would be valuable, as it may reveal whether the universality of latent representation behavior we observe empirically is theoretically grounded. Also, it might further expose the influence of network depth and hidden layer width – factors that are absent from our linear setting results. Finally, studying the dynamic of representational alignment over the course of training is another promising direction. Despite these limitations, our work provides nontrivial insights into the structure of learned representations across different learning regimes and provides a theoretical foundation for future investigations into the origins of convergence of representations. 9Acknowledgments 
+
+We thank Jean Barbier and Sebastian Goldt for their valuable comments and suggestions on the manuscript, and Franky Kevin Nando Tezoh for insightful discussions. A.L. acknowledges financial support from the Friuli Venezia Giulia region (project F53C22001770002). 
+
+# References 
+
+[1] Acevedo, S., Mascaretti, A., Rende, R., Mahaut, M., Baroni, M., and Laio, A. (2025). Aquantitative analysis of semantic information in deep representations of text and images. arXiv preprint arXiv:2505.17101 .[2] Advani, M. S., Saxe, A. M., and Sompolinsky, H. (2020). High-dimensional dynamics of generalization error in neural networks. Neural Networks , 132:428–446. [3] Ansuini, A., Laio, A., Macke, J. H., and Zoccolan, D. (2019). Intrinsic dimension of data representations in deep neural networks. Advances in Neural Information Processing Systems , 32. [4] Arora, S., Cohen, N., Hu, W., and Luo, Y. (2019). Implicit regularization in deep matrix factorization. Advances in neural information processing systems , 32. [5] Atanasov, A., Bordelon, B., and Pehlevan, C. (2022). Neural networks as kernel learners: The silent alignment effect. In International Conference on Learning Representations .[6] Bai, Z., Silverstein, J. W., et al. (2010). Spectral analysis of large dimensional random matrices ,volume 20. Springer. [7] Baldi, P. and Hornik, K. (1989). Neural networks and principal component analysis: Learning from examples without local minima. Neural networks , 2(1):53–58. [8] Bansal, Y., Nakkiran, P., and Barak, B. (2021). Revisiting model stitching to compare neural representations. Advances in neural information processing systems , 34:225–236. [9] Barbier, J., Camilli, F., Nguyen, M.-T., Pastore, M., and Skerk, R. (2025). Statistical physics of deep learning: Optimal learning of a multi-layer perceptron near interpolation. arXiv preprint arXiv:2510.24616 .[10] Beirlant, J., Dudewicz, E. J., Györfi, L., Van der Meulen, E. C., et al. (1997). Nonparametric entropy estimation: An overview. International Journal of Mathematical and Statistical Sciences ,6(1):17–39. [11] Belkin, M., Hsu, D., Ma, S., and Mandal, S. (2019). Reconciling modern machine-learning practice and the classical bias–variance trade-off. Proceedings of the National Academy of Sciences ,116(32):15849–15854. [12] Bengio, Y., Courville, A., and Vincent, P. (2013). Representation learning: A review and new perspectives. IEEE transactions on pattern analysis and machine intelligence , 35(8):1798–1828. [13] Bishop, C. M. and Nasrabadi, N. M. (2006). Pattern recognition and machine learning , volume 4. Springer. [14] Braun, L., Grant, E., and Saxe, A. M. (2025). Not all solutions are created equal: An analytical dissociation of functional and representational similarity in deep linear neural networks. In 
+
+Forty-second International Conference on Machine Learning .[15] Casella, G. and Berger, R. (2024). Statistical inference . Chapman and Hall/CRC. [16] Cho, K., Van Merriënboer, B., Gulçehre, Ç., Bahdanau, D., Bougares, F., Schwenk, H., and Bengio, Y. (2014). Learning phrase representations using rnn encoder–decoder for statistical machine translation. In Proceedings of the 2014 conference on empirical methods in natural language processing (EMNLP) , pages 1724–1734. 10 [17] Cui, H., Krzakala, F., and Zdeborova, L. (2023). Bayes-optimal learning of deep random networks of extensive-width. In International Conference on Machine Learning , pages 6468–6521. PMLR. [18] Cui, H., Krzakala, F., and Zdeborová, L. (2025). Bayes-optimal learning of deep ran-dom networks of extensive-width. Journal of Statistical Mechanics: Theory and Experiment ,2025(1):014001. [19] Del Tatto, V., Fortunato, G., Bueti, D., and Laio, A. (2024). Robust inference of causality in high-dimensional dynamical processes from the information imbalance of distance ranks. Proceedings of the National Academy of Sciences , 121(19):e2317256121. [20] Dominé, C. C., Anguita, N., Proca, A. M., Braun, L., Kunin, D., Mediano, P. A., and Saxe, A. M. (2024). From lazy to rich: Exact learning dynamics in deep linear networks. arXiv preprint arXiv:2409.14623 .[21] Dominé, C. C. J., Anguita, N., Proca, A. M., Braun, L., Kunin, D., Mediano, P. A. M., and Saxe, A. M. (2025). From lazy to rich: Exact learning dynamics in deep linear networks. In The Thirteenth International Conference on Learning Representations .[22] Glielmo, A., Zeni, C., Cheng, B., Csányi, G., and Laio, A. (2022). Ranking the information content of distance measures. PNAS nexus , 1(2):pgac039. [23] Goodfellow, I., Bengio, Y., Courville, A., and Bengio, Y. (2016). Deep learning , volume 1. MIT Press. [24] Gröger, F., Wen, S., and Brbi´ c, M. (2026). Revisiting the platonic representation hypothesis: An aristotelian view. arXiv preprint arXiv:2602.14486 .[25] Gu, Y., Zheng, X., and Aste, T. (2024). Unraveling the enigma of double descent: An in-depth analysis through the lens of learned feature space. In The Twelfth International Conference on Learning Representations .[26] Hastie, T., Montanari, A., Rosset, S., and Tibshirani, R. J. (2022). Surprises in high-dimensional ridgeless least squares interpolation. Annals of statistics , 50(2):949. [27] Hinton, G., Deng, L., Yu, D., Dahl, G. E., Mohamed, A.-r., Jaitly, N., Senior, A., Vanhoucke, V., Nguyen, P., Sainath, T. N., et al. (2012). Deep neural networks for acoustic modeling in speech recognition: The shared views of four research groups. IEEE Signal processing magazine ,29(6):82–97. [28] Huh, M., Cheung, B., Wang, T., and Isola, P. (2024). The platonic representation hypothesis. 
+
+arXiv preprint arXiv:2405.07987 .[29] Jarvis, D., Lee, S., Carla Juliette Dominé, C., M Saxe, A., and Sarao Mannelli, S. (2025). A theory of initialisation’s impact on specialisation. Journal of Statistical Mechanics: Theory and Experiment , 2025(11):114001. [30] Kalimeris, D., Kaplun, G., Nakkiran, P., Edelman, B., Yang, T., Barak, B., and Zhang, H. (2019). Sgd on neural networks learns functions of increasing complexity. Advances in neural information processing systems , 32. [31] Kang, H., Canatar, A., and Chung, S. (2025). Spectral analysis of representational similarity with limited neurons. arXiv preprint arXiv:2502.19648 .[32] Klabunde, M., Schumacher, T., Strohmaier, M., and Lemmerich, F. (2025). Similarity of neural network models: A survey of functional and representational measures. ACM Computing Surveys ,57(9):1–52. [33] Kornblith, S., Norouzi, M., Lee, H., and Hinton, G. (2019). Similarity of neural network representations revisited. In Chaudhuri, K. and Salakhutdinov, R., editors, Proceedings of the 36th International Conference on Machine Learning , volume 97 of Proceedings of Machine Learning Research , pages 3519–3529. PMLR. 11 [34] Kraskov, A., Stögbauer, H., and Grassberger, P. (2004). Estimating mutual information. Physical Review E—Statistical, Nonlinear, and Soft Matter Physics , 69(6):066138. [35] Kriegeskorte, N., Mur, M., and Bandettini, P. A. (2008). Representational similarity analysis-connecting the branches of systems neuroscience. Frontiers in systems neuroscience , 2:249. [36] Krizhevsky, A., Hinton, G., et al. (2009). Learning multiple layers of features from tiny images. [37] Krizhevsky, A., Sutskever, I., and Hinton, G. E. (2012). Imagenet classification with deep convolutional neural networks. Advances in neural information processing systems , 25. [38] Krogh, A. and Hertz, J. A. (1992). Generalization in a linear perceptron in the presence of noise. 
+
+Journal of Physics A: Mathematical and General , 25(5):1135–1147. [39] Lampinen, A. K., Chan, S. C., and Hermann, K. (2024). Learned feature representations are biased by complexity, learning order, position, and more. Transactions on Machine Learning Research .[40] Lampinen, A. K., Chan, S. C., Li, Y., and Hermann, K. (2025). Representation biases: will we achieve complete understanding by analyzing representations? arXiv preprint arXiv:2507.22216 .[41] Lampinen, A. K. and Ganguli, S. (2018). An analytic theory of generalization dynamics and transfer learning in deep linear networks. arXiv preprint arXiv:1809.10374 .[42] LeCun, Y. (1998). The mnist database of handwritten digits. http://yann. lecun. com/exdb/mnist/ .[43] LeCun, Y., Bengio, Y., and Hinton, G. (2015). Deep learning. nature , 521(7553):436–444. [44] Li, Y., Yosinski, J., Clune, J., Lipson, H., and Hopcroft, J. (2015). Convergent learning: Do different neural networks learn the same representations? arXiv preprint arXiv:1511.07543 .[45] Marˇ cenko, V. A. and Pastur, L. A. (1967). Distribution of eigenvalues for some sets of random matrices. Mathematics of the USSR-Sbornik , 1(4):457–483. [46] Mei, S. and Montanari, A. (2022). The generalization error of random features regression: Pre-cise asymptotics and the double descent curve. Communications on Pure and Applied Mathematics ,75(4):667–766. [47] Mendes, V. C., Bardone, L., Koller, C., Moreira, J. M., Erba, V., Troiani, E., and Zdeborová, L. (2026). A solvable high-dimensional model where nonlinear autoencoders learn structure invisible to pca while test loss misaligns with generalization. arXiv preprint arXiv:2602.10680 .[48] Murphy, A., Zylberberg, J., and Fyshe, A. (2024). Correcting biased centered kernel alignment measures in biological and artificial neural networks. arXiv preprint arXiv:2405.01012 .[49] Nakkiran, P., Kaplun, G., Bansal, Y., Yang, T., Barak, B., and Sutskever, I. (2021). Deep double descent: Where bigger models and more data hurt. Journal of Statistical Mechanics: Theory and Experiment , 2021(12):124003. [50] Nelsen, R. B. (2006). An introduction to copulas . Springer. [51] Northcutt, C. G., Athalye, A., and Mueller, J. (2021). Pervasive label errors in test sets destabilize machine learning benchmarks. arXiv preprint arXiv:2103.14749 .[52] Raghu, M., Gilmer, J., Yosinski, J., and Sohl-Dickstein, J. (2017). Svcca: Singular vector canonical correlation analysis for deep learning dynamics and interpretability. Advances in neural information processing systems , 30. [53] Refinetti, M., Ingrosso, A., and Goldt, S. (2023). Neural networks trained with sgd learn distributions of increasing complexity. In International Conference on Machine Learning , pages 28843–28863. PMLR. [54] Saxe, A. M., McClelland, J. L., and Ganguli, S. (2013). Exact solutions to the nonlinear dynamics of learning in deep linear neural networks. arXiv preprint arXiv:1312.6120 .12 [55] Saxe, A. M., McClelland, J. L., and Ganguli, S. (2019). A mathematical theory of seman-tic development in deep neural networks. Proceedings of the National Academy of Sciences ,116(23):11537–11546. [56] Sucholutsky, I., Muttenthaler, L., Weller, A., Peng, A., Bobu, A., Kim, B., Love, B. C., Cueva, C. J., Grant, E., Groen, I., Achterberg, J., Tenenbaum, J. B., Collins, K. M., Hermann, K., Oktar, K., Greff, K., Hebart, M. N., Cloos, N., Kriegeskorte, N., Jacoby, N., Zhang, Q., Marjieh, R., Geirhos, R., Chen, S., Kornblith, S., Rane, S., Konkle, T., O’Connell, T., Unterthiner, T., Lampinen, A. K., Muller, K. R., Toneva, M., and Griffiths, T. L. (2025). Getting aligned on representational alignment. Transactions on Machine Learning Research . Survey Certification, Expert Certification. [57] Umar, A. H., Nando Tezoh, F. K., Barbier, J., Acevedo, S., and Laio, A. (2026). The effect of label noise on the information content of neural representations. Frontiers in Physics , 14:1717253. [58] Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., and Polosukhin, I. (2017). Attention is all you need. Advances in neural information processing systems , 30. [59] Williams, A. H., Kunz, E., Kornblith, S., and Linderman, S. (2021). Generalized shape metrics on neural representations. Advances in neural information processing systems , 34:4738–4750. [60] Woodworth, B., Gunasekar, S., Lee, J. D., Moroshko, E., Savarese, P., Golan, I., Soudry, D., and Srebro, N. (2020). Kernel and rich regimes in overparametrized models. In Conference on Learning Theory , pages 3635–3673. PMLR. [61] Zhang, C., Bengio, S., Hardt, M., Recht, B., and Vinyals, O. (2016). Understanding deep learning requires rethinking generalization. arXiv preprint arXiv:1611.03530 .13 A Related Work 
+
+A.1 Measures of representational similarity/alignment. 
+
+Quantifying when two information processing systems represent information in compatible ways is a long-standing question, originating in cognitive neuroscience with Representational Similarity Analysis [ 35 ], which compares systems through their pairwise dissimilarity matrices rather than raw activations. Modern measures developed for deep networks — Singular Vector Canonical Correlation Analysis (SVCCA) [ 52 ], Centered Kernel Alignment (CKA) [ 33 ], and shape metrics based on Procrustes distances [ 59 ] — extend this idea while imposing different invariance assumptions (orthogonal, affine, or invertible linear). Recent work has documented systematic biases in these measurements: CKA in particular is sensitive to the feature-to-sample ratio and can report spurious similarity in the regimes we study [ 48 ], and finite-neuron sampling distorts both SVCCA and CKA in predictable ways [ 31 ]. A complementary perspective shows that many of these measures can be recast as comparisons of optimal linear readouts [ 40 ], clarifying their scope. Crucially, none of these measures is well-suited to representations lying on highly curved manifolds [ 3], motivating our use of a rank-based, information-theoretic alternative in the form of the CCE. 
+
+A.2 Convergence of learned representations. 
+
+A growing body of empirical work shows that independently trained networks often arrive at struc-turally similar representations [ 44 , 52 , 33 , 8], a phenomenon recently described as the Platonic Rep-resentation Hypothesis [ 28 ], which conjectures that independently trained deep networks—despite being trained with different objectives and on different data—tend to learn aligned/similar internal rep-resentations that converge to a universal statistical model of reality. A subsequent re-evaluation [ 24 ]argues that, after appropriate calibration, this convergence is most robustly visible in local neighbor-hood structure rather than in global geometry, precisely the regime our CCE statistic is designed to probe. 
+
+# B About CCE 
+
+B.1 Conditional Copula Entropy 
+
+The information content between the pairwise distance variables ( dx and dy ) of the representation spaces x and y is measured by the mutual information I(dx, d y ). However, mutual information will not be useful in quantifying how well a certain representation space predicts a geometric property of another representation space due to its symmetric nature. Del Tatto et al. proposed an asymmetric information-theoretic quantity called restricted mutual information, which is defined as Iϵ(dx → dy ) = 
+
+Z η
+
+> 0
+
+Z ∞
+
+> 0
+
+dd xdd y p(dx, d y ) log 
+
+ p(dx, d y )
+
+p(dx)p(dy )
+
+
+
+where η = F −1 
+
+> x
+
+(ϵ) and Fx(r) = R r 
+
+> 0
+
+p(dx)dd x denote the cumulative distribution function of dx. This quantity is proposed based on the intuition that a good distance space should be locally semantically meaningful. i.e, a space where a data point is enclosed by points that are "similar". Therefore, in the limit of small ϵ, the restricted mutual information quantifies the shared information by the random variables dx and dy when conditioned on the events dx = η. With the assumption that large distances are not informative, the authors (Del Tatto et al.) interpret this measure as the actual information in 
+
+dy that is contained in dx. By expanding the restricted mutual information in the limit ϵ → 0, the 14 first nonzero term is its first derivative around zero: 
+
+lim 
+
+> ϵ→0
+
+Iϵ(dx → dy )
+
+ϵ = ∂∂ϵ Iϵ(dx; dy )|ϵ
+
+= 1
+
+p(dx = η)
+
+∂∂d x
+
+Iϵ(dx; dy )|η
+
+= 1
+
+p(dx = η)
+
+∂∂d x
+
+ Z c
+
+> 0
+
+Z ∞
+
+> 0
+
+dd xdd y p(dx, d y ) log 
+
+ p(dx, d y )
+
+p(dx)p(dy )
+
+  
+
+> η
+
+= 1
+
+p(dx = η)
+
+∂∂d x
+
+Z c
+
+> 0
+
+dd xp(dx)
+
+ Z ∞
+
+> 0
+
+dd y p(dy |dx) log 
+
+ p(dy |dx)
+
+p(dy )
+
+  
+
+> η
+
+= lim 
+
+> η→0
+
+Z ∞
+
+> 0
+
+dd y p(dy |dx = η) log 
+
+ p(dy |dx = η)
+
+p(dy )
+
+
+
+Therefore, in the limit of ϵ → 0, the restricted mutual information is given by 
+
+lim 
+
+> ϵ→0
+
+Iϵ(dx → dy )
+
+ϵ = lim  
+
+> η→0
+
+DKL [p(dy |dx = η) ∥ p(dy )] , (16) where DKL denotes the Kullback-Leibler divergence (a pseudo-distance). This divergence represents the amount of information (in nats) gained about dy when conditioning on dx = η, compared to the marginal distribution of dy . It quantifies how much the distribution of dy changes when conditioned on small distances in space x—the greater the change, the more informative space x is with respect to space y. Let 
+
+c = ( cx, c y ) = ( Fx(dx), F y (dy )) ,
+
+where Fx(dx) and Fy (dy ) are the cumulative densities of random variables dx and dy . According to Sklar’s theorem [ 50 ], the distribution of d = ( dx, d y ) can be decomposed as the product of the marginals and the joint copula distribution: 
+
+P (dx, d y ) = pc(cx, c y )p(dx)p(dy ),
+
+where pc(cx, c y ) is the joint copula distribution. This relationship between the distribution of c and its respective copula distribution allows us to rewrite the restricted mutual information as 
+
+lim 
+
+> ϵ→0
+
+Iϵ(dx → dy )
+
+ϵ = lim 
+
+> η→0
+
+Z ∞
+
+> 0
+
+dd y p(dy | dx = η) log 
+
+ p(dy | dx = η)
+
+p(dy )
+
+
+
+(17) 
+
+= lim 
+
+> ϵ→0
+
+Z 10
+
+dc y pc(cy | cx = ϵ) log pc(cy | cx = ϵ) (18) 
+
+= − lim  
+
+> ϵ→0
+
+H(cy |cx = ϵ). (19) 
+
+B.2 Properties of CCE 
+
+Importantly, CCE (similarly, II) satisfies the standard invariance properties expected from the repre-sentation alignment measures [ 33 ]. In particular, it is invariant to isotropic scaling and orthogonal transformations, as it depends only on the distribution of pairwise distances. Formally, for any 
+
+α, β ∈ R and orthogonal matrices U, V ,CCE (αA → βB ) = CCE (A → B), CCE (AU → BV ) = CCE (A → B).
+
+# C Deep Linear Network Gradient Flow Equations 
+
+For a deep linear network with D hidden layers, continuous-time gradient descent on the mean squared training error yields the following dynamics for each weight matrix Wl:
+
+τ dW l
+
+dt =
+
+ DY
+
+> i=l+1
+
+Wi
+
+T 
+
+yX −
+
+ DY
+
+> i=1
+
+Wi
+
+
+
+XT X
+
+ l−1Y
+
+> i=1
+
+Wi
+
+T
+
+, (20) where τ = n/ 2 is a time constant inversely proportional to the learning rate. These dynamics capture the behavior of gradient descent in the limit of a small learning rate. 15 Advani et al. [2] provides a detailed description of these dynamics starting from small random initializations, a setting commonly referred to as the rich learning regime [ 60 ]. Based on the observation that gradient descent dynamics in deep linear networks initialized with small random weights extract low rank structure [ 54 ], they begin by using a singular value decomposition (SVD) based change of variables. Specifically, they define 
+
+W1 = r2z(t)V T ,Wl = c(t)rl+1 rTl , for l = 2 , . . . , D, 
+
+where V is the matrix of right singular vectors of X, z(t) ∈ R1×d is a vector encoding the time-varying overlap with each principal axis in the input, rl ∈ Rdl×1 are arbitrary unit-norm vectors that capture the freedom in the network’s internal representations, and c(t) is a scalar which encodes the change in representation over time. With these definitions, the total weight matrix Wtot = QDi=1 Wi
+
+simplifies to 
+
+Wtot =
+
+ DY
+
+> i=2
+
+c(t)ri+1 rTi
+
+
+
+r2z(t)V T = u(t)z(t)V T ,
+
+where u(t) = c(t)D−1 and we set rD+1 = 1 .Further decomposing the input correlation matrix XT X and the input–output correlation matrix yX 
+
+as 
+
+XT X = V ΛV T , yX = ˜ sV T ,
+
+with ˜s = z∗Λ + ˜ ϵΛ1/2 and z∗ = w∗V , the network dynamics reduce to the following system of equations: 
+
+τ du (t)
+
+dt = u(t) 2D−4
+
+> D−1
+
+
+
+˜sz (t)T − u(t)z(t)Λ z(t)T
+
+
+
+, (21) 
+
+τ dz (t)
+
+dt = u(t)
+
+
+
+˜s − u(t)z(t)Λ 
+
+
+
+. (22) Or in component-wise notation 
+
+τ du (t)
+
+dt = u(t) 2D−4
+
+> D−1
+> d
+
+X
+
+> i=1
+
+
+
+λiz∗ 
+
+> i
+
+zi(t) − u(t)λiz2 
+
+> i
+
+(t) + λ1/2˜ϵizi(t)
+
+
+
+, (23) 
+
+τ dz i(t)
+
+dt = u(t)
+
+
+
+λiz∗ 
+
+> i
+
+− u(t)λizi(t) + λ1/2˜ϵi
+
+
+
+for i = 1 , ..., d. (24) These equations represent a substantial reduction in complexity. While full gradient descent in a D-layer network with d hidden units per layer involves O(d2D) parameters, the reduced system requires only d+1 parameters, irrespective of depth and hidden layer width. Despite this dramatic compression, Advani et al. [2] demonstrates that the reduced dynamics provide an accurate description of the full training trajectory, provided the network is initialized with sufficiently small random weights. 
+
+C.1 Gradient Flow fixed points 
+
+For a two-layer linear neural network, i.e., D = 2 , the gradient flow training dynamic on the mean squared training error yields the following dynamics for W1 and W2:
+
+τ dW 1
+
+dt = W T
+
+> 2
+
+
+
+yX − W2W1XT X
+
+
+
+, (25) 
+
+τ dW 2
+
+dt =
+
+
+
+yX − W2W1XT X
+
+
+
+W T 
+
+> 1
+
+, (26) These dynamics of the weight contain two manifolds of fixed points: An unstable fixed point at zero 
+
+U and a stable fixed points at the global minimum S, which are given by 
+
+U = W2 = 0 , W 1 = 0 
+
+S = W2, W 1 | W2W1XT X = Y X .
+
+16 Using the reduced network dynamics in equations 22, 21 of z and uτ du (t)
+
+dt =
+
+
+
+˜sz (t)T − u(t)z(t)Λ z(t)T
+
+
+
+, (27) 
+
+τ dz (t)
+
+dt = u(t)
+
+
+
+˜s − u(t)z(t)Λ 
+
+
+
+. (28) Let v(t) = u(t)z(t). Then 
+
+τ dv (t)
+
+dt = τ
+
+
+
+u(t) dz (t)
+
+dt + z(t) du (t)
+
+dt 
+
+
+
+= τ u(t)2 ˜s − u(t)3Λz(t) + ˜ sz (t)z(t)⊤z(t) − u(t)Λ z(t)z⊤z(t)
+
+= τ ˜s  u(t)2I + z(t)z(t)⊤ − u(t)Λ  u(t)2I + z(t)z(t)⊤ z(t)
+
+= τ  ˜s − v(t)Λ   u(t)2I + z(t)⊤z(t).
+
+Because the matrix u(t)2I + z(t)⊤z(t), which depends on z(t) and u(t) in a nonlinear way, the dynamics remain coupled. As a result, a closed-form solution for the finite time is not feasible. However, at the global minimum / stable fixed point (i.e., when t → ∞ ), we must have 
+
+ ˜s − v∗Λ  u∗2I + z∗⊤ z∗ = 0 
+
+ w∗V Λ + ˜ ϵΛ1/2 − v∗Λ  u∗2I + z∗⊤ z∗ = 0 ,
+
+where Λ is the diagonal matrix of eigenvalues of X⊤X and ˜ϵ ∼ N (0 , σ ϵId). Since u∗2I + z∗⊤ z∗ is always positive definite, this implies that at the stable fixed point 
+
+v∗ =  w∗V Λ + ˜ ϵΛ1/2Λ−1. (29) 
+
+# D Exact Generalization Error of Two-layer Neural Network 
+
+As shown in Ref [2], the generalization error of the student network at the global minimum is 
+
+Eg := Ew∗,x,ϵ [( y − ˆy)2] = 1
+
+d Ew∗,v [( w∗V ⊤ − v)2] + σ2 
+
+> ϵ
+
+, (30) where the expectation is over all potential teacher weight w∗, input x and noise ϵ. Substituting the global minimum in Eq. 30 yields 
+
+Eg = σ2 
+
+> w
+
++ σ2 
+
+> ϵ
+
+− 1
+
+d
+
+> rank( X⊤X)
+
+X
+
+> i=1
+
+
+
+σ2 
+
+> w
+
+− σ2
+
+> ϵ
+
+λi
+
+
+
+, (31) where {λi} are the non-zero eigenvalues of X⊤X, and σ2
+
+> w
+
+, σ2 
+
+> ϵ
+
+are the variance of the teacher weight and the noise, respectively. Eq. 31 reveals the critical role of the eigenvalue spectrum of the input covariance matrix. Small eigenvalues degrade generalization, while large eigenvalues improve it. Directions with λi = 0 are never learned: the corresponding components vi remain at their initialized values throughout training [ 2], which is why the sum in Eq. 31 runs only over directions with non-zero eigenvalues. Consequently, initialization directly affects generalization: if weights are initialized to small values, the contribution of these frozen directions to the output remains negligible. In the proportional high-dimensional limit n, d → ∞ with α = n/d fixed, the empirical spectral distribution of X⊤X converges to the Marchenko–Pastur law [45], 
+
+f (λ) = 
+
+p(λ+ − λ)( λ − λ−)2πλ + (1 − α)+ δ(λ), (32) where λ± = (1 ± √α)2 and (·)+ = max( ·, 0) . The first term is the continuous bulk on [λ−, λ +];the second captures the point mass at zero when α < 1. Replacing the empirical average with an integral over f , the generalization error admits the asymptotic form 
+
+Eg = σ2 
+
+> w
+
++ σ2 
+
+> ϵ
+
+−
+
+Z  
+
+σ2 
+
+> w
+
+− σ2
+
+> ϵ
+
+λ
+
+
+
+f (λ) dλ. (33) 17 E Asymptotic Alignment 
+
+Suppose that we trained two linear networks ˆyai = W a 
+
+> 2
+
+W a 
+
+> 1
+
+xi and ˆybi = W b 
+
+> 2
+
+W b 
+
+> 1
+
+xi by gradient descent from small random initializations on independent datasets Da = {Xa, y a} and Db = {Xb, y b},drawn independently from the same data distribution. Using the singular value decomposition (SVD) parameterization, and assuming that the correlation matrices share the same orthogonal singular vector matrix V — as is commonly assumed in theoretical analysis of deep linear networks [ 54 , 2 , 20 , 29 ]— we express the first-layer weights as 
+
+W a 
+
+> 1
+
+= razaV T = ra ˜za, W b 
+
+> 1
+
+= rbzbV T = rb ˜zb.
+
+This parameterization assumes that the first-layer weights have a low-rank structure. It is a well-known result from prior work that deep linear networks tend to extract low-rank structures when initialized with small weights [ 4, 54 ], which is a form of implicit inductive bias by the training algorithm [ 30 , 53 ]. We notice that for any test inputs x and x′, the distance between them in the projected space by W a 
+
+> 1
+
+is 
+
+∥ra ˜zax − ra ˜zax′∥2 = || ra|| 2 ∥˜za(x − x′)∥2 = ∥˜za(x − x′)∥2 . (34) Analogously, in the projected space defined by W b 
+
+> 1
+
+. Let A = W a 
+
+> 1
+
+X⊤ 
+
+> test
+
+and B = W b 
+
+> 1
+
+X⊤
+
+> test
+
+. Then, the representations A and B are equivalent, in terms of pairwise distances, to one-dimensional projections 
+
+˜A = ˜ zaX⊤ 
+
+> test
+
+and ˜B = ˜ zbX⊤
+
+> test
+
+. As a consequence, the CCE between A and B is the same as the CCE between ˜A and ˜B.In Ref. [ 57 ], it is shown that if x ∼ N (0 , I d), and define U = u⊤x and V = v⊤x, where u, v ∈ Rd.Then U and V are jointly Gaussian, and the CCE admits the following closed-form expression CCE (U → V ) = CCE (V → U ) = − 12 log(1 − ρ2) − 12 ρ2, (35) where ρ = Eu⊤v/
+
+q
+
+E∥u∥2 E∥v∥2 denotes the correlation coefficient between U and V .Therefore, the CCE of A and B depends only on the correlation ρ between ˜A and ˜B.
+
+ρ = Ezazb⊤q
+
+E∥za∥2 E∥zb∥2 . (36) 
+
+E.1 Correlation between A and B 
+
+At convergence, z∗a takes the form 
+
+z∗a = 1
+
+u∗
+
+
+
+w∗V + ˜ ϵa(Λ a)−1/2
+
+, (37) where Λa is the diagonal matrix of eigenvalues of Xa⊤Xa, ˜ϵa ∼ N (0 , σ 2 
+
+> ϵ
+
+Id), and u∗ is the magnitude of the learned weight. An analogous expression holds for z∗b. Since both networks align with the same principal directions V , their features concentrate along the signal direction and ρ(va∗, v b∗) = 
+
+ρ(u∗za∗, u ∗zb∗) = ρ(za∗, z b∗) by the fact that correlation is invariant to global scaling. Substituting the asymptotic solutions into ρ (Eq. 36) yields the following expression. 
+
+ρ∗ = Ez∗az∗b⊤q
+
+E∥z∗a∥2 E∥z∗b∥2 =
+
+PRi=1 σ2
+
+> w
+
+s PRi=1 
+
+
+
+σ2 
+
+> w
+
++ σ2
+
+> ϵ
+> λai
+
+  PRi=1 
+
+
+
+σ2 
+
+> w
+
++ σ2
+
+> ϵ
+> λbi
+
+  ,
+
+where {λai } and {λbi } are the non-zero eigenvalues of Xa⊤Xa and Xb⊤Xb, respectively, R is the rank of the input covariance matrix, and σ2
+
+> w
+
+, σ2 
+
+> ϵ
+
+are the variances of the teacher weights and noise. Replacing the empirical average over eigenvalues with an integral against f (Eq. 32) yields 
+
+ρ∗ =
+
+
+
+SNR SNR + 1
+
+> α−1
+
+, α > 1,α · SNR SNR + 11−α
+
+, α < 1,
+
+(38) where ρ∗ = lim t→∞ ρ(t), SNR = σ2
+
+> w
+
+/σ 2 
+
+> ϵ
+
+, and α = n/d denotes the ratio of training samples to input dimension. 18 F Classification Task 
+
+F.1 Experimental Setup 
+
+We performed experiments on a two-baseline neural network for a classification task: A fully connected neural network (FCNN) and a standard convolutional neural network (CNN). The two networks have the following structure: 1. A single-layer FCNN with k hidden units, with input and output dimensions fixed to match the number of pixels in the input image and the number of classes in the task, respectively. 2. A family of CNN consisting of 4 convolutional stages of width [k, 2k, 4k, 8k], where k is the width parameter, followed by a fully connected layer as a classifier. The Maxpoll is 
+
+[2 , 2, 2, 4] . For the entire convolution layer, the kernel size = 3 , stride = 1 , and padding 
+
+= 1 . This architecture is identical to the one considered in [25] The networks are trained using the mini-batch SDG algorithm to minimize the cross entropy loss. A batch size of 128 samples is used. For FCNNs, we set the learning rate to start with l0 = 0 .1
+
+and after every successive 50 epoch it changes to lr = l0/(p1 + epoch/ 50) . While for CNNs, the learning rate starts with l0 = 0 .05 , and updates as lr = l0/(√1 + epoch × 50) after every 50 
+
+epoch. This learning rate scheme was used in a recent paper by [ 25 ]. The FCNN is trained for image classification tasks with the MNIST dataset, and the CNN is trained for image classification tasks with the CIFAR-10 dataset. For both datasets, we partition all the training data into two equal part. i.e., we have two sets of training data, for MNIST each set has 3 × 10 4 samples. While for CIFAR-10, each set has 25 × 10 3 samples. 
+
+F.2 Preliminary Results on Mnist (a) (b) 
+
+Figure 5: Representational alignment of independently trained classification networks : Panel (a) presents the generalization error of the trained networks for various label noise. Panel (b) presents the CCE between penultimate representations of identical networks trained on independent datasets, starting from the same initialization. All curves are plotted as a function of the ratio between the training sample size and the number of network parameters. 19

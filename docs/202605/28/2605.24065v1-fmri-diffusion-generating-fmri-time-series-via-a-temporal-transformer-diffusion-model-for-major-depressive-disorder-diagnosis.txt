@@ -1,0 +1,439 @@
+Title: fMRI-Diffusion: Generating fMRI Time Series Via a Temporal Transformer Diffusion Model for Major Depressive Disorder Diagnosis
+
+URL Source: https://arxiv.org/pdf/2605.24065v1
+
+Published Time: Tue, 26 May 2026 00:11:40 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# fMRI-Diffusion: Generating fMRI Time Series Via a Temporal Transformer Diffusion Model for Major Depressive Disorder Diagnosis 
+
+## Muhammad Asif Hasan a, Yanming Zhu a, Xuefei Yin a and Alan Wee-Chung Liew a,∗
+
+> a
+
+School of Information and Communication Technology, Griffith University, Gold Coast, QLD, 4215, Australia 
+
+A R T I C L E I N F O 
+
+Keywords :Major depressive disorder Diffusion model Graph neural network Transformer 
+
+A B S T R A C T 
+
+Background: Diagnosing Major Depressive Disorder (MDD) from functional magnetic resonance imaging (fMRI) using functional connectivity (FC) analysis requires large amounts of labeled data that are scarce in clinical settings. Existing augmentation methods synthesize FC matrices, which compress fMRI recordings into static pairwise summaries and discard the temporal structure of the original time series. 
+
+Methods: We propose fMRI-Diffusion, a framework that directly synthesizes region-of-interest (ROI) level fMRI time series rather than FC matrices. A Temporal Transformer serves as the denoising network within a denoising diffusion probabilistic model (DDPM), treating each time point as a token to model temporal dependencies through self-attention. A supervised pretraining strategy initializes the Transformer with task-relevant representations before diffusion training. The synthesized time series are subsequently used to compute FC matrices for downstream classification. 
+
+Results: Experiments on the REST-meta-MDD dataset show that augmenting training data with our synthetic fMRI time series consistently improves diagnostic accuracy across ten classification models, six brain parcellation atlases, and three independent acquisition sites. The proposed method outperforms five state-of-the-art FC-based synthesis methods in MDD classification, with accuracy improvements of up to 3.7 percentage points over the strongest baseline. Ablation experiments confirm the contributions of both the Transformer-based denoiser and the supervised pretraining strategy. Distributional fidelity metrics, including KL divergence, Wasserstein distance, and the Kolmogorov-Smirnov statistic, remain below 0.06 across all evaluated conditions, indicating close agreement between real and synthetic distributions. 
+
+Conclusion: Synthesizing fMRI time series before FC computation preserves temporal infor-mation lost in matrix-level augmentation. The proposed framework offers a practical augmentation strategy for MDD diagnosis under limited data and may extend to other data-scarce neuroimaging tasks. 
+
+## 1. Introduction 
+
+Major Depressive Disorder (MDD) is a prevalent and debilitating mental illness, and achieving an accurate di-agnosis remains a major clinical challenge [1, 2, 3]. Neu-roimaging techniques, particularly functional magnetic res-onance imaging (fMRI), have emerged as promising tools for providing objective biomarkers of MDD. fMRI captures blood-oxygen-level-dependent (BOLD) signal fluctuations, enabling the analysis of brain functional connectivity (FC) patterns that reflect neural interactions underlying emotional and cognitive processes [4, 5]. By identifying FC abnormal-ities associated with MDD, fMRI-based FC analysis offers the potential for more objective, reliable, and early diagnosis [6]. The advancements in deep learning (DL) have facili-tated the development of various DL-based approaches for analyzing FC in MDD diagnosis [7, 8]. However, a major challenge of these methods lies in their dependence on large-scale datasets, which are often limited in clinical settings [9]. When brain topological representations are constructed using limited FC data, critical information essential for 
+
+> ∗
+
+Corresponding author  
+
+> muhammadasif.hasan@griffithuni.edu.au
+
+(M.A. Hasan);  
+
+> yanming.zhu@griffith.edu.au
+
+(Y. Zhu); x.yin@griffith.edu.au (X. Yin);  
+
+> a.liew@griffith.edu.au
+
+(A.W. Liew) 
+
+> ORCID
+
+(s): 0000-0003-3133-9106 (M.A. Hasan); 0000-0002-8238-8090 
+
+(Y. Zhu); 0000-0002-5784-7419 (X. Yin); 0000-0001-6718-7584 (A.W. Liew) 
+
+accurate diagnosis may be overlooked, leading to unreliable diagnosis [10]. Therefore, effective and reliable data aug-mentation methods are needed to enhance the robustness of FC analysis and improve diagnosis. In recent years, several data synthesis methods have been proposed. For example, Oh et al. [11] utilized gener-ative adversarial networks (GANs) to synthesize FC data, enhancing the classification of MDD. Similarly, Tan et al. [9] introduced a deep convolutional GAN (DCGAN)-based framework to augment FC data. However, these methods pri-marily synthesize FC matrices or FC-derived graphs, which are dominated by pairwise relationships. Because FC is typ-ically computed from pairwise correlations, it compresses high-dimensional fMRI signals into simplified connectivity summaries and may discard multivariate temporal structure and non-linear dependencies [12, 13]. Considering fMRI data contains rich and dynamic spatial-temporal features, a more effective strategy would be to directly synthesize fMRI time series rather than generating FC matrices. However, for MDD, most augmentation pipelines still operate on precom-puted FC or FC-derived graphs, and synthesis of direct rs-fMRI time series remains underexplored. To fill this research gap, we propose fMRI-Diffusion, a diffusion-based framework designed to synthesize rs-fMRI time-series data for MDD data augmentation to improve the 
+
+M.A. Hasan et al.: Preprint submitted to Elsevier Page 1 of 13 
+
+> arXiv:2605.24065v1 [cs.CV] 22 May 2026 fMRI-Diffusion for MDD Diagnosis
+
+accuracy of MDD diagnosis. Specifically, we adapt a Trans-former encoder architecture as the denoising backbone, in-corporating temporal positional encoding to model dynamic dependencies across rs-fMRI time points. The Temporal Transformer serves as the denoising backbone within a denoising diffusion probabilistic model (DDPM), guiding iterative denoising to generate temporally coherent, high-fidelity time series data. Furthermore, we introduce a super-vised pretraining strategy to improve representation quality and training stability under limited data conditions. Exten-sive experiments demonstrate that fMRI-Diffusion produces realistic and biologically plausible fMRI time series data and improves downstream MDD diagnostic performance compared with state-of-the-art FC-based synthesis methods. The main contributions of this paper are summarized as follows: 
+
+• We formulate MDD-oriented data augmentation as region of interest (ROI) time-series synthesis rather than FC-matrix synthesis. By generating ROI se-quences prior to FC computation, our approach pre-serves ROI-level temporal dynamics and higher-order temporal interactions that are otherwise collapsed by correlation-based FC representations. 
+
+• We propose fMRI-Diffusion, a generative framework that employs a Transformer-based denoising network within a DDPM to synthesize high-fidelity ROI rs-fMRI time series. The denoising network is designed to operate along the temporal axis of fMRI sequences, modelling dependencies across time points, while the DDPM provides the generative mechanism for struc-tured and realistic synthesis via iterative denoising. Furthermore, we introduce a supervised pretraining strategy for the Temporal Transformer to enhance rep-resentation learning and optimization stability under limited data. This framework provides a robust and generalizable solution for fMRI data augmentation under limited data conditions. 
+
+• Extensive experiments on the Resting-state MDD dataset demonstrate that fMRI-Diffusion significantly outperforms state-of-the-art FC-based methods in downstream diagnostic performance. The superiority of our framework is consistently validated across dif-ferent brain atlases, multiple MDD datasets, and vari-ous classification models, highlighting its robustness, effectiveness, and generalizability in generating high-fidelity fMRI time-series data for improved MDD diagnosis. 
+
+## 2. Related Background 
+
+2.1. Denoising Diffusion Probabilistic Model 
+
+Denoising Diffusion Probabilistic Models (DDPM) are a class of generative models that learn to synthesize data by gradually reversing a diffusion process that incrementally corrupts a sample with Gaussian noise [14]. Specifically, DDPM consists of two stages: a forward diffusion process, where noise is progressively added to the original data over multiple time steps, and a reverse denoising process, where a neural network learns to reconstruct clean data from noisy inputs. During the forward process, a clean sample 𝑥 0 ∼
+
+𝑃 (𝑥 0) is gradually transformed into a noisy version 𝑥 𝑇 by applying Gaussian perturbations at each step, with the level of corruption controlled by a predefined variance schedule. The reverse process is modeled as a series of learned con-ditional distributions, parameterized by a neural network, which predict the mean and variance required to iteratively denoise the sample. The training of DDPM is formulated as a minimization of a simplified mean-squared error loss, where the neural network is optimized to predict the Gaussian noise added at each diffusion step. By accurately estimating the noise, the network learns to approximate the reverse transitions of the diffusion process, enabling the progressive reconstruction of clean data from noisy inputs. Once trained, the model can generate new data by starting from pure Gaussian noise and applying the learned denoising steps sequentially, producing samples that closely resemble the training distribution. DDPM offers several advantages that make it well-suited for synthesizing fMRI time-series data. Its stepwise genera-tion process allows fine-grained control over sample struc-ture and fidelity, which is critical for preserving the rich spatial and temporal dynamics of fMRI signals. In addition, the probabilistic nature of DDPM ensures robustness to data scarcity and noise, addressing common challenges in medical imaging. Leveraging these properties, we integrate a Transformer-based denoising network into the DDPM framework to guide the diffusion process and generate high-fidelity, temporally coherent synthetic fMRI time series. 
+
+2.2. Data Synthesis for MDD Diagnosis 
+
+In recent years, various data synthesis techniques, such as Gaussian Mixture Models (GMM), Variational Autoen-coders (VAE), and GAN, have been extensively applied to augment limited neuroimaging datasets for brain dis-order diagnosis [15, 16, 17, 18]. However, data synthe-sis specifically targeting MDD diagnosis remains relatively unexplored, even though data scarcity continues to be a major challenge. Several recent studies have attempted to address this limitation using GAN-based frameworks. For example, Oh et al. [11] designed a graph-convolutional GAN to generate synthetic FC matrices, effectively mitigating mode collapse by modeling the topological structure of brain networks. Similarly, Tan et al. [9] proposed a deep convolutional GAN (DCGAN) to produce signed-weighted FC representations that preserve spatial relationships. Al-though these methods have shown improved classification performance, they are inherently limited by their reliance on precomputed FC matrices derived from pairwise corre-lations of BOLD signals. Such representations oversimplify the high-dimensional and dynamic nature of fMRI data and often overlook critical spatial-temporal dynamics essential for understanding MDD-related brain dysfunctions [12, 13].   
+
+> M.A. Hasan et al.: Preprint submitted to Elsevier Page 2 of 13
+
+fMRI-Diffusion for MDD Diagnosis 𝑥𝑥 0 𝑥𝑥 𝑇𝑇−2 𝑥𝑥 1 𝑥𝑥 𝑇𝑇−1 
+
+�𝑥𝑥 𝑇𝑇−1 
+
+> Noise 𝑇𝑇−1
+
+𝑳𝑳𝑳𝑳𝑳𝑳𝑳𝑳 𝑻𝑻−𝟏𝟏 
+
+# +
+
+> �Noise 𝑇𝑇−2
+
+𝑳𝑳𝑳𝑳𝑳𝑳𝑳𝑳 𝑻𝑻−𝟐𝟐 
+
+> Noise 𝑇𝑇−2
+
+�𝑥𝑥 𝑇𝑇−2 
+
+> �Noise 0
+
+𝑳𝑳𝑳𝑳𝑳𝑳𝑳𝑳 𝟎𝟎  
+
+> Temporal Transformer
+> �𝑥𝑥 0
+
+�𝑥𝑥 1 
+
+> Noise 0
+> Forward Diffusion Process
+> Backward Denoising Process
+
+𝑥𝑥 𝑇𝑇 
+
+fMRI-Diffusion Training 
+
+# +
+
+> Temporal Transformer
+> Temporal Transformer
+
+# ---
+
+> Synthetic
+> fMRI signal
+
+Synthetic fMRI Time Series Generation 
+
+> Noise
+> Timestep: T
+> Predicted n oise
+> Timestep: 1
+> Predicted n oise
+
+# - 
+
+> �Noise 𝑇𝑇−1
+> Trained
+> Temporal
+> Transformer
+> fMRI signal Noise
+> Reconstructed
+> fMRI signal
+
+# -
+
+# +
+
+> Trained
+> Temporal
+> Transformer
+
+Figure 1: Overview of the proposed fMRI-Diffusion framework for synthesizing fMRI time-series data. The framework consists of two main stages. (1) Training (top), which follows the standard DDPM framework with a forward diffusion process and a reverse denoising process. In the forward process, Gaussian noise is progressively added to the original fMRI time series. In the reverse process, a Temporal Transformer serves as the denoising network to predict and remove noise at each diffusion step, enabling the reconstruction of clean fMRI signals. (2) Generation (bottom), where new fMRI sequences are synthesized by starting from pure noise and iteratively applying the trained Temporal Transformer in the reverse denoising process. 
+
+Moreover, GANs are prone to mode collapse, which com-promises the diversity of synthetic samples and undermines the goal of effective data augmentation [19]. To date, several studies have explored generative mod-eling and augmentation of fMRI time-series data in broader neuroimaging settings. However, diffusion-based synthesis of rs-fMRI time series for MDD diagnosis, particularly in an ROI-parcellated time-series representation, has re-ceived limited attention. Working directly with rs-fMRI timepoints is intrinsically challenging. Resting-state fMRI exhibits spontaneous fluctuations, each subject’s scan may span multiple brain states, and there is no guaranteed tempo-ral correspondence across subjects. These properties make it difficult to extract consistent temporal patterns across individuals, which has prompted many MDD studies to rely on static or dynamic FC-based summaries. To address this, we propose fMRI-Diffusion, a framework that integrates a Transformer-based denoising network within a DDPM to synthesize ROI-wise rs-fMRI time series. By generating time series prior to FC construction, the proposed method retains temporally resolved ROI dynamics that are otherwise compressed when using correlation-based FC representa-tions, thereby supporting more effective data augmentation for downstream MDD diagnosis. 
+
+## 3. Methodology 
+
+3.1. Framework of the Proposed fMRI-Diffusion 
+
+The overall workflow of the proposed fMRI-Diffusion framework is illustrated in Fig. 1. It consists of two main phases: model training and data generation. The framework is built upon the DDPM, which learns to synthesize fMRI time-series data through a forward diffusion process and a backward denoising process. During the training phase, Gaussian noise is progressively added to each input fMRI time series 𝑥 0 over 𝑇 time steps. At each step 𝑡 , the data 𝑥 𝑡 
+
+is corrupted by adding Noise 𝑡 . After 𝑇 steps, this process results in a fully corrupted signal 𝑥 𝑇 that becomes indis-tinguishable from pure noise. In the backward denoising process, a Temporal Transformer is employed as the de-noising network to predict the noise component ̃ Noise 𝑡 at each time step 𝑡 . By minimizing the discrepancy between the predicted and true noise, the Temporal Transformer learns to iteratively remove noise and reconstruct high-fidelity fMRI time series. After training, synthetic fMRI data are generated by starting from pure Gaussian noise and applying the Temporal Transformer through the learned reverse diffusion process. This procedure enables the model to produce realistic fMRI time-series signals that preserve the rich temporal dynamics inherent in the original data. 
+
+3.2. Denoising Diffusion Probabilistic Modeling for fMRI 
+
+We employ DDPM as the generative backbone for syn-thesizing fMRI time-series data. Unlike conventional ap-plications of DDPM in image domains, our formulation is specifically adapted to ROI-parcellated rs-fMRI time-series signals. In this setting, each training sample corresponds to a time series rather than a 2D or 3D spatial structure. The forward diffusion process gradually perturbs a clean fMRI signal 𝑥 0 by injecting Gaussian noise over 𝑇 time steps, producing a noisy sample 𝑥 𝑡 at each step and eventually a fully corrupted signal 𝑥 𝑇 . This is defined as: 
+
+𝑞 (𝑥 𝑡 |𝑥 𝑡 −1 ) =  (√1 − 𝛽 𝑡 𝑥 𝑡 −1 , 𝛽 𝑡 𝐼 ), (1) 
+
+M.A. Hasan et al.: Preprint submitted to Elsevier Page 3 of 13 fMRI-Diffusion for MDD Diagnosis Linear Layer 
+
+Temporal Transformer Block    
+
+> Noise /
+> Noisy data
+> Predicted
+> noise Linear Layer
+> Multi -Head
+> Attention Add & Norm Feed Forward Add & Norm
+> Temporal Encoding
+> Timestep Embedding
+
+# + Encoder  
+
+> Figure 2: Architecture of the Transformer-based denoising network used in the proposed fMRI-Diffusion framework. The model combines temporal encoding and timestep embedding with the noisy fMRI input, processes the sequence through multi-head self-attention and feed-forward layers, and outputs the predicted noise for each diffusion step to guide the reverse denoising process.
+
+where 𝛽 𝑡 controls the noise schedule at step 𝑡 , and 𝐼 is the identity matrix. The reverse process learns to iteratively remove noise and reconstruct the clean signal 𝑥 0, which is modeled as: 
+
+𝑝 𝜃 (𝑥 𝑡 −1 |𝑥 𝑡 ) =  (𝜇 𝜃 (𝑥 𝑡 , 𝑡 ), Σ𝜃 (𝑥 𝑡 , 𝑡 )) , (2) where 𝜃 denotes the parameters of the neural network. The network predicts the added noise 𝜖 𝜃 (𝑥 𝑡 , 𝑡 ) at each step, which is then used to compute the mean 𝜇 𝜃 (𝑥 𝑡 , 𝑡 ) of the reverse Gaussian transition. The variance term Σ𝜃 (𝑥 𝑡 , 𝑡 ) represents the uncertainty in the reverse step and follows a fixed sched-ule, as in the original DDPM formulation. The model is trained by minimizing the noise-prediction loss: 
+
+𝐿 = 𝔼 𝑥 0,𝜖,𝑡 
+
+[‖𝜖 − 𝜖 𝜃 (𝑥 𝑡 , 𝑡 )‖2] , (3) where 𝜖 is the true Gaussian noise added in the forward process. By applying DDPM to fMRI signals, we leverage its fine-grained generative control and stable training dynamics to model the rich temporal patterns inherent in BOLD time series. Once trained, the model synthesizes realistic fMRI sequences by starting from Gaussian noise and progressively denoising them. 
+
+3.3. Temporal Transformer Denoising Network 
+
+To model the temporal dependencies in fMRI time-series data, we employ a Transformer encoder as the denoising network within the DDPM framework (Fig. 2). The architec-ture follows the standard Transformer encoder design [20] and draws on recent work that has demonstrated the ef-fectiveness of Transformer-based backbones for diffusion models [21]. However, unlike prior applications that operate on spatial image patches, our formulation treats each time point of the ROI-parcellated fMRI signal as a token in the input sequence. This temporal formulation allows the self-attention mechanism to capture dependencies across the time axis of the fMRI signal, which is the relevant dimension for modelling BOLD signal dynamics. The network first projects the noisy input into a latent feature space using a linear layer, followed by the addition of two key embeddings. The temporal encoding provides sequence-order information along the time axis using a fixed sinusoidal encoding scheme, as in the Transformer architec-ture, defined as TE (𝑡, 2𝑖 ) = sin( 𝑡 ∕10000 2𝑖 ∕𝐷 ) and TE (𝑡, 2𝑖 +1) =cos( 𝑡 ∕10000 2𝑖 ∕𝐷 ), where 𝑡 denotes the temporal index, 𝑖 
+
+is the feature dimension, and 𝐷 is the hidden dimension size. The timestep embedding encodes the diffusion step index 𝑡 and is implemented as a learnable vector obtained through a small MLP. These embeddings together enable the model to capture both the intrinsic temporal structure of the fMRI signal and the generative progression of the diffusion process. The core of the model is a Transformer encoder com-posed of a multi-head self-attention layer and a feed-forward sublayer, each followed by residual connections and layer normalization: Attention (𝑄, 𝐾, 𝑉 ) = softmax 
+
+(
+
+𝑄𝐾 ⊤
+
+√𝑑 𝑘 
+
+)
+
+𝑉 , (4) where 𝑄 , 𝐾 , and 𝑉 are linear projections of the input se-quence. The attention mechanism enables the model to learn long-range dependencies among temporal points, effectively capturing slow-varying neural activity patterns. The subse-quent feed-forward layer refines these representations and enhances nonlinear temporal feature interactions. A final linear projection maps the encoded features to the predicted noise. This configuration allows the denoising network to cap-ture both short- and long-range temporal relationships in fMRI signals. By operating on the full temporal sequence rather than on precomputed pairwise summaries, the model has access to richer temporal structure during the denoising process, which supports the generation of temporally coher-ent fMRI time-series data. 
+
+3.4. Pretraining Strategy and Model Optimization 
+
+Training diffusion models on high-dimensional fMRI time series can be difficult in settings with limited sample sizes and structured temporal dependencies. To support ef-fective optimization in this process, we adopt a two-stage training procedure that provides an informed initialization for the denoising network. Recent studies have shown that supervised and denoising objectives can be productively combined in multi-stage training pipelines to improve rep-resentation quality under limited labeled data [22], and that diffusion-trained networks can learn features that are   
+
+> M.A. Hasan et al.: Preprint submitted to Elsevier Page 4 of 13 fMRI-Diffusion for MDD Diagnosis
+
+beneficial for discriminative tasks [23]. These findings sug-gest that classification and denoising representations share useful structure, motivating the transfer of learned features between the two objectives. However, the use of supervised classification pretraining to initialize the denoising back-bone of a diffusion model for data synthesis has not, to our knowledge, been previously explored. Accordingly, we pretrain the Temporal Transformer on a supervised objective before diffusion training. This stage encourages the model to learn representations from real fMRI sequences, providing a suitable initialization and promoting stable optimization during subsequent diffusion training. Specifically, the Temporal Transformer is first pretrained on a supervised classification task using the original fMRI time series. The objective is to distinguish between MDD and healthy control samples, encouraging the model to learn meaningful latent features that reflect underlying neural activity patterns. During pretraining, hyperparameters are selected via a grid search using 5-fold cross-validation on the training data only within each outer fold to avoid using information from the held-out test fold and to mitigate over-fitting. The learned weights of the Transformer encoder are then transferred to initialize the denoising network within the diffusion framework, allowing the model to leverage prior knowledge of temporal dynamics when modeling the reverse diffusion process. In contrast to conventional augmentation methods that directly synthesize precomputed FC matrices or graph fea-tures, our method operates in the ROI time-series space and does not require FC computation during generation. We use standard atlas parcellation only to extract ROI signals from preprocessed fMRI volumes, which improves signal-to-noise ratio and reduces dimensionality while retaining tem-porally resolved dynamics within each ROI. This pretrain-ing paradigm enables the model to learn disorder-relevant temporal representations from ROI sequences, improving initialization and stabilizing diffusion training under limited data. 
+
+## 4. Experimental Results 
+
+4.1. Dataset and Preprocessing 
+
+We evaluate our method on the largest publicly avail-able REST-meta-MDD dataset [24], released by the Depres-sion Imaging Research Consortium (DIRECT). The consor-tium comprises 25 research teams from 17 hospitals across China, providing aggregated resting-state fMRI (rs-fMRI) data from patients diagnosed with MDD and demograph-ically matched normal control (NC) subjects. The dataset represents one of the most standardized open-access rs-fMRI collections for MDD research. In this work, we specifically used preprocessed data from site 20, which is the largest contributing site, collected using a Siemens Tim Trio 3T scanner at Southwest University. This subset includes rs-fMRI scans from 282 MDD patients and 251 NC subjects, offering a robust and balanced sam-ple for model development and evaluation. Each rs-fMRI sequence contains 242 volumes with a repetition time (TR) of 2s and voxel size of 3.4 ×3.4 ×3.4 mm 3.Preprocessing was performed using the Data Processing Assistant for Resting-State fMRI (DPARSF) software [25], following the standard pipeline recommended in [26]. The first ten volumes of each sequence were removed to account for signal equilibration effects, followed by head motion correction, spatial normalization to the MNI152 space, spa-tial smoothing with a 6 mm full-width at half-maximum (FWHM) Gaussian kernel, and band-pass filtering within the frequency range of 0.01-0.1 Hz. All fMRI signals were subsequently detrended and z-score normalized to ensure inter-subject comparability. 
+
+4.2. Experimental Setup 
+
+All experiments were implemented in PyTorch and conducted on a workstation equipped with an NVIDIA RTX 4090 GPU and an Intel Xeon processor. The proposed fMRI-Diffusion framework adopts a cosine variance sched-uler for the forward diffusion process to provide a smooth noise schedule across diffusion steps. The diffusion model was trained with 𝑇 = 1000 diffusion steps following the standard DDPM setting [14]. The Temporal Transformer denoiser comprises 6 en-coder layers with a hidden dimension of 256 and 8 attention heads. For diffusion model training, we used the Adam optimizer with an initial learning rate of 1 × 10 −4 , weight decay of 1 × 10 −3 , and a batch size of 16 , and trained for 500 
+
+epochs with 𝑇 = 1000 diffusion steps and a cosine noise schedule. The Transformer parameters were initialized from the best checkpoint obtained from the MDD classification pretraining described in Section 3.4. For data augmentation, synthetic and real fMRI samples were used in equal proportions, corresponding to a 100% augmentation ratio. To support an unbiased evaluation, we employed a 5-fold cross-validation protocol with subject-level partitioning. For each fold, all training procedures were performed using the four training folds only, and the remaining fold was used exclusively for testing. The Tem-poral Transformer was pretrained on the training folds for the MDD versus NC classification task, and the resulting weights were then used to initialize the denoising network of the diffusion model, as described in Section 3.4. The Temporal Transformer configuration in the diffusion model follows the architecture used in the pretraining stage to maintain consistency between supervised pretraining and diffusion training. All experiments were repeated using five random seeds, and results are reported as mean ± standard deviation. Model performance was evaluated using accuracy (ACC), sensitiv-ity (SEN), specificity (SPEC), and F1-score (F1) to assess diagnostic performance. 
+
+4.3. Comparison with State-of-the-Art Methods 
+
+To comprehensively evaluate the effectiveness of the proposed fMRI-Diffusion framework, we compared its per-formance with several representative state-of-the-art (SOTA)                                                                                               
+
+> M.A. Hasan et al.: Preprint submitted to Elsevier Page 5 of 13 fMRI-Diffusion for MDD Diagnosis
+> Table 1
+> Performance comparison of MDD diagnosis using data synthesized by the proposed method and SOTA method. Results are evaluated in terms of ACC, SEN, SPEC, and F1, and reported as mean ±standard deviation. The best results are highlighted in bold, and the second-best results are underlined.
+> Method Atlas Samples (MDD/NC) ACC (%) SEN (%) SPEC (%) F1 (%)
+> SSGAN [27] HO 249/228 64.62 ±4.60 68.07 ±8.00 60.84 ±7.20 66.62 ±4.98 WGAN-GP [17] 64.02 ±4.50 66.54 ±7.12 61.28 ±6.61 65.77 ±4.77 ACGAN [18] 64.91 ±4.42 67.68 ±7.56 61.90 ±8.68 66.71 ±4.36 GC-GAN [11] 65.18 ±5.08 68.80 ±8.09 61.28 ±7.53 67.23 ±5.27 Ours 68.85 ±1.45 68.11 ±4.25 67.96 ±5.03 69.63 ±1.99
+> DCGAN [9] AAL 250/227 66.86 ±3.67 66.86 ±3.67 –66.69 ±3.72 Ours 68.53 ±2.53 69.03 ±2.80 67.96 ±3.12 68.85 ±3.52
+
+data synthesis methods previously applied to MDD diag-nosis. These include the Semi-Supervised GAN (SSGAN) [27], Wasserstein GAN with Gradient Penalty (WGAN-GP) [17], Auxiliary Classifier GAN (ACGAN) [18], Graph Convolutional conditional GAN (GC-GAN) [11], and Deep Convolutional GAN (DCGAN) [9]. These models were selected as they represent the SOTA paradigms for synthetic data generation in neuroimaging-based MDD studies, cover-ing both fully supervised and conditional GAN frameworks. For a fair comparison, the number of samples (MDD and NC subjects) and the brain atlas (Harvard-Oxford (HO) and Automated Anatomical Labeling (AAL)) used in our exper-iments were matched exactly to those adopted in the original studies, as summarized in Table 1. In line with prior works, Pearson correlation coefficients between ROI-wise time se-ries were computed to construct FC matrices. Additionally, the same classification backbone was employed to ensure full methodological consistency across all experiments. Table 1 summarizes the quantitative results in terms of ACC, SEN, SPEC, and F1 across both HO and AAL atlases. Overall, the proposed method consistently surpasses all competing approaches in MDD diagnosis, achieving the best performance across nearly all evaluation metrics. Under the HO atlas, our model demonstrates notable improve-ments, outperforming the strongest baseline (GC-GAN) by 3.7 percentage points in ACC, 6.7 in SPEC, and 2.4 in F1. A similar trend is observed on the AAL atlas, where our approach again achieves clearly superior results across all metrics. These results confirm the robustness and effective-ness of the proposed method in generating diagnostically meaningful synthetic fMRI data. 
+
+4.4. Effectiveness on Diverse MDD Classifiers 
+
+To evaluate the general effectiveness and transferability of the proposed fMRI-Diffusion, we examined whether the synthetic fMRI data generated by our method can enhance the performance of various MDD diagnosis models. Specif-ically, we considered two groups of representative models covering a broad spectrum of current MDD classification paradigms. 
+
+4.4.1. Specialized MDD diagnosis models 
+
+We first evaluated our method on four SOTA MDD-specific methods, including the Multi-Atlas Fusion (MAF) model [28], the Graph Autoencoder-based Fully Connected Neural Network (GAE-FCNN) [29], the Graph Neural Net-work with Modular Attention (GN-NMA) [30], and the Dynamic Spatio-Temporal Attention Model (DSAM) [31]. To ensure fair comparison, we followed the same configura-tions, including sample sizes and brain atlases, as reported in their respective studies. 
+
+4.4.2. Generalizable neural network classifiers 
+
+To further assess the versatility of our synthetic data, we also tested its impact on six general CNN- and GNN-based architectures widely used for brain disorder diagnosis, including ChebyNet [32], BrainNetCNN [33], Graph At-tention Network (GAT) [34], Graph Isomorphism Network (GIN) [35], Graph Transformer Network (GTN) [36], and GraphSAGE [37]. All experiments in this group were con-ducted using the HO atlas for consistency. Table 2 summarizes the comparative results across all classifiers, both with and without incorporating our synthetic data. As observed, using our synthetic data consistently improves performance across all evaluation metrics (ACC, SEN, SPEC, and F1) and across all tested methods. Notably, methods that originally exhibited moderate performance, such as GAE-FCNN and GTN, achieved significant gains in diagnostic accuracy. These results demonstrate that our synthetic fMRI data not only enhances individual model performance but also generalizes effectively across different network architectures and diagnostic paradigms, confirming the robustness and practical utility of our proposed fMRI time-series synthesis framework. 
+
+4.5. Robustness and Generalizability 
+
+To further evaluate the robustness and generalizability of the proposed fMRI-Diffusion framework, we investi-gated whether the synthetic fMRI data generated by our method can consistently improve MDD diagnosis perfor-mance across different brain parcellation schemes. This ex-periment aims to examine whether the benefit of using our   
+
+> M.A. Hasan et al.: Preprint submitted to Elsevier Page 6 of 13
+
+fMRI-Diffusion for MDD Diagnosis 
+
+Table 2 
+
+Performance comparison of SOTA MDD diagnosis models with and without using synthetic data generated by our proposed method. Results are evaluated using ACC, SEN, SPEC, and F1 (mean ± standard deviation), with the better-performing results highlighted in bold. 
+
+Method Atlas With/Without Our Synth. Data Samples (MDD/NC) ACC (%) SEN (%) SPEC (%) F1 (%) 
+
+MAF [28] AAL W/O 245/225 63.00 ± 2.05 60.66 ± 4.58 64.88 ± 1.65 63.86 ± 3.55 W/ 68.85 ± 2.85 68.23 ± 3.36 70.84 ± 3.93 71.90 ± 2.55 
+
+HO W/O 245/225 62.75 ± 3.19 61.76 ± 6.75 65.73 ± 5.25 63.52 ± 4.75 W/ 68.00 ± 2.15 67.95 ± 3.30 66.79 ± 3.82 68.37 ± 2.41 
+
+Craddock W/O 245/225 63.85 ± 4.28 62.45 ± 8.55 63.89 ± 6.56 66.88 ± 5.50 W/ 68.25 ± 3.10 68.89 ± 3.30 70.56 ± 3.45 71.23 ± 3.35 
+
+GAE-FCNN [29] AAL W/O 250/230 62.08 ± 6.54 65.85 ± 8.07 61.53 ± 5.15 63.24 ± 5.25 W/ 65.54 ± 3.54 68.90 ± 3.88 66.06 ± 4.25 66.38 ± 4.63 
+
+GN-NMA [30] AAL W/O 282/251 61.88 ± 5.25 62.54 ± 4.28 64.17 ± 5.30 63.00 ± 4.55 W/ 64.75 ± 3.95 65.56 ± 4.10 66.28 ± 4.88 67.33 ± 3.56 
+
+Craddock W/O 282/251 64.88 ± 4.83 68.25 ± 4.50 62.95 ± 3.85 66.48 ± 3.25 W/ 67.88 ± 2.56 72.25 ± 2.40 65.95 ± 2.15 68.83 ± 2.55 
+
+DSAM [31] AAL W/O 282/251 63.15 ± 3.28 64.12 ± 3.89 65.96 ± 2.89 67.99 ± 3.25 W/ 65.33 ± 2.58 65.96 ± 2.38 68.65 ± 2.63 69.10 ± 2.53 
+
+HO W/O 282/251 62.55 ± 3.56 63.53 ± 3.95 66.99 ± 4.56 67.03 ± 3.30 W/ 64.93 ± 2.89 65.68 ± 2.63 69.25 ± 2.86 68.95 ± 2.89 
+
+Craddock W/O 282/251 63.36 ± 4.60 63.93 ± 3.90 61.15 ± 4.38 61.75 ± 4.56 W/ 66.91 ± 3.96 67.56 ± 3.15 63.23 ± 3.20 64.86 ± 3.16 
+
+ChebyNet [32] HO W/O 282/251 63.00 ± 3.35 62.55 ± 6.50 65.89 ± 5.20 64.35 ± 4.26 W/ 69.25 ± 2.15 68.95 ± 3.30 67.90 ± 3.82 69.90 ± 2.41 
+
+BrainNetCNN [33] HO W/O 282/251 63.59 ± 3.86 61.32 ± 3.06 62.31 ± 6.48 63.77 ± 2.96 W/ 66.68 ± 2.57 67.49 ± 4.00 67.62 ± 4.75 66.29 ± 2.63 
+
+GAT [34] HO W/O 282/251 64.03 ± 2.36 59.19 ± 3.80 66.88 ± 1.60 62.32 ± 3.30 W/ 67.87 ± 4.17 65.51 ± 7.17 69.97 ± 5.44 66.18 ± 4.77 
+
+GIN [35] HO W/O 282/251 64.59 ± 3.26 65.61 ± 5.50 67.81 ± 2.84 66.36 ± 4.77 W/ 68.68 ± 2.61 69.51 ± 2.37 70.97 ± 3.25 70.18 ± 2.54 
+
+GTN [36] HO W/O 282/251 62.92 ± 2.85 61.60 ± 5.43 61.79 ± 3.66 62.50 ± 3.86 W/ 67.09 ± 3.00 66.30 ± 3.21 65.68 ± 3.57 67.69 ± 3.07 
+
+GraphSAGE [37] HO W/O 282/251 63.87 ± 5.04 59.66 ± 14.94 68.85 ± 12.04 59.72 ± 12.04 W/ 65.76 ± 4.67 64.80 ± 8.26 72.61 ± 5.98 64.24 ± 6.66 
+
+synthetic data is independent of the specific atlas used for FC construction. We adopted six widely used brain atlases that differ in their granularity and parcellation principles: (1) the AAL (𝑅 = 116 ) atlas [38], which partitions the brain based on anatomical landmarks; (2) the HO ( 𝑅 = 112 ) atlas [39], which integrates both structural and functional infor-mation; (3) the Craddock ( 𝑅 = 200 ) atlas [40], derived from functional clustering of resting-state correlations; (4) the Zalesky ( 𝑅 = 980 ) atlas [41], offering fine-grained functional segmentation; (5) the Power ( 𝑅 = 264 ) atlas [42], emphasizing canonical brain networks such as the default mode and sensorimotor systems; and (6) the Dosenbach (𝑅 = 160 ) atlas [43], which focuses on regions implicated in cognitive control and attention. To ensure a fair evaluation across parcellation schemes, we employed the same MDD classification model, ChebyNet [32], as the diagnostic backbone. ChebyNet is a spectral graph convolutional network that models higher-order graph structures using Chebyshev polynomial filters, effectively capturing complex functional dependencies across brain re-gions. All training configurations followed the baseline setup in [28], including two graph convolutional layers ( 256 chan-nels, filter size = 2 ), two fully connected layers ( 1000 and 
+
+2 units), the Mish activation function, batch normalization, and the AdamW optimizer with a learning rate of 1 × 10 −5 
+
+M.A. Hasan et al.: Preprint submitted to Elsevier Page 7 of 13 fMRI-Diffusion for MDD Diagnosis                                                                     
+
+> Table 3
+> Performance comparison of MDD diagnosis under different brain parcellation atlases, with and without using synthetic fMRI data generated by our proposed method. Results are evaluated using ACC, SEN, SPEC, and F1 (mean ±standard deviation), and the better-performing results are highlighted in bold.
+> Method Atlas With/Without Our Synth. Data Samples (MDD/NC) ACC (%) SEN (%) SPEC (%) F1 (%)
+> ChebyNet [32] AAL W/O 282/251 63.19 ±2.01 60.95 ±4.54 65.40 ±1.67 64.26 ±3.20 W/ 69.80 ±2.81 68.95 ±3.34 71.80 ±3.86 72.00 ±2.95
+> HO W/O 282/251 63.00 ±3.35 62.55 ±6.50 65.89 ±5.20 64.35 ±4.26 W/ 69.25 ±2.15 68.95 ±3.30 67.90 ±3.82 69.90 ±2.41
+> Craddock W/O 282/251 64.36 ±4.24 62.52 ±8.50 64.30 ±6.25 63.03 ±5.88 W/ 70.17 ±3.25 69.67 ±3.23 71.67 ±3.53 71.56 ±3.15
+> Zalesky W/O 282/251 61.36 ±4.24 62.18 ±7.39 59.96 ±5.08 62.08 ±5.10 W/ 66.35 ±1.98 65.66 ±4.34 64.49 ±1.96 67.51 ±2.14
+> Power W/O 282/251 59.47 ±2.59 58.28 ±5.15 58.66 ±9.25 58.33 ±1.78 W/ 62.61 ±2.89 61.28 ±3.32 66.49 ±4.10 65.51 ±2.55
+> Dosenbach W/O 282/251 57.87 ±4.05 58.33 ±10.24 56.44 ±6.05 59.29 ±6.90 W/ 61.30 ±4.36 62.17 ±5.67 61.12 ±3.76 62.52 ±4.67
+
+and weight decay of 1×10 −3 . The model was trained for 300 
+
+epochs with a batch size of 32 .Table 3 compares the diagnostic performance with and without using our synthetic data across the six atlases. As shown, our synthetic data consistently improves per-formance across all evaluation metrics and all parcellation schemes. Notably, the most substantial gains are observed on finer-grained atlases such as Craddock and Zalesky, indicating that our synthetic fMRI data effectively preserves functional consistency even under complex parcellation. These results further confirm that the proposed framework is robust to varying brain region definitions and can reliably enhance MDD diagnosis regardless of the atlas employed. 
+
+4.6. Fidelity of Synthetic fMRI Data 
+
+To rigorously assess the fidelity of the synthetic fMRI data generated by our method, we conducted both quantita-tive and qualitative evaluations. The quantitative assessment focuses on measuring the distributional similarity between real and synthetic data, while the qualitative analysis vi-sually inspects their structural consistency in a reduced-dimensional space. 
+
+4.6.1. Quantitative evaluation 
+
+We employed three complementary statistical metrics to evaluate the similarity between the distributions of real and synthetic fMRI data: the Kullback-Leibler (KL) Divergence, the Wasserstein Distance (WD), and the Kolmogorov-Smirnov (KS) Statistic. These metrics jointly quantify how closely the generated data approximate the real data distribution from different perspectives: information divergence (KL), geo-metric distance (WD), and cumulative distribution deviation (KS). Together, they provide a comprehensive and robust          
+
+> Table 4
+> Quantitative evaluation of the distributional similarity between real and synthetic fMRI data using KL divergence, WD, and KS statistic. Lower values indicate higher similarity.
+> Class KL Divergence Wasserstein Distance KS Statistic
+> MDD 0.0183 0.0479 0.0522 NC 0.0181 0.0471 0.0511
+
+assessment of distributional fidelity, where lower values indicate higher similarity between the two datasets. Table 4 summarizes the quantitative comparison results. Across both MDD and NC classes, the KL, WD, and KS values remain consistently low (all below 0.06), confirm-ing that the synthetic samples closely follow the real data distribution. These results validate the statistical fidelity of the generated data and demonstrate that the proposed fMRI-Diffusion framework effectively preserves the intrinsic char-acteristics of the original fMRI signals. 
+
+4.6.2. Qualitative evaluation 
+
+Beyond numerical analysis, we further examined the structural correspondence between real and synthetic sam-ples using principal component analysis (PCA), t-distributed Stochastic Neighbor Embedding (t-SNE), and Uniform Man-ifold Approximation and Projection (UMAP). The two-dimensional projections obtained from PCA, t-SNE, and UMAP shown in Fig. 3, reveals a high degree of overlap be-tween the distributions of real (blue) and synthetic (yellow) samples across both MDD and NC groups. This overlap in-dicates that the synthetic data accurately captures the major variance components and structural patterns inherent in the real fMRI data. Moreover, the synthetic samples uniformly    
+
+> M.A. Hasan et al.: Preprint submitted to Elsevier Page 8 of 13 fMRI-Diffusion for MDD Diagnosis (a)
+> (b)
+> Figure 3: PCA, t-SNE, and UMAP visualizations of real and synthetic fMRI data generated by the proposed fMRI-Diffusion model for the MDD and NC classes. Each point corresponds to a single time point (ROI activation pattern). Blue and yellow points denote real and synthetic data, respectively. The substantial overlap between the two distributions across all three embedding methods indicates that the proposed model effectively captures the underlying activation patterns and preserves both the global variance structure and local structure observed in the real fMRI data.
+
+populate the manifold of the original data without mode collapse or over-dispersion, confirming that our diffusion-based generation process maintains appropriate diversity while preserving class-specific distributional boundaries. Together, these findings demonstrate that the proposed framework generates realistic, statistically consistent, and structurally faithful fMRI time series suitable for down-stream diagnostic applications. 
+
+4.7. Superiority of fMRI Time Series Synthesis over FC Synthesis 
+
+To further demonstrate the advantage of synthesizing fMRI time series over FC matrices, we conducted a con-trolled comparison using the same generative framework and classification backbone. In this experiment, the proposed model was separately trained to synthesize (1) FC matrices and (2) fMRI time series. The FC-based synthesis was performed by feeding FC matrices directly into the diffusion model, whereas the fMRI-based synthesis followed our stan-dard framework that models ROI-level temporal dynamics before FC computation. For evaluation, the same number of synthetic samples and the same ChebyNet classifier [32] were employed across both settings to ensure a fair comparison. The classifica-tion performance was assessed under six brain parcellation atlases, using identical training and testing protocols as in previous experiments. As reported in Table 5, the diagnostic performance obtained using synthetic fMRI data consis-tently surpasses that of synthetic FC data across all atlases and evaluation metrics. The improvements are particularly notable for the AAL, HO, and Craddock atlases, with accu-racy gains of up to 2 to 3 percentage points. These results clearly indicate that generating fMRI time series preserves richer temporal and structural dependencies in brain activity than directly synthesizing static FC representations. Conse-quently, fMRI-based synthesis provides more informative and biologically meaningful data for downstream MDD diagnosis. 
+
+4.8. Ablation Experiments 
+
+To assess the contribution of the primary design choices in the proposed fMRI-Diffusion framework, we conducted controlled ablation experiments. All settings follow the main experimental protocol. In each fold, pretraining, diffusion training, and synthetic sample generation are performed exclusively on the training set. The data augmentation pro-cedure is held constant across all variants, whereas the de-noising network is modified according to the corresponding ablation setting. In all experiments, we use the Craddock atlas ( 𝑅 = 200 ) [40]. We evaluate the full model against three variants: (1) training without supervised pretraining (random initializa-tion of the Transformer encoder), (2) replacing the Trans-former denoiser with a 1D U-Net, and (3) replacing the   
+
+> M.A. Hasan et al.: Preprint submitted to Elsevier Page 9 of 13
+
+fMRI-Diffusion for MDD Diagnosis 
+
+Table 5 
+
+Comparison of MDD diagnosis performance using synthetic fMRI time series and synthetic FC data generated by the proposed method across different brain atlases. Results are evaluated in terms of ACC, SEN, SPEC, and F1, and reported as mean ± standard deviation. The better-performing results are highlighted in bold. 
+
+Method Use Synth. fMRI / FC Atlas Samples (MDD/NC) ACC (%) SEN (%) SPEC (%) F1 (%) 
+
+ChebyNet [32] FC AAL 282/251 68.75 ±3.00 67.50 ±3.90 70.90 ±3.90 71.56 ±3.15 fMRI 69.80 ±2.81 68.95 ±3.34 71.80 ±3.86 72.00 ±2.95 
+
+FC HO 282/251 67.30 ±2.25 66.80 ±3.70 66.00 ±4.00 67.90 ±2.65 fMRI 68.00 ±2.15 67.95 ±3.30 66.79 ±3.82 68.37 ±2.41 
+
+FC Craddock 282/251 70.00 ±3.10 68.67 ±3.20 71.60 ±3.60 71.20 ±3.30 fMRI 70.17 ±3.25 69.67 ±3.23 71.67 ±3.53 71.56 ±3.15 
+
+FC Zalesky 282/251 67.55 ±2.90 67.60 ±4.55 65.60 ±1.88 67.50 ±2.34 fMRI 66.35 ±1.98 65.66 ±4.34 64.49 ±1.96 67.51 ±2.14 
+
+FC Power 282/251 61.55 ±3.10 61.38 ±3.50 66.20 ±4.60 64.95 ±2.90 fMRI 62.61 ±2.89 61.28 ±3.32 66.49 ±4.10 65.51 ±2.55 
+
+FC Dosenbach 282/251 60.80 ±4.56 61.96 ±4.55 61.96 ±3.85 62.20 ±4.75 fMRI 61.30 ±4.36 62.17 ±5.67 61.12 ±3.76 62.52 ±4.67 Table 6 
+
+Ablation study of the proposed fMRI-Diffusion framework. Results are reported as mean ± standard deviation over 5-fold cross-validation with five random seeds. In each fold, pretraining, diffusion training, and synthetic data generation are performed using the training data only. 
+
+Variant With/Without Our Synth. Data ACC (%) SEN (%) SPEC (%) F1 (%) Full model 
+
+(Supervised pretraining + Transformer de-noiser) W/O 64.36 ±4.24 62.52 ±8.50 64.30 ±6.25 63.03 ±5.88 W/ 70.17 ±3.25 69.67 ±3.23 71.67 ±3.53 71.26 ±3.15 
+
+Without pretraining (Transformer denoiser, random initialization) W/O 64.36 ±4.24 62.52 ±8.50 64.30 ±6.25 63.03 ±5.88 W/ 68.25 ±2.15 67.96 ±3.30 65.79 ±4.59 68.57 ±3.26 1D U-Net denoiser (replacing the Transformer denoiser) W/O 64.36 ±4.24 62.52 ±8.50 64.30 ±6.25 63.03 ±5.88 W/ 66.26 ±4.25 65.57 ±4.26 67.68 ±3.42 67.56 ±5.15 LSTM denoiser (replacing the Transformer denoiser) W/O 64.36 ±4.24 62.52 ±8.50 64.30 ±6.25 63.03 ±5.88 W/ 67.35 ±3.98 66.96 ±5.34 66.49 ±3.96 65.51 ±3.14 
+
+Transformer denoiser with an LSTM. For consistency, all variants use the same data split protocol and the same downstream diagnosis backbone, i.e., ChebyNet [32]. Table 6 summarizes the results. The rows labeled “W/O” are identical across all variants because the downstream clas-sifier, real training data, and evaluation protocol are the same when synthetic augmentation is not applied. The effect of each ablation is therefore reflected in the “W/” rows, where synthetic samples generated by each variant are added to the training set. Under the augmented setting, the full model (Pretraining + Transformer Encoder) achieves the highest performance across all reported metrics. The comparison between the full model and the variant without pretraining shows the contribution of supervised initialization. Without pretraining, augmentation still improves performance (ACC 
+
+68 .25 ± 2 .15 ), but the full model remains higher in ACC, SEN, SPEC, and F1. This suggests that pretraining helps the denoising model incorporate temporal structure before diffusion training, which is beneficial for reverse process modeling. Replacing the Transformer denoiser with alter-native architectures leads to lower augmented performance. The LSTM variant reaches ACC 67 .35 ± 3 .98 and the 1D U-Net variant reaches ACC 66 .26 ± 4 .25 , both below the full model. Although both alternatives still improve over the non-augmented baseline, the gap relative to the Transformer-based denoiser indicates that the self-attention mechanism plays an important role in capturing dependencies across the temporal axis of fMRI sequences. 
+
+4.9. Cross-Site Generalization 
+
+To further examine the generalizability of the proposed fMRI-Diffusion framework, we evaluated its performance 
+
+M.A. Hasan et al.: Preprint submitted to Elsevier Page 10 of 13 fMRI-Diffusion for MDD Diagnosis                                             
+
+> Table 7
+> Cross-site evaluation of MDD diagnosis performance with and without using synthetic fMRI data generated by the proposed method. Performance is reported as mean ±standard deviation, with the better-performing results highlighted in bold.
+> Method Site With/Without Our Synth. Data Atlas Samples (MDD/NC) ACC (%) SEN (%) SPEC (%) F1 (%)
+> S25 W/O Craddock 89/63 60.28 ±10.35 53.72 ±19.14 66.92 ±7.37 56.24 ±15.27 W/ 63.65 ±2.10 59.69 ±14.10 69.62 ±10.17 58.98 ±4.25
+> ChebyNet [32] S21 W/O Craddock 86/70 56.83 ±9.81 56.37 ±14.46 57.14 ±8.75 55.99 ±11.39 W/ 57.90 ±8.40 59.13 ±6.52 60.10 ±10.10 58.00 ±6.93
+> S8 W/O Craddock 75/75 64.69 ±8.05 61.18 ±13.49 67.71 ±11.58 61.76 ±10.58 W/ 70.55 ±4.56 67.20 ±6.84 72.56 ±6.61 68.00 ±5.16
+
+across multiple independent sites within the REST-meta-MDD dataset, which exhibit notable inter-site variability in scanning conditions and participant demographics. Specifi-cally, data from the three largest contributing sites (S25, S21, and S8) were used, containing 152, 156, and 150 subjects, respectively. All experiments employed the Craddock atlas for consistent parcellation and the ChebyNet classifier [32] for MDD diagnosis. As summarized in Table 7, incorporating synthetic fMRI data generated by our model consistently improved diag-nostic performance across all sites and evaluation metrics. For instance, on Site 25, accuracy increased from 60.28% to 63.65%; similar gains were observed on Site 21 (from 56.83% to 57.90%) and Site 8 (from 64.69% to 70.55%). These results confirm that our synthetic data not only en-hances within-site diagnosis but also provides stable bene-fits under distributional shifts between sites. The observed improvements highlight the robustness and generalization capability of the proposed method, supporting its potential applicability to real-world multi-site clinical studies. 
+
+## 5. Discussion 
+
+In this study, we presented an fMRI time-series synthesis framework for the diagnostic assessment of MDD based on a denoising diffusion probabilistic model with a temporal Transformer denoiser. The framework was developed to address two practical challenges in clinical fMRI studies of MDD, namely limited sample size and the loss of temporal information in functional-connectivity-based synthesis. By modeling the fMRI signal directly in the time domain, the proposed fMRI-Diffusion framework preserves temporal dynamics and learns a denoising function that captures long-range dependencies in ROI time series. Limited data availability remains an important issue for MDD classification. Although public datasets such as REST-meta-MDD provide a valuable resource, effective use of multi-site data is challenging because scanner differ-ences, acquisition settings, and cohort characteristics intro-duce site-related distribution variation. In this setting, the temporal Transformer provides a flexible sequence modeling component for the reverse diffusion process, allowing the model to learn temporal structure from the training data and improve the quality of synthesized sequences. When synthetic samples generated by the proposed framework are combined with the original training set, the results in Tables 1 and 2 show improved diagnostic classification per-formance in several settings. In addition, the site-wise results in Table 7 indicate that the framework maintains favorable performance across independent sites within the REST-meta-MDD dataset, despite inter-site variation in acquisition protocols and participant characteristics. The ablation results further clarify the contribution of supervised pretraining to the overall framework. As shown in Table 6, the pretraining stage improves the performance of the Transformer-based denoiser when synthetic data are used for augmentation. A plausible explanation is that supervised pretraining initial-izes the Transformer encoder with task-relevant temporal representations before diffusion training, which supports more stable learning of the reverse diffusion process. This initialization helps the denoiser capture temporal patterns in fMRI signals more effectively, leading to synthetic samples that are more useful for downstream classification. The improvement observed in the augmented setting suggests that pretraining contributes not only to sequence modeling quality, but also to the diagnostic value of the generated data. Recent studies have explored generative modeling of fMRI signals in different settings, and the present work contributes to this line of research by focusing on diffusion-based synthesis of fMRI time-series data for MDD diagnosis and by examining its utility for data augmentation in a multi-site clinical dataset. Data scarcity is also a concern for other fMRI-based disorders, including attention deficit hyperactivity disorder, autism spectrum disorder, mild cog-nitive impairment, and Parkinson’s disease. The proposed framework may therefore provide a useful basis for future methods designed to address limited sample size in these conditions. A natural extension of this work is to evaluate fMRI-Diffusion on additional neuropsychiatric and neuro-logical disorders and to study whether the same synthesis strategy provides similar benefits across different diagnos-tic tasks. In addition, multimodal fusion of imaging and non-imaging data may offer complementary information and a more comprehensive description of brain function   
+
+> M.A. Hasan et al.: Preprint submitted to Elsevier Page 11 of 13
+
+fMRI-Diffusion for MDD Diagnosis 
+
+and network organization [44]. Future research may extend the current framework to multimodal data synthesis, with the goal of modeling both intra-modal temporal structure and inter-modal relationships. Such extensions may further improve diagnostic performance for MDD and may also support broader applications in neuropsychiatric disorder analysis. 
+
+## 6. Conclusion 
+
+In this work, we introduced fMRI-Diffusion , a novel diffusion-based generative framework designed to synthe-size realistic fMRI time series for MDD diagnosis. Unlike methods that synthesize FC matrices, our framework gen-erates fMRI time series at the ROI level using a pretrained Transformer-based denoiser, enabling fine-grained recon-struction of brain activation patterns. The proposed frame-work effectively captures the complex temporal dependen-cies inherent in resting-state fMRI signals while maintain-ing structural fidelity and biological plausibility. Extensive experiments on the REST-meta-MDD dataset demonstrate the superior performance of our method across multiple evaluation dimensions. The synthesized fMRI data substan-tially improve the accuracy and robustness of various MDD diagnostic models, enhance performance across different brain parcellations, and generalize well across independent data collection sites. Quantitative and qualitative analyses further confirm the high fidelity and distributional consis-tency between synthetic and real fMRI data, validating the reliability of the proposed generative model. Overall, this work introduces a diffusion-based approach for fMRI time series synthesis that complements FC-based augmentation methods in neuroimaging-based MDD diagnosis. Future work will explore extending the framework to multimodal neuroimaging data and cross-dataset generalization to fur-ther enhance clinical applicability and diagnostic precision. 
+
+## References 
+
+[1] Mark L Vickers, Hong Yin Chan, Stephen Elliott, Sarangan Ketheesan, Vinay Ramineni, Lars Eriksson, Kirsten McMahon, Be-linda Oddy, and James G Scott. Stimulant medications in the management of bulimia nervosa and anorexia nervosa in patients with and without comorbid attention deficit hyperactivity disorder: A systematic review. Eating Behaviors , page 101908, 2024. ISSN 1471-0153. [2] Hongliang Zhou, Jikang Liu, Yuqing Wu, Zixuan Huang, Wenliang Wang, Yuhang Ma, Haohao Zhu, Zhenhe Zhou, Jun Wang, and Chenguang Jiang. Unveiling the interoception impairment in various major depressive disorder stages. CNS Neuroscience & Therapeutics ,30:e14923, 2024. ISSN 1755-5930. [3] Amir Qaseem, Douglas K Owens, Itziar Etxeandia-Ikobaltzeta, Janice Tufte, J Thomas Cross Jr, Timothy J Wilt, and Clinical Guide-lines Committee of the American College of Physicians. Nonphar-macologic and pharmacologic treatments of adults in the acute phase of major depressive disorder: a living clinical guideline from the american college of physicians. Annals of internal medicine , 176: 239–252, 2023. ISSN 0003-4819. [4] Sandra Leskinen, Souvik Singha, Neel H Mehta, Mica Quelle, Har-shal A Shah, and Randy S D’Amico. Applications of functional mag-netic resonance imaging to the study of functional connectivity and activation in neurological disease: a scoping review of the literature. 
+
+World Neurosurgery , 2024. ISSN 1878-8750. [5] Jung Hwan Kim, Amanda J Taylor, Marc Himmelbach, Gisela E Hagberg, Klaus Scheffler, and David Ress. Characterization of the blood oxygen level dependent hemodynamic response function in human subcortical regions with high spatiotemporal resolution. 
+
+Frontiers in Neuroscience , 16:1009295, 2022. ISSN 1662-453X. [6] Junzhong Ji, Zhihui Chen, and Cuicui Yang. Convolutional neural network with sparse strategies to classify dynamic functional connec-tivity. IEEE Journal of Biomedical and Health Informatics , 26:1219– 1228, 2021. ISSN 2168-2194. [7] Junzhong Ji and Yao Yao. A novel cnn framework to extract multi-level modular features for the classification of brain networks. Applied Intelligence , pages 1–18, 2022. ISSN 0924-669X. [8] Manyun Zhu, Yu Quan, and Xuan He. The classification of brain network for major depressive disorder patients based on deep graph convolutional neural network. Frontiers in Human Neuroscience , 17: 1094592, 2023. ISSN 1662-5161. [9] Yee-Fan Tan, Chee-Ming Ting, Fuad Noman, Raphaël C-W Phan, and Hernando Ombao. fmri functional connectivity augmentation using convolutional generative adversarial networks for brain disorder classification. In 2024 IEEE International Symposium on Biomedical Imaging (ISBI) , pages 1–5. IEEE, 2024. ISBN 9798350313338. [10] Haohui Lu and Shahadat Uddin. A weighted patient network-based framework for predicting chronic diseases using graph neural networks. Scientific reports , 11:22607, 2021. ISSN 2045-2322. [11] Ji-Hye Oh, Deok-Joong Lee, Chang-Hoon Ji, Dong-Hee Shin, Ji-Wung Han, Young-Han Son, and Tae-Eui Kam. Graph-based con-ditional generative adversarial networks for major depressive dis-order diagnosis with synthetic functional brain network generation. 
+
+IEEE journal of biomedical and health informatics , 28(3):1504– 1515, 2023. [12] Thomas F Varley, Maria Pope, Joshua Faskowitz, and Olaf Sporns. Multivariate information theory uncovers synergistic subsystems of the human cerebral cortex. Communications biology , 6:451, 2023. ISSN 2399-3642. [13] Qiang Li, Shujian Yu, Kristoffer H Madsen, Vince D Calhoun, and Armin Iraji. Higher-order organization in the human brain from matrix-based rényi’s entropy. In 2023 IEEE International Conference on Acoustics, Speech, and Signal Processing Workshops (ICASSPW) ,pages 1–5. IEEE, 2023. ISBN 9798350302615. [14] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. Advances in neural information processing systems , 33:6840–6851, 2020. [15] Ning Qiang, Jie Gao, Qinglin Dong, Huiji Yue, Hongtao Liang, Lili Liu, Jingjing Yu, Jing Hu, Shu Zhang, and Bao Ge. Functional brain network identification and fmri augmentation using a vae-gan framework. Computers in Biology and Medicine , 165:107395, 2023. ISSN 0010-4825. [16] Peiye Zhuang, Alexander G Schwing, and Oluwasanmi Koyejo. Fmri data augmentation via synthesis. In 2019 IEEE 16th international symposium on biomedical imaging (ISBI 2019) , pages 1783–1787. IEEE, 2019. ISBN 1538636417. [17] Chao Li, Yiran Wei, Xi Chen, and Carola-Bibiane Schönlieb. Brain-netgan: Data augmentation of brain connectivity using generative adversarial network for dementia classification. In MICCAI Workshop on Deep Generative Models , pages 103–111. Springer, 2021. [18] Da Yan, Shengbin Wu, Mirza Tanzim Sami, Abdullateef Almudaifer, Zhe Jiang, Haiquan Chen, D Rangaprakash, Gopikrishna Deshpande, and Yueen Ma. Improving brain dysfunction prediction by gan: A functional-connectivity generator approach. In 2021 IEEE Interna-tional Conference on Big Data (Big Data) , pages 1514–1522. IEEE, 2021. ISBN 1665439025. [19] Liang Hou, Qi Cao, Huawei Shen, Siyuan Pan, Xiaoshuang Li, and Xueqi Cheng. Conditional gans with auxiliary discriminative classifier. In International Conference on Machine Learning , pages 8888–8902. PMLR, 2022. ISBN 2640-3498. 
+
+M.A. Hasan et al.: Preprint submitted to Elsevier Page 12 of 13 fMRI-Diffusion for MDD Diagnosis 
+
+[20] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. At-tention is all you need. Advances in neural information processing systems , 30, 2017. [21] William Peebles and Saining Xie. Scalable diffusion models with transformers. In Proceedings of the IEEE/CVF international confer-ence on computer vision , pages 4195–4205, 2023. [22] Emmanuel Asiedu Brempong, Simon Kornblith, Ting Chen, Niki Parmar, Matthias Minderer, and Mohammad Norouzi. Denoising pre-training for semantic segmentation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 4175– 4186, 2022. [23] Weilai Xiang, Hongyu Yang, Di Huang, and Yunhong Wang. De-noising diffusion autoencoders are unified self-supervised learners. In 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 15802–15812, 2023. [24] Xiao Chen, Bin Lu, Hui-Xian Li, Xue-Ying Li, Yu-Wei Wang, Francisco Xavier Castellanos, Li-Ping Cao, Ning-Xuan Chen, Wei Chen, and Yu-Qi Cheng. The direct consortium and the rest-meta-mdd project: towards neuroimaging biomarkers of major depressive disorder. Psychoradiology , 2:32–42, 2022. ISSN 2634-4416. [25] Chaogan Yan and Yufeng Zang. Dparsf: a matlab toolbox for" pipeline" data analysis of resting-state fmri. Frontiers in systems neuroscience , 4:1377, 2010. ISSN 1662-5137. [26] Kun Qin, Du Lei, Walter H L Pinaya, Nanfang Pan, Wenbin Li, Ziyu Zhu, John A Sweeney, Andrea Mechelli, and Qiyong Gong. Using graph convolutional network to characterize individuals with major depressive disorder across multiple imaging sites. EBioMedicine , 78, 2022. ISSN 2352-3964. [27] Jianlong Zhao, Jinjie Huang, Dongmei Zhi, Weizheng Yan, Xiaohong Ma, Xiao Yang, Xianbin Li, Qing Ke, Tianzi Jiang, and Vince D Calhoun. Functional network connectivity (fnc)-based generative adversarial network (gan) and its applications in classification of mental disorders. Journal of neuroscience methods , 341:108756, 2020. ISSN 0165-0270. [28] Deok-Joong Lee, Dong-Hee Shin, Young-Han Son, Ji-Wung Han, Ji-Hye Oh, Da-Hyun Kim, Ji-Hoon Jeong, and Tae-Eui Kam. Spectral graph neural network-based multi-atlas brain network fusion for major depressive disorder diagnosis. IEEE Journal of Biomedical and Health Informatics , 2024. ISSN 2168-2194. [29] Fuad Noman, Chee-Ming Ting, Hakmook Kang, Raphaël C-W Phan, and Hernando Ombao. Graph autoencoders for embedding learning in brain networks and major depressive disorder identification. IEEE Journal of Biomedical and Health Informatics , 2024. ISSN 2168-2194. [30] Wei Si, Guangyu Wang, Lei Liu, Limei Zhang, and Lishan Qiao. Graph neural network with modular attention for identifying brain disorders. Biomedical Signal Processing and Control , 102:107252, 2025. ISSN 1746-8094. [31] Bishal Thapaliya, Robyn Miller, Jiayu Chen, Yu Ping Wang, Esra Akbas, Ram Sapkota, Bhaskar Ray, Pranav Suresh, Santosh Ghimire, Vince D Calhoun, et al. Dsam: A deep learning framework for analyzing temporal and spatial dynamics in brain networks. Medical Image Analysis , page 103462, 2025. [32] Michaël Defferrard, Xavier Bresson, and Pierre Vandergheynst. Con-volutional neural networks on graphs with fast localized spectral filtering. Advances in neural information processing systems , 29, 2016. [33] Jeremy Kawahara, Colin J Brown, Steven P Miller, Brian G Booth, Vann Chau, Ruth E Grunau, Jill G Zwicker, and Ghassan Hamarneh. Brainnetcnn: Convolutional neural networks for brain networks; to-wards predicting neurodevelopment. NeuroImage , 146:1038–1049, 2017. ISSN 1053-8119. [34] Petar Veličković, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Lio, and Yoshua Bengio. Graph attention networks. 
+
+arXiv preprint arXiv:1710.10903 , 2017. [35] Keyulu Xu, Weihua Hu, Jure Leskovec, and Stefanie Jegelka. How powerful are graph neural networks? arXiv preprint arXiv:1810.00826 , 2018. [36] Seongjun Yun, Minbyul Jeong, Raehyun Kim, Jaewoo Kang, and Hyunwoo J Kim. Graph transformer networks. Advances in neural information processing systems , 32, 2019. [37] Will Hamilton, Zhitao Ying, and Jure Leskovec. Inductive repre-sentation learning on large graphs. Advances in neural information processing systems , 30, 2017. [38] Edmund T Rolls, Chu-Chung Huang, Ching-Po Lin, Jianfeng Feng, and Marc Joliot. Automated anatomical labelling atlas 3. Neuroimage ,206:116189, 2020. ISSN 1053-8119. [39] David N Kennedy, Nicholas Lange, Nikos Makris, Julianna Bates, James Meyer, and Verne S Caviness Jr. Gyri of the human neocortex: an mri-based analysis of volume and variance. Cerebral Cortex (New York, NY: 1991) , 8:372–384, 1998. ISSN 1460-2199. [40] R Cameron Craddock, G Andrew James, Paul E Holtzheimer III, Xiaoping P Hu, and Helen S Mayberg. A whole brain fmri atlas generated via spatially constrained spectral clustering. Human brain mapping , 33:1914–1928, 2012. ISSN 1065-9471. [41] Andrew Zalesky, Alex Fornito, Ian H Harding, Luca Cocchi, Murat Yücel, Christos Pantelis, and Edward T Bullmore. Whole-brain anatomical networks: does the choice of nodes matter? Neuroimage ,50:970–983, 2010. ISSN 1053-8119. [42] Jonathan D Power, Kelly A Barnes, Abraham Z Snyder, Bradley L Schlaggar, and Steven E Petersen. Spurious but systematic corre-lations in functional connectivity mri networks arise from subject motion. Neuroimage , 59:2142–2154, 2012. ISSN 1053-8119. [43] Nico U F Dosenbach, Binyam Nardos, Alexander L Cohen, Damien A Fair, Jonathan D Power, Jessica A Church, Steven M Nelson, Gagan S Wig, Alecia C Vogel, and Christina N Lessov-Schlaggar. Prediction of individual brain maturity using fmri. Science , 329:1358–1361, 2010. ISSN 0036-8075. [44] Luhui Cai, Weiming Zeng, Hongyu Chen, Hua Zhang, Yueyang Li, Yu Feng, Hongjie Yan, Lingbin Bian, Wai Ting Siok, and Nizhuan Wang. Mm-gtunets: Unified multi-modal graph deep learning for brain disorders prediction. IEEE Transactions on Medical Imaging ,2025. 
+
+M.A. Hasan et al.: Preprint submitted to Elsevier Page 13 of 13

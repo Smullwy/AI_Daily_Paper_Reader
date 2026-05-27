@@ -1,66 +1,66 @@
 ## 最新日报
-- 最新运行日期：2026-05-27
-- 运行时间：2026-05-27 04:51:32 北京时间
+- 最新运行日期：2026-05-28
+- 运行时间：2026-05-28 05:43:14 北京时间
 - 运行状态：成功
 - 本次总论文数：16
 - 精读区：6
 - 速读区：10
 
 ### 今日简报（AI）
-今日聚焦大脑视觉解码前沿：两篇高分精读分别提出即插即用的高效跨被试调优与基于神经解剖先验的球面解码框架。  
-最值得关注的是让脑机接口“省力又精准”的两条路径——用极少校准量适应新用户，以及将大脑结构约束融入模型，显著提升解码鲁棒性。  
-若你对神经科学或生成式AI感兴趣，不妨将脑解码的效率优化与3D头像生成的新方法对比阅读，感受“数据高效”与“生成一致性”如何驱动技术落地。
-- 详情：[/202605/27/README](/202605/27/README)
+今日聚焦脑科学与AI交叉前沿，精读两篇9分顶会论文，一篇为球形脑解码引入神经解剖先验，另一篇用条件流匹配实现静息态到任务态fMRI的合成。  
+最值得关注的方向是：用神经解剖先验提升大脑解码精度，以及揭示信噪比与样本量如何主导神经网络表征对齐。  
+建议读者若对脑科学智能感兴趣，不妨先从这两篇精读入手，并留意速读中关于人类对齐的生成-判别平衡点结论。
+- 详情：[/202605/28/README](/202605/28/README)
 
 ### 精读区论文标签
-1. [MindAdapter: Few-Shot Parameter-Efficient Residual Calibration of Cross-Subject Brain-to-Visual Decoding Models](/202605/27/2605.24679v1-mindadapter-few-shot-parameter-efficient-residual-calibration-of-cross-subject-brain-to-visual-decoding-models)  
+1. [NeurIPS: Neuro-anatomical Inductive Priors for Sphere-based Brain Decoding](/202605/28/2605.24993v1-neurips-neuro-anatomical-inductive-priors-for-sphere-based-brain-decoding)  
    标签：评分：9.0/10、query:fclip
-   evidence：通过残差适配进行跨被试脑视觉解码校准
-2. [NeurIPS: Neuro-anatomical Inductive Priors for Sphere-based Brain Decoding](/202605/27/2605.24993v1-neurips-neuro-anatomical-inductive-priors-for-sphere-based-brain-decoding)  
+   evidence：神经解剖归纳先验用于脑解码
+2. [FM-fMRI: Event Conditioned Flow Matching for Rest-to-Task fMRI Time-Series Synthesis](/202605/28/2605.26423v1-fm-fmri-event-conditioned-flow-matching-for-rest-to-task-fmri-time-series-synthesis)  
    标签：评分：9.0/10、query:fclip
-   evidence：利用解剖变异作为fMRI脑解码的归纳先验
-3. [Why We Look Where We Look: Emergent Human-like Fixations of a Foveated Visual Language Model Maximizing Scene Understanding](/202605/27/2605.17823v1-why-we-look-where-we-look-emergent-human-like-fixations-of-a-foveated-visual-language-model-maximizing-scene-understanding)  
+   evidence：流匹配模型从静息态生成任务fMRI，使能人口级神经先验。
+3. [Feasibility of Precision Functional Mapping in Youth Multi-Echo fMRI Data](/202605/28/biorxiv-10-64898-2026-05-20-726578-v1-feasibility-of-precision-functional-mapping-in-youth-multi-echo-fmri-data)  
+   标签：评分：9.0/10、query:fclip
+   evidence：使用精确功能映射的青少年跨被试fMRI脑表征
+4. [Functional Templates in fMRI: Building Accurate and Interpretable Group-Level Decoders](/202605/28/biorxiv-10-64898-2026-05-21-726781-v1-functional-templates-in-fmri-building-accurate-and-interpretable-group-level-decoders)  
+   标签：评分：9.0/10、query:fclip
+   evidence：跨被试fMRI群体功能模板
+5. [Abstract and Concrete Working Memory Information in Human Visual Cortex](/202605/28/biorxiv-10-64898-2026-05-23-727368-v1-abstract-and-concrete-working-memory-information-in-human-visual-cortex)  
+   标签：评分：9.0/10、query:fclip
+   evidence：使用fMRI研究视觉皮层工作记忆表征跨被试
+6. [Revealing the core dimensions underlying representations in brains, behavior and AI](/202605/28/2605.26921v1-revealing-the-core-dimensions-underlying-representations-in-brains-behavior-and-ai)  
    标签：评分：8.0/10、query:fclip
-   evidence：凹视觉语言模型中出现类人注视模式
-4. [Not Too Generative, Not Too Discriminative: The Human Alignment Sweet Spot](/202605/27/2605.23819v1-not-too-generative-not-too-discriminative-the-human-alignment-sweet-spot)  
-   标签：评分：8.0/10、query:fclip
-   evidence：通过判别与生成目标研究视觉表征的人类对齐
-5. [Brain-to-Image Retrieval and Reconstruction via Multimodal EEG Alignment](/202605/27/2605.23996v1-brain-to-image-retrieval-and-reconstruction-via-multimodal-eeg-alignment)  
-   标签：评分：8.0/10、query:fclip
-   evidence：利用多模态EEG对齐进行脑到图像检索
-6. [MindAlign: Bridging EEG, Vision, and Language for Zero-Shot Visual Decoding](/202605/27/2605.24523v1-mindalign-bridging-eeg-vision-and-language-for-zero-shot-visual-decoding)  
-   标签：评分：8.0/10、query:fclip
-   evidence：三模态对比对齐EEG、视觉和语言
+   evidence：SRF从大脑和AI相似矩阵中恢复可解释维度
 
 ### 速读区论文标签
-1. [Multi-view Consistent 3D Gaussian Head Avatars 'without' Multi-view Generation](/202605/27/2605.25220v1-multi-view-consistent-3d-gaussian-head-avatars-without-multi-view-generation)  
+1. [Signal-to-Noise Ratio and Sample Size Govern Representational Alignment in Neural Networks](/202605/28/2605.26973v1-signal-to-noise-ratio-and-sample-size-govern-representational-alignment-in-neural-networks)  
    标签：评分：8.0/10、query:fclip
-   evidence：通过状态空间模型实现多视图一致性
-2. [TopoAlign: Topology-Aware Visual Representation Alignment](/202605/27/2605.25541v1-topoalign-topology-aware-visual-representation-alignment)  
+   evidence：研究网络间表征对齐，受信噪比和样本量影响
+2. [Generalized Normative Modeling: A One-Step Hierarchical Kernel Framework for Multi-Site Brain Charts with Self-Correcting Z-Scores](/202605/28/biorxiv-10-64898-2026-05-17-725772-v2-generalized-normative-modeling-a-one-step-hierarchical-kernel-framework-for-multi-site-brain-charts-with-self-correcting-z-scores)  
    标签：评分：8.0/10、query:fclip
-   evidence：提出TopoAlign，一种拓扑感知的视觉表征对齐框架，适用于多视图结构约束
-3. [Monosynaptic connections link functionally similar regions in human cortex](/202605/27/biorxiv-10-64898-2026-05-19-726279-v1-monosynaptic-connections-link-functionally-similar-regions-in-human-cortex)  
-   标签：评分：8.0/10、query:fclip
-   evidence：使用电刺激功能磁共振成像（es-fMRI）绘制人类皮层中连接功能相似区域的单突触连接
-4. [A simple model of the co-emergence of grid and place fields](/202605/27/biorxiv-10-64898-2026-05-20-726574-v1-a-simple-model-of-the-co-emergence-of-grid-and-place-fields)  
-   标签：评分：8.0/10、query:fclip
-   evidence：统一循环模型实现网格细胞和位置细胞的共同涌现作为群体神经先验
-5. [What Are We Actually Decoding? Source Attribution for Non-Invasive Brain-to-Language Retrieval](/202605/27/2605.24524v1-what-are-we-actually-decoding-source-attribution-for-non-invasive-brain-to-language-retrieval)  
+   evidence：使用分层核的人群水平脑标准建模
+3. [Not Too Generative, Not Too Discriminative: The Human Alignment Sweet Spot](/202605/28/2605.23819v1-not-too-generative-not-too-discriminative-the-human-alignment-sweet-spot)  
    标签：评分：7.0/10、query:fclip
-   evidence：脑到语言解码源归因
-6. [Decoding Phonetic Features: Somatotopic and Sensorimotor Representations in Native and Non-native Consonant Perception](/202605/27/biorxiv-10-64898-2026-03-06-709780-v2-decoding-phonetic-features-somatotopic-and-sensorimotor-representations-in-native-and-non-native-consonant-perception)  
+   evidence：研究视觉模型中人类对齐的学习目标
+4. [Distance-Aware Joint Spatio-Temporal Graph Contrastive Learning for Major Depressive Disorder Diagnosis](/202605/28/2605.24066v1-distance-aware-joint-spatio-temporal-graph-contrastive-learning-for-major-depressive-disorder-diagnosis)  
    标签：评分：7.0/10、query:fclip
-   evidence：使用fMRI和跨模态分类分析跨被试语音特征
-7. [Prior scene context reshapes feature reliance during rapid perception](/202605/27/biorxiv-10-64898-2026-05-10-724088-v1-prior-scene-context-reshapes-feature-reliance-during-rapid-perception)  
+   evidence：跨被试fMRI脑表征分析
+5. [Generative enhancement of non-invasive datasets for motor brain-computer interface by synthesizing task-relevant neural signals](/202605/28/biorxiv-10-1101-2025-10-12-681961-v2-generative-enhancement-of-non-invasive-datasets-for-motor-brain-computer-interface-by-synthesizing-task-relevant-neural-signals)  
    标签：评分：7.0/10、query:fclip
-   evidence：基于特征的面部检测编码模型
-8. [Task context is broadly encoded in the human brain](/202605/27/biorxiv-10-64898-2026-05-14-724660-v1-task-context-is-broadly-encoded-in-the-human-brain)  
-   标签：评分：7.0/10、query:fclip
-   evidence：人脑任务上下文编码
-9. [Interpretability Transfer from Language to Vision via Sparse Autoencoders](/202605/27/2605.24946v1-interpretability-transfer-from-language-to-vision-via-sparse-autoencoders)  
+   evidence：通过生成皮层神经信号增强运动脑机接口
+6. [fMRI-Diffusion: Generating fMRI Time Series Via a Temporal Transformer Diffusion Model for Major Depressive Disorder Diagnosis](/202605/28/2605.24065v1-fmri-diffusion-generating-fmri-time-series-via-a-temporal-transformer-diffusion-model-for-major-depressive-disorder-diagnosis)  
    标签：评分：6.0/10、query:fclip
-   evidence：将视觉token对齐到文本SAE空间以实现可解释性迁移
-10. [Uncertainty-DTW for Sequences and Visual Tokens](/202605/27/2605.25110v1-uncertainty-dtw-for-sequences-and-visual-tokens)  
+   evidence：fMRI时间序列生成模型
+7. [Representational Geometries Across Visual Working Memory Encoding and Maintenance](/202605/28/biorxiv-10-1101-2025-09-07-674590-v3-representational-geometries-across-visual-working-memory-encoding-and-maintenance)  
    标签：评分：6.0/10、query:fclip
-   evidence：面向序列和视觉标记的不确定性感知对齐方法
+   evidence：视觉工作记忆表征几何的fMRI研究
+8. [Pre-stimulus cortical state predicts context-dependent expression of learned distractor suppression](/202605/28/biorxiv-10-64898-2026-04-22-720064-v2-pre-stimulus-cortical-state-predicts-context-dependent-expression-of-learned-distractor-suppression)  
+   标签：评分：6.0/10、query:fclip
+   evidence：跨被试fMRI视觉搜索研究
+9. [A Comparative Evaluation of Structural MRI Foundation Models for Brain Age Regression and Sex Classification](/202605/28/biorxiv-10-64898-2026-05-15-725427-v1-a-comparative-evaluation-of-structural-mri-foundation-models-for-brain-age-regression-and-sex-classification)  
+   标签：评分：6.0/10、query:fclip
+   evidence：评估结构MRI基础模型，可作为群体先验用于泛化
+10. [A Unified Form of Batch Harmonization Equation for Normative Modeling: A Location Scale Framework](/202605/28/biorxiv-10-64898-2026-05-17-725713-v1-a-unified-form-of-batch-harmonization-equation-for-normative-modeling-a-location-scale-framework)  
+   标签：评分：6.0/10、query:fclip
+   evidence：统一批量协调用于人口级规范建模
 
