@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-05-29</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-05-29 05:16 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>从自然阅读中AI对齐人类不升反降，到后顶叶神经元在自然观察里展现情境依赖的功能多样性，今日精读两篇9分研究聚焦感知与编码的深层机制。</p>
-<p>最值得关注：视觉语言模型并未全局增强与人类的阅读对齐，且背内侧后顶叶神经元的功能多样性高度取决于自然观察的上下文。</p>
-<p>下一步建议对比多模态模型的上下文编码与皮层临界梯度，检验情境信息如何重塑脑与机器的表征。</p>
+      <p>VLMs未必比纯语言模型更对齐人类自然阅读；自然观看下后顶叶神经元功能多样性被单单元fMRI揭示</p>
+<p>跨模态对齐反直觉发现与自然范式脑机制成为今日焦点，值得深挖视觉语言模型的评估局限及高生态效度神经映射方法</p>
+<p>建议带着“模型更像人吗”的疑问，去精读那两篇高分论文的摘要，思考自己阅读时是否也被模型偏差所影响</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202605/29/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
