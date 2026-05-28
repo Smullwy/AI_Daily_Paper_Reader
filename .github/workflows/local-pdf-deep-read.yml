@@ -5,9 +5,18 @@ on:
     inputs:
       upload_path:
         description: "Path to uploaded PDF under docs/assets/local_pdfs/uploads"
-        required: true
+        required: false
+        default: ""
+      manifest_path:
+        description: "Batch manifest JSON under docs/assets/local_pdfs/uploads"
+        required: false
+        default: ""
       original_filename:
         description: "Original PDF filename"
+        required: false
+        default: ""
+      title_override:
+        description: "Optional user-corrected paper title"
         required: false
         default: ""
       cleanup_upload:
@@ -96,11 +105,36 @@ jobs:
       - name: Generate local PDF deep-read page
         env:
           UPLOAD_PATH: ${{ inputs.upload_path }}
+          MANIFEST_PATH: ${{ inputs.manifest_path }}
           ORIGINAL_FILENAME: ${{ inputs.original_filename }}
+          TITLE_OVERRIDE: ${{ inputs.title_override }}
           CLEANUP_UPLOAD: ${{ inputs.cleanup_upload }}
         run: |
           set -euo pipefail
-          if [[ "$UPLOAD_PATH" != docs/assets/local_pdfs/uploads/*.pdf ]]; then
+          cleanup_arg=()
+          if [ "$CLEANUP_UPLOAD" = "true" ]; then
+            cleanup_arg=(--cleanup-uploads)
+          fi
+          if [ -n "$MANIFEST_PATH" ]; then
+            if [[ "$MANIFEST_PATH" != docs/assets/local_pdfs/uploads/*.json && "$MANIFEST_PATH" != docs/assets/local_pdfs/uploads/*/*.json ]]; then
+              echo "Refusing unexpected manifest_path: $MANIFEST_PATH" >&2
+              exit 1
+            fi
+            if [ ! -f "$MANIFEST_PATH" ]; then
+              echo "Batch manifest not found: $MANIFEST_PATH" >&2
+              exit 1
+            fi
+            python src/local_pdf_backend.py \
+              --manifest-path "$MANIFEST_PATH" \
+              --docs-dir docs \
+              "${cleanup_arg[@]}"
+            exit 0
+          fi
+          if [ -z "$UPLOAD_PATH" ]; then
+            echo "Either manifest_path or upload_path is required." >&2
+            exit 1
+          fi
+          if [[ "$UPLOAD_PATH" != docs/assets/local_pdfs/uploads/*.pdf && "$UPLOAD_PATH" != docs/assets/local_pdfs/uploads/*/*.pdf ]]; then
             echo "Refusing unexpected upload_path: $UPLOAD_PATH" >&2
             exit 1
           fi
@@ -111,6 +145,7 @@ jobs:
           python src/local_pdf_backend.py \
             --pdf-path "$UPLOAD_PATH" \
             --filename "${ORIGINAL_FILENAME:-$(basename "$UPLOAD_PATH")}" \
+            --title-override "$TITLE_OVERRIDE" \
             --docs-dir docs
           if [ "$CLEANUP_UPLOAD" = "true" ]; then
             rm -f "$UPLOAD_PATH"
@@ -129,6 +164,14 @@ jobs:
           fi
 
           git commit -m "[chore] local PDF deep read"
-          git fetch origin "$branch"
-          git rebase -X theirs "origin/$branch"
-          git push origin HEAD:"$branch"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$branch"
+            git -c merge.directoryRenames=false rebase "origin/$branch"
+            if git push origin HEAD:"$branch"; then
+              exit 0
+            fi
+            echo "Push raced with a newer upload commit; retrying ($attempt/5)..." >&2
+            sleep 5
+          done
+          echo "Failed to push local PDF deep-read result after retries." >&2
+          exit 1

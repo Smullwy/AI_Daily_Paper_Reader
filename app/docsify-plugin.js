@@ -3780,8 +3780,14 @@ window.$docsify = {
         });
       };
 
+      const parseScoreNumber = (scoreValue) => {
+        const match = String(scoreValue || '').trim().match(/[-+]?\d+(?:\.\d+)?/);
+        if (!match) return Number.NaN;
+        return Number(match[0]);
+      };
+
       const scoreToStarRating = (scoreValue) => {
-        const score = Number(scoreValue);
+        const score = parseScoreNumber(scoreValue);
         if (!Number.isFinite(score)) return 0;
         const clamped = Math.max(0, Math.min(10, score));
         return Math.floor(clamped + 0.5) / 2;
@@ -3789,10 +3795,13 @@ window.$docsify = {
 
       const buildSidebarStarsHtml = (scoreValue) => {
         const rating = scoreToStarRating(scoreValue);
-        const scoreNum = Number(scoreValue);
+        const scoreNum = parseScoreNumber(scoreValue);
         const scoreText = Number.isFinite(scoreNum) ? scoreNum.toFixed(1) : '';
+        const scoreLabel = String(scoreValue || '')
+          .replace(/^\s*[-+]?\d+(?:\.\d+)?\s*/, '')
+          .trim();
         const title = scoreText
-          ? `评分：${scoreText}/10（${rating.toFixed(1)}/5）`
+          ? `评分：${scoreText}/10${scoreLabel ? ` ${scoreLabel}` : ''}（${rating.toFixed(1)}/5）`
           : '评分：无';
         const pct = Math.max(0, Math.min(100, (rating / 5) * 100));
         return (
@@ -4112,7 +4121,13 @@ window.$docsify = {
           bar.classList.add('dpr-title-single');
         }
 
-        root.insertBefore(bar, root.firstChild);
+        const hero = root.querySelector('.paper-hero-card');
+        if (hero) {
+          const titleAnchor = hero.querySelector('.paper-title-row') || hero.firstChild;
+          hero.insertBefore(bar, titleAnchor);
+        } else {
+          root.insertBefore(bar, root.firstChild);
+        }
 
         // 字体自适应：让标题条高度稳定，长标题自动缩小
         requestAnimationFrame(() => {
@@ -4947,6 +4962,50 @@ window.$docsify = {
         const yamlStr = content.slice(4, endIdx).trim();
         const body = content.slice(endIdx + 4).trim();
 
+        const decodeYamlScalar = (rawValue) => {
+          const text = String(rawValue || '').trim();
+          if (text.length < 2) return text;
+          const quote = text[0];
+          if ((quote !== '"' && quote !== "'") || text[text.length - 1] !== quote) {
+            return text;
+          }
+          const inner = text.slice(1, -1);
+          if (quote === "'") return inner.replace(/''/g, "'");
+
+          let out = '';
+          let escaped = false;
+          const escapeMap = {
+            0: '\0',
+            a: '\x07',
+            b: '\b',
+            t: '\t',
+            n: '\n',
+            v: '\v',
+            f: '\f',
+            r: '\r',
+            e: '\x1b',
+            '"': '"',
+            '/': '/',
+            '\\': '\\',
+          };
+          for (const ch of inner) {
+            if (escaped) {
+              out += Object.prototype.hasOwnProperty.call(escapeMap, ch)
+                ? escapeMap[ch]
+                : `\\${ch}`;
+              escaped = false;
+              continue;
+            }
+            if (ch === '\\') {
+              escaped = true;
+              continue;
+            }
+            out += ch;
+          }
+          if (escaped) out += '\\';
+          return out;
+        };
+
         // 简单解析 YAML（不依赖外部库）
         const meta = {};
         const lines = yamlStr.split('\n');
@@ -4980,10 +5039,10 @@ window.$docsify = {
             }
             if (current.trim()) items.push(current.trim());
             // 去除引号
-            meta[key] = items.map(s => s.replace(/^["']|["']$/g, ''));
+            meta[key] = items.map(s => decodeYamlScalar(s));
           } else {
             // 去除引号
-            meta[key] = value.replace(/^["']|["']$/g, '').replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            meta[key] = decodeYamlScalar(value);
           }
         }
         return { meta, body };
@@ -5077,13 +5136,25 @@ window.$docsify = {
       const renderFigureCarousel = (figures) => {
         if (!figures || !figures.length) return '';
         const slides = figures.map((figure, index) => {
-          const pageText = figure.page ? `PDF 第 ${figure.page} 页` : '';
-          const caption = figure.caption ? `<div class="paper-figure-caption">${escapePaperHtml(figure.caption)}</div>` : '';
+          const pageText = figure.page ? `PDF p. ${figure.page}` : '';
+          const captionText = String(figure.caption || '').trim();
+          const longCaption = captionText.length > 220;
+          const caption = captionText
+            ? [
+                `<div class="paper-figure-caption${longCaption ? ' is-collapsed' : ''}" data-figure-caption>${escapePaperHtml(captionText)}</div>`,
+                longCaption
+                  ? '<button class="paper-figure-caption-toggle" type="button" data-figure-caption-toggle>Expand caption</button>'
+                  : '',
+              ].join('')
+            : '';
+          const imageUrl = escapePaperHtml(resolveDocsAssetUrl(figure.url));
           return [
             `<div class="paper-figure-slide${index === 0 ? ' is-active' : ''}" data-figure-slide="${index}">`,
-            `<img class="paper-figure-image" src="${escapePaperHtml(resolveDocsAssetUrl(figure.url))}" alt="Paper Figure ${index + 1}" loading="lazy">`,
+            `<button class="paper-figure-image-button" type="button" data-figure-lightbox="${index}" aria-label="Open Figure ${index + 1}">`,
+            `<img class="paper-figure-image" src="${imageUrl}" alt="Paper Figure ${index + 1}" loading="lazy">`,
+            '</button>',
             '<div class="paper-figure-meta">',
-            `<div class="paper-figure-badge">Figure ${index + 1}${pageText ? ` · ${escapePaperHtml(pageText)}` : ''}</div>`,
+            `<div class="paper-figure-badge">Figure ${index + 1}${pageText ? ` / ${escapePaperHtml(pageText)}` : ''}</div>`,
             caption,
             '</div>',
             '</div>',
@@ -5091,9 +5162,9 @@ window.$docsify = {
         }).join('');
 
         const thumbs = figures.map((figure, index) => {
-          const thumbPageText = figure.page ? ` · PDF 第 ${figure.page} 页` : '';
+          const thumbPageText = figure.page ? ` / PDF p. ${figure.page}` : '';
           return [
-            `<button class="paper-figure-thumb${index === 0 ? ' is-active' : ''}" type="button" data-figure-thumb="${index}" aria-label="切换到第 ${index + 1} 张插图">`,
+            `<button class="paper-figure-thumb${index === 0 ? ' is-active' : ''}" type="button" data-figure-thumb="${index}" aria-label="Show Figure ${index + 1}">`,
             `<img class="paper-figure-thumb-image" src="${escapePaperHtml(resolveDocsAssetUrl(figure.url))}" alt="Thumbnail ${index + 1}" loading="lazy">`,
             `<span class="paper-figure-thumb-label">Figure ${index + 1}${thumbPageText ? escapePaperHtml(thumbPageText) : ''}</span>`,
             '</button>',
@@ -5103,17 +5174,98 @@ window.$docsify = {
         return [
           '<div class="paper-figure-section" data-paper-figure-carousel>',
           '<div class="paper-figure-toolbar">',
+          '<div class="paper-section-kicker">Figure Gallery</div>',
           `<div class="paper-figure-counter"><span data-figure-current>1</span> / ${figures.length}</div>`,
           '</div>',
           '<div class="paper-figure-stage">',
-          figures.length > 1 ? '<button class="paper-figure-nav paper-figure-nav-prev" type="button" data-figure-prev aria-label="上一张">‹</button>' : '',
+          figures.length > 1 ? '<button class="paper-figure-nav paper-figure-nav-prev" type="button" data-figure-prev aria-label="Previous">&lsaquo;</button>' : '',
           `<div class="paper-figure-viewport">${slides}</div>`,
-          figures.length > 1 ? '<button class="paper-figure-nav paper-figure-nav-next" type="button" data-figure-next aria-label="下一张">›</button>' : '',
+          figures.length > 1 ? '<button class="paper-figure-nav paper-figure-nav-next" type="button" data-figure-next aria-label="Next">&rsaquo;</button>' : '',
           '</div>',
           figures.length > 1 ? `<div class="paper-figure-thumbs">${thumbs}</div>` : '',
           '</div>',
           '',
         ].join('');
+      };
+
+      const ensureFigureLightbox = () => {
+        let overlay = document.getElementById('dpr-figure-lightbox');
+        if (overlay) return overlay;
+        overlay = document.createElement('div');
+        overlay.id = 'dpr-figure-lightbox';
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.innerHTML = [
+          '<div class="dpr-figure-lightbox-backdrop" data-figure-lightbox-backdrop></div>',
+          '<div class="dpr-figure-lightbox-panel" role="dialog" aria-modal="true" aria-label="Figure preview">',
+          '<button class="dpr-figure-lightbox-close" type="button" data-figure-lightbox-close aria-label="Close">&times;</button>',
+          '<button class="dpr-figure-lightbox-nav is-prev" type="button" data-figure-lightbox-prev aria-label="Previous">&lsaquo;</button>',
+          '<figure class="dpr-figure-lightbox-figure">',
+          '<img class="dpr-figure-lightbox-image" alt="Expanded paper figure">',
+          '<figcaption class="dpr-figure-lightbox-caption"><span data-figure-lightbox-count></span><div data-figure-lightbox-caption></div></figcaption>',
+          '</figure>',
+          '<button class="dpr-figure-lightbox-nav is-next" type="button" data-figure-lightbox-next aria-label="Next">&rsaquo;</button>',
+          '</div>',
+        ].join('');
+        document.body.appendChild(overlay);
+        return overlay;
+      };
+
+      const closeFigureLightbox = () => {
+        const overlay = document.getElementById('dpr-figure-lightbox');
+        if (!overlay) return;
+        if (typeof overlay._dprCleanup === 'function') {
+          overlay._dprCleanup();
+          overlay._dprCleanup = null;
+        }
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('dpr-figure-lightbox-open');
+      };
+
+      const openFigureLightbox = (items, startIndex = 0) => {
+        if (!items || !items.length) return;
+        const overlay = ensureFigureLightbox();
+        if (typeof overlay._dprCleanup === 'function') {
+          overlay._dprCleanup();
+          overlay._dprCleanup = null;
+        }
+        const img = overlay.querySelector('.dpr-figure-lightbox-image');
+        const caption = overlay.querySelector('[data-figure-lightbox-caption]');
+        const count = overlay.querySelector('[data-figure-lightbox-count]');
+        const prev = overlay.querySelector('[data-figure-lightbox-prev]');
+        const next = overlay.querySelector('[data-figure-lightbox-next]');
+        const close = overlay.querySelector('[data-figure-lightbox-close]');
+        const backdrop = overlay.querySelector('[data-figure-lightbox-backdrop]');
+        let current = Math.max(0, Math.min(Number(startIndex) || 0, items.length - 1));
+
+        const render = () => {
+          const item = items[current] || items[0];
+          if (img) img.src = item.src || '';
+          if (caption) caption.textContent = item.caption || '';
+          if (count) count.textContent = `${current + 1} / ${items.length}${item.label ? ` / ${item.label}` : ''}`;
+          if (prev) prev.hidden = items.length <= 1;
+          if (next) next.hidden = items.length <= 1;
+        };
+        const go = (delta) => {
+          current = (current + delta + items.length) % items.length;
+          render();
+        };
+        const onKeyDown = (event) => {
+          if (event.key === 'Escape') closeFigureLightbox();
+          if (event.key === 'ArrowLeft') go(-1);
+          if (event.key === 'ArrowRight') go(1);
+        };
+
+        if (prev) prev.onclick = () => go(-1);
+        if (next) next.onclick = () => go(1);
+        if (close) close.onclick = closeFigureLightbox;
+        if (backdrop) backdrop.onclick = closeFigureLightbox;
+        document.addEventListener('keydown', onKeyDown);
+        overlay._dprCleanup = () => document.removeEventListener('keydown', onKeyDown);
+        render();
+        overlay.classList.add('is-open');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('dpr-figure-lightbox-open');
       };
 
       const bindPaperFigureCarousels = () => {
@@ -5162,27 +5314,60 @@ window.$docsify = {
             });
           });
 
+          const lightboxItems = slides.map((slide, index) => {
+            const image = slide.querySelector('.paper-figure-image');
+            const caption = slide.querySelector('[data-figure-caption]');
+            const badge = slide.querySelector('.paper-figure-badge');
+            return {
+              src: image ? image.currentSrc || image.src || '' : '',
+              caption: caption ? (caption.textContent || '').trim() : '',
+              label: badge ? (badge.textContent || '').trim() : `Figure ${index + 1}`,
+            };
+          });
+          root.querySelectorAll('[data-figure-lightbox]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const index = Number(btn.getAttribute('data-figure-lightbox') || 0);
+              openFigureLightbox(lightboxItems, index);
+            });
+          });
+          root.querySelectorAll('[data-figure-caption-toggle]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const caption = btn.parentElement ? btn.parentElement.querySelector('[data-figure-caption]') : null;
+              if (!caption) return;
+              const collapsed = caption.classList.toggle('is-collapsed');
+              btn.textContent = collapsed ? 'Expand caption' : 'Collapse caption';
+            });
+          });
+
           render();
         });
       };
 
-      // 根据 front matter 生成论文页面 HTML
       const renderPaperFromMeta = (meta) => {
         if (!meta) return '';
 
-        // 解析标签，生成带颜色的 HTML
         const renderTags = (tags) => {
           if (!tags || !tags.length) return '';
-          return tags.map(tag => {
+          return tags.map((tag) => {
             const [kind, label] = tag.includes(':') ? tag.split(':', 2) : ['other', tag];
             const css = { keyword: 'tag-green', query: 'tag-blue', paper: 'tag-pink' }[kind] || 'tag-pink';
             return `<span class="tag-label ${css}">${escapeHtml(label)}</span>`;
           }).join(' ');
         };
 
+        const scoreValue = meta.score !== undefined && meta.score !== null
+          ? String(meta.score).trim()
+          : '';
+        const scoreLabel = String(meta.score_label || '').trim();
+        const scoreDisplay = scoreValue
+          ? (scoreLabel && !scoreValue.includes(scoreLabel) ? `${scoreValue} ${scoreLabel}` : scoreValue)
+          : '';
+        const sourceDisplay = String(meta.source || meta.selection_source || '').trim();
+        const tagHtml = renderTags(meta.tags || []);
         const lines = [];
 
-        // 标题区域
+        lines.push('<section class="paper-hero-card">');
+        lines.push('<div class="paper-hero-kicker">Paper Brief</div>');
         lines.push('<div class="paper-title-row">');
         if (meta.title) {
           lines.push(`<h1 class="paper-title-en">${escapeHtml(meta.title)}</h1>`);
@@ -5191,71 +5376,59 @@ window.$docsify = {
           lines.push(`<h1 class="paper-title-zh">${escapeHtml(meta.title_zh)}</h1>`);
         }
         lines.push('</div>');
-        lines.push('');
-
-        // 中间区域
-        lines.push('<div class="paper-meta-row">');
-
-        // 左侧：Evidence 和 TLDR
-        lines.push('<div class="paper-meta-left">');
-        if (meta.evidence) {
-          lines.push(`<p><strong>Evidence</strong>: ${escapeHtml(meta.evidence)}</p>`);
-        }
         if (meta.tldr) {
-          lines.push(`<p><strong>TLDR</strong>: ${escapeHtml(meta.tldr)}</p>`);
+          lines.push('<div class="paper-hero-tldr">');
+          lines.push('<span>TLDR</span>');
+          lines.push(`<p>${escapeHtml(meta.tldr)}</p>`);
+          lines.push('</div>');
         }
-        lines.push('</div>');
-
-        // 右侧：基本信息
-        lines.push('<div class="paper-meta-right">');
-        lines.push(`<p><strong>Authors</strong>: ${escapeHtml(meta.authors || 'Unknown')}</p>`);
-        if (meta.source) {
-          lines.push(`<p><strong>Source</strong>: ${escapeHtml(meta.source)}</p>`);
+        lines.push('<div class="paper-hero-meta">');
+        if (scoreDisplay) {
+          lines.push(`<span class="paper-meta-pill is-score"><strong>Score</strong>${escapeHtml(scoreDisplay)}</span>`);
         }
-        lines.push(`<p><strong>Date</strong>: ${escapeHtml(meta.date || 'Unknown')}</p>`);
+        if (sourceDisplay) {
+          lines.push(`<span class="paper-meta-pill"><strong>Source</strong>${escapeHtml(sourceDisplay)}</span>`);
+        }
+        lines.push(`<span class="paper-meta-pill"><strong>Date</strong>${escapeHtml(meta.date || 'Unknown')}</span>`);
         if (meta.pdf) {
-          lines.push(
-            `<p class="paper-meta-link-row"><span class="paper-meta-link-label"><strong>PDF</strong>:</span> <a class="paper-meta-link" href="${escapeHtml(meta.pdf)}" target="_blank">${escapeHtml(meta.pdf)}</a></p>`
-          );
-        }
-        if (meta.tags && meta.tags.length) {
-          lines.push(`<p><strong>Tags</strong>: ${renderTags(meta.tags)}</p>`);
-        }
-        if (meta.score !== undefined && meta.score !== null) {
-          lines.push(`<p><strong>Score</strong>: ${escapeHtml(String(meta.score))}</p>`);
+          lines.push(`<a class="paper-hero-link-btn" href="${escapeHtml(meta.pdf)}" target="_blank" rel="noopener">Open PDF</a>`);
         }
         lines.push('</div>');
-
-        lines.push('</div>');
+        if (tagHtml) {
+          lines.push(`<div class="paper-hero-tags">${tagHtml}</div>`);
+        }
+        if (meta.authors) {
+          lines.push(`<div class="paper-author-line"><span>Authors</span>${escapeHtml(meta.authors || 'Unknown')}</div>`);
+        }
+        if (meta.evidence) {
+          lines.push('<div class="paper-hero-evidence">');
+          lines.push('<span>Evidence</span>');
+          lines.push(`<p>${escapeHtml(meta.evidence)}</p>`);
+          lines.push('</div>');
+        }
+        lines.push('</section>');
         lines.push('');
 
-        // 速览区域
-        if (meta.motivation || meta.method || meta.result || meta.conclusion) {
-          lines.push('<div class="paper-glance-section">');
+        const flowItems = [
+          { key: 'motivation', label: 'Motivation', index: '01' },
+          { key: 'method', label: 'Method', index: '02' },
+          { key: 'result', label: 'Result', index: '03' },
+          { key: 'conclusion', label: 'Takeaway', index: '04' },
+        ].filter((item) => String(meta[item.key] || '').trim());
+
+        if (flowItems.length) {
+          lines.push('<section class="paper-glance-section paper-flow-section">');
+          lines.push('<div class="paper-section-kicker">Research Flow</div>');
           lines.push('<div class="paper-glance-row">');
-
-          lines.push('<div class="paper-glance-col">');
-          lines.push('<div class="paper-glance-label">Motivation</div>');
-          lines.push(`<div class="paper-glance-content">${escapeHtml(meta.motivation || '-')}</div>`);
+          flowItems.forEach((item) => {
+            lines.push('<article class="paper-glance-col">');
+            lines.push(`<div class="paper-flow-index">${item.index}</div>`);
+            lines.push(`<div class="paper-glance-label">${item.label}</div>`);
+            lines.push(`<div class="paper-glance-content">${escapeHtml(meta[item.key] || '-')}</div>`);
+            lines.push('</article>');
+          });
           lines.push('</div>');
-
-          lines.push('<div class="paper-glance-col">');
-          lines.push('<div class="paper-glance-label">Method</div>');
-          lines.push(`<div class="paper-glance-content">${escapeHtml(meta.method || '-')}</div>`);
-          lines.push('</div>');
-
-          lines.push('<div class="paper-glance-col">');
-          lines.push('<div class="paper-glance-label">Result</div>');
-          lines.push(`<div class="paper-glance-content">${escapeHtml(meta.result || '-')}</div>`);
-          lines.push('</div>');
-
-          lines.push('<div class="paper-glance-col">');
-          lines.push('<div class="paper-glance-label">Conclusion</div>');
-          lines.push(`<div class="paper-glance-content">${escapeHtml(meta.conclusion || '-')}</div>`);
-          lines.push('</div>');
-
-          lines.push('</div>');
-          lines.push('</div>');
+          lines.push('</section>');
           lines.push('');
         }
 
@@ -5264,13 +5437,307 @@ window.$docsify = {
           lines.push(renderFigureCarousel(figures));
         }
 
-        // 注意：在 Markdown 中插入 HTML block（如 <hr>）后，需要一个“空行”才能让后续的 `##` 等 Markdown 正常解析。
-        // 这里通过追加两个空行，确保最终输出以 `<hr>\n\n` 结尾。
         lines.push('<hr>');
         lines.push('');
         lines.push('');
 
         return lines.join('\n');
+      };
+
+
+      const DAILY_TEXT = {
+        kicker: 'Daily Research Brief',
+        reportPrefix: '\u65e5\u62a5',
+        generatedAt: '\u751f\u6210\u65f6\u95f4',
+        runStatus: '\u8fd0\u884c\u72b6\u6001',
+        total: '\u603b\u6570',
+        deepQuick: '\u7cbe\u8bfb / \u901f\u8bfb',
+        success: '\u6210\u529f',
+        oldTotal: '\u5f53\u6b21\u63a8\u8350\u603b\u6570',
+        deep: '\u7cbe\u8bfb\u533a',
+        quick: '\u901f\u8bfb\u533a',
+        brief: '\u4eca\u65e5\u7b80\u62a5\uff08AI\uff09',
+        route: '\u4eca\u65e5\u9605\u8bfb\u8def\u7ebf',
+        topics: '\u4eca\u65e5\u4e3b\u9898',
+        evidence: '\u63a8\u8350\u4f9d\u636e',
+        noRoute: '\u6682\u65e0\u53ef\u63a8\u8350\u9605\u8bfb\u8def\u7ebf\u3002',
+        noTopic: '\u6682\u65e0\u4e3b\u9898\u6807\u7b7e\u3002',
+        deepEmpty: '\u672c\u6b21\u65e0\u7cbe\u8bfb\u63a8\u8350\u3002',
+        quickEmpty: '\u672c\u6b21\u65e0\u901f\u8bfb\u63a8\u8350\u3002',
+        keyboard: '\u4f7f\u7528\u952e\u76d8\u65b9\u5411\u952e\u53ef\u5728\u65e5\u62a5/\u8bba\u6587\u4e4b\u95f4\u5feb\u901f\u5207\u6362\u3002',
+      };
+
+      const normalizeDailyText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+      const shortDailyText = (value, limit = 150) => {
+        const dailyText = normalizeDailyText(value);
+        if (dailyText.length <= limit) return dailyText;
+        return `${dailyText.slice(0, Math.max(0, limit - 1)).trim()}\u2026`;
+      };
+
+      const shortDailyGeneratedAt = (value) => {
+        const dailyText = normalizeDailyText(value);
+        const match = dailyText.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::\d{2})?\s*(.*)$/);
+        if (!match) return dailyText;
+        const suffix = match[6] ? ` ${match[6]}` : '';
+        return `${match[1].slice(2)}-${match[2]}-${match[3]} ${match[4]}:${match[5]}${suffix}`.trim();
+      };
+
+      const routeIdFromHref = (href) => {
+        let raw = String(href || '').trim();
+        if (!raw) return '';
+        try {
+          const url = new URL(raw, window.location.href);
+          raw = url.hash ? url.hash : url.pathname;
+        } catch {
+          // Keep raw href.
+        }
+        raw = raw.replace(/^#\/?/, '').replace(/^\/+/, '').replace(/\/$/, '');
+        raw = raw.replace(/\.md$/i, '');
+        return raw;
+      };
+
+      const hashHrefFromRouteId = (routeId) => {
+        const id = String(routeId || '').replace(/^#\/?/, '').replace(/^\/+/, '').replace(/\/$/, '');
+        return id ? `#/${escapeHtml(id)}` : '#/';
+      };
+
+      const cssKindFromTag = (kind) => (
+        String(kind || 'other').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'other'
+      );
+
+      const getSidebarPayloadByRoute = () => {
+        const result = {};
+        const nav = document.querySelector('.sidebar-nav');
+        if (!nav) return result;
+        nav.querySelectorAll('a.dpr-sidebar-item-link[href*="#/"]').forEach((a) => {
+          const routeId = routeIdFromHref(a.getAttribute('href') || '');
+          if (!routeId) return;
+          const raw = a.getAttribute('data-sidebar-item') || '';
+          if (!raw) return;
+          try {
+            const payload = JSON.parse(raw);
+            if (payload && typeof payload === 'object') result[routeId] = payload;
+          } catch {
+            // Ignore malformed legacy payload.
+          }
+        });
+        return result;
+      };
+
+      const parseLegacyDailyMeta = (h1) => {
+        const meta = { generatedAt: '', total: '', deepCount: '', quickCount: '', status: DAILY_TEXT.success };
+        const list = h1 && h1.nextElementSibling && h1.nextElementSibling.tagName === 'UL'
+          ? h1.nextElementSibling
+          : null;
+        if (!list) return meta;
+        Array.from(list.querySelectorAll(':scope > li')).forEach((li) => {
+          const lineText = normalizeDailyText(li.textContent || '');
+          const valueAfter = (label) => lineText.slice(label.length).replace(/^[\uFF1A:\s-]+/, '').trim();
+          if (lineText.startsWith(DAILY_TEXT.generatedAt)) meta.generatedAt = valueAfter(DAILY_TEXT.generatedAt);
+          if (lineText.startsWith(DAILY_TEXT.oldTotal)) meta.total = valueAfter(DAILY_TEXT.oldTotal);
+          if (lineText.startsWith(DAILY_TEXT.total)) meta.total = valueAfter(DAILY_TEXT.total);
+          if (lineText.startsWith(DAILY_TEXT.deep)) meta.deepCount = valueAfter(DAILY_TEXT.deep);
+          if (lineText.startsWith(DAILY_TEXT.quick)) meta.quickCount = valueAfter(DAILY_TEXT.quick);
+        });
+        return meta;
+      };
+
+      const findLegacyDailyHeading = (root, label) => (
+        Array.from(root.querySelectorAll('h2')).find((h) => normalizeDailyText(h.textContent || '') === label) || null
+      );
+
+      const collectLegacyDailySummary = (heading) => {
+        if (!heading) return [];
+        const lines = [];
+        let node = heading.nextElementSibling;
+        while (node && !/^H[12]$/i.test(node.tagName || '') && node.tagName !== 'HR') {
+          if (node.tagName === 'P') {
+            const lineText = normalizeDailyText(node.textContent || '');
+            if (lineText) lines.push(lineText);
+          }
+          node = node.nextElementSibling;
+        }
+        return lines;
+      };
+
+      const parseLegacyDailyEntries = (heading, payloadByRoute) => {
+        if (!heading) return [];
+        let list = heading.nextElementSibling;
+        while (list && !/^(OL|UL)$/i.test(list.tagName || '') && !/^H[12]$/i.test(list.tagName || '')) {
+          list = list.nextElementSibling;
+        }
+        if (!list || !/^(OL|UL)$/i.test(list.tagName || '')) return [];
+        return Array.from(list.querySelectorAll(':scope > li')).map((li) => {
+          const a = li.querySelector('a');
+          const routeId = routeIdFromHref(a ? a.getAttribute('href') || '' : '');
+          const payload = payloadByRoute[routeId] || {};
+          const rawText = normalizeDailyText(li.textContent || '');
+          const scoreMatch = rawText.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\s*10/);
+          const payloadScore = payload && payload.score !== undefined && payload.score !== null
+            ? String(payload.score).trim()
+            : '';
+          const score = scoreMatch ? scoreMatch[1] : payloadScore.replace(/\s.*$/, '');
+          const tags = Array.isArray(payload.tags) ? payload.tags : [];
+          return {
+            routeId,
+            href: a ? a.getAttribute('href') || hashHrefFromRouteId(routeId) : hashHrefFromRouteId(routeId),
+            title: normalizeDailyText((a && a.textContent) || (payload && payload.title) || routeId),
+            titleZh: normalizeDailyText((payload && (payload.title_zh || payload.titleZh)) || ''),
+            score,
+            tags,
+            evidence: normalizeDailyText((payload && payload.evidence) || ''),
+          };
+        }).filter((item) => item.title);
+      };
+
+      const dailyScoreNumber = (item) => {
+        const n = parseFloat(String((item && item.score) || '').replace(/[^\d.+-].*$/, ''));
+        return Number.isFinite(n) ? n : -1;
+      };
+
+      const dailyScoreText = (item) => {
+        const n = dailyScoreNumber(item);
+        if (!Number.isFinite(n) || n < 0) return '';
+        return `${n.toFixed(1)}/10`;
+      };
+
+      const dailyTopicItems = (entries) => {
+        const counts = {};
+        entries.forEach((entry) => {
+          (entry.tags || []).forEach((tag) => {
+            const rawKind = String((tag && tag.kind) || 'other').trim();
+            if (rawKind === 'score') return;
+            const kind = rawKind === 'keyword' ? 'query' : rawKind;
+            const label = String((tag && tag.label) || '').trim();
+            if (!label) return;
+            const key = label.toLowerCase();
+            if (!counts[key]) counts[key] = { label, kind, count: 0 };
+            counts[key].count += 1;
+          });
+        });
+        return Object.values(counts).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 8);
+      };
+
+      const dailyRouteItems = (deepEntries, quickEntries, topics) => {
+        const items = [];
+        if (deepEntries.length) {
+          const best = deepEntries.slice().sort((a, b) => dailyScoreNumber(b) - dailyScoreNumber(a))[0];
+          const score = dailyScoreText(best);
+          items.push(`\u5148\u770b\u7cbe\u8bfb\u533a\u300a${shortDailyText(best.title, 54)}\u300b${score ? `\uff08${score}\uff09` : ''}\uff0c\u5feb\u901f\u5efa\u7acb\u4eca\u5929\u7684\u6838\u5fc3\u95ee\u9898\u610f\u8bc6\u3002`);
+        } else if (quickEntries.length) {
+          items.push(`\u4eca\u5929\u6ca1\u6709\u7cbe\u8bfb\u63a8\u8350\uff0c\u53ef\u5148\u4ece\u901f\u8bfb\u533a\u300a${shortDailyText(quickEntries[0].title, 54)}\u300b\u5f00\u59cb\u626b\u8bfb\u3002`);
+        }
+        if (topics.length) {
+          items.push(`\u6cbf\u7740 ${topics.slice(0, 3).map((item) => item.label).join(' / ')} \u8fd9\u51e0\u4e2a\u4e3b\u9898\u4e32\u8054\u9605\u8bfb\uff0c\u4f18\u5148\u770b\u540c\u4e3b\u9898\u4e0b\u5206\u6570\u66f4\u9ad8\u7684\u8bba\u6587\u3002`);
+        }
+        if (quickEntries.length) {
+          items.push('\u6700\u540e\u7528\u901f\u8bfb\u533a\u8865\u9f50\u76f8\u90bb\u65b9\u5411\uff0c\u53ea\u4fdd\u7559\u503c\u5f97\u540e\u7eed\u6df1\u6316\u7684\u8bba\u6587\u3002');
+        }
+        return items;
+      };
+
+      const dailyTopicChipsHtml = (tags, limit = 5) => (tags || [])
+        .filter((tag) => tag && String(tag.kind || '').trim() !== 'score' && String(tag.label || '').trim())
+        .slice(0, limit)
+        .map((tag) => {
+          const kind = cssKindFromTag(tag.kind === 'keyword' ? 'query' : tag.kind);
+          return `<span class="dpr-daily-topic-chip dpr-daily-topic-${kind}">${escapeHtml(tag.label)}</span>`;
+        })
+        .join('');
+
+      const dailyPaperCardsHtml = (entries, section) => {
+        if (!entries.length) {
+          return `<div class="dpr-daily-empty-note">${escapeHtml(section === 'deep' ? DAILY_TEXT.deepEmpty : DAILY_TEXT.quickEmpty)}</div>`;
+        }
+        return entries.map((entry, index) => {
+          const score = dailyScoreText(entry);
+          const scoreHtml = score ? `<span class="dpr-daily-score-pill">${escapeHtml(score)}</span>` : '';
+          const chips = dailyTopicChipsHtml(entry.tags, section === 'deep' ? 5 : 3);
+          const evidence = shortDailyText(entry.evidence, 170);
+          const titleZh = normalizeDailyText(entry.titleZh || entry.title_zh || '');
+          const titleZhHtml = titleZh
+            ? `<div class="dpr-daily-paper-title-zh">${escapeHtml(titleZh)}</div>`
+            : '';
+          const evidenceHtml = evidence
+            ? `<div class="dpr-daily-paper-evidence"><span>${escapeHtml(DAILY_TEXT.evidence)}</span>${escapeHtml(evidence)}</div>`
+            : '';
+          return [
+            `<article class="dpr-daily-paper-card is-${section}">`,
+            `  <div class="dpr-daily-paper-index">${String(index + 1).padStart(2, '0')}</div>`,
+            '  <div class="dpr-daily-paper-main">',
+            `    <a class="dpr-daily-paper-title" href="${hashHrefFromRouteId(entry.routeId) || escapeHtml(entry.href)}">${escapeHtml(entry.title)}</a>`,
+            titleZhHtml,
+            `    <div class="dpr-daily-paper-meta">${scoreHtml}${chips}</div>`,
+            `    ${evidenceHtml}`,
+            '  </div>',
+            '</article>',
+          ].join('\n');
+        }).join('\n');
+      };
+
+      const renderLegacyDailyReportHtml = ({ title, meta, summaryLines, deepEntries, quickEntries }) => {
+        const total = deepEntries.length + quickEntries.length;
+        const topics = dailyTopicItems(deepEntries.concat(quickEntries));
+        const topicCloud = topics.map((item) => {
+          const kind = cssKindFromTag(item.kind);
+          return `<span class="dpr-daily-topic-pill dpr-daily-topic-${kind}">${escapeHtml(item.label)}<em>${item.count}</em></span>`;
+        }).join('\n');
+        const summaryHtml = summaryLines.slice(0, 3).map((line) => `<p>${escapeHtml(line)}</p>`).join('\n');
+        const deepCount = meta.deepCount || String(deepEntries.length);
+        const quickCount = meta.quickCount || String(quickEntries.length);
+        return [
+          '<section class="dpr-daily-report">',
+          '  <div class="dpr-daily-hero">',
+          `    <div class="dpr-daily-kicker">${escapeHtml(DAILY_TEXT.kicker)}</div>`,
+          `    <h1>${escapeHtml(title)}</h1>`,
+          `    <div class="dpr-daily-stats" aria-label="${escapeHtml(DAILY_TEXT.reportPrefix)}">`,
+          `      <div class="dpr-daily-stat"><span>${escapeHtml(DAILY_TEXT.generatedAt)}</span><strong>${escapeHtml(shortDailyGeneratedAt(meta.generatedAt) || '-')}</strong></div>`,
+          `      <div class="dpr-daily-stat"><span>${escapeHtml(DAILY_TEXT.runStatus)}</span><strong>${escapeHtml(meta.status || DAILY_TEXT.success)}</strong></div>`,
+          `      <div class="dpr-daily-stat"><span>${escapeHtml(DAILY_TEXT.total)}</span><strong>${escapeHtml(meta.total || String(total))}</strong></div>`,
+          `      <div class="dpr-daily-stat"><span>${escapeHtml(DAILY_TEXT.deepQuick)}</span><strong>${escapeHtml(`${deepCount} / ${quickCount}`)}</strong></div>`,
+          `      <div class="dpr-daily-stat dpr-daily-topic-stat"><span>${escapeHtml(DAILY_TEXT.topics)}</span>${topicCloud ? `<div class="dpr-daily-topic-cloud">${topicCloud}</div>` : `<strong>${escapeHtml(DAILY_TEXT.noTopic)}</strong>`}</div>`,
+          '    </div>',
+          summaryHtml ? '    <div class="dpr-daily-brief-card">' : '',
+          summaryHtml ? `      <span>${escapeHtml(DAILY_TEXT.brief)}</span>` : '',
+          summaryHtml ? `      ${summaryHtml}` : '',
+          summaryHtml ? '    </div>' : '',
+          '  </div>',
+          '  <section class="dpr-daily-paper-section is-deep">',
+          `    <h2>${escapeHtml(DAILY_TEXT.deep)}</h2>`,
+          `    <div class="dpr-daily-paper-grid">${dailyPaperCardsHtml(deepEntries, 'deep')}</div>`,
+          '  </section>',
+          '  <section class="dpr-daily-paper-section is-quick">',
+          `    <h2>${escapeHtml(DAILY_TEXT.quick)}</h2>`,
+          `    <div class="dpr-daily-paper-grid">${dailyPaperCardsHtml(quickEntries, 'quick')}</div>`,
+          '  </section>',
+          '</section>',
+          '<hr>',
+          `<div class="dpr-daily-keyboard-tip"><span>\u5feb\u6377\u5207\u6362</span><strong>${escapeHtml(DAILY_TEXT.keyboard)}</strong></div>`,
+        ].filter(Boolean).join('\n');
+      };
+
+      const applyLegacyDailyReportCards = (root) => {
+        if (!root || root.querySelector('.dpr-daily-report')) return;
+        const h1 = root.querySelector(':scope > h1');
+        const title = normalizeDailyText(h1 && h1.textContent ? h1.textContent : '');
+        if (!title || !title.startsWith(DAILY_TEXT.reportPrefix)) return;
+        const payloadByRoute = getSidebarPayloadByRoute();
+        const deepHeading = findLegacyDailyHeading(root, DAILY_TEXT.deep);
+        const quickHeading = findLegacyDailyHeading(root, DAILY_TEXT.quick);
+        const summaryHeading = findLegacyDailyHeading(root, DAILY_TEXT.brief);
+        const deepEntries = parseLegacyDailyEntries(deepHeading, payloadByRoute);
+        const quickEntries = parseLegacyDailyEntries(quickHeading, payloadByRoute);
+        if (!deepEntries.length && !quickEntries.length) return;
+        const meta = parseLegacyDailyMeta(h1);
+        const summaryLines = collectLegacyDailySummary(summaryHeading);
+        root.innerHTML = renderLegacyDailyReportHtml({
+          title,
+          meta,
+          summaryLines,
+          deepEntries,
+          quickEntries,
+        });
       };
 
       // --- Docsify beforeEach 钩子：解析 front matter ---
@@ -5335,6 +5802,7 @@ window.$docsify = {
           // 先创建正文包装层，避免后续切页动画影响聊天浮层
           const root = isPaperPage ? ensurePageContentRoot() : null;
           const mathRoot = root || mainContent;
+          if (isReportPage) applyLegacyDailyReportCards(mathRoot);
           restoreMarkdownMathPlaceholdersInEl(mathRoot);
           renderMathInEl(mathRoot);
         }

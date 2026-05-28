@@ -175,6 +175,27 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
         self.assertEqual(len(figures), 1)
         self.assertEqual(figures[0]["url"], "assets/figures/arxiv/1234.5678/fig-001.webp")
 
+    def test_build_markdown_content_writes_score_label(self):
+        paper = {
+            "title": "Subscription Score Test",
+            "authors": ["Ada Lovelace"],
+            "published": "2026-05-27",
+            "abstract": "abstract body",
+            "source": "local-pdf",
+            "llm_score": 8.5,
+            "score_label": "订阅评分",
+        }
+        md = self.mod.build_markdown_content(paper, "deep", "", "", [])
+        meta = self.mod._parse_front_matter(md)
+        self.assertEqual(meta["score"], "8.5 订阅评分")
+        self.assertEqual(meta["score_label"], "订阅评分")
+
+    def test_subscription_score_label_still_maps_to_stars(self):
+        self.assertEqual(self.mod.score_to_star_rating("8.5 订阅评分"), 4.5)
+        html = self.mod.build_sidebar_stars_html("8.5 订阅评分")
+        self.assertIn("订阅评分", html)
+        self.assertIn("评分：8.5/10", html)
+
     def test_maybe_generate_paper_figures_accepts_biorxiv(self):
         calls = []
 
@@ -216,7 +237,9 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
 
             self.assertFalse((docs_dir / "_home_notice.md").exists())
             self.assertFalse((docs_dir / "_home_promo.md").exists())
-            self.assertIn("## 最新日报", content)
+            self.assertIn("<h3>最新日报</h3>", content)
+            self.assertNotIn("## 最新日报", content)
+            self.assertNotIn("<h3>日报 · 2026-05-19</h3>", content)
             self.assertNotIn("Start Here", content)
             forbidden_phrases = [
                 "".join(["宣传", "占位"]),
@@ -226,6 +249,28 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
             ]
             for phrase in forbidden_phrases:
                 self.assertNotIn(phrase, content)
+
+    def test_daily_report_card_includes_chinese_title(self):
+        content = self.mod.build_daily_report_html(
+            date_str="20260528",
+            date_label="2026-05-28",
+            generated_at="2026-05-28 09:30:00 北京时间",
+            recommend_exists=True,
+            deep_entries=[
+                (
+                    "202605/28/test-paper",
+                    "Test Paper Title",
+                    "测试论文标题",
+                    [("score", "9.0"), ("query", "alignment")],
+                )
+            ],
+            quick_entries=[],
+            paper_evidence_by_id={"202605/28/test-paper": "matches the subscription"},
+            summary="今日推荐 1 篇论文。",
+        )
+
+        self.assertIn('class="dpr-daily-paper-title"', content)
+        self.assertIn('<div class="dpr-daily-paper-title-zh">测试论文标题</div>', content)
 
     def test_update_sidebar_removes_initial_empty_daily_placeholder(self):
         with tempfile.TemporaryDirectory() as d:

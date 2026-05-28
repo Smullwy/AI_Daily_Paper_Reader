@@ -53,6 +53,79 @@ assert.match(
   ),
   /^docs\/assets\/local_pdfs\/uploads\/\d{8}-\d{6}-[a-z0-9]+-lightglue-local-feature-matching-at-light-speed\.pdf$/,
 );
+assert.match(
+  helpers.buildUploadBatchId(new Date(Date.UTC(2026, 4, 25, 10, 11, 12))),
+  /^batch-\d{8}-\d{6}-[a-z0-9]+$/,
+);
+assert.strictEqual(
+  helpers.buildBatchUploadPath('batch-demo', 1, 'A Paper.pdf'),
+  'docs/assets/local_pdfs/uploads/batch-demo/002-a-paper.pdf',
+);
+assert.strictEqual(
+  helpers.buildBatchManifestPath('batch-demo'),
+  'docs/assets/local_pdfs/uploads/batch-demo/manifest.json',
+);
+assert.deepStrictEqual(
+  helpers.buildLocalPdfBatchManifest(
+    [
+      {
+        clientId: 'item-1',
+        uploadPath: 'docs/assets/local_pdfs/uploads/batch-demo/001-paper.pdf',
+        fileName: 'paper.pdf',
+        titleOverride: 'Correct Title',
+      },
+    ],
+    new Date('2026-05-25T10:11:12.000Z'),
+  ),
+  {
+    version: 1,
+    created_at: '2026-05-25T10:11:12.000Z',
+    items: [
+      {
+        client_id: 'item-1',
+        upload_path: 'docs/assets/local_pdfs/uploads/batch-demo/001-paper.pdf',
+        original_filename: 'paper.pdf',
+        title_override: 'Correct Title',
+        order: 1,
+      },
+    ],
+  },
+);
+assert.deepStrictEqual(
+  helpers.normalizePdfFiles([
+    { name: 'paper-a.pdf', type: 'application/pdf' },
+    { name: 'paper-b.PDF', type: '' },
+    { name: 'notes.txt', type: 'text/plain' },
+  ]).map((file) => file.name),
+  ['paper-a.pdf', 'paper-b.PDF'],
+);
+
+const importItem = helpers.buildImportQueueItem(
+  { name: 'wrong-title.pdf', type: 'application/pdf', size: 2048 },
+  'item-1',
+);
+assert.strictEqual(importItem.status, 'queued');
+assert.strictEqual(importItem.fileSizeText, '2.0 KB');
+const appendedQueue = helpers.appendImportQueueItems(
+  [importItem],
+  [
+    { name: 'second.pdf', type: 'application/pdf', size: 1024 },
+    { name: 'third.pdf', type: 'application/pdf', size: 1024 },
+  ],
+);
+assert.deepStrictEqual(appendedQueue.map((item) => item.fileName), [
+  'wrong-title.pdf',
+  'second.pdf',
+  'third.pdf',
+]);
+const renamedQueue = helpers.updateImportQueueItemTitle(
+  [{ ...importItem, result: { title: 'Wrong Title', fileName: 'wrong-title.pdf' } }],
+  'item-1',
+  'Corrected Paper Title',
+);
+assert.strictEqual(helpers.getImportItemTitle(renamedQueue[0]), 'Corrected Paper Title');
+assert.strictEqual(renamedQueue[0].result.title, 'Corrected Paper Title');
+assert.deepStrictEqual(helpers.deleteImportQueueItem(renamedQueue, 'item-1'), []);
 
 const sampleText = [
   'Activation Geometry for Neural Models',
