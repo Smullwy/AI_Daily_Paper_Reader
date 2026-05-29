@@ -16,8 +16,13 @@ const {
   parseFrontMatter,
   parseFiguresMeta,
   createInventory,
+  createTrashInventory,
   buildDeletePlan,
   enrichDeletePlan,
+  appendPlanToTrashManifest,
+  buildTrashActionPlan,
+  removeTrashPlanFromManifest,
+  mergeSidebarContextLines,
   summarizePlan,
   removeSidebarLines,
   pathMatchesRuntime,
@@ -107,6 +112,132 @@ async function testEnrichedPlanIncludesPdfAndFigures() {
   assert.ok(summary.fileCount >= 4);
 }
 
+function testTrashManifestAndRestorePlan() {
+  const inventory = buildInventory();
+  const selected = new Set(['paper:local-pdf/20260529/local-demo']);
+  const basePlan = buildDeletePlan(inventory, selected);
+  const plan = {
+    ...basePlan,
+    metadataLoaded: true,
+    paths: [
+      ...basePlan.paths,
+      'docs/assets/local_pdfs/local-demo.pdf',
+      'docs/assets/figures/local-pdf/local-demo/',
+    ],
+  };
+  const manifest = appendPlanToTrashManifest({ items: [] }, plan, 'settings');
+  assert.equal(manifest.items.length, 1);
+  assert.equal(manifest.items[0].groupKey, 'local:20260529');
+  assert.ok(manifest.items[0].paths.includes('docs/local-pdf/20260529/local-demo.md'));
+  assert.ok(manifest.items[0].sidebarContextLines.some((line) => line.includes('#/local-pdf/20260529/local-demo')));
+
+  const tree = [
+    { path: 'trash/docs/local-pdf/20260529/local-demo.md', type: 'blob', size: 500 },
+    { path: 'trash/docs/local-pdf/20260529/local-demo.txt', type: 'blob', size: 600 },
+    { path: 'trash/docs/assets/local_pdfs/local-demo.pdf', type: 'blob', size: 700 },
+    { path: 'trash/docs/assets/figures/local-pdf/local-demo/fig-001.webp', type: 'blob', size: 800 },
+    { path: 'trash/manifest.json', type: 'blob', size: 300 },
+  ];
+  const trash = createTrashInventory({ tree, manifest });
+  assert.equal(trash.leaves.length, 1);
+  assert.equal(trash.roots[1].children[0].label, '2026-05-29');
+  const restorePlan = buildTrashActionPlan(trash, new Set([trash.leaves[0].id]));
+  assert.equal(restorePlan.leaves.length, 1);
+  assert.ok(restorePlan.paths.includes('docs/local-pdf/20260529/local-demo.md'));
+  const cleaned = removeTrashPlanFromManifest(manifest, restorePlan);
+  assert.equal(cleaned.items.length, 0);
+}
+
+function testMergeSidebarContextLines() {
+  const current = [
+    '* Daily Papers',
+    '* 本地 PDF 解析',
+    '  * <a class="dpr-sidebar-brief-link" href="#/local-pdf">上传解析</a>',
+  ].join('\n');
+  const restored = mergeSidebarContextLines(current, [[
+    '* 本地 PDF 解析',
+    '  * 2026-05-29',
+    '    * <a class="dpr-sidebar-item-link" href="#/local-pdf/20260529/local-demo">Local Demo</a>',
+  ]]);
+  assert.ok(restored.includes('  * 2026-05-29'));
+  assert.ok(restored.includes('#/local-pdf/20260529/local-demo'));
+  assert.equal((restored.match(/本地 PDF 解析/g) || []).length, 1);
+}
+
+function testMergeSidebarContextLinesScopesDuplicateSectionNames() {
+  const current = [
+    '* Daily Papers',
+    '  * 2026-05-29 <!--dpr-date:20260529-->',
+    '    * 精读区',
+    '      * <a class="dpr-sidebar-item-link" href="#/202605/29/today-paper">Today Paper</a>',
+    '  * 2026-05-28 <!--dpr-date:20260528-->',
+    '    * <a class="dpr-sidebar-brief-link" href="#/202605/28/README">日报</a>',
+    '    * 精读区',
+    '      * <a class="dpr-sidebar-item-link" href="#/202605/28/kept-paper">Kept Paper</a>',
+  ].join('\n');
+  const restored = mergeSidebarContextLines(current, [[
+    '* Daily Papers',
+    '  * 2026-05-28 <!--dpr-date:20260528-->',
+    '    * 精读区',
+    '      * <a class="dpr-sidebar-item-link" href="#/202605/28/restored-paper">Restored Paper</a>',
+  ]]);
+  const todayIndex = restored.indexOf('#/202605/29/today-paper');
+  const date28Index = restored.indexOf('2026-05-28');
+  const restoredIndex = restored.indexOf('#/202605/28/restored-paper');
+  const keptIndex = restored.indexOf('#/202605/28/kept-paper');
+  assert.ok(restoredIndex > date28Index);
+  assert.ok(restoredIndex > todayIndex);
+  assert.ok(restoredIndex > keptIndex);
+}
+
+function testRestorePlanRepairsStaleSidebarContextDate() {
+  const href = '#/202605/28/restored-paper';
+  const leafLine = `      * <a class="dpr-sidebar-item-link" href="${href}">Restored Paper</a>`;
+  const manifest = {
+    version: 1,
+    items: [{
+      id: 'stale-context',
+      routeId: '202605/28/restored-paper',
+      href,
+      type: 'daily',
+      groupKey: 'daily:202605/28',
+      label: 'Restored Paper',
+      paths: ['docs/202605/28/restored-paper.md'],
+      sidebarContextLines: [
+        '* Daily Papers',
+        '  * 2026-05-29 <!--dpr-date:20260529-->',
+        '    * 精读区',
+        leafLine,
+      ],
+    }],
+    extras: [],
+  };
+  const trash = createTrashInventory({
+    tree: [{ path: 'trash/docs/202605/28/restored-paper.md', type: 'blob', size: 200 }],
+    manifest,
+  });
+  const plan = buildTrashActionPlan(trash, new Set(['trash-paper:stale-context']));
+  assert.ok(plan.contextGroups[0].includes('  * 2026-05-28 <!--dpr-date:20260528-->'));
+  assert.ok(!plan.contextGroups[0].includes('  * 2026-05-29 <!--dpr-date:20260529-->'));
+
+  const current = [
+    '* Daily Papers',
+    '  * 2026-05-29 <!--dpr-date:20260529-->',
+    '    * 精读区',
+    leafLine,
+    '  * 2026-05-28 <!--dpr-date:20260528-->',
+    '    * 精读区',
+    '      * <a class="dpr-sidebar-item-link" href="#/202605/28/kept-paper">Kept Paper</a>',
+  ].join('\n');
+  const restored = mergeSidebarContextLines(current, plan.contextGroups);
+  const date29Index = restored.indexOf('2026-05-29');
+  const date28Index = restored.indexOf('2026-05-28');
+  const restoredIndex = restored.indexOf(href);
+  const block29 = restored.slice(date29Index, date28Index);
+  assert.ok(!block29.includes(href));
+  assert.ok(restoredIndex > date28Index);
+}
+
 function testHelpers() {
   assert.equal(DELETE_CONFIRM_PHRASE, '删除运行态');
   assert.equal(RESTORE_CONFIRM_PHRASE, '恢复运行态');
@@ -140,11 +271,194 @@ function testRemoveSidebarLines() {
   assert.ok(next.includes('* Daily Papers'));
 }
 
+function createStorageContainerStub() {
+  return {
+    dataset: {},
+    innerHTML: '',
+    addEventListener() {},
+    removeEventListener() {},
+    querySelector() {
+      return null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+  };
+}
+
+function createDocumentStub() {
+  const appended = [];
+  const createElement = (tagName = 'div') => {
+    const children = [];
+    const el = {
+      tagName,
+      className: '',
+      dataset: {},
+      hidden: false,
+      innerHTML: '',
+      parentNode: null,
+      style: {},
+      textContent: '',
+      children,
+      classList: {
+        add(...names) {
+          const current = new Set(String(el.className || '').split(/\s+/).filter(Boolean));
+          names.forEach((name) => current.add(name));
+          el.className = Array.from(current).join(' ');
+        },
+        remove(...names) {
+          const current = new Set(String(el.className || '').split(/\s+/).filter(Boolean));
+          names.forEach((name) => current.delete(name));
+          el.className = Array.from(current).join(' ');
+        },
+        contains(name) {
+          return String(el.className || '').split(/\s+/).includes(name);
+        },
+      },
+      appendChild(child) {
+        child.parentNode = el;
+        children.push(child);
+        if (el === body) appended.push(child);
+      },
+      addEventListener() {},
+      remove() {
+        const index = appended.indexOf(el);
+        if (index >= 0) appended.splice(index, 1);
+      },
+      querySelector(selector) {
+        if (selector === '[data-storage-progress-message]') {
+          el._progressMessage = el._progressMessage || createElement('p');
+          return el._progressMessage;
+        }
+        if (selector === '[data-storage-progress-close]') {
+          el._progressClose = el._progressClose || createElement('button');
+          return el._progressClose;
+        }
+        if (selector === '.dpr-storage-modal-body') {
+          el._modalBody = el._modalBody || createElement('div');
+          return el._modalBody;
+        }
+        return null;
+      },
+      querySelectorAll() {
+        return [];
+      },
+      setAttribute() {},
+      focus() {},
+    };
+    return el;
+  };
+  const body = createElement('body');
+  return {
+    appended,
+    body,
+    createElement,
+    getElementById() {
+      return null;
+    },
+  };
+}
+
+async function testRefreshIfEmptyDoesNotAutoScan() {
+  global.document = global.document || {
+    getElementById() {
+      return null;
+    },
+  };
+  let scanCount = 0;
+  const container = createStorageContainerStub();
+  const api = {
+    async listRepoTree() {
+      scanCount += 1;
+      return [];
+    },
+    async loadRepoTextFile() {
+      return { content: '' };
+    },
+  };
+
+  global.window.DPRStorageManager.mount(container, { api });
+  global.window.DPRStorageManager.refreshIfEmpty();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.equal(scanCount, 0);
+  assert.ok(container.innerHTML.includes('删除前请先扫描运行态文件'));
+  assert.ok(container.innerHTML.includes('想执行删除前，请先点击上方“扫描运行态文件”。'));
+}
+
+async function testOpenTrashShowsBlockingProgressBeforeScanCompletes() {
+  const documentStub = createDocumentStub();
+  global.document = documentStub;
+  global.requestAnimationFrame = (fn) => fn();
+
+  let scanCount = 0;
+  let resolveTree;
+  const treePromise = new Promise((resolve) => {
+    resolveTree = resolve;
+  });
+  const api = {
+    async listRepoTree() {
+      scanCount += 1;
+      return treePromise;
+    },
+    async loadRepoTextFile(path) {
+      assert.equal(path, 'trash/manifest.json');
+      return { content: '{"items":[]}' };
+    },
+  };
+
+  global.window.DPRStorageManager.mount(createStorageContainerStub(), { api });
+  const openPromise = global.window.DPRStorageManager.openTrashModal();
+
+  assert.equal(scanCount, 1);
+  assert.ok(
+    documentStub.appended.some((el) =>
+      String(el.className || '').includes('dpr-storage-progress-overlay')),
+  );
+
+  resolveTree({ files: [{ path: 'trash/manifest.json', type: 'blob', size: 20 }] });
+  await openPromise;
+
+  assert.ok(
+    documentStub.appended.some((el) =>
+      String(el.className || '').includes('dpr-storage-trash-modal-overlay')),
+  );
+}
+
+async function testRuntimeMutationDoesNotForceReload() {
+  const runtime = global.window.DPRStorageManager.__runtime;
+  const originalLocation = global.window.location;
+  let reloadCount = 0;
+  global.window.location = {
+    href: 'https://example.github.io/AI_Daily_Paper_Reader/#/202605/28/demo',
+    hash: '#/202605/28/demo',
+    reload() {
+      reloadCount += 1;
+    },
+  };
+
+  await runtime.reloadAfterRuntimeMutation({
+    impacted: true,
+    removedHrefs: ['#/202605/28/demo'],
+  });
+
+  assert.equal(global.window.location.hash, '#/');
+  assert.equal(reloadCount, 0);
+  global.window.location = originalLocation;
+}
+
 (async function run() {
   testRouteRecognition();
   testInventoryAndSelectionPlan();
   await testEnrichedPlanIncludesPdfAndFigures();
+  testTrashManifestAndRestorePlan();
+  testMergeSidebarContextLines();
+  testMergeSidebarContextLinesScopesDuplicateSectionNames();
+  testRestorePlanRepairsStaleSidebarContextDate();
   testHelpers();
   testRemoveSidebarLines();
+  await testRefreshIfEmptyDoesNotAutoScan();
+  await testOpenTrashShowsBlockingProgressBeforeScanCompletes();
+  await testRuntimeMutationDoesNotForceReload();
   console.log('storage manager tests passed');
 })();

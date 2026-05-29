@@ -1,4 +1,50 @@
 // Docsify 配置与公共插件（评论区 + Zotero 元数据）
+(() => {
+  if (window.__dprSidebarCacheBusterInstalled) return;
+  window.__dprSidebarCacheBusterInstalled = true;
+
+  const refreshSidebarCacheBuster = () => {
+    window.DPR_SIDEBAR_CACHE_BUSTER = `${Date.now()}`;
+    return window.DPR_SIDEBAR_CACHE_BUSTER;
+  };
+  window.DPR_REFRESH_SIDEBAR_CACHE_BUSTER = refreshSidebarCacheBuster;
+  refreshSidebarCacheBuster();
+
+  const appendSidebarCacheBuster = (url) => {
+    if (typeof url !== 'string') return url;
+    const [beforeHash, hashPart = ''] = url.split('#');
+    const pathPart = beforeHash.split('?')[0];
+    if (!/(^|\/)_sidebar\.md$/i.test(pathPart)) return url;
+    const token = encodeURIComponent(window.DPR_SIDEBAR_CACHE_BUSTER || refreshSidebarCacheBuster());
+    const nextBeforeHash = /([?&])dpr_v=/.test(beforeHash)
+      ? beforeHash.replace(/([?&]dpr_v=)[^&#]*/i, `$1${token}`)
+      : `${beforeHash}${beforeHash.includes('?') ? '&' : '?'}dpr_v=${token}`;
+    return `${nextBeforeHash}${hashPart ? `#${hashPart}` : ''}`;
+  };
+
+  window.DPRAppendSidebarCacheBuster = appendSidebarCacheBuster;
+
+  if (typeof XMLHttpRequest !== 'undefined' && XMLHttpRequest.prototype && XMLHttpRequest.prototype.open) {
+    const originalOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function dprOpen(method, url, ...rest) {
+      return originalOpen.call(this, method, appendSidebarCacheBuster(url), ...rest);
+    };
+  }
+
+  if (typeof window.fetch === 'function') {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      if (typeof Request !== 'undefined' && input instanceof Request) {
+        const nextUrl = appendSidebarCacheBuster(input.url);
+        if (nextUrl !== input.url) {
+          return originalFetch(new Request(nextUrl, input), init);
+        }
+      }
+      return originalFetch(appendSidebarCacheBuster(input), init);
+    };
+  }
+})();
+
 window.$docsify = {
   name:
     '<span class="dpr-brand"><img class="dpr-brand-logo" src="app/asserts/adpr-logo.svg" alt="" aria-hidden="true"><span class="dpr-brand-text">ADPR</span></span>',
@@ -47,6 +93,15 @@ window.$docsify = {
       };
 
       const defaultAuthors = ['Daily Paper Reader Team', 'Docsify Renderer'];
+
+      const stripSidebarEmoji = (value) =>
+        String(value || '')
+          .replace(/^(?:[\s\uFE0F\u200D]*(?:[\u2600-\u27BF]|[\u{1F300}-\u{1FAFF}])\uFE0F?\s*)+/u, '')
+          .trim();
+
+      window.DPRSidebarUtils = Object.assign({}, window.DPRSidebarUtils || {}, {
+        stripSidebarEmoji,
+      });
 
       // Zotero 摘要结构标记：方便后续在 Zotero 插件中重新解析
       const START_MARKER = '【🤖 AI Summary】';
@@ -1411,11 +1466,6 @@ window.$docsify = {
           if (raw.startsWith('#')) return `#/${raw.slice(1).replace(/^\//, '')}`;
           return `#/${raw.replace(/^\//, '')}`;
         };
-
-        const stripSidebarEmoji = (value) =>
-          String(value || '')
-            .replace(/^(?:[\s\uFE0F\u200D]*(?:[\u2600-\u27BF]|[\u{1F300}-\u{1FAFF}])\uFE0F?\s*)+/u, '')
-            .trim();
 
         const getSidebarEmoji = (type, text) => {
           const value = stripSidebarEmoji(text);
@@ -3568,7 +3618,7 @@ window.$docsify = {
           const titleEl = document.createElement('div');
           titleEl.id = 'dpr-sidebar-delete-confirm-title';
           titleEl.className = 'dpr-sidebar-delete-confirm-title';
-          titleEl.textContent = '删除侧栏条目';
+          titleEl.textContent = '移入回收站';
           const paperEl = document.createElement('div');
           paperEl.className = 'dpr-sidebar-delete-confirm-paper';
           paperEl.textContent = String(title || '该条目').trim() || '该条目';
@@ -3582,7 +3632,7 @@ window.$docsify = {
           desc.id = 'dpr-sidebar-delete-confirm-desc';
           desc.className = 'dpr-sidebar-delete-confirm-desc';
           desc.textContent =
-            '确认后会提交一次仓库修改，从精读/速读列表移除该条目，并删除对应的 Markdown、TXT、本地 PDF 与图片资源。';
+            '确认后仅将该文献及相关 Markdown、TXT、PDF 与图片资源移入回收站；可在设置页回收站彻底删除或恢复。';
 
           const actions = document.createElement('div');
           actions.className = 'dpr-sidebar-delete-confirm-actions';
@@ -3593,7 +3643,7 @@ window.$docsify = {
           const deleteBtn = document.createElement('button');
           deleteBtn.type = 'button';
           deleteBtn.className = 'dpr-sidebar-delete-confirm-btn danger';
-          deleteBtn.textContent = '删除条目';
+          deleteBtn.textContent = '确认删除';
           actions.appendChild(cancelBtn);
           actions.appendChild(deleteBtn);
 
@@ -3684,12 +3734,21 @@ window.$docsify = {
 
       const deleteSidebarEntryFromRepo = async ({ href, title }) => {
         const api = window.SubscriptionsGithubToken;
+        const storageRuntime = window.DPRStorageManager && window.DPRStorageManager.__runtime;
         if (
           !api ||
           typeof api.loadRepoTextFile !== 'function' ||
-          typeof api.commitRepoChanges !== 'function'
+          typeof api.moveRepoPathsToTrash !== 'function'
         ) {
           throw new Error('GitHub Token 模块尚未加载，无法写回仓库。');
+        }
+        if (
+          !storageRuntime ||
+          typeof storageRuntime.loadTrashManifest !== 'function' ||
+          typeof storageRuntime.serializeTrashManifest !== 'function' ||
+          typeof storageRuntime.buildSidebarTrashItem !== 'function'
+        ) {
+          throw new Error('运行态回收站模块尚未加载。');
         }
         const targetHref = normalizeSidebarDeleteHref(href);
         const sidebarFile = await api.loadRepoTextFile('docs/_sidebar.md', {
@@ -3700,14 +3759,31 @@ window.$docsify = {
           throw new Error('未在 docs/_sidebar.md 中找到这个侧栏条目。');
         }
         const deletePaths = await collectSidebarEntryRelatedDeletePaths({ api, href: targetHref });
-        return api.commitRepoChanges(
+        const manifest = await storageRuntime.loadTrashManifest(api);
+        const trashItem = storageRuntime.buildSidebarTrashItem({
+          href: targetHref,
+          title,
+          paths: deletePaths,
+          sidebar: sidebarFile.content,
+        });
+        const nextManifest = storageRuntime.normalizeTrashManifest(manifest);
+        nextManifest.items.push(trashItem);
+        const updates = [
+          { path: 'docs/_sidebar.md', content: nextSidebar },
           {
-            updates: [{ path: 'docs/_sidebar.md', content: nextSidebar }],
-            deletes: deletePaths,
+            path: storageRuntime.TRASH_MANIFEST_PATH || 'trash/manifest.json',
+            content: storageRuntime.serializeTrashManifest(nextManifest),
           },
-          `chore: remove sidebar paper entry: ${String(title || '').slice(0, 72)}`,
+        ];
+        const result = await api.moveRepoPathsToTrash(
+          {
+            paths: deletePaths,
+            updates,
+          },
+          `chore: move sidebar paper to trash: ${String(title || '').slice(0, 72)}`,
           { requireWorkflow: false },
         );
+        return { ...result, paths: deletePaths, href: targetHref };
       };
 
       const ensureSidebarEntryDeleteButtons = () => {
@@ -3758,22 +3834,46 @@ window.$docsify = {
             btn.disabled = true;
             btn.classList.add('is-busy');
             li.classList.add('sidebar-paper-delete-busy');
+            const storageRuntime = window.DPRStorageManager && window.DPRStorageManager.__runtime;
+            const progress = storageRuntime && typeof storageRuntime.showBlockingProgress === 'function'
+              ? storageRuntime.showBlockingProgress({
+                title: '正在移入回收站',
+                message: '正在准备删除计划...',
+                tone: 'danger',
+              })
+              : null;
             try {
-              await deleteSidebarEntryFromRepo({ href, title });
+              if (progress) progress.setMessage('正在移动文件到回收站...');
+              const result = await deleteSidebarEntryFromRepo({ href, title });
               removeSidebarLiAndEmptySection(li);
               updateNavState();
-              if (currentHref && currentHref === href) {
+              const impacted = currentHref && (
+                currentHref === normalizeSidebarDeleteHref(href) ||
+                (storageRuntime && typeof storageRuntime.routeImpactedByPaths === 'function'
+                  ? storageRuntime.routeImpactedByPaths(currentHref, (result && result.paths) || [])
+                  : false)
+              );
+              if (impacted) {
+                window.location.hash = fallbackHref || '#/';
+              } else if (currentHref && currentHref === href) {
                 window.location.hash = fallbackHref || '#/';
               }
               requestAnimationFrame(() => {
                 syncSidebarActiveIndicator({ animate: false });
               });
-              window.alert('已删除侧栏条目及对应仓库文件。GitHub Pages 部署和缓存刷新后，其他设备也会同步。');
+              if (progress) {
+                progress.setMessage('已移入回收站，可在设置页恢复或彻底删除。');
+                progress.close();
+              }
             } catch (err) {
               btn.disabled = false;
               btn.classList.remove('is-busy');
               li.classList.remove('sidebar-paper-delete-busy');
-              window.alert(`删除失败：${err && err.message ? err.message : err}`);
+              if (progress) {
+                progress.setError(`删除失败：${err && err.message ? err.message : err}`);
+              } else {
+                window.alert(`删除失败：${err && err.message ? err.message : err}`);
+              }
             }
           });
           li.appendChild(btn);
