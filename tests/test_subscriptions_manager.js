@@ -13,6 +13,8 @@ const {
   resolvePaperWindows,
   getWindowWarningText,
   buildEmailWorkflowCron,
+  normalizeResearchDirections,
+  resolveResearchDirections,
 } = global.window.SubscriptionsManager.__test;
 
 function buildBaseConfig() {
@@ -136,11 +138,11 @@ function testNormalizeSubscriptionsDefaultsDailyPaperLimits() {
   assert.equal(profile.quick_daily_paper_limit, 10);
 }
 
-function testNormalizeSubscriptionsDefaultsPaperWindowsToThreeDays() {
+function testNormalizeSubscriptionsDefaultsPaperWindows() {
   const normalized = normalizeSubscriptions(buildBaseConfig());
 
-  assert.equal(normalized.arxiv_paper_setting.days_window, 3);
-  assert.equal(normalized.arxiv_paper_setting.carryover_days, 3);
+  assert.equal(normalized.arxiv_paper_setting.days_window, 5);
+  assert.equal(normalized.arxiv_paper_setting.carryover_days, 7);
 }
 
 function testResolvePaperWindowsKeepsSeparateCarryoverWindow() {
@@ -206,17 +208,58 @@ function testEmailWorkflowCronKeepsUtcTime() {
   assert.equal(schedule.timezone, 'UTC');
 }
 
+function testNormalizeResearchDirectionsSplitsAndCaps() {
+  const directions = normalizeResearchDirections(
+    'symbolic regression、equation discovery，PySR;interpretable ML\nphysics-informed regression',
+  );
+
+  assert.deepEqual(directions, [
+    'symbolic regression',
+    'equation discovery',
+    'PySR',
+    'interpretable ML',
+    'physics-informed regression',
+  ]);
+  assert.equal(normalizeResearchDirections(Array(10).fill(0).map((_, i) => `kw-${i}`)).length, 8);
+}
+
+function testResolveResearchDirectionsFallsBackToKeywords() {
+  const config = buildBaseConfig();
+  config.subscriptions.intent_profiles[0].keywords.push({
+    keyword: 'equation discovery',
+    query: 'scientific equation discovery',
+  });
+  const context = resolveResearchDirections(config);
+
+  assert.equal(context.source, 'fallback');
+  assert.deepEqual(context.directions, ['genetics', 'equation discovery']);
+}
+
+function testResolveResearchDirectionsPrefersConfiguredValues() {
+  const config = buildBaseConfig();
+  config.reader_profile = {
+    research_directions: ['causal discovery', 'symbolic regression'],
+  };
+  const context = resolveResearchDirections(config);
+
+  assert.equal(context.source, 'configured');
+  assert.deepEqual(context.directions, ['causal discovery', 'symbolic regression']);
+}
+
 testNormalizeSubscriptionsAddsBiorxivBackend();
 testNormalizeSubscriptionsPreservesCustomBiorxivBackendFields();
 testNormalizeSubscriptionsMigratesLegacyDailyPaperLimit();
 testNormalizeSubscriptionsKeepsSectionDailyPaperLimits();
 testNormalizeSubscriptionsDefaultsDailyPaperLimits();
-testNormalizeSubscriptionsDefaultsPaperWindowsToThreeDays();
+testNormalizeSubscriptionsDefaultsPaperWindows();
 testResolvePaperWindowsKeepsSeparateCarryoverWindow();
 testResolvePaperWindowsFallsBackCarryoverToLegacyDaysWindow();
 testWindowWarningOnlyAppearsForLongWindow();
 testRunProfileQuickFetchPassesProfileTagToWorkflow();
 testEmailWorkflowCronConvertsShanghaiTimeToUtc();
 testEmailWorkflowCronKeepsUtcTime();
+testNormalizeResearchDirectionsSplitsAndCaps();
+testResolveResearchDirectionsFallsBackToKeywords();
+testResolveResearchDirectionsPrefersConfiguredValues();
 
 console.log('subscriptions manager tests passed');
