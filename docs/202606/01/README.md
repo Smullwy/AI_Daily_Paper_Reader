@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-01</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-01 04:40 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,9 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读两篇高分行文，聚焦脑信号解码与稳健表征学习，速读覆盖人脑与AI表征对齐等前沿话题。</p>
-<p>最值得关注的是：利用自监督学习从fMRI中提取任务不变的功能表征，以及直接将脑信号转换为视觉问答答案的跨模态解码。</p>
-<p>建议普通读者持续追踪脑机接口与AI感知对齐的交叉突破，它们正在重新定义“理解”的边界。</p>
+      <p>今日精读聚焦脑信号与AI跨界突破：用孪生自监督从fMRI学出任务不变表征，以及从脑信号直接生成视觉问答答案。</p>
+<p>最值得看的方向：自监督fMRI解码实现鲁棒功能表征，以及</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/01/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +166,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
