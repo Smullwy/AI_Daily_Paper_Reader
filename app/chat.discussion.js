@@ -4,6 +4,10 @@ window.PrivateDiscussionChat = (function () {
   const CHAT_DB_NAME = 'dpr_chat_db_v1';
   const CHAT_STORE_NAME = 'paper_chats';
   const CHAT_MODEL_PREF_KEY = 'dpr_chat_model_preference_v1';
+  const CHAT_DRAWER_WIDTH_KEY = 'dpr_chat_drawer_width_v1';
+  const CHAT_DRAWER_MIN_WIDTH = 340;
+  const CHAT_DRAWER_MAX_WIDTH = 860;
+  const CHAT_DRAWER_DRAG_THRESHOLD = 4;
 
   // 最近提问记录（仅本机 localStorage，从现在开始记录，不回溯历史聊天内容）
   const QUESTION_RECENT_KEY = 'dpr_chat_recent_questions_v1';
@@ -265,7 +269,12 @@ window.PrivateDiscussionChat = (function () {
         <aside id="paper-chat-panel" class="paper-chat-panel" aria-hidden="true" aria-label="\u8bba\u6587 AI \u95ee\u7b54">
           <div class="paper-chat-panel-head">
             <div class="paper-chat-title"><span class="paper-chat-title-icon" aria-hidden="true">✦</span><span>Paper Copilot</span></div>
-            <button id="paper-chat-close-btn" class="paper-chat-close-btn" type="button" aria-label="\u5173\u95ed AI \u95ee\u7b54">&times;</button>
+            <div class="paper-chat-head-actions">
+              <button id="paper-chat-fullscreen-btn" class="paper-chat-fullscreen-btn" type="button" aria-label="\u5168\u5c4f\u663e\u793a AI \u95ee\u7b54" title="\u5168\u5c4f" aria-pressed="false">
+                <span class="paper-chat-fullscreen-icon" aria-hidden="true"></span>
+              </button>
+              <button id="paper-chat-close-btn" class="paper-chat-close-btn" type="button" aria-label="\u5173\u95ed AI \u95ee\u7b54">&times;</button>
+            </div>
           </div>
           <div class="paper-chat-panel-body">
             <div id="chat-history"></div>
@@ -472,7 +481,64 @@ window.PrivateDiscussionChat = (function () {
   };
 
   let chatDrawerOpen = false;
+  let chatDrawerFullscreen = false;
   let chatDrawerEscBound = false;
+  let chatDrawerResizeBound = false;
+  let chatDrawerDragState = null;
+
+  const getChatDrawerMaxWidth = () =>
+    Math.max(
+      CHAT_DRAWER_MIN_WIDTH,
+      Math.min(CHAT_DRAWER_MAX_WIDTH, window.innerWidth - 32),
+    );
+
+  const clampChatDrawerWidth = (width) => {
+    const num = Number(width);
+    if (!Number.isFinite(num)) return null;
+    return Math.round(
+      Math.max(CHAT_DRAWER_MIN_WIDTH, Math.min(getChatDrawerMaxWidth(), num)),
+    );
+  };
+
+  const loadChatDrawerWidth = () => {
+    try {
+      if (!window.localStorage) return null;
+      return clampChatDrawerWidth(window.localStorage.getItem(CHAT_DRAWER_WIDTH_KEY));
+    } catch {
+      return null;
+    }
+  };
+
+  const saveChatDrawerWidth = (width) => {
+    const clamped = clampChatDrawerWidth(width);
+    if (!clamped) return null;
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(CHAT_DRAWER_WIDTH_KEY, String(clamped));
+      }
+    } catch {
+      // ignore
+    }
+    return clamped;
+  };
+
+  const applyChatDrawerWidth = (width, options = {}) => {
+    const clamped = clampChatDrawerWidth(width);
+    if (!clamped) return null;
+    document.documentElement.style.setProperty('--dpr-chat-drawer-width', `${clamped}px`);
+    if (options.persist !== false) saveChatDrawerWidth(clamped);
+    return clamped;
+  };
+
+  const getCurrentChatDrawerWidth = () => {
+    const root = getChatRoot();
+    const panel = root && root.querySelector('#paper-chat-panel');
+    if (panel) {
+      const rect = panel.getBoundingClientRect();
+      if (rect && rect.width) return clampChatDrawerWidth(rect.width);
+    }
+    return loadChatDrawerWidth() || clampChatDrawerWidth(432);
+  };
 
   const removeChatArtifacts = () => {
     document.querySelectorAll('#paper-chat-container').forEach((el) => {
@@ -520,6 +586,7 @@ window.PrivateDiscussionChat = (function () {
     }
 
     if (!nextOpen) {
+      setChatDrawerFullscreen(false);
       closeQuestionsPanel(root);
       closeQuickQuestionsPanel(root);
       return;
@@ -533,15 +600,111 @@ window.PrivateDiscussionChat = (function () {
     }
   };
 
+  const setChatDrawerFullscreen = (fullscreen) => {
+    const nextFullscreen = !!fullscreen;
+    chatDrawerFullscreen = nextFullscreen;
+    if (document.body && document.body.classList) {
+      document.body.classList.toggle('dpr-chat-drawer-fullscreen', nextFullscreen);
+    }
+    const root = getChatRoot();
+    if (!root) return;
+    root.classList.toggle('is-fullscreen', nextFullscreen);
+    root.setAttribute('data-fullscreen', nextFullscreen ? '1' : '0');
+    const btn = root.querySelector('#paper-chat-fullscreen-btn');
+    if (btn) {
+      btn.setAttribute('aria-pressed', nextFullscreen ? 'true' : 'false');
+      btn.setAttribute(
+        'aria-label',
+        nextFullscreen ? '退出全屏 AI 问答' : '全屏显示 AI 问答',
+      );
+      btn.title = nextFullscreen ? '退出全屏' : '全屏';
+    }
+  };
+
   const bindChatDrawerEventsOnce = (root) => {
     if (!root) return;
 
     const toggleBtn = root.querySelector('#paper-chat-toggle-btn');
     if (toggleBtn && !toggleBtn._boundChatDrawerToggle) {
       toggleBtn._boundChatDrawerToggle = true;
+      toggleBtn.addEventListener('pointerdown', (e) => {
+        if (
+          !chatDrawerOpen ||
+          chatDrawerFullscreen ||
+          window.innerWidth <= 767 ||
+          e.button !== 0
+        ) {
+          return;
+        }
+        chatDrawerDragState = {
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startWidth: getCurrentChatDrawerWidth(),
+          dragging: false,
+        };
+        try {
+          toggleBtn.setPointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+      });
+      toggleBtn.addEventListener('pointermove', (e) => {
+        if (!chatDrawerDragState || chatDrawerDragState.pointerId !== e.pointerId) return;
+        const delta = chatDrawerDragState.startX - e.clientX;
+        if (
+          !chatDrawerDragState.dragging &&
+          Math.abs(delta) < CHAT_DRAWER_DRAG_THRESHOLD
+        ) {
+          return;
+        }
+        chatDrawerDragState.dragging = true;
+        e.preventDefault();
+        root.classList.add('is-resizing');
+        if (document.body && document.body.classList) {
+          document.body.classList.add('dpr-chat-drawer-resizing');
+        }
+        applyChatDrawerWidth(chatDrawerDragState.startWidth + delta, {
+          persist: false,
+        });
+      });
+      const finishDrag = (e) => {
+        if (!chatDrawerDragState || chatDrawerDragState.pointerId !== e.pointerId) return;
+        const wasDragging = !!chatDrawerDragState.dragging;
+        if (wasDragging) {
+          e.preventDefault();
+          saveChatDrawerWidth(getCurrentChatDrawerWidth());
+          toggleBtn._suppressNextClick = true;
+          window.setTimeout(() => {
+            toggleBtn._suppressNextClick = false;
+          }, 160);
+        }
+        root.classList.remove('is-resizing');
+        if (document.body && document.body.classList) {
+          document.body.classList.remove('dpr-chat-drawer-resizing');
+        }
+        try {
+          toggleBtn.releasePointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+        chatDrawerDragState = null;
+      };
+      toggleBtn.addEventListener('pointerup', finishDrag);
+      toggleBtn.addEventListener('pointercancel', finishDrag);
       toggleBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        if (toggleBtn._suppressNextClick) return;
         setChatDrawerOpen(!chatDrawerOpen, { focusInput: !chatDrawerOpen });
+      });
+    }
+
+    const fullscreenBtn = root.querySelector('#paper-chat-fullscreen-btn');
+    if (fullscreenBtn && !fullscreenBtn._boundChatDrawerFullscreen) {
+      fullscreenBtn._boundChatDrawerFullscreen = true;
+      fullscreenBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!chatDrawerOpen) setChatDrawerOpen(true);
+        setChatDrawerFullscreen(!chatDrawerFullscreen);
       });
     }
 
@@ -558,16 +721,31 @@ window.PrivateDiscussionChat = (function () {
       chatDrawerEscBound = true;
       document.addEventListener('keydown', (e) => {
         if (e && e.key === 'Escape' && chatDrawerOpen) {
-          setChatDrawerOpen(false);
+          if (chatDrawerFullscreen) {
+            setChatDrawerFullscreen(false);
+          } else {
+            setChatDrawerOpen(false);
+          }
         }
+      });
+    }
+
+    if (!chatDrawerResizeBound) {
+      chatDrawerResizeBound = true;
+      window.addEventListener('resize', () => {
+        const saved = loadChatDrawerWidth();
+        if (saved) applyChatDrawerWidth(saved, { persist: false });
       });
     }
   };
 
   const destroyForPage = () => {
     chatDrawerOpen = false;
+    chatDrawerFullscreen = false;
     if (document.body && document.body.classList) {
       document.body.classList.remove('dpr-chat-drawer-open');
+      document.body.classList.remove('dpr-chat-drawer-fullscreen');
+      document.body.classList.remove('dpr-chat-drawer-resizing');
     }
     removeChatArtifacts();
   };
@@ -1903,6 +2081,9 @@ window.PrivateDiscussionChat = (function () {
     const root = container.firstElementChild;
     if (!root) return;
     document.body.appendChild(root);
+    const savedDrawerWidth = loadChatDrawerWidth();
+    if (savedDrawerWidth) applyChatDrawerWidth(savedDrawerWidth, { persist: false });
+    setChatDrawerFullscreen(chatDrawerFullscreen);
     setChatDrawerOpen(chatDrawerOpen);
     bindChatDrawerEventsOnce(root);
 
