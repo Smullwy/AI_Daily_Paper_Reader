@@ -3,6 +3,7 @@
   const LOCAL_DEEP_STORAGE_KEY = 'dpr_local_pdf_deep_entries_v1';
   const LOCAL_DEEP_SELECTED_KEY = 'dpr_local_pdf_selected_entry_v1';
   const LOCAL_DEEP_SIDEBAR_COLLAPSED_KEY = 'dpr_local_pdf_sidebar_collapsed_v1';
+  const LOCAL_PDF_TITLE_MODE_KEY = 'dpr_local_pdf_title_mode_v1';
   const LOCAL_DEEP_MAX_ENTRIES = 30;
   const PDFJS_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
   const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
@@ -11,6 +12,8 @@
   const LOCAL_PDF_WORKFLOW_ID = 'local-pdf-deep-read.yml';
   const LOCAL_PDF_UPLOAD_DIR = 'docs/assets/local_pdfs/uploads';
   const GITHUB_UPLOAD_MAX_BYTES = 80 * 1024 * 1024;
+  const TITLE_MODE_AUTO = 'auto';
+  const TITLE_MODE_FILENAME = 'filename';
   const DEEP_READ_SYSTEM_PROMPT =
     '你是一名资深学术论文分析助手，请使用中文、以 Markdown 形式，'
     + '对给定论文做结构化、深入、客观的总结。';
@@ -35,6 +38,7 @@
   let importQueue = [];
   let importBatchToken = 0;
   let importParsePromise = Promise.resolve();
+  let localPdfTitleMode = TITLE_MODE_AUTO;
 
   const byId = (id) => document.getElementById(id);
 
@@ -75,6 +79,36 @@
       .replace(/\s+/g, ' ')
       .trim();
 
+  const normalizeTitleMode = (mode) =>
+    String(mode || '').trim() === TITLE_MODE_FILENAME ? TITLE_MODE_FILENAME : TITLE_MODE_AUTO;
+
+  const getFileNameTitle = (fileName) =>
+    cleanLine(String(fileName || 'local-paper.pdf').replace(/\.pdf$/i, '')) || 'local-paper';
+
+  const loadLocalPdfTitleMode = () => {
+    try {
+      if (!window.localStorage) return TITLE_MODE_AUTO;
+      return normalizeTitleMode(window.localStorage.getItem(LOCAL_PDF_TITLE_MODE_KEY));
+    } catch {
+      return TITLE_MODE_AUTO;
+    }
+  };
+
+  const persistLocalPdfTitleMode = (mode) => {
+    const normalized = normalizeTitleMode(mode);
+    localPdfTitleMode = normalized;
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(LOCAL_PDF_TITLE_MODE_KEY, normalized);
+      }
+    } catch {
+      // ignore
+    }
+    return normalized;
+  };
+
+  const getLocalPdfTitleMode = () => normalizeTitleMode(localPdfTitleMode);
+
   const guessTitle = (metadataTitle, text, fallbackName) => {
     const metaTitle = cleanLine(metadataTitle);
     if (metaTitle && !/^untitled$/i.test(metaTitle)) return metaTitle;
@@ -92,6 +126,11 @@
     if (candidate) return candidate;
     return String(fallbackName || 'local-paper.pdf').replace(/\.pdf$/i, '');
   };
+
+  const resolvePdfTitle = (mode, metadataTitle, text, fallbackName) =>
+    normalizeTitleMode(mode) === TITLE_MODE_FILENAME
+      ? getFileNameTitle(fallbackName)
+      : guessTitle(metadataTitle, text, fallbackName);
 
   const extractAbstract = (text) => {
     const source = normalizeText(text);
@@ -242,16 +281,25 @@
       String((file && file.name) || 'paper').replace(/[^\w.-]+/g, '-').slice(0, 48)
     }`;
 
-  const buildImportQueueItem = (file, id) => ({
-    id: cleanLine(id || makeImportItemId(file)),
-    file,
-    fileName: cleanLine(file && file.name) || 'local-paper.pdf',
-    fileSizeText: formatBytes(file && file.size),
-    status: 'queued',
-    error: '',
-    editingTitle: false,
-    result: null,
-  });
+  const buildImportQueueItem = (file, id) => {
+    const fileName = cleanLine(file && file.name) || 'local-paper.pdf';
+    const titleMode = getLocalPdfTitleMode();
+    const item = {
+      id: cleanLine(id || makeImportItemId(file)),
+      file,
+      fileName,
+      fileSizeText: formatBytes(file && file.size),
+      titleMode,
+      status: 'queued',
+      error: '',
+      editingTitle: false,
+      result: null,
+    };
+    if (titleMode === TITLE_MODE_FILENAME) {
+      item.titleOverride = getFileNameTitle(fileName);
+    }
+    return item;
+  };
 
   const appendImportQueueItems = (items, files) => {
     const next = Array.isArray(items) ? items.slice() : [];
@@ -1562,6 +1610,27 @@
       && ['ready', 'error'].includes(item.status)
     );
 
+  const syncTitleModeControls = (scope) => {
+    const root = scope || document;
+    const mode = getLocalPdfTitleMode();
+    root.querySelectorAll('[data-local-pdf-title-mode]').forEach((button) => {
+      const active = normalizeTitleMode(button.getAttribute('data-local-pdf-title-mode')) === mode;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  };
+
+  const setLocalPdfTitleMode = (mode) => {
+    const normalized = persistLocalPdfTitleMode(mode);
+    syncTitleModeControls(byId(ROOT_ID) || document);
+    setStatus(
+      normalized === TITLE_MODE_FILENAME
+        ? '后续导入将使用 PDF 文件名作为论文标题。'
+        : '后续导入将使用 PDF 元数据与正文自动提取标题。',
+      'success',
+    );
+  };
+
   const renderImportQueue = () => {
     const root = byId(ROOT_ID);
     const list = byId('dpr-local-pdf-list');
@@ -1730,7 +1799,7 @@
       pages.push(textContentToLines(content.items || []));
     }
     const text = normalizeText(pages.join('\n\n'));
-    const title = guessTitle(info.Title, text, file.name);
+    const title = resolvePdfTitle(options.titleMode, info.Title, text, file.name);
     const result = {
       fileName: file.name,
       fileSizeText: formatBytes(file.size),
@@ -1774,6 +1843,7 @@
       try {
         const result = await parsePdfFile(current.file, {
           render: false,
+          titleMode: current.titleMode,
           statusPrefix: `${index + 1}/${ids.length} ${current.fileName}`,
         });
         if (token !== importBatchToken) return { parsed, failed, cancelled: true };
@@ -2046,6 +2116,14 @@
     const copyDeepBtn = byId('dpr-local-pdf-copy-deep');
     const downloadBtn = byId('dpr-local-pdf-download-text');
     const list = byId('dpr-local-pdf-list');
+    const titleModeButtons = root.querySelectorAll('[data-local-pdf-title-mode]');
+
+    titleModeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        setLocalPdfTitleMode(button.getAttribute('data-local-pdf-title-mode'));
+      });
+    });
+    syncTitleModeControls(root);
 
     if (choose && input) choose.addEventListener('click', () => input.click());
     if (input) {
@@ -2130,10 +2208,12 @@
   };
 
   const init = () => {
+    localPdfTitleMode = loadLocalPdfTitleMode();
     renderLocalDeepSidebar();
     const root = byId(ROOT_ID);
     if (!root) return;
     bindEvents(root);
+    syncTitleModeControls(root);
     const selectedId = getSelectedLocalDeepEntryId();
     if (selectedId && (!lastResult || lastResult.localEntryId !== selectedId)) {
       loadStoredEntryIntoPage(selectedId);

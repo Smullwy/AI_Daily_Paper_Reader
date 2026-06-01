@@ -146,6 +146,28 @@ class LocalPdfBackendScoringTest(unittest.TestCase):
                     docs_path=docs,
                 )
 
+    def test_local_pdf_basename_parts_are_truncated_before_combining(self):
+        title = (
+            "NeurIPS25 NOBEL - One Brain, Omni Modalities_ Towards Unified "
+            "Non-Invasive Brain Decoding with Large Language Models"
+        )
+        filename = f"{title}.pdf"
+        safe_original = self.mod._safe_asset_key(Path(filename).stem)
+        asset_key = self.mod._truncate_safe_key(
+            self.mod._safe_asset_key(f"local-20260531-202232335160-{safe_original}"),
+            self.mod._LOCAL_PDF_ASSET_KEY_MAX_LEN,
+        )
+        slug = self.mod._truncate_safe_key(
+            self.mod.gen6.slugify(title),
+            self.mod._LOCAL_PDF_SLUG_MAX_LEN,
+        )
+        basename = f"{asset_key}-{slug}"
+
+        self.assertLessEqual(len(asset_key), 96)
+        self.assertLessEqual(len(slug), 96)
+        self.assertLess(len(f"{basename}.txt".encode("utf-8")), 255)
+        self.assertTrue(asset_key.startswith("local-20260531-202232335160-"))
+
 
 
 if __name__ == "__main__":

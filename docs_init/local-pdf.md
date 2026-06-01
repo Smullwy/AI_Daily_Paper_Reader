@@ -6,6 +6,11 @@
     <div class="dpr-local-pdf-drop-main">
       <div class="dpr-local-pdf-drop-title">本地 PDF</div>
       <div class="dpr-local-pdf-drop-subtitle">一次选择或拖入多篇论文 PDF</div>
+      <div class="dpr-local-pdf-title-mode" role="group" aria-label="论文标题来源">
+        <span class="dpr-local-pdf-title-mode-label">标题来源</span>
+        <button class="dpr-local-pdf-title-mode-btn" type="button" data-local-pdf-title-mode="auto" aria-pressed="true">自动提取</button>
+        <button class="dpr-local-pdf-title-mode-btn" type="button" data-local-pdf-title-mode="filename" aria-pressed="false">使用文件名</button>
+      </div>
       <div class="dpr-local-pdf-actions">
         <button id="dpr-local-pdf-choose" class="dpr-local-pdf-primary" type="button">批量选择 PDF</button>
         <button id="dpr-local-pdf-clear" class="dpr-local-pdf-secondary" type="button">清空</button>

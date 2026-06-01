@@ -27,6 +27,8 @@ _GEN6_SPEC.loader.exec_module(gen6)
 
 _GENERATION_LOCK = threading.Lock()
 _REFINE_MODULE = None
+_LOCAL_PDF_ASSET_KEY_MAX_LEN = 96
+_LOCAL_PDF_SLUG_MAX_LEN = 96
 
 
 def _clean_line(value: Any) -> str:
@@ -36,6 +38,14 @@ def _clean_line(value: Any) -> str:
 def _safe_asset_key(value: str) -> str:
     text = re.sub(r"[^A-Za-z0-9._-]+", "-", str(value or "").strip())
     text = text.strip("-._").lower()
+    return text or "local-paper"
+
+
+def _truncate_safe_key(value: str, max_len: int) -> str:
+    text = str(value or "").strip()
+    if len(text) <= max_len:
+        return text or "local-paper"
+    text = text[:max_len].rstrip("-._")
     return text or "local-paper"
 
 
@@ -413,7 +423,10 @@ def generate_local_pdf_deep_doc(
     tmp_dir = docs_path / "assets" / "local_pdfs"
     tmp_dir.mkdir(parents=True, exist_ok=True)
     safe_original = _safe_asset_key(Path(filename or "local-paper.pdf").stem)
-    asset_key = _safe_asset_key(f"local-{day}-{upload_stamp}-{safe_original}")
+    asset_key = _truncate_safe_key(
+        _safe_asset_key(f"local-{day}-{upload_stamp}-{safe_original}"),
+        _LOCAL_PDF_ASSET_KEY_MAX_LEN,
+    )
     pdf_asset_rel = f"assets/local_pdfs/{asset_key}.pdf"
     pdf_asset_path = docs_path / pdf_asset_rel
     pdf_asset_path.write_bytes(pdf_bytes)
@@ -423,7 +436,7 @@ def generate_local_pdf_deep_doc(
     detected_title = meta["title"]
     title = _clean_line(title_override) or detected_title
     abstract = meta["abstract"] or _clean_line(text[:1200])
-    slug = gen6.slugify(title)
+    slug = _truncate_safe_key(gen6.slugify(title), _LOCAL_PDF_SLUG_MAX_LEN)
     paper_basename = f"{asset_key}-{slug}"
     paper_id = f"local-pdf/{day}/{paper_basename}"
     paper_dir = docs_path / "local-pdf" / day
@@ -464,7 +477,7 @@ def generate_local_pdf_deep_doc(
     }
 
     zh_title = ""
-    glance: dict[str, str] = {}
+    glance: Any = {}
     with _GENERATION_LOCK:
         old_client = gen6.LLM_CLIENT
         old_error = gen6.LLM_INIT_ERROR
@@ -497,9 +510,14 @@ def generate_local_pdf_deep_doc(
                 gen6.LLM_CLIENT = old_client
                 gen6.LLM_INIT_ERROR = old_error
 
+    glance_overview = paper.get("_glance_overview") or ""
+    if isinstance(glance_overview, dict):
+        glance_evidence = glance_overview.get("motivation") or glance_overview.get("tldr") or ""
+    else:
+        glance_evidence = str(glance_overview)
     sidebar_evidence = str(
         zh_title
-        or (paper.get("_glance_overview") or {}).get("motivation")
+        or glance_evidence
         or paper.get("canonical_evidence")
         or "本地上传 PDF，使用后端精读流程生成。"
     ).strip()
