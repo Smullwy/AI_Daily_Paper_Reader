@@ -1,0 +1,1194 @@
+HyFI: Hyperbolic Feature Interpolation for Brain-Vision Alignment
+Sangmin Jo, Wootaek Jeong, Da-Woon Heo, Yoohwan Hwang, Heung-Il Suk*
+Department of Artificial Intelligence, Korea University, Seoul, South Korea
+{sangminjo, wtjeong, daheo, yoohwan98, hisuk}@korea.ac.kr
+Abstract
+Recent progress in artificial intelligence has encouraged nu-
+merous attempts to understand and decode human visual sys-
+tem from brain signals. These prior works typically align neu-
+ral activity independently with semantic and perceptual fea-
+tures extracted from images using pre-trained vision mod-
+els. However, they fail to account for two key challenges:
+(1) the modality gap arising from the natural difference in
+the information level of representation between brain signals
+and images, and (2) the fact that semantic and perceptual
+features are highly entangled within neural activity. To ad-
+dress these issues, we utilize hyperbolic space, which is well-
+suited for considering differences in the amount of informa-
+tion and has the geometric property that geodesics between
+two points naturally bend toward the origin, where the rep-
+resentational capacity is lower. Leveraging these properties,
+we propose a novel framework, Hyperbolic Feature Inter-
+polation (HyFI), which interpolates between semantic and
+perceptual visual features along hyperbolic geodesics. This
+enables both the fusion and compression of perceptual and se-
+mantic information, effectively reflecting the limited expres-
+siveness of brain signals and the entangled nature of these
+features. As a result, it facilitates better alignment between
+brain and visual features. We demonstrate that HyFI achieves
+state-of-the-art performance in zero-shot brain-to-image re-
+trieval, outperforming prior methods with Top-1 accuracy im-
+provements of up to +17.3% on THINGS-EEG and +9.1% on
+THINGS-MEG.
+Code — https://github.com/ku-milab/HyFI
+Introduction
+Understanding how the human brain encodes information
+has long been a central topic in neuroscience, and has re-
+cently attracted growing attention in artificial intelligence.
+Specifically, the field of brain decoding aims to infer in-
+ternal cognitive states or external sensory experiences from
+recorded brain activity (Naselaris et al. 2011; Oota et al.
+2023). It offers insights into how the brain represents the
+external world and enables brain-computer interface (BCI)
+systems (Ko et al. 2021). In recent years, brain decoding
+*Corresponding author
+Copyright © 2026, Association for the Advancement of Artificial
+Intelligence (www.aaai.org). All rights reserved.
+Figure 1: (a) The human visual system processes percep-
+tual and semantic information, and some degradation occurs
+when neural activity is recorded. (b) Previous works aligned
+semantic and perceptual features through separate pathways,
+overlooking their entanglement in brain signals. (c) In con-
+trast, hyperbolic interpolation merges perceptual and se-
+mantic features with lower complexity, enhancing alignment
+with brain signals.
+techniques based on machine learning have been success-
+fully applied across diverse cognitive domains such as vi-
+sion, audition, and language (Wang and Ji 2022; D´efossez
+et al. 2023; Scotti et al. 2024). Among these, visual brain
+decoding has received particular attention, given that vision
+is the dominant sensory modality in humans and plays a cru-
+cial role in perception and cognition (Mathis et al. 2024).
+Visual brain decoding has been extensively studied using
+neuroimaging modalities such as functional magnetic reso-
+nance imaging (fMRI), electroencephalography (EEG), and
+magnetoencephalography (MEG). In particular, fMRI has
+long been a dominant modality in this field due to its su-
+perior spatial resolution. However, its limited temporal res-
+The Fortieth AAAI Conference on Artificial Intelligence (AAAI-26)
+5575
+
+
+olution and bulky equipment make it less suitable for real-
+world applications. In contrast, EEG and MEG offer high
+temporal resolution, making it particularly suitable for BCI.
+Motivated by these advantages, we focus on brain decoding
+tasks based on EEG and MEG signals.
+Recent brain decoding studies have increasingly adopted
+dual-pathway frameworks to capture both perceptual details
+and semantic representations from neural signals. This ap-
+proach reflects the human visual system, which processes
+both perceptual and semantic features, as shown in Fig. 1(a).
+Perceptual features refer to low-level visual attributes ex-
+tracted in early visual areas (e.g., V1), such as orientation,
+color, and edge information (Miyawaki et al. 2008). Seman-
+tic features denote high-level conceptual representations en-
+coded in cortical regions, such as object identity and cat-
+egory (DiCarlo, Zoccolan, and Rust 2012). In recent ap-
+proaches, semantic features are typically captured by align-
+ing brain activity with image embeddings from pre-trained
+vision-language models (VLMs) like CLIP (Scotti et al.
+2023). In parallel, perceptual features are often decoded
+by aligning representations derived from variational autoen-
+coders (VAEs) (Shen et al. 2025). These efforts have ad-
+vanced brain decoding by integrating brain-inspired models
+with multi-modal representations (Li, Wu, and Chen 2025).
+Despite these advances, current approaches still face two
+key limitations. First, aligning brain signals with image em-
+beddings remains challenging—a problem commonly re-
+ferred to as the modality gap (Liang et al. 2022). This is-
+sue is known to arise from an inherent information imbal-
+ance between modalities (Schrodi et al. 2024). In brain de-
+coding, this imbalance is particularly pronounced, as neu-
+ral signals contain substantially less semantic information
+than image embeddings for visual tasks (Chen et al. 2024;
+Wu et al. 2025). The limitation is driven by human atten-
+tional bottlenecks, restricted visual working memory (Ca-
+vanagh and Alvarez 2005; Dux and Marois 2009), and the
+low signal-to-noise ratio and resolution of neural recordings
+(Srinivasan et al. 2007; Naselaris et al. 2011). Second, many
+existing approaches that separately align perceptual and se-
+mantic features fail to reflect the fact that neural activity en-
+codes features in a highly entangled and interactive manner,
+as they are not processed independently (Pollen 1999; Nase-
+laris et al. 2009). As a result, attempts to align these features
+independently may lead to suboptimal performance.
+To address these limitations, we adopt hyperbolic space
+for brain-vision alignment. Unlike Euclidean space, hyper-
+bolic geometry with negative curvature offers two key ad-
+vantages: (1) geodesics between two points naturally bend
+toward the origin, (2) representational capacity decreases
+near the origin due to the exponential expansion of the space
+with radius. Building on these insights, we introduce a novel
+Hyperbolic Feature Interpolation (HyFI) method that in-
+terpolates semantic and perceptual visual features in hyper-
+bolic space. This allows semantic and perceptual features to
+be effectively integrated and compressed during interpola-
+tion, making it well suited for brain signals with limited in-
+formation and entangled semantic-perceptual components.
+As a result, the interpolated representations become better
+aligned with brain activity. Our main contributions are as
+follows:
+• We propose a hyperbolic interpolation method that effec-
+tively integrates and compresses semantic and perceptual
+visual features, explicitly accounting for the limited in-
+formation capacity and entangled nature of brain signals.
+• Our method consistently improves performance across
+combinations of visual and brain encoders, demonstrat-
+ing broad applicability.
+• It achieves state-of-the-art (SOTA) performance on two
+public brain decoding benchmarks, with 68.2% Top-1 ac-
+curacy on THINGS-EEG and 35.8% on THINGS-MEG,
+outperforming previous methods by +17.3% and +9.1%,
+respectively.
+Related Works
+Visual Brain Decoding
+Visual brain decoding has received increasing attention for
+its potential to uncover the mechanisms of human cognition
+and to enable practical BCI (Kay et al. 2008; Yang, Gee, and
+Shi 2024). With the rise of large-scale VLMs, recent studies
+have begun to leverage those representations by aligning se-
+mantic features with CLIP (Scotti et al. 2023; Song et al.
+2024). A similar trend is observed in EEG-based visual de-
+coding. However, the inherent modality gap between neural
+signals and pre-trained visual embeddings remains a major
+challenge. To mitigate this, Li et al. (2024) utilized a dif-
+fusion prior to map brain features into image space, Zhang
+et al. (2025) employed multi-modal fusion to increase shared
+information, and Wu et al. (2025) reduced visual complexity
+using Gaussian blur. These methods overlook the fact that
+semantic and perceptual representations are often entangled
+in neural activity. In contrast, our approach uses hyperboloid
+interpolation to fuse both features while reducing complex-
+ity, enabling better alignment.
+Hyperbolic Representation Learning
+Hyperbolic space has attracted attention in representation
+learning for its ability to model hierarchical data due to its
+negative curvature (Nickel and Kiela 2017; Chamberlain,
+Clough, and Deisenroth 2017). This property has led to suc-
+cessful applications across various modalities with inherent
+hierarchies, including graphs (Liu, Nickel, and Kiela 2019),
+text (Dhingra et al. 2018; Tifrea, Becigneul, and Ganea
+2019), and images (Atigh et al. 2022). Recent works have
+further extended hyperbolic geometry to the multi-modal
+domain. For instance, Desai et al. (2023) propose hyperbolic
+vision-language models where image embeddings are con-
+strained to lie within a concept cone defined by the text em-
+beddings. Similarly, Pal et al. (2024) extend this framework
+to model hierarchical relations across multiple levels, in-
+cluding cropped-text, cropped-image, original text, and orig-
+inal image representations. Building on these insights, we
+extend hyperbolic representation learning to the domain of
+brain decoding. Specifically, we leverage the geodesic prop-
+erty of hyperbolic space to unify and compress semantic and
+perceptual visual information, providing a new perspective
+on aligning neural signals with rich visual stimuli.
+5576
+
+
+Figure 2: (a) The semantic image xs
+v and perceptual image xp
+v are encoded by CLIP and projected via a linear layer, and then
+lifted onto the hyperboloid via the exponential map. Using a learned weight t derived from the semantic image features, the
+two image features are interpolated on the hyperbolic manifold. Similarly, EEG inputs are encoded and projected onto the same
+hyperbolic space. Contrastive learning is then performed on the hyperboloid to bring paired EEG-image representations closer.
+(b) A schematic view of the hyperbolic embedding space. The interpolated representation ˆzv lies along the geodesic between
+the semantic feature zs
+v and the perceptual feature zp
+v. Contrastive learning then pulls the EEG feature zb toward the target ˆzv.
+Preliminaries
+We formulate our approach on hyperbolic space, a Rieman-
+nian manifold with constant negative curvature, where vol-
+ume grows exponentially with radius. This property makes
+it well suited for representing hierarchical structures and ad-
+dressing modality imbalance in multi-modal learning (Le
+et al. 2019; Peng et al. 2021). Following prior works (De-
+sai et al. 2023; Pal et al. 2024), we adopt the Lorentz (hy-
+perboloid) model due to its strong empirical performance in
+multi-modal tasks.
+Definition
+The Lorentz model Ln of n-dimensional hy-
+perbolic space with constant negative curvature is realized as
+the “upper sheet” of a two-sheeted hyperboloid in (n + 1)-
+dimensional Minkowski space (Cannon et al. 1997). Con-
+cretely, a point p ∈Rn+1 is represented as p = (p0, ˜p),
+where p0 > 0 denotes the time component and ˜p ∈Rn are
+spatial coordinates. The Lorentz manifold is defined as:
+Ln =
+
+p ∈Rn+1 : ⟨p, p⟩L = −1
+κ, p0 > 0
+
+,
+(1)
+where −κ ∈R is the curvature of the space. The Lorentzian
+inner product for two vectors p, q ∈Ln is defined as:
+⟨p, q⟩L = −p0q0 + ⟨˜p, ˜q⟩E,
+(2)
+where ⟨·, ·⟩E denotes the standard Euclidean dot product.
+Geodesics
+A geodesic is the shortest curve connecting two
+points on the manifold. In the Lorentz model, the geodesic
+distance between two points p, q ∈Ln is defined as:
+dL(p, q) =
+p
+1/κ · cosh−1 (−κ⟨p, q⟩L) .
+(3)
+Exponential and Logarithmic Map
+The exponential
+map defines a smooth mapping from the tangent space onto
+the Lorentz manifold. For a point p ∈Ln, the tangent space
+is defined as:
+TpLn =
+
+v ∈Rn+1 | ⟨p, v⟩L = 0
+	
+.
+(4)
+Given a tangent vector v ∈TpLn, the exponential map
+traces the geodesic from p in the direction of v and is param-
+eterized as γ(t) = expκ
+p(tv), where t ∈[0, 1]. It is explicitly
+defined as:
+expκ
+p(tv) = cosh
+ t√κ∥v∥L
+
+p + sinh (t√κ∥v∥L)
+√κ∥v∥L
+v, (5)
+where ||v||L = ⟨v, v⟩L. Conversely, a point q ∈Ln on the
+hyperboloid can be projected onto the tangent space via the
+logarithmic map logκ
+p(·) : Ln →TpLn, as follows:
+logκ
+p(q) = cosh−1(−κ⟨p, q⟩L)
+p
+(κ⟨p, q⟩L)2 −1
+(q + κ⟨p, q⟩Lp) .
+(6)
+In practice, the point p is commonly set to the time origin
+O = (
+p
+1/κ, 0, . . . , 0)⊤∈Ln. Under this setting, a vector
+v = [0, venc] ∈Rn+1 lies in the tangent space at O and
+can be mapped onto the hyperboloid via exponential map
+expκ
+O(·), where venc denotes the encoder output.
+Method
+Problem Formulation
+Given the brain signals space Xb and the visual stimuli space
+Xv, the goal of visual brain decoding is to map brain signals
+xb ∈Xb into a shared space H aligned with xv ∈Xv. To
+this end, we learn a brain encoder fb : Xb →H and a visual
+encoder Wfv : Xv →H, where fv is a frozen backbone
+of pre-trained VLM and W is a linear layer. Specifically,
+we use n-dimensional Lorentz space Ln as a semantically
+aligned space H. Embeddings in Ln are obtained via the
+exponential map expκ
+O(·) at the time origin O. The visual
+embedding is defined as zv = expκ
+O(αv · Wfv(xv)) and the
+brain embedding zb = expκ
+O(αb · fb(xb)), where αv and αb
+are learnable projection scalars that reduce the norm of the
+embeddings to keep them near the origin O. An overview of
+our overall framework is illustrated in Fig 2(a).
+5577
+
+
+Hyperbolic Brain-Vision Contrastive Learning
+To align neural embeddings with corresponding visual em-
+bedding, we utilize contrastive learning in hyperbolic space.
+Unlike Euclidean space, hyperbolic space provides a natu-
+ral embedding space for aligning modalities with asymmet-
+ric information capacity and has shown empirical success in
+multi-modal representation learning (Desai et al. 2023; Pal
+et al. 2024; Mandica et al. 2025).
+Given a batch of EEG-image pairs {(zb,i, zv,i)}B
+i=1, hy-
+perbolic contrastive learning is formulated as:
+L(zv, zb) = −
+X
+i∈B
+log
+exp (dL(zv,i, zb,i)/τ)
+B
+P
+k=1, k̸=i
+exp (dL(zv,i, zb,k)/τ)
+,
+(7)
+where B denote the batch, dL denote the negative Lorentz
+distance, τ is temperature parameter.
+Hyperbolic Feature Interpolation
+With hyperbolic space established, we aim to learn visual
+representations aligned with brain signals by capturing their
+inherent properties. In particular, we fuse and compress se-
+mantic and perceptual visual features. Our approach is moti-
+vated by two key observations: (1) semantic and perceptual
+visual features are often entangled in neural activity, (2) and
+brain signals inherently contain less information than natu-
+ral images. To address the first property, we describe how
+semantic and perceptual features are extracted from an im-
+age, then present a hyperbolic interpolation method. Finally,
+we show that this interpolation naturally leads to information
+compression, thereby addressing the second observation.
+Extracting Semantic and Perceptual Features
+We first
+apply image-level augmentations to obtain the semantic and
+perceptual visual inputs. The semantic image xs
+v is gener-
+ated via fovea blur, simulating peripheral vision to preserve
+semantics and enhance alignment with brain signals (Wu
+et al. 2025). The perceptual image xp
+v is obtained by ap-
+plying Gaussian blurring to suppress high-frequency com-
+ponents and retain coarse structure. This augmentation am-
+plifies perceptual attributes in the CLIP embeddings. These
+augmentations and their effects are presented in Fig. 3.
+These inputs are then projected into hyperbolic space as
+semantic visual features zs
+v = expκ
+O(αv · Wsfv(xs
+v)) and
+perceptual visual features zp
+v = expκ
+O(αv · Wpfv(xp
+v)), re-
+spectively. Here, Ws, Wp ∈Rd×d are learnable matrices and
+d denotes the CLIP embedding dimension.
+Hyperbolic Interpolation
+To perform interpolation of
+these features, we approximate the geodesic in the Lorentz
+model using the exponential map. The perceptual feature zp
+v
+is projected onto the tangent space at zs
+v using the logarith-
+mic map, i.e., logκ
+zs
+v(zp
+v) ∈Tzs
+vLn. This tangent vector is
+scaled and mapped back to the hyperbolic space via the ex-
+ponential map. The resulting interpolated visual representa-
+tion ˆzv follows the geodesic from zs
+v to zp
+v:
+ˆzv = γzs
+v→zp
+v(t) = expκ
+zs
+v
+
+t · logκ
+zs
+v(zp
+v)
+
+,
+(8)
+where t ∈[0, 1] is the interpolation coefficient.
+Figure 3: Examples of image augmentations and retrieval
+results. The semantic image xs
+v and perceptual image xp
+v
+are generated via fovea blur and Gaussian blur, respectively.
+Retrieval results using CLIP embedding show that semantic
+queries return category-relevant matches (e.g., fruits), while
+perceptual queries retrieve images with similar low-level at-
+tributes such as color and shape.
+We compute the interpolation coefficient t dynamically to
+reflect image-specific variation in the relative importance of
+semantic and perceptual features:
+t = σ(Wtfv(xs
+v)),
+(9)
+where Wt ∈R1×d is a learnable matrix and σ denotes the
+sigmoid function.
+Compression Effects
+The proposed interpolation mecha-
+nism concurrently compresses and fuses semantic and per-
+ceptual features. To analyze how this compression arises, we
+revisit the geodesic formulation in the Lorentz model. We
+reformulate the geodesic in Eq. (8) as follows:
+γp→q(t) = sinh ((1 −t)β)
+sinh(β)
+p + sinh (tβ)
+sinh(β) q,
+(10)
+where β = √κ · dL(p, q). A detailed derivation is provided
+in the appendix.
+Unlike linear interpolation (1 −t)p + tq in Euclidean
+space, the hyperbolic interpolation weights sinh((1−t)β)
+sinh(β)
+and
+sinh(tβ)
+sinh(β) are strictly smaller than (1 −t) and t, respectively.
+This causes the interpolated points to lie closer to the origin.
+To understand how this contraction relates to the geome-
+try of hyperbolic space, we revisit the hyperboloid constraint
+in Eq. (1), which gives:
+p0 =
+p
+1/κ + ∥˜p∥2,
+(11)
+A smaller p0 constrains ∥˜p∥more tightly, thus reducing
+the expressive capacity of embedding. This is consistent
+with prior work (Ganea, Becigneul, and Hofmann 2018;
+Khrulkov et al. 2020), suggesting that points near the ori-
+gin represent more abstract concepts.
+Final Objective Function
+Finally, we train our model
+by aligning the interpolated visual representations with the
+brain embeddings in hyperbolic space. The final hyperbolic
+contrastive loss is defined as:
+LHCL = L(ˆzv, zb) + L(zb, ˆzv).
+(12)
+5578
+
+
+Method
+Subject 1
+Subject 2
+Subject 3
+Subject 4
+Subject 5
+Subject 6
+Subject 7
+Subject 8
+Subject 9 Subject 10
+Average
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+Intra-subject: train and test on one subject
+BraVL
+6.1
+17.9
+4.9
+14.9
+5.6
+17.4
+5.0
+15.1
+4.0
+13.4
+6.0
+18.2
+6.5
+20.4
+8.8
+23.7
+4.3
+14.0
+7.0
+19.7
+5.8
+17.5
+NICE
+13.2 39.5 13.5 40.3 14.5 42.7 20.6 52.7 10.1 31.5 16.5 44.0 17.0 42.1 22.9 56.1 15.4 41.6 17.4 45.8 16.1 43.6
+ATM-S
+25.6 60.4 22.0 54.5 25.0 62.4 31.4 60.9 12.9 43.0 21.3 51.1 30.5 61.5 38.8 72.0 30.4 51.5 29.1 63.5 28.5 60.4
+Cog-cap 31.4 79.7 31.4 77.8 38.2 85.7 40.4 85.8 24.4 66.3 34.8 78.8 34.7 81.0 48.1 88.6 37.4 79.4 35.6 79.3 35.6 80.2
+UBP
+41.2 70.5 51.2 80.9 51.2 82.0 51.1 76.9 42.2 72.8 57.5 83.5 49.0 79.9 58.6 85.8 45.1 76.2 61.5 88.2 50.9 79.7
+HyFI
+60.6 85.3 65.9 94.0 69.5 93.9 66.5 89.8 55.0 86.0 74.4 95.0 68.4 91.3 78.9 96.9 66.0 90.6 77.0 96.4 68.2 91.9
+Inter-subject: leave one subject out for test
+BraVL
+2.3
+8.0
+1.5
+6.3
+1.9
+6.7
+2.1
+8.1
+2.2
+7.6
+1.6
+6.4
+2.3
+8.5
+1.8
+7.0
+1.4
+5.9
+1.7
+6.7
+1.5
+5.6
+NICE
+7.6
+22.8
+5.9
+20.5
+6.0
+22.3
+6.3
+20.7
+4.4
+18.3
+5.6
+22.2
+5.6
+19.7
+6.3
+22.0
+5.7
+17.6
+8.4
+28.3
+6.2
+21.4
+NICE-G
+5.9
+21.4
+6.4
+22.7
+5.5
+20.1
+6.1
+21.0
+4.7
+19.5
+6.2
+22.5
+5.9
+19.1
+7.3
+25.3
+6.2
+18.3
+6.2
+26.3
+5.9
+21.6
+ATM-S
+10.5 26.8
+7.1
+24.8 11.9 33.8 14.7 39.4
+7.0
+23.9 11.1 35.8 16.1 43.5 15.0 40.3
+4.9
+22.7 20.5 46.5 11.8 33.7
+UBP
+11.5 29.7 15.5 40.0
+9.8
+27.0 13.0 32.3
+8.8
+33.8 11.7 31.0 10.2 23.8 12.2 32.2 15.5 40.5 16.0 43.5 12.4 33.4
+HyFI
+16.2 35.8 20.0 47.7
+7.5
+26.7 18.8 41.3
+9.7
+27.5 15.5 33.8 11.0 34.5 13.2 30.3 13.3 38.8 25.3 55.7 15.1 37.2
+Table 1: Top-1 (T-1) and top-5 (T-5) accuracy (%) results in 200-way zero-shot brain-to-image retrieval on THINGS-EEG,
+reported for intra- and inter-subject settings. Bold and underline indicate the best and second-best results, respectively.
+Method Subject 1
+Subject 2
+Subject 3
+Subject 4
+Average
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+T-1
+T-5
+Intra-subject: train and test on one subject
+NICE
+8.7
+30.5 21.8 56.6 16.5 49.7 10.3 32.3 14.3 42.3
+UBP
+15.0 38.0 46.0 80.5 27.3 59.0 18.5 43.5 26.7 55.2
+HyFI
+17.6 40.1 63.8 91.1 38.0 76.9 23.7 50.2 35.8 64.6
+Inter-subject: leave one subject out for test
+UBP
+2.0
+5.7
+1.5
+17.2
+2.7
+10.5
+2.5
+8.0
+2.2
+10.4
+HyFI
+2.7
+6.0
+4.3
+17.0
+3.5
+12.5
+1.0
+7.6
+3.2
+11.5
+Table 2: Top-1 and top-5 accuracy (%) results in 200-way
+zero-shot brain-to-image retrieval on THINGS-MEG.
+Experiments and Results
+Datasets
+THINGS-EEG
+We used the THINGS-EEG dataset (Gif-
+ford et al. 2022), a large-scale EEG benchmark collected un-
+der the Rapid Serial Visual Presentation (RSVP) paradigm,
+which provides image-EEG paired data from 10 subjects
+viewing rapid sequences of images. The training set consists
+of 1,654 object concepts, each represented by 10 distinct im-
+ages, with each image repeated 4 times per subject. The test
+set includes 200 concepts with one image per concept and
+each image repeated 80 times per subject. Following prior
+preprocessing protocols (Song et al. 2024; Wu et al. 2025),
+we averaged trials, downsampled EEG signals to 250 Hz,
+and selected 17 channels over occipital and parietal regions.
+THINGS-MEG
+We additionally utilized the THINGS-
+MEG dataset (Hebart et al. 2023), which contains recordings
+from four participants using 271 MEG channels. The train-
+ing set includes 1,854 object concepts, each presented once
+with 12 different images, while the test set consists of 200
+concepts, each associated with a single image repeated 12
+times. To ensure fair comparison, we follow the same pre-
+processing pipeline as described in (Song et al. 2024; Wu
+et al. 2025); more details are provided in the appendix.
+Implementation Details
+We used AdamW (Loshchilov and Hutter 2017) with learn-
+ing rate 3 × 10−4, weight decay 1 × 10−4, and batch size
+1024. We trained the model for 50 epochs. The curvature pa-
+rameter κ was set to 1 at initialization and optimized during
+training. To control feature norms, we initialize the scaling
+factors αv and αb to
+p
+1/d, following (Desai et al. 2023).
+We empirically observed that fixing αv = 1 led to better
+training stability for ResNet-based and hyperbolic vision en-
+coder, due to the already exhibit low norm of their features.
+All experiments were conducted on a GPU, GTX 1080 Ti
+(12GB). We applied fovea blur and Gaussian blur. Augmen-
+tation details are in the appendix.
+Vision Encoders
+We evaluated a range of visual back-
+bones, including RN50, RN101, ViT-B/16, ViT-B/32, ViT-
+L/14, and ViT-H/14. In addition, we also used two recent hy-
+perbolic vision-language models, MERU (Desai et al. 2023)
+and HyCoCLIP (Pal et al. 2024), which are pretrained to
+capture hierarchical relationships between images and text.
+We adopted RN50 as the default vision encoder.
+Brain Encoders
+We applied our method using a variety of
+EEG encoders to demonstrate its generality across different
+architectures. Specifically, we adopted models that are either
+widely used in the literature or recently proposed in neural
+encoding studies, including ShallowNet (Schirrmeister et al.
+2017), EEGNet (Lawhern et al. 2018), and TSConv (Li et al.
+2024), as well as EEGProject (Wu et al. 2025). We used
+EEGProject as default EEG encoder.
+5579
+
+
+Interpolation Hyperbolic THINGS-EEG THINGS-MEG
+T-1
+T-5
+T-1
+T-5
+–
+–
+49.4
+81.0
+23.1
+47.8
+–
+✓
+54.3
+82.5
+28.8
+55.1
+✓
+–
+59.7
+86.8
+25.2
+51.8
+✓
+✓
+68.2
+91.9
+35.8
+64.6
+Table 3: Ablation study: effect of interpolation and hyper-
+bolic space. The row with only interpolation checked refer
+to interpolation in CLIP space.
+Results
+We compare our method with several recent neural de-
+coding approaches for brain-to-image retrieval, including
+BraVL (Du et al. 2023), NICE (Song et al. 2024), ATM (Li
+et al. 2024), CogCap (Zhang et al. 2025), and UBP (Wu et al.
+2025). Detailed baseline descriptions are in the appendix.
+To evaluate decoding performance, we perform 200-way
+zero-shot retrieval on THINGS-EEG and THINGS-MEG,
+following prior work (Du et al. 2023; Wu et al. 2025). This
+evaluates alignment quality and generalization to novel con-
+cepts. The results in Tables 1 and 2. We averaged over 5 runs,
+and all improvements are statistically significant (p < 0.01).
+On the THINGS-EEG dataset, our method achieves a top-
+1 accuracy of 68.2% and top-5 accuracy of 91.9%, outper-
+forming the previous SOTA (UBP) by +17.3% and +12.2%,
+respectively. On the THINGS-MEG dataset, HyFI achieves
+a top-1 accuracy of 35.8% and top-5 accuracy of 64.6%, im-
+proving upon UBP by +9.1% and +9.4%, respectively.
+Furthermore, we conduct a qualitative comparison of re-
+trieval results with UBP, as shown in Fig. 4. For fair compar-
+ison, we used subject 4 with near-average performance. As
+illustrated in the figure, our method preserves both semantic
+and perceptual coherence, whereas previous approaches fail
+to maintain this consistency. This indicates that our method
+effectively fuses perceptual and semantic features, thereby
+maintaining coherence in both aspects. More examples of
+retrieved image are provided in the appendix.
+Ablation Study
+Effect of Hyperbolic Geometry and Feature Interpola-
+tion
+To evaluate the contributions of hyperbolic space and
+feature interpolation, we conduct an ablation study and re-
+sults in Table 3. First, we observe that aligning brain and
+image features is more effective in hyperbolic space than in
+CLIP space (Euclidean space). This supports the suitability
+of hyperbolic space for modeling the information imbalance
+between brain and visual modalities. Next, we compare in-
+terpolating features in the original CLIP space and in hyper-
+bolic space. Even in the CLIP space, fusing low-level visual
+features improves performance, highlighting the benefit of
+integrating perceptual information. However, performing in-
+terpolation in hyperbolic space leads to the best results. This
+finding indicates that hyperbolic interpolation effectively re-
+duces redundancy and representational complexity, while fa-
+cilitating feature fusion.
+Method
+Architecture
+Model
+THINGS-EEG THINGS-MEG
+w/o HyFI Ours w/o HyFI Ours
+CLIP
+CNN
+RN50
+49.4
+68.2
+23.1
+35.8
+RN101
+44.4
+62.1
+21.0
+34.8
+ViT
+ViT-B/16
+36.0
+41.6
+18.6
+23.3
+ViT-B/32
+42.5
+46.9
+20.0
+25.1
+ViT-L/14
+30.1
+34.1
+13.0
+21.0
+ViT-H/14
+42.5
+43.8
+18.7
+27.9
+MERU
+ViT
+ViT-S/16
+43.7
+52.4
+21.6
+31.1
+ViT-B/16
+31.7
+48.8
+15.7
+24.6
+ViT-L/16
+23.1
+30.9
+11.0
+19.6
+HyCoCLIP
+ViT
+ViT-S/16
+44.3
+51.6
+21.2
+27.9
+ViT-B/16
+35.6
+45.6
+18.1
+27.0
+Table 4: Top-1 image retrieval accuracy (%) across visual
+encoders. The “w/o HyFI” represents alignment in CLIP
+space; MERU and HyCoCLIP use hyperbolic alignment.
+Figure 4: Qualitative comparison of image retrieval results.
+Our method retrieves semantically and perceptually coher-
+ent images, while the previous method often suffers from
+color or semantic inconsistencies.
+Effect of Vision and Brain Encoders
+We investigate the impact of different vision and brain en-
+coders on brain-to-image retrieval performance, the results
+summarized in Table 4 and 5. For this analysis, we use
+EEGProject as the brain encoder and compare various pre-
+trained vision encoders. We observe that CNN-based back-
+bones yield stronger alignment with EEG signals compared
+to transformer-based models. Interestingly, lightweight ar-
+chitectures outperform deeper models. These results suggest
+that compact visual representations may be more compati-
+ble with neural signals. Importantly, our method consistently
+outperforms the baseline across all vision architectures. We
+also evaluate the effect of different brain encoders while fix-
+ing the vision encoder to CLIP-RN50. We observe that our
+method consistently improves performance across all brain
+encoder architectures. This highlights the general applicabil-
+ity and robustness of our approach, regardless of the specific
+choice of brain encoder.
+5580
+
+
+Brain Encoder
+THINGS-EEG
+THINGS-MEG
+w/o HyFI
+Ours
+w/o HyFI
+Ours
+ShallowNet
+36.6
+50.5
+15.1
+23.2
+EEGNet
+36.2
+51.6
+19.5
+26.4
+TSConv
+41.1
+57.1
+21.9
+30.5
+EEGProject
+49.4
+68.2
+23.1
+35.8
+Table 5: Top-1 image retrieval accuracy (%) using different
+brain encoders and CLIP-RN50.
+Analysis
+Feature Visualization
+To investigate the effect of feature
+interpolation in hyperbolic space, we visualize the distribu-
+tion of distances from the root, as shown in Fig. 5. Follow-
+ing (Desai et al. 2023), we define the root as the mean of all
+embeddings in CLIP space and the time origin O in hyper-
+bolic space. As shown in Fig. 5, (a) in the CLIP space, the
+interpolated image embeddings lie between the semantic and
+perceptual features, whereas (b) in the hyperbolic space, the
+interpolated embeddings are located closer to the time origin
+O. This behavior reflects the nature of hyperbolic interpola-
+tion, which bends toward the origin and results in a tighter
+bound on the spatial components, as described in Eq. (11).
+It suggests that effectively compressing and integrating se-
+mantic and perceptual features leads to better alignment with
+brain signals. Notably, the EEG embeddings lie farther from
+the origin, as their high variability requires regions with
+fewer constraints (i.e., away from the time origin).
+Figure 5: Distributions of embedding distances from the root
+in (a) CLIP space and (b) hyperbolic space. Interpolated im-
+age embeddings lie closer to the root in hyperbolic space,
+unlike in CLIP space.
+Analysis of interpolation coefficient
+To understand how
+the model adaptively integrates semantic and perceptual in-
+formation, we analyze the learned interpolation coefficient
+t ∈[0, 1]. The distribution of coefficients is shown in Fig. 6.
+We observe that t is predominantly distributed below 0.5,
+indicating that the model tends to focus more on semantic
+features during interpolation. To further interpret this behav-
+ior, we also examine images corresponding to both low and
+high t values in the test set. Images with lower t values typi-
+cally contain objects that are iconic examples of their higher-
+level categories (e.g., banana–fruit, cheetah–mammal, and
+van-car). In contrast, images with higher t values tend to ex-
+hibit salient low-level visual attributes such as orientation
+and color.
+Figure 6: Distribution of the interpolation coefficient t and
+example images with low and high t values.
+Analyzing the effect of image augmentation To inves-
+tigate the effect of image augmentations on a pre-trained
+VLM, we conduct image-to-image retrieval using percep-
+tual and semantic images as queries in CLIP-RN50. The
+results are shown in Fig. 7. When using the semantic im-
+ages as queries, the retrieved results tend to be semantically
+consistent. In contrast, perceptual images bias the retrieval
+toward low-level visual attributes such as color and object
+orientation. Additional results with other VLMs are in the
+appendix.
+Figure 7: Comparison of Top-3 retrieval results using (a) se-
+mantic and (b) perceptual images. Semantic queries tend to
+retrieve conceptually similar images (e.g., plants, fruits, an-
+imals). In contrast, perceptual queries retrieve images with
+shared low-level visual feature such as color and orientation.
+Conclusion
+We propose Hyperbolic Feature Interpolation (HyFI), a
+framework that interpolates semantic and perceptual visual
+features in hyperbolic space for improved alignment with
+brain signals. Leveraging the geodesic curvature toward the
+origin, HyFI enables effective fusion and compression of
+visual representations. This leads to better alignment with
+neural activity by reflecting both limited brain information
+and feature entanglement. Experiments on THINGS-EEG
+and THINGS-MEG show that HyFI achieves SOTA perfor-
+mance on zero-shot brain-to-image retrieval task.
+5581
+
+
+Acknowledgments
+This work was supported by the Institute of Informa-
+tion & Communications Technology Planning & Evaluation
+(IITP) grant funded by the Korea government (MSIT) under
+two projects: (No. RS-2019-II190079, Artificial Intelligence
+Graduate School Program at Korea University) and (No. RS-
+2024-00457882, National AI Research Lab Project).
+References
+Atigh, M. G.; Schoep, J.; Acar, E.; Van Noord, N.; and
+Mettes, P. 2022. Hyperbolic image segmentation. In Pro-
+ceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, 4453–4462.
+Cannon, J. W.; Floyd, W. J.; Kenyon, R.; Parry, W. R.; et al.
+1997. Hyperbolic geometry. Flavors of geometry, 31(59-
+115): 2.
+Cavanagh, P.; and Alvarez, G. A. 2005. Tracking multiple
+targets with multifocal attention. Trends in cognitive sci-
+ences, 9(7): 349–354.
+Chamberlain, B. P.; Clough, J.; and Deisenroth, M. P. 2017.
+Neural embeddings of graphs in hyperbolic space.
+arXiv
+preprint arXiv:1705.10359.
+Chen, H.; He, L.; Liu, Y.; and Yang, L. 2024. Visual Neural
+Decoding via Improved Visual-EEG Semantic Consistency.
+arXiv preprint arXiv:2408.06788.
+D´efossez, A.; Caucheteux, C.; Rapin, J.; Kabeli, O.; and
+King, J.-R. 2023. Decoding speech perception from non-
+invasive brain recordings.
+Nature Machine Intelligence,
+5(10): 1097–1107.
+Desai, K.; Nickel, M.; Rajpurohit, T.; Johnson, J.; and
+Vedantam, S. R. 2023. Hyperbolic image-text representa-
+tions. In International Conference on Machine Learning,
+7694–7731. PMLR.
+Dhingra, B.; Shallue, C. J.; Norouzi, M.; Dai, A. M.; and
+Dahl, G. E. 2018.
+Embedding text in hyperbolic spaces.
+arXiv preprint arXiv:1806.04313.
+DiCarlo, J. J.; Zoccolan, D.; and Rust, N. C. 2012. How does
+the brain solve visual object recognition? Neuron, 73(3):
+415–434.
+Du, C.; Fu, K.; Li, J.; and He, H. 2023. Decoding visual neu-
+ral representations by multimodal learning of brain-visual-
+linguistic features. IEEE Transactions on Pattern Analysis
+and Machine Intelligence, 45(9): 10760–10777.
+Dux, P. E.; and Marois, R. 2009. The attentional blink: A
+review of data and theory.
+Attention, Perception, & Psy-
+chophysics, 71(8): 1683–1700.
+Ganea, O.; Becigneul, G.; and Hofmann, T. 2018. Hyper-
+bolic Entailment Cones for Learning Hierarchical Embed-
+dings. In International Conference on Machine Learning,
+1646–1655.
+Gifford, A. T.; Dwivedi, K.; Roig, G.; and Cichy, R. M.
+2022. A large and rich EEG dataset for modeling human
+visual object recognition. NeuroImage, 264: 119754.
+Hebart, M. N.; Contier, O.; Teichmann, L.; Rockter, A. H.;
+Zheng, C. Y.; Kidder, A.; Corriveau, A.; Vaziri-Pashkam,
+M.; and Baker, C. I. 2023. THINGS-data, a multimodal col-
+lection of large-scale datasets for investigating object repre-
+sentations in human brain and behavior. Elife, 12: e82580.
+Kay, K. N.; Naselaris, T.; Prenger, R. J.; and Gallant, J. L.
+2008. Identifying natural images from human brain activity.
+Nature, 452(7185): 352–355.
+Khrulkov, V.; Mirvakhabova, L.; Ustinova, E.; Oseledets, I.;
+and Lempitsky, V. 2020. Hyperbolic image embeddings. In
+Proceedings of the IEEE/CVF conference on computer vi-
+sion and pattern recognition, 6418–6428.
+Ko, W.; Jeon, E.; Jeong, S.; and Suk, H.-I. 2021.
+Multi-
+scale neural network for EEG representation learning in
+BCI.
+IEEE Computational Intelligence Magazine, 16(2):
+31–45.
+Lawhern, V. J.; Solon, A. J.; Waytowich, N. R.; Gordon,
+S. M.; Hung, C. P.; and Lance, B. J. 2018. EEGNet: a com-
+pact convolutional neural network for EEG-based brain–
+computer interfaces. Journal of neural engineering, 15(5):
+056013.
+Le, M.; Roller, S.; Papaxanthos, L.; Kiela, D.; and Nickel,
+M. 2019. Inferring concept hierarchies from text corpora via
+hyperbolic embeddings. arXiv preprint arXiv:1902.00913.
+Li, D.; Wei, C.; Li, S.; Zou, J.; Qin, H.; and Liu, Q. 2024.
+Visual decoding and reconstruction via eeg embeddings with
+guided diffusion. arXiv preprint arXiv:2403.07721.
+Li, H.; Wu, H.; and Chen, B. 2025.
+NeuralDiffuser:
+Neuroscience-inspired Diffusion Guidance for fMRI Visual
+Reconstruction. IEEE Transactions on Image Processing.
+Liang, V. W.; Zhang, Y.; Kwon, Y.; Yeung, S.; and Zou,
+J. Y. 2022.
+Mind the gap: Understanding the modal-
+ity gap in multi-modal contrastive representation learning.
+Advances in Neural Information Processing Systems, 35:
+17612–17625.
+Liu, Q.; Nickel, M.; and Kiela, D. 2019. Hyperbolic graph
+neural networks. Advances in neural information processing
+systems, 32.
+Loshchilov, I.; and Hutter, F. 2017. Decoupled weight decay
+regularization. arXiv preprint arXiv:1711.05101.
+Mandica, P.; Franco, L.; Kallidromitis, K.; Petryk, S.; and
+Galasso, F. 2025. Hyperbolic learning with multimodal large
+language models. In European Conference on Computer Vi-
+sion, 382–398. Springer.
+Mathis, M. W.; Rotondo, A. P.; Chang, E. F.; Tolias, A. S.;
+and Mathis, A. 2024. Decoding the brain: From neural rep-
+resentations to mechanistic models. Cell, 187(21): 5814–
+5832.
+Miyawaki, Y.; Uchida, H.; Yamashita, O.; Sato, M.-a.;
+Morito, Y.; Tanabe, H. C.; Sadato, N.; and Kamitani, Y.
+2008. Visual image reconstruction from human brain activ-
+ity using a combination of multiscale local image decoders.
+Neuron, 60(5): 915–929.
+Naselaris, T.; Kay, K. N.; Nishimoto, S.; and Gallant, J. L.
+2011. Encoding and decoding in fMRI. Neuroimage, 56(2):
+400–410.
+5582
+
+
+Naselaris, T.; Prenger, R. J.; Kay, K. N.; Oliver, M.; and Gal-
+lant, J. L. 2009. Bayesian reconstruction of natural images
+from human brain activity. Neuron, 63(6): 902–915.
+Nickel, M.; and Kiela, D. 2017. Poincar´e embeddings for
+learning hierarchical representations.
+Advances in neural
+information processing systems, 30.
+Oota, S. R.; Chen, Z.; Gupta, M.; Bapi, R. S.; Jobard, G.;
+Alexandre, F.; and Hinaut, X. 2023. Deep neural networks
+and brain alignment: Brain encoding and decoding (survey).
+arXiv preprint arXiv:2307.10246.
+Pal, A.; van Spengler, M.; di Melendugno, G. M. D.; Fla-
+borea, A.; Galasso, F.; and Mettes, P. 2024. Compositional
+Entailment Learning for Hyperbolic Vision-Language Mod-
+els. arXiv preprint arXiv:2410.06912.
+Peng, W.; Varanka, T.; Mostafa, A.; Shi, H.; and Zhao, G.
+2021. Hyperbolic deep neural networks: A survey. IEEE
+Transactions on pattern analysis and machine intelligence,
+44(12): 10023–10044.
+Pollen, D. A. 1999. On the neural correlates of visual per-
+ception. Cerebral cortex, 9(1): 4–19.
+Schirrmeister, R. T.; Springenberg, J. T.; Fiederer, L. D. J.;
+Glasstetter, M.; Eggensperger, K.; Tangermann, M.; Hutter,
+F.; Burgard, W.; and Ball, T. 2017. Deep learning with con-
+volutional neural networks for EEG decoding and visualiza-
+tion. Human brain mapping, 38(11): 5391–5420.
+Schrodi, S.; Hoffmann, D. T.; Argus, M.; Fischer, V.;
+and Brox, T. 2024.
+Two Effects, One Trigger: On the
+Modality Gap, Object Bias, and Information Imbalance
+in Contrastive Vision-Language Models.
+arXiv preprint
+arXiv:2404.07983.
+Scotti, P.; Banerjee, A.; Goode, J.; Shabalin, S.; Nguyen,
+A.; Dempster, A.; Verlinde, N.; Yundler, E.; Weisberg, D.;
+Norman, K.; et al. 2023.
+Reconstructing the mind’s eye:
+fmri-to-image with contrastive learning and diffusion pri-
+ors. Advances in Neural Information Processing Systems,
+36: 24705–24728.
+Scotti, P. S.; Tripathy, M.; Villanueva, C. K. T.; Kneeland,
+R.; Chen, T.; Narang, A.; Santhirasegaran, C.; Xu, J.; Nase-
+laris, T.; Norman, K. A.; et al. 2024. MindEye2: shared-
+subject models enable fMRI-to-image with 1 hour of data.
+In Proceedings of the 41st International Conference on Ma-
+chine Learning, 44038–44059.
+Shen, G.; Zhao, D.; He, X.; Feng, L.; Dong, Y.; Wang, J.;
+Zhang, Q.; and Zeng, Y. 2025. Neuro-vision to language:
+Enhancing brain recording-based visual reconstruction and
+language interaction. Advances in Neural Information Pro-
+cessing Systems, 37: 98083–98110.
+Song, Y.; Liu, B.; Li, X.; Shi, N.; Wang, Y.; and Gao,
+X. 2024. Decoding Natural Images from EEG for Object
+Recognition. In The Twelfth International Conference on
+Learning Representations.
+Srinivasan, R.; Winter, W. R.; Ding, J.; and Nunez, P. L.
+2007.
+EEG and MEG coherence: measures of functional
+connectivity at distinct spatial scales of neocortical dynam-
+ics. Journal of neuroscience methods, 166(1): 41–52.
+Tifrea, A.; Becigneul, G.; and Ganea, O.-E. 2019. Poincare
+Glove: Hyperbolic Word Embeddings. In International Con-
+ference on Learning Representations.
+Wang,
+Z.;
+and
+Ji,
+H.
+2022.
+Open
+vocabulary
+electroencephalography-to-text
+decoding
+and
+zero-shot
+sentiment classification. In Proceedings of the AAAI Con-
+ference on Artificial Intelligence, volume 36, 5350–5358.
+Wu, H.; Li, Q.; Zhang, C.; He, Z.; and Ying, X. 2025. Bridg-
+ing the Vision-Brain Gap with an Uncertainty-Aware Blur
+Prior. arXiv preprint arXiv:2503.04207.
+Yang, H.; Gee, J.; and Shi, J. 2024. Brain decodes deep nets.
+In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, 23030–23040.
+Zhang, K.; He, L.; Jiang, X.; Lu, W.; Wang, D.; and Gao,
+X. 2025. Cognitioncapturer: Decoding visual stimuli from
+human eeg signal with multimodal information. In Proceed-
+ings of the AAAI Conference on Artificial Intelligence, vol-
+ume 39, 14486–14493.
+5583
