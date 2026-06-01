@@ -1,0 +1,1690 @@
+Title: Credible rectangles for high-dimensional posterior comparison
+
+URL Source: https://arxiv.org/pdf/2605.30072v1
+
+Published Time: Fri, 29 May 2026 01:32:03 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+# Credible rectangles for high-dimensional posterior comparison 
+
+Alice Chevaux 1, Julyan Arbel 1, Guillaume Kon Kam King 2, and Sophie Achard 1
+
+> 1
+
+Univ. Grenoble Alpes, CNRS, Inria, LJK, F-38000 Grenoble, France 
+
+> 2
+
+Universit´ e Paris-Saclay, INRAE, MaIAGE, 78350 Jouy-en-Josas, France 
+
+Abstract 
+
+We propose a Bayesian framework for uncertainty quantification and comparison in brain connectivity graph analysis. Standard graph-based approaches typically rely on point es-timates of correlation matrices, overlooking the uncertainty induced by high-dimensional estimation from limited data. Our methodology constructs and compares credible hyper-rectangles derived from posterior distributions, providing interpretable tools for subject-level inference and longitudinal monitoring. We develop scalable algorithms for estimating these regions in high dimensions and establish theoretical guarantees in the inverse-Wishart model for resting-state fMRI data, including a Bernstein–von Mises theorem for correlation ma-trices and control of a Bayesian family-wise error rate. The proposed framework enables principled detection of significant connectivity differences both globally and locally while pre-serving joint dependency structures. While demonstrating competitive performance against multiple-testing procedures on synthetic datasets, our approach also facilitates the direct comparison of two distinct scans from a single patient, a capability currently absent from the literature. We leverage this novelty on real datasets to improve interpretability. Be-yond fMRI data, the approach provides a general framework for comparison problems in high-dimensional dependent settings. 
+
+# 1 Introduction 
+
+Understanding and comparing brain connectivity at the individual level is a central challenge in modern neuroimaging. While graph-based representations derived from functional Magnetic Resonance Imaging (fMRI) data have become standard, they often rely on point estimates that overlook the uncertainty inherent in their construction. In this work, we propose a Bayesian framework to quantify and propagate this uncertainty, enabling principled comparisons between connectivity patterns at both the individual and group levels. Crucially, our methodology is designed to be adaptable across various models, addressing a critical unmet clinical need: the absence of existing tools for robust decision-making when comparing single-subject scans, either against one another or against a reference value for instance derived from healthy control subjects. We believe this approach significantly enhances interpretability for physicians, directly translating complex statistical uncertainties into actionable clinical insights. 
+
+1.1 Motivations 
+
+Graph theory has emerged as a well-established framework for modeling and interpreting the complex connectivity patterns inherent in brain imaging data. Yet, the construction of repre-sentative brain graphs remains a delicate, multi-step procedure. The standard pipeline typically entails estimating a correlation matrix from the timeseries obtained with preprocessed imaging signals, followed by the application of a graph estimation model. While numerous estimators have been developed to stabilize the correlation matrix, the variance intrinsic to this estimation step is often underestimated or neglected when the matrix is subsequently treated as a graph. 1
+
+> arXiv:2605.30072v1 [stat.ME] 28 May 2026
+
+This statistical limitation is exacerbated by the escalating heterogeneity and scale of contem-porary neuroimaging datasets and the lack of standardized preprocessing procedures. Modern studies must account for variable acquisition durations, diverse scanner hardware, distinct noise profiles, and expanding population cohorts. Moreover, the increasing accessibility of longitudi-nal data has elevated the importance of follow-up analyses for clinical applications, facilitating both group-level comparisons and individual patient monitoring. Consequently, whether for comparative studies or longitudinal tracking, there is a critical need to quantify the uncertainty propagating through the acquisition and analysis pipeline from a purely statistical standpoint, independent of the system’s physical constraints. To gain a clearer understanding of the uncertainty that occurs and propagates during the analysis of brain imaging data, we adopt a Bayesian framework. The Bayesian approach is particularly well-suited for individual-level inference, as it enables the direct quantification and propagation of uncertainty in non-asymptotic settings, while naturally preserving the joint dependency structure intrinsic to high-dimensional brain connectivity networks. Key to our approach is the exploitation of a simple Bayesian model using credible regions. Contributions include a general methodology leveraging credible hyperrectangles to furnish statistical tools for comparing two brain connectivity graphs and enhancing interpretability at the subject level. We further provide algorithms to compute these credible hyperrectangles in high-dimensional settings. Specifically, within the context of an inverse-Wishart model for resting-state fMRI (rs-fMRI) data, we establish theoretical result, including a Bernstein–von Mises theorem and a procedure to control a Bayesian analogue of the Family-Wise Error Rate (FWER). Although this work primarily focuses on rs-fMRI data due to its prominence in connectivity research, the proposed methodological framework is broadly applicable. Most of our findings generalize to other high-dimensional neuroimaging modalities, such as electroencephalography (EEG), which face analogous challenges in estimating stable correlation structures from noisy, high-dimensional time series. 
+
+1.2 Data specificities 
+
+This paper concerns the analysis of rs-fMRI datasets. While we do not discuss preprocessing or parcellation of the brain, we focus on wavelet decomposition of the signal [Whitcher et al., 2000]. The properties of wavelets provide a context in which assuming that the observations are independent and identically distributed (i.i.d.) is a reasonable hypothesis, as they erase short-range dependencies [Achard and Gannaz, 2016]. The choice of wavelet scale is made to ensure that frequencies remain below 0.1 Hz, as resting-state oscillations relevant to functional connectivity are considered most salient within this low-frequency range [Biswal et al., 1995, Fox and Raichle, 2007, Achard and Bullmore, 2007]. We have chosen to study datasets which have already been analysed using wavelet analy-sis. Some conclusions have already been drawn from these datasets at a global level (group comparisons), but our aim is to assess significant results at an individual level. The first dataset is the Human Connectome Project (HCP) test-retest database [Smith et al., 2013, Glasser et al., 2013] that has been studied by Termenon et al. [2016]. It consists of 100 healthy volunteers. Each subject underwent two rs-fMRI acquisitions on different days. This dataset is useful for assessing the reliability of the method: for a reliable method, we would expect similar results when studying the same subject. To provide a point of reference, the similarity within a subject is compared to the similarity between two different subjects. This within-subject and between-subject comparison determine whether a method can be used to characterise a subject. Preprocessing is described in Termenon et al. [2016], and we focus on scale 4 of wavelets to obtain the desired frequency. The parcellation using the modified anatomic-automatic labeling (AAL) atlas [Tzourio-Mazoyer et al., 2002] gives us 89 Regions of Interest (ROI) to represent the brain, and the number of observations is n = 68. The second dataset, which is the main focus of this project, consists of scans of patients 2who have experienced a brain injury resulting in a coma. Patients were recruited in the ICU at Grenoble-Alpes University Hospital; ten of them were screened twice: once 30 days and once 60 days after the brain injury. We focus on these 10 patients and 10 healthy volunteers scanned in the same set-up to study the recovery of the patients after brain injury. Details of the preprocessing and parcellation choices are available in Oujamaa et al. [2023]. This time, there are 107 regions of interest (ROIs) using modified Anatomic-Automatic-Labelling 3 (AAL3) [Rolls et al., 2020] and scale 3 of the wavelet decomposition was used which gives us 95 observations per ROI. We also had access to ten control volunteers who underwent the same protocol, providing data on controls under the same conditions. This raises several clinical questions: can we characterise the evolution of a patient? Given the variety of brain injuries, is it possible to provide individual follow-up? Is there a way to identify remission? These clinical questions form the basis of this work. 
+
+1.3 Contributions and organization 
+
+To address the lack of uncertainty-aware subject-level comparison tools in high-dimensional connectivity analysis, we propose a general Bayesian framework based on credible rectangles derived from posterior distributions. Although motivated by rs-fMRI connectivity analysis, the methodology is broadly applicable to high-dimensional comparison problems involving depen-dent parameters. Our main contributions are fourfold: 
+
+Construction of credible rectangles in high dimension. We introduce quantile-based credible hyperrectangles adapted to high-dimensional posterior distributions and study their statistical properties for uncertainty quantification and decision-making. 
+
+A comparison framework for posterior objects. We develop global and local comparison pro-cedures based on overlap properties of credible rectangles, enabling interpretable subject-level inference and longitudinal analysis. 
+
+Scalable algorithms for high-dimensional settings. We propose several algorithms for estimating credible rectangles under severe computational and memory constraints, including online and sliced-quantile strategies designed for dimensions encountered in neuroimaging applications. 
+
+Theoretical guarantees and Bayesian error control. In the inverse-Wishart model for correlation matrices, we establish a Bernstein–von Mises theorem for correlations, consistency results for support recovery, and control of a Bayesian analogue of the family-wise error rate (BFWER). The remainder of the paper is organized as follows. Section 3 introduces the general frame-work for credible rectangles and posterior comparison. Section 4 specializes the methodology to correlation matrices and establishes the associated theoretical guarantees. Section 5 eval-uates the proposed procedures on synthetic datasets, while Section 6 presents applications to longitudinal and subject-level rs-fMRI connectivity analysis. All proofs are deferred to Appendix, code is available on Gitlab. 32 Related works in fMRI study 
+
+Group comparison Several methods have been proposed for comparing groups of patients across various pathologies. Most approaches rely on statistical tests applied to specific terms or network metrics, such as multiple testing procedures on correlation matrix coefficients or graph-theoretical measures [Kim et al., 2014, Zalesky et al., 2010]. Other studies, notably Ginestet et al. [2017], have advanced hypothesis testing at the global graph level, with potential post-hoc interpretation at the edge level. However, to achieve sufficient statistical power, these group-centric frameworks inherently rely on a more or less explicit assumption of homogeneity within the studied populations. This requirement poses a significant limitation in clinical contexts where patient variability is high. Indeed, the presence of heterogeneous subgroups or individual outliers can dilute group-level effects, leading to reduced sensitivity and potentially explaining the modest performance of such methods in certain studies. By averaging signals across subjects, these approaches inevitably overshadow individual specificities, making it difficult to derive biomarkers that are representative of single patients. Consequently, we argue that shifting the paradigm towards subject-level methods is essential. Such an approach would not only better account for group heterogeneity and robustness against outliers but also provide the granular tools necessary for precise individual patient monitoring and personalized clinical follow-up. 
+
+Continuous individual models At the individual level, continuous models primarily serve as a robust preprocessing step rather than a tool for direct interpretation. Their main objective is to provide a stable estimator of the correlation matrix, significantly reducing the estimation variance inherent to empirical correlation matrices, especially when the number of time points is limited relative to the number of regions. This shrinkage towards a structured target is achieved through frequentist approaches, such as the linear shrinkage estimator proposed by Ledoit and Wolf [2003], or within a Bayesian framework by specifying an inverse-Wishart prior on the covariance matrix, often centered on the identity matrix [Gelman et al., 1995]. While these methods yield full matrices that can be used to sample posterior distributions of transformations like partial correlations [Marrelec et al., 2007], the resulting dense connectivity patterns remain difficult to interpret biologically without further thresholding or processing. 
+
+Sparse individual models Conversely, sparse models aim to enhance interpretability by ex-plicitly identifying a subset of non-zero edges, effectively defining the support of the connectivity network. While a substantial body of literature exists on sparse graphical models based on the precision matrix, our focus here remains strictly on the correlation structure, thus excluding precision-based approaches. Within the realm of sparse correlation estimation, two distinct strategies emerge. The first relies on multiple testing procedures to determine the network support; methods controlling the Family-Wise Error Rate (FWER), such as Bonferroni [Bon-ferroni, 1936] or Holm–Bonferroni [Holm, 1979] corrections, offer rigorous statistical control over false positives but can be considered too conservative in practice. The second strategy involves direct estimation of a sparse correlation matrix, ensuring the semi-definite positive property of the estimator [Bien and Tibshirani, 2011]. However, these penalized estimation techniques do not offer dedicated tools for comparing two individuals, and they rely on a strong sparsity assumption that may not always reflect the complexity of real-world biological networks, po-tentially overlooking weak yet meaningful connections as it was shown in previous benchmark [Chevaux et al., 2025]. Ultimately, while these individual-level methods effectively address covariance estimation and sparsity, they fail to provide statistical tools for directly comparing two scans from the same patient. This gap in the literature precludes rigorous longitudinal analyses and the detection connectivity changes at the subject level. 43 Credible rectangle for comparisons problems 
+
+In this section, we consider the multivariate setting where θ = ( θ1, . . . , θ d) ∈ Rd, temporarily setting aside the specific matrix constraints that will be addressed in Section 4. We assume a Bayesian framework characterized by a prior distribution π(θ) and a posterior distribution 
+
+π(θ|y) for the parameter of interest. To quantify the uncertainty associated with a Bayesian estimator, it is necessary to summarize this d-dimensional distribution. A standard approach is to construct a credible region R ⊂ Rd. For a given significance level α ∈ (0 , 1), a credible region of level 1 − α is defined as a subset satisfying: 
+
+P(θ ∈ R | y) = 
+
+Z
+
+> R
+
+π(θ|y) dθ ≥ 1 − α. 
+
+While working in a Bayesian framework typically provide ways to sample easily from the posterior distribution, defining such a region in high dimensions remains a non-trivial challenge. The following section explores various constructions of multidimensional credible regions and their specific properties. This problem bears some similarity with the construction of multi-variate confidence regions in frequentist statistics. However, whereas frequentist methods often rely on asymptotic normality or restrictive parametric assumptions about the estimator’s dis-tribution, the Bayesian approach leverages the full posterior distribution directly. This allows for uncertainty quantification under the assumed model for finite samples, without resorting to asymptotic approximations. 
+
+3.1 Credible region for high-dimensional parameters 
+
+3.1.1 State of the art 
+
+From a Bayesian perspective, the construction of credible regions is largely divided into two types: highest posterior density (HPD) regions and quantile-based intervals. The former are favoured since they offer the smallest volume for a given credible level, but computing them becomes intractable in high dimensions as kernel-based methods typically fail when d > 100 [Ferrie, 2014]. In the context of neuroscience, where dimensions reach approximately 5000, this forces the adoption of regions parameterised by a finite number of parameters, specifically the Cartesian product of quantile-based intervals. Often termed simultaneous intervals [Joshi et al., 2023] or bands [Held, 2004], these structures are increasingly recognized as necessary for man-aging joint uncertainty; recent post-processing approaches [Griffin, 2025] validate this reliance on Cartesian products (or ”rectangles”) for visualization and decision-making. However, while existing methods leverage this structure primarily for variable selection using 50% credible sets as an alternative to Posterior Inclusion Probabilities, our work addresses medical applications and global risk control. In these contexts, rigorous multiple testing corrections mandate high-coverage regions ( ≥ 95%), rendering rectangular approximations a computational imperative rather than a mere simplification for d ≈ 5000, overcoming the memory limitations that restrict prior simultaneous interval methods. From a frequentist perspective, this type of uncertainty quantification can also be applied to the estimator using confidence regions. The type of region is also restrained and tends to produce similar results to the Bayesian regions, for instance with simultaneous confidence intervals [Tang and Yu, 2020]. Other interval products are proposed in Chang et al. [2018], but with intervals of the same length, which differs from quantile-based intervals. Overall, none of these methods are computationally feasible for dimensions larger than 100. 
+
+3.1.2 Criteria for credible region 
+
+Given the state of the art and the application context, we choose to work with a Cartesian product of quantile-based intervals, which we call a quantile-based rectangle . This gives us 5a parameterised region that depends only on the quantile level of each dimension, making estimation feasible even in high dimensions. The choice of a rectangular shape is not optimal in terms of volume, since an ellipsoid would capture a similar posterior mass with a lower volume. However this choice allows to assess the effect of each dimension, which is useful for interpretation as we demonstrate later. Working with an ellipsoid region would complexify the parametrisation just to be once again projected as an interval on each dimension for the interpretation. For these reasons, estimating rectangle regions directly is more straightforward. Reservations about the use of quantile-based intervals still apply: this type of region is strongly discouraged if the distribution is multimodal. However, in the case of a unimodal distribution, this could lead to good results. See H¨ opfl et al. [2024] for criteria under which the HPD region can resemble a quantile-based region. It could be possible to compute the HPD region and use its marginal projection to apply the methodology proposed in Section 3.2. However, this will ultimately result in an increase of volume. To simplify the parametrisation further, we choose to have a single quantile level t for each interval. This is particularly sensible for our neuroscience application, as we do not want to differentiate the brain regions a priori. 
+
+Definition 3.1 (Quantile-Based Rectangle & Credible Rectangle) . Let θ = ( θ1, . . . , θ d) be the parameter of interest. For each θi, let qi(t) be the quantile of level t for the marginal posterior distribution of θi. The corresponding quantile-based rectangle at the level t is defined as: 
+
+R(t) = 
+
+> d
+
+Y
+
+> i=1
+
+
+
+qi
+
+ t
+
+2
+
+
+
+, q i
+
+
+
+1 − t
+
+2
+
+ 
+
+.
+
+Such a region is called a credible rectangle if, for some t = tα, it also verifies: 
+
+P(θ ∈ R(tα)|y) ≥ 1 − α. 
+
+The existence and estimation of such rectangles are discussed Section 3.3. 
+
+3.2 Methodological versatility of credible rectangles 
+
+The originality of this work lies in leveraging credible regions as a unified framework for statis-tical comparison at the individual level. In this section, we develop two distinct methodological approaches: first, comparing an estimated parameter vector θ against a fixed reference θref such as a population template, and second, directly comparing two parameter vectors θA and θB
+
+derived from distinct datasets (e.g., longitudinal scans of the same subject or data from two different subjects). While the conceptual basis of these comparisons applies broadly to credible sets, their practical implementation and interpretation in high-dimensional settings relies on the rectangular shape. Consequently, some methods presented herein are specifically tailored for credible rectangles. 
+
+3.2.1 Comparison to a reference parameter 
+
+We first address the fundamental question of whether the parameter of interest θ deviates globally from a reference value θref . The following proposition establishes some links between the probability of θ and θref being close if θref does not belong to the credible rectangle of θ.
+
+Proposition 3.2 (Global difference) . Let Rθ ⊂ Rd be a credible rectangle for θ with credibility level 1 − α, satisfying P(θ ∈ Rθ | y) ≥ 1 − α. Let θref ∈ Rd be a reference value such that 
+
+θref /∈ Rθ. Let ∥ · ∥ be any norm on Rd. Define the minimal distance d between θref and Rθ with respect to this norm as: 
+
+r = dist( θref , R θ) = inf 
+
+> θ′∈Rθ
+
+∥θ′ − θref ∥.
+
+6Then, r is positive and the posterior probability that θ lies strictly closer to θref than r is bounded by α:
+
+P(∥θ − θref ∥ < r | y) ≤ α. 
+
+This proposition establishes that if the reference value is excluded from the credible region for θ, we have a control over the probability of θ being close to θref . Thereby it validates the use of θref being inside a credible region as a rigorous decision rule for global difference. Framing the decision in terms of closeness (i.e., ∥θ − θref ∥ < r ) rather than strict equality ( θ = θref ) resolves a fundamental issue in continuous inference that is that the probability of equality is zero, rendering direct probability statements about equality uninformative. By shifting the focus to whether θ lies within a r-neighborhood of the reference, we define a non-trivial event with positive measure, providing a meaningful quantification of difference that avoids the degeneracy of point-null hypotheses in continuous spaces. This also provide an indicator r that quantify the separation of θref from θ. This result can be extended to any closed credible region. While the global test confirms the presence of an anomaly, it does not identify its spe-cific sources, to enable precise biological interpretation, we now decompose the decision into component-wise decision of differences. We aim to construct a decision vector δ ∈ { 0, 1}d
+
+characterizing significant deviations from θref in each dimension. Directly testing for equality ( θi = θref ,i ) is ill-posed in a continuous framework, as the posterior probability of exact equality is zero. To circumvent this, we formulate the problem as a signed decision process. We introduce two distinct decision vectors, δ+ and δ−, both in 
+
+{0, 1}d:
+
+• δ+ 
+
+> i
+
+= 1 indicates a significant positive shift (i.e., we conclude θi > θ ref ,i ). 
+
+• δ− 
+
+> i
+
+= 1 indicates a significant negative shift (i.e., we conclude θi < θ ref ,i ). We define the loss functions associated with these directional decisions. A loss occurs if we declare a directional difference that is contradicted by the true parameter value. Specifically, for the positive decisions: 
+
+L+(θ, δ +) = 1
+
+( d[
+
+> i=1
+
+ {δ+ 
+
+> i
+
+= 1 } ∩ { θi ≤ θref ,i })
+
+,
+
+which equals 1 if at least one false positive increase is declared (claiming θi > θ ref ,i when in fact 
+
+θi ≤ θref ,i ), and 0 otherwise. Similarly, for the negative decisions: 
+
+L−(θ, δ −) = 1
+
+( d[
+
+> i=1
+
+ {δ− 
+
+> i
+
+= 1 } ∩ { θi ≥ θref ,i })
+
+.
+
+The overall decision vector for significant differences (two-sided) is defined as the union of the directional decisions. Let δi = max( δ+ 
+
+> i
+
+, δ − 
+
+> i
+
+). The global loss function, representing the occurrence of any directional error, is: 
+
+L(θ, δ ) = max  L+(θ, δ +), L −(θ, δ −) .
+
+In the Bayesian framework, controlling the posterior expected loss Eθ|y[L(θ, δ )] ≤ α ensures that the probability of making at least one erroneous directional claim s bounded by α.
+
+Proposition 3.3 (Local differences) . Let R(t) = Qdi=1 [qi(t/ 2) , q i(1 −t/ 2)] be a credible rectangle constructed from marginal posterior quantiles, with global credibility level 1−α, i.e., P(θ ∈ R(t) |
+
+y) ≥ 1 − α. Let θref ∈ Rd be a reference value. We define the global decision vector δ ∈ { 0, 1}d
+
+as: 
+
+∀i, δ i = 1
+
+
+
+θref ,i /∈
+
+
+
+qi
+
+ t
+
+2
+
+
+
+, q i
+
+
+
+1 − t
+
+2
+
+ 
+
+.
+
+7This decision δi corresponds to the union of two directional decisions: δ+ 
+
+> i
+
+= 1{θref ,i < q i(t/ 2) }
+
+and δ− 
+
+> i
+
+= 1{θref ,i > q i(1 − t/ 2) }. Then the loss defined earlier can be used and this procedure controls the posterior expected loss at level α:
+
+Eθ|y[L(θ, δ )] ≤ α. 
+
+Although δi is defined as a simple test of difference, it inherently controls the directionality as well: if θref ,i < q i(t/ 2), we infer a significant increase from θref ,i and if θref ,i > q i(1 − t/ 2), we infer a significant decrease. 
+
+3.2.2 Comparison between two parameters 
+
+Having established a rigorous framework for comparing a single parameter θ against a fixed reference, we now extend this methodology to the direct comparison of two distinct parameter vectors, θA and θB (e.g., longitudinal scans of the same patient or data from two different individuals). 
+
+Proposition 3.4. Let RA and RB be (1 −α) rectangle credible regions for θA and θB respectively. Then if RA ∩ RB = ∅ the probability of equality of the two parameters is controlled at a level 2α:
+
+P(θA = θB |y) ≤ 2α. 
+
+Analogous to the reference comparison case, the global test of difference between θA and θB
+
+can be decomposed into component-wise decisions of difference by checking if intervals overlap for each dimension. Disjoint intervals are seen as significant differences, and the relative position tell us if it was a significant increase or decrease. 
+
+3.3 Constructing credible rectangle 
+
+The objective in this section is to construct a credible rectangle. For this the first step is to find t such that: 
+
+P(θ ∈ R(t)|y) ≥ 1 − α. (1) 
+
+3.3.1 Quantile level choice 
+
+Certain properties of the region R(t) can be derived for specific values of t without imposing further assumptions on the prior distribution of the parameters. To establish a framework for selecting an appropriate quantile level, we first define three specific types of rectangles. 
+
+Definition 3.5 (Special Rectangles) . We define the following three quantile levels and their corresponding rectangular regions: (i) The Bonferroni-type rectangle , denoted as R(tbonf  
+
+> α
+
+), is based on the quantile level: 
+
+tbonf  
+
+> α
+
+= αd .
+
+(ii) The Naive rectangle at a level 1 − α, denoted as R(tnaive  
+
+> α
+
+), is defined by the quantile level: 
+
+tnaive  
+
+> α
+
+= α. 
+
+(iii) The Optimal rectangle at level 1 − α, denoted as R(tα), corresponds to the optimal quantile level tα satisfying: 
+
+P (θ ∈ R(tα) | y) = 1 − α. 
+
+8Having established these definitions, we can now characterize the coverage properties of the Bonferroni and Naive approaches, which subsequently guarantees the existence of the optimal level. 
+
+Proposition 3.6. Without further assumptions on the posterior distribution π(θ | y), the following properties hold: (i) The Bonferroni-type rectangle satisfies the coverage requirement: 
+
+P
+
+
+
+θ ∈ R(tbonf  
+
+> α
+
+) | y
+
+
+
+≥ 1 − α. 
+
+(ii) The Naive rectangle satisfies: 
+
+P  θ ∈ R(tnaive  
+
+> α
+
+) | y ≤ 1 − α. 
+
+(iii) Consequently, the optimal quantile level tα exists and lies within the interval: 
+
+tα ∈
+
+h αd , α 
+
+i
+
+.
+
+The terminology in point (i) draws from the multiple-testing correction procedure proposed by Bonferroni [1936]. The existence of the optimal level stated in point (iii) follows directly from the bounds established in (i) and (ii). Since the probability mass of the quantile-based region 
+
+R(t) is a monotonic function of t (increasing as t decreases), it ensures there exists a unique tα
+
+within the specified interval such that the coverage probability is exactly 1 − α. Detailed proofs are provided in the Appendix. An explicit form for the optimal rectangle R(tα) is usually not available. The remaining ob-jective is to estimate such a rectangle. Since the parametrisation depends solely on the scalar t
+
+which is bounded, numerical exploration is straightforward. However, estimating extreme quan-tiles remains computationally prohibitive, particularly due to the substantial memory required to store sufficient Monte Carlo samples. This challenge is addressed in Section 3.3.2. 
+
+Representation of the type of rectangles To illustrate the limitations of Naive and Bon-ferroni rectangles, as well as the behaviour of the optimal rectangle, toy distributions and projections in two dimensions can be used. 
+
+Example. The first toy distribution is a multivariate normal distribution: 
+
+θ|y ∼ N d (0, Σ(ρ)) , with Σ(ρ) = ρ1d + (1 − ρ)Id (2) where 1d is a d × d matrix of 1 and Id is the identity matrix. 
+
+Example. The second toy distribution is a distribution on correlation matrices. The parameter of the inverse-Wishart distribution is a covariance matrix, which is then transformed into a correlation matrix. 
+
+Σ|y ∼ IW p(Σ(ρ), ν = 50 + p + 2) , θ = D− 12 ΣD− 12 with D = diag( Σ). (3) These toy examples help us to understand the effect of dimension and the dependencies among the vector θ on the rectangles. The two types of distribution are chosen to illustrate Gaussian and non-Gaussian behaviour. The hyperparameters d and p are chosen so that the dimension of the parameter of interest is the same overall. Finally, the value of the hyper-parameter ρ for both should affect the dependencies similarly. After computing the different rectangles, we project them, along with the samples, onto the first two dimensions in Figure 1. 9−3 −2 −1 0 1 2 3−3  −2  −1  0 1 2 3      
+
+> Naive (0.342) Optimal (0.951) Bonf (0.952) −3 −2 −1 0123−3  −2  −1  0 1 2 3
+> Naive (0.004) Optimal (0.949) Bonf (0.95)
+
+d = 21 , ρ = 0 d = 105 , ρ = 0 −3 −2 −1 0 1 2 3−3  −2  −1  0 1 2 3      
+
+> Naive (0.705) Optimal (0.95) Bonf (0.976) −3 −2 −1 0123−3  −2  −1  0 1 2 3
+> Naive (0.493) Optimal (0.95) Bonf (0.984)
+
+d = 21 , ρ = 0 .7 d = 105 , ρ = 0 .7
+
+(a) Nd(0 , Σ(ρ)). −0.4 −0.2 0.0 0.2 0.4 −0.4  −0.2  0.0  0.2  0.4     
+
+> Naive (0.371) Optimal (0.95) Bonf (0.953) −0.4 −0.2 0.0 0.2 0.4 −0.4  −0.2  0.0  0.2  0.4
+> Naive (0.011) Optimal (0.949) Bonf (0.952)
+
+p = 7 , ρ = 0 p = 15 , ρ = 0 0.4 0.5 0.6 0.7 0.8 0.9 0.4  0.5  0.6  0.7  0.8  0.9       
+
+> Naive (0.548) Optimal (0.953) Bonf (0.965) 0.3 0.4 0.5 0.6 0.7 0.8 0.9 0.3  0.4  0.5  0.6  0.7  0.8  0.9
+> Naive (0.157) Optimal (0.951) Bonf (0.97)
+
+p = 7 , ρ = 0 .7 p = 15 , ρ = 0 .7
+
+(b) IW p(Σ(ρ), ν = 50). 
+
+Figure 1: Projection of Naive (red), Bonferroni-type (blue) and Optimal (green) rectangles. Points represent 1000 samples projected in the first two dimensions. Coverage probabilities are estimated via Monte Carlo (10 5 samples). In subfigure (a) Multivariate Normal distribution is used, parameterised like in Equation 2, subfigure (b) use the Inverse-Wishart distribution defined in Equation 3. Both are simulated for different dimension and different values of ρ that controls the dependencies. Figure 1a shows that, in the case of independence where ρ is equal to zero, the naive rect-angle has a probability of (1 − α)d. For example, we have 36% coverage in dimension 20. As 
+
+d increases, this illustrates how the naive rectangle can lead to catastrophic results, with none of the samples inside it. Conversely, the Bonferroni example is optimal in this setup of inde-pendence, with a coverage of nearly 95% in these cases. However, as the correlation increases, the Bonferroni rectangle becomes overly conservative. This resonates with the criticism of the Bonferroni procedure in multiple testing, where it is considered too conservative if the variables are dependent. In our application, we work with correlation matrices with an inverse-Wishart distribution on the covariance. This second toy distribution is more suitable for demonstrating what can happen in our study. Figure 1b shows that the same results are observed in the coverage of the rectangles. However, it is important to note that the rectangles are no longer symmetric, as the correlation transformation makes the distribution skewed. It should be noted that a higher value for the scale matrix parameter in the inverse-Wishart distribution induces higher dependencies between the coefficients; hence the need to use the optimal rectangle. In real datasets, these coefficients are around 0.4, which induces strong dependencies between the coefficients. Therefore, working with the Bonferroni rectangle is inadequate and is not used in the experiments on real datasets in Section 6. 
+
+3.3.2 Navigating computational complexity 
+
+This section focuses on estimating the optimal rectangle, as the naive rectangle fails to con-stitute a valid credible region and the Bonferroni rectangle often lacks precision. The primary computational bottleneck arises from estimating extreme quantiles. Since the optimal level tα
+
+lies within [ αd , α ], accurate estimation may require targeting levels as low as α
+
+2d . Achieving this precision typically demands O( dα ) Monte Carlo samples. Storing the full d-dimensional vector for each sample results in a memory complexity of O(d2), which quickly becomes infeasible 10 as d increases. Here, we present algorithms designed to estimate the optimal rectangle while mitigating these memory constraints. In Section 6 where studying coma datasets with p = 107 ROIs, the correlation matrix can be flatten as a vector with d = 107 ×106 2 dimensions. For a level of credibility α = 0 .05, the target quantile level can drop to approximately 4 .10 −6. Estimating such extreme quantiles is notoriously unstable; with fewer than 10 6 realizations, empirical es-timators collapse to the sample minimum or maximum, providing little statistical information. This instability necessitates specialized handling, as detailed in the following algorithms. 
+
+BGHM [Besag, Green, Higdon, Mengersen, Besag et al., 1995, method for low dimensions] A method to infer an empirical credible region is proposed in Besag et al. [1995], it has been popularised in Held [2004] and implemented in the package BayesSurv [Kom´ arek and Lesaffre, 2006]. It estimates a credible region for θ ∈ Rd at a level 1 −α using marginal order statistics based on samples. This method is of particular interest as it provides an estimation of both the region R(tα) and the threshold tα directly. This spares us from the two-step exploratory method that relies on first estimating bR(t) for several values of t, and then estimating the probability of such region. The algorithm is described in Algorithm 1. 
+
+Algorithm 1: BGHM’s rectangle (low dimensions) 
+
+Input: M samples θ1, . . . , θ M , k an integer lower than M
+
+Output: A hyperrectangle covering ≥ k samples 
+
+for each dimension i do 
+
+r(j) 
+
+> i
+
+← rank of sample θj along dimension i ;
+
+end for each sample j do 
+
+S(j) ← max  M + 1 − min i r(j) 
+
+> i
+
+, max i r(j)
+
+> i
+
+
+
+end 
+
+j∗ ← k-th smallest S(j)
+
+for each dimension i do 
+
+Li ← (M + 1 − j∗)-th smallest value in dim i;
+
+Ui ← j∗-th smallest value in dim i;
+
+end return R = Q
+
+> i
+
+[Li, U i]
+
+Proposition 3.7. The rectangle constructed by the BGHM algorithm in the case where k is equal to ⌈(1 − α)M ⌉ provides an estimation of the optimal rectangle R(tα):
+
+> d
+
+Y
+
+> i=1
+
+θ[M +1 −j⋆] 
+
+> i
+
+, θ [j⋆]
+
+> i
+
+ =
+
+> d
+
+Y
+
+> i=1
+
+ bqi
+
+ tα
+
+2
+
+
+
+, bqi
+
+
+
+1 − tα
+
+2
+
+.
+
+It also provides an estimation of tα:
+
+ˆtα = 2( M + 1 − j⋆)
+
+M + 1 .
+
+This estimator requires storing all samples in memory. However, as previously established, the number of samples required for an accurate estimation increases quadratically with the di-mension. For low dimensions (d ¡ 20), the implementation of this algorithm (e.g., Held [2004], Kom´ arek and Lesaffre [2006]) works extremely well, but it becomes infeasible in higher dimen-sions. For moderate dimensions ( d < 200), we have developed an online version of the previous algorithm. 11 Online BGHM adaptation (method for moderate dimensions) The BGHM rectangle is based on identifying the αM points with the largest values of the function S applied to the entire set of samples M . In this online version, we propose identifying these extreme points in batches, which allows us to keep only the necessary number of points in memory. However, since S is based on ranks, it cannot be determined for each point separately. To obtain an algorithm that determines just the k points with the largest S values without keeping all the samples in memory, it is possible to work with a new function S(., D) defined on every set D. For each point θ(j) in a set D, define its score as 
+
+S(θ(j), D) = max 
+
+
+
+|D| + 1 − min  
+
+> i=1 ,...,d
+
+r(j) 
+
+> i
+
+(D), max  
+
+> i=1 ,...,d
+
+r(j) 
+
+> i
+
+(D)
+
+
+
+,
+
+where r(j) 
+
+> i
+
+(D) denotes the rank of the i-th coordinate of θ(j) among the points in D.
+
+Lemma 3.8 (Extreme points preservation) . Let A, B ⊂ Rd be two disjoint batches of points. For any integer m ≥ 1, define: 
+
+Em(A) = the set of m points in A with the largest values of S(·, A ),
+
+and similarly Em(B) for B and Em(A ∪ B) for A ∪ B.Then: 
+
+Em(A ∪ B) ⊆ E m(A) ∪ E m(B).
+
+In other words, the global extreme points of the union are contained in the union of the batch-wise extremes. 
+
+Algorithm 2: Online BGHM Algorithm (moderate dimensions) 
+
+Input: Stream of batches B1, B2, . . . , coverage target 1 − α, total size M
+
+Output: Rectangle R∗ covering exactly ⌊(1 − α)M ⌋ samples of θm ← ⌈ αM ⌉ ; // lower bound of the number of extreme points to keep 
+
+E ← ∅ Mtotal ← 0 ; 
+
+for each batch B do 
+
+Mtotal ← Mtotal + |B| ;
+
+E ← at least m elements of E ∪ B with largest values of S(., E ∪ B ) ; // due to possible equalities of S it may contain more than m elements 
+
+end 
+
+M ← Mtotal ;
+
+m′ ← |E| ; // size of the extreme subset 
+
+t ← m′ − ⌊ αM ⌋ ; // exact number of extreme points to retain 
+
+for i = 1 to d do 
+
+θmin  
+
+> i
+
+← t-th smallest value of coordinate i in E ;
+
+θmax  
+
+> i
+
+← t-th largest value of coordinate i in E ;
+
+end 
+
+R∗ ← [θmin 1 , θ max 1 ] × · · · × [θmin  
+
+> d
+
+, θ max  
+
+> d
+
+] ; 
+
+return R∗
+
+Consequently, evaluating S on the reduced set, Em(A)∪E m(B), allows us to recover Em(A∪B)without accessing all the points of A ∪ B. This spares us the need to evaluate S(., A ∪ B), which is the step where we had to remember all the points of A ∪ B.12 Using the previous lemma, we can compute the set of extreme points, denoted by E, itera-tively. Since this set contains only the m most extreme points, if m > ⌊αM ⌋, we can identify the 
+
+m − ⌊ αM ⌋-th order statistic of S(., E), which corresponds to the M − ⌊ αM ⌋-th order statistic of the set of S(θi), i = 1 , ..., M , which is used to construct the BGHM rectangle in Algorithm 1. The only remaining step is to compute the corresponding rectangle. This reduces the memory requirement to just αM samples of θ. This process is detailed is described in Algorithm 2. The online BGHM does not reduce the asymptotic memory complexity compared to the BGHM algorithm, as it only divides the memory by a constant factor of 1 
+
+> α
+
+. However, this online version enables us to estimate the BGHM rectangles when d ≈ 100 on a regular computer. 
+
+Sliced-quantile grid algorithm (method for high dimensions) To reduce memory costs when handling d ≈ 1000, we propose a two-stage exploratory approach that is described in Algorithm 3. 
+
+Stage 1 – Sliced quantile estimation: Based on a grid of values t1, ..., t K , where t1 = α/d < t2 < ... < t K = α, we first estimate the quantiles for each dimension separately: qi(t1), ..., q i(tK ). This means that, for each marginal i, we need to sample many points, but we only need to keep the M samples of this coefficient in memory, not the d-dimensional vector. We can then process these estimation by batches using order statistics. In this case the maximum storage requirement for each batch is max( tk)M = αM , where M is the number of samples. At the end of this process, we have an estimation for each region, R(t1), ..., R (tK ). 
+
+Stage 2 – Coverage-based selection: Once we have the candidate rectangles, we evaluate each one by estimating its actual coverage via a second Monte Carlo sample from the posterior. The smallest rectangle achieving at least 1 − α coverage is selected. This accounts for the multivariate dependencies ignored in the first stage. This step also stabilises the result because coverage estimation is statistically more reliable than extreme quantile estimation. It serves as a validation step and ensures that we select a rectangle with the correct property, even if the quantiles are very unstable. This method sacrifices some precision in the estimated quantile level tα due to the grid required. However, the size of this one-dimensional grid for t is not limited, as adding a value to it has a negligible computational impact. In practice the only limitation is to take tbonf  
+
+> α
+
+as a lower bound and tnaive  
+
+> α
+
+as a upper bound for the grid, thanks to the results from Proposition 3.6. In the loop on j ∈ [1 , d ] we keep in memory αM samples of each coefficient j. This is the same number of samples as before; however, we do not store the d-dimensional vector in its entirety, only the coefficient. This reduces the asymptotic memory complexity from O(d2) to 
+
+O(d), enabling us to scale well even if d > 1000. However, this comes at a higher time cost: indeed, the rectangle is estimated using M samples, but the loop forces us to simulate these M
+
+samples d times. 
+
+Recommendations Table 1 summarises the memory and sample costs. This table represents the asymptotic complexity; however, it does not clearly show the difference between the BGHM algorithm and our online adaptation of this algorithm. Overall, the online adaptation has little impact on time complexity and enables us to reduce the memory cost by α. Even if this is just a constant, this is a meaningful improvement, as it can be used for dimensions around 100, which could represent, for instance, the nodes of the brain in neuroscience. For the experiments in Section 6, the algorithm used is Sliced Quantile Estimation due to the dimension of 5000. The introduction of Online BGHM provides tools for modelling lighter datasets. 
+
+# 4 Specificities for correlation matrices 
+
+This section focuses on the case of fMRI study where we need to model the connectivity between brain regions. In this set-up we have a p-dimensionnal vector X = ( X1, . . . , X p) that represents 13 Algorithm 3: Sliced-quantile grid algorithm (high dimensions) 
+
+Input: Batches B1, . . . , target 1 − α, grid t1, . . . , t K ∈ [ αd , α ], memory m = ⌈max( tk)M ⌉
+
+Output: bR(tα) with coverage ≥ 1 − α
+
+Stage 1 – Sliced quantiles estimation ;
+
+for j = 1 ..d do 
+
+N ← 0; 
+
+Lj , Uj ← ∅ ;
+
+for each batch B do 
+
+N ← N + |B| ;
+
+Lj ← m/ 2 lower values in Lj ∪ B (j) ;
+
+Uj ← m/ 2 upper values in Uj ∪ B (j) ;
+
+end for k = 1 ..K do 
+
+; // quantile estimation using order statistic by batches 
+
+ˆqj (tk) ← N t k/2-th largest value in Lj
+
+ˆqj (1 − tk/2) ← m − N t k/2-th largest value in Uj ;
+
+end end for k = 1 ..K do 
+
+bR(tk) ← Q 
+
+> j
+
+[ˆ qj (tk/2) , ˆqj (1 − tk/2)] ; 
+
+end Stage 2 – Coverage selection ;Draw validation sample Dval ;
+
+for k = 1 ..K do 
+
+dCov k ← 1
+
+> |D val |
+
+P 
+
+> θ∈D val
+
+1[θ ∈ bR(tk)] ; 
+
+end 
+
+k⋆ ← min {k : dCov k ≥ 1 − α} ;
+
+return bR(tk⋆ ) ; 14 Table 1: Comparison of the 3 algorithms complexity in memory and simulation. The constant in the complexity O if the number of the sample M = O(d) is the same for each algorithm. The column feasible d establishes the value of d such that a reasonable estimation of the rectangle can be estimated on a regular computer. Algorithm Maximum memory used Number of simulations Feasible d
+
+BGHM [Besag et al., 1995] O(d2) O(d) d ≈ 10 Online BGHM (ours) O(αd 2) O(d) d ≈ 10 2
+
+Sliced quantile grid algorithm (ours) O(d) O(d2) d ≈ 10 4
+
+the signal coming from each of p brain Regions of Interest (ROIs). The parameter of interest is the correlation matrix C between these variables, where for each pair ( i, j ), we have Cij =Corr( Xi, X j ). 
+
+4.1 Model and guarantees 
+
+Model and prior choice Data from brain ROIs are modelled using a multivariate zero mean Gaussian distribution. The parameter to estimate is the covariance matrix, denoted by Σ. We choose to work with an inverse-Wishart prior to model the covariance matrix, as this is conjugate with the multivariate Gaussian distribution. The model is written as follows: 
+
+Xi | Σ i.i.d. 
+
+∼ Np (0, Σ) , Σ ∼ IW (Φ , ν ).
+
+For fMRI analysis, our parameter of interest is the correlation matrix C. Fortunately, determining the posterior distribution of the covariance matrix Σ is equivalent to determining the posterior distribution of the correlation matrix C, since it is fully determined by Σ thanks to the following transformation: 
+
+C = D− 12 ΣD− 12 with D = diag( Σ). (4) We have n realisations of X that is denoted Xn ∈ Rn×p. The conjugate nature of the inverse-Wishart distribution with the Gaussian multivariate [Haff, 1979] give us a closed-form expression for the posterior distribution of Σ:
+
+Σ|Xn ∼ IW (Φ + XTn Xn, ν + n).
+
+Using the transformation in Equation 4 we have access to the posterior distribution of 
+
+C. The hyperparameters Φ and ν can be chosen according to expert knowledge, if available. However, in fMRI connectivity analysis, prior information about the covariance structure of the data is usually unavailable. For this reason, we choose to work with a low-information prior that slightly shrinks the posterior distribution towards the identity matrix. This prior favours independence between brain regions, which is a reasonable assumption when no information is available about the connectivity structure of the brain. To achieve this, we select: 
+
+ν = p + 2 , Φ = diag(ˆ σ1, . . . , ˆσp), which ensures E[C] = I. 
+
+Choice of hyperparameters and their impact on prior and posterior moments are discussed in Jiang et al. [2026]. 
+
+Bernstein–von Mises Theorem for correlation matrices Under a Gaussian likelihood with zero mean, when the prior on the covariance matrix Σ belongs to a class satisfying ap-propriate regularity conditions, and the true covariance Σ0 is positive definite, Theorem 4.4 of Sarkar et al. [2025] establishes a Bernstein–von Mises theorem for covariance matrices. This 15 theorem guarantees the asymptotic normality of the posterior distribution of Σ under their As-sumptions 1–3. These assumptions are verified, for instance, in the case of an inverse-Wishart prior when the eigenvalues of Σ0 are bounded below by a strictly positive constant. The theorem can be reformulated in terms of the vector of unique elements of a symmetric matrix. Define the half-vectorization operators vech : Rp×p → Rp(p+1) /2 (resp. vech 0 : Rp×p → Rp(p−1) /2)which stack the columns of the upper triangular part (resp. strict upper triangular part) of its argument. Then we have: 
+
+√n vech( Σ − Sn)|Xn
+
+> TV
+
+≈ Np(p+1) /2
+
+ 0, 2B⊤ 
+
+> p
+
+(Sn ⊗ Sn)Bp
+
+,
+
+where the approximation is in the sense that the total variation distance between the two distributions converges to zero in probability as n → ∞ , and where Sn = 1
+
+> n
+
+Pni=1 XiX⊤ 
+
+> i
+
+is the empirical covariance matrix (assuming zero mean), which is a consistent estimator of Σ0, and 
+
+Bp denotes the duplication matrix (whose explicit form is given in Sarkar et al. [2025]). In our setting, our primary interest lies in the posterior distribution of the correlation matrix 
+
+C. Thus the following theorem establishes similar results for correlation matrices, proof can be seen in the appendix. 
+
+Theorem 4.1 (Bernstein–von Mises theorem for correlation matrices) . Under a Gaussian likeli-hood with zero mean, when the prior on the covariance matrix is an inverse-Wishart distribution and if the eigenvalues of Σ0 are bounded below by a strictly positive constant, then the strict upper-triangular vectorization vech 0 : Rp×p → Rp(p−1) /2 of the corresponding correlation matrix 
+
+C has the following property: 
+
+√n vech 0(C − Cn)|Xn
+
+> TV
+
+≈ Np(p−1) /2
+
+ 0, V ,
+
+where Cn is the empirical correlation matrix derived from Sn, for some PSD matrix V .
+
+In the context of this paper, we use the Bernstein–von Mises result to demonstrate that our credible regions become increasingly accurate approximations of frequentist confidence regions as the sample size increases. However, we do not rely on the asymptotic distribution to construct the regions, and prefer to use an approach that is valid for any sample size. The asymptotic Gaussian behaviour also motivates using a rectangular region as a multivariate Gaussian and its marginals are all unimodal. At first glance, one might worry that the vectorization loses information, as many vectors in Rp(p−1) /2 do not correspond to a valid positive-definite correlation matrix when applying the inverse of the vech 0 function. However, the Bernstein–von Mises theorem guarantees that, asymptotically, the posterior distribution of √n vech 0(C − bCn) is Gaussian and concentrated on a √n-neighborhood of the true value. In this local regime, the positive-definiteness constraint is asymptotically negligible, and the mapping between the vector of off-diagonal elements and the full correlation matrix is bijective onto its image. 
+
+4.2 Estimation of the support of the matrices 
+
+In fMRI connectivity analysis, identifying significant correlations between brain regions is crucial for understanding functional connectivity. We propose to use the previously defined credible regions to detect non-zero correlations, which can be seen as significant edges of the connectivity graph. Let C0 be the true p × p correlation matrix, and denote its support by 
+
+A0 = {(i, j ), i < j : C0,ij ̸ = 0 }.A0 represents the set of index pairs corresponding to non-zero correlations, which can be interpreted as the adjacency matrix of the true underlying graph. 16 Given n observations, let π(vech 0(C)|Xn) be the posterior distribution of the upper coef-ficients of C, and denote by R(tαn ) a credible rectangle at a level 1 − αn for vech 0(C). This rectangle is in R p(p−1) 2 , however to understand the link with the matrix it can be rewritten as: 
+
+R(tαn ) = Y
+
+> i<j
+
+Iij (tαn ), with Iij (tαn ) = 
+
+
+
+qij 
+
+ tαn
+
+2
+
+
+
+, q ij 
+
+
+
+1 − tαn
+
+2
+
+ 
+
+.
+
+For this section we consider the support estimator: 
+
+bAn = {(i, j ) : 0 /∈ Iij (tαn )} , where αn → 0 as n → ∞ .
+
+Consistency of the support estimator We ultimately establish that for a properly de-caying sequence αn, the credible intervals achieve to reliably discriminate zero coefficients from non-zero coefficients to ensure exact support recovery. This establishes the consistency of the support estimator. 
+
+Proposition 4.2. bAn converges in probability to A0 as n → ∞ , i.e., the support estimator is consistent and for any sequence αn → 0 that respects the Gaussian tail decay implied by the BvM, the estimated support converges to the true support in probability: 
+
+P  bAn = A0
+
+ −−−→ 
+
+> n→∞
+
+1.
+
+The requirement αn → 0 ensures that the credible intervals cover the true parameter C0
+
+with probability tending to one. However, for non-zero entries ( C0,ij ̸ = 0), the interval must exclude zero asymptotically. This imposes a balance: while decreasing αn widens the interval (via larger quantiles), this expansion must be dominated by the 1 /√n contraction rate driven by the sample size. The Bernstein–von Mises theorem guarantees the necessary Gaussian tail behavior, ensuring that vanishing αn eliminates false discoveries (by shrinking intervals around zero) while preserving true signals (by maintaining exclusion of zero for non-zero coefficients). 
+
+Finite-sample properties: connection to frequentist multiple testing In practice we work with a fixed sample size n and a fixed level for the credible region 1 − α. The estimator 
+
+bAn still verifies some properties for αn = α fixed thanks to the construction of the credible region. Indeed the posterior probability of the region is valid for a finite-sample as it is not constructed using asymptotic results. Futhermore the support estimator is equivalent to the decision procedure defined in Section 3.2.1 in the case where the reference value is the vector of zeros. This decision δ verifies: 
+
+P
+
+> m
+
+[
+
+> i=1
+
+{δi,j = 1 , C i,j = 0 } Xn
+
+!
+
+≤ α. 
+
+To illustrate what this property represents, it can be rewritten as the error rate of a multiple testing procedure. As mentioned in the introduction, the support of the correlation matrix is usually estimated by performing a hypothesis test for each coefficient Cij with the null hypothesis H0,ij : Cij = 0 against the alternative H1,ij : Cij ̸ = 0. One correlation test provides control over the probability of one false positive occurring, whereby the null hypothesis has been rejected incorrectly. A multiple testing procedure then provides tools to extend this control from one individual test to an error rate across a set of tests. An interesting type of error at the global level is the family-wise error rate (FWER). The FWER is a specific error control defined under the complete null hypothesis HC 
+
+> 0
+
+, which assumes that all null hypotheses are true simultaneously. FWER is then defined as the probability of obtaining at least one false positive result under this complete null hypothesis: FWER = P(there is at least one false positive |HC 
+
+> 0
+
+).
+
+17 The usual procedure for controlling the FWER is the Bonferroni correction [Bonferroni, 1936], which does not work with joint distributions under HC 
+
+> 0
+
+, but rather with marginal distri-butions under H0,ij . Error control is thus strict and conservative, especially if there are many dependencies. This procedure has been heavily criticised in fMRI studies, as many believe that it does not detect anything [Epskamp et al., 2018]. Other methods are known, such as the Holm–Bonferroni method [Holm, 1979], that is slighty less conservative. In our case we can interpret our estimator bAn as a control on the probability of having a false positive but conditionally on the data. In a continuous Bayesian framework, the notion of a “false positive” (detecting a non-existent difference) cannot be defined simply by the equality 
+
+θi = θref ,i , as this event has posterior probability zero. Instead, we can interpret the false positive as an erroneous directional claim. 
+
+Definition 4.3 (Bayesian False Positive) . Let the decision for component i be decomposed into two directional claims: δ+ 
+
+> i
+
+= 1 (claiming a positive shift, θi > θ ref ,i ) and δ− 
+
+> i
+
+= 1 (claiming a negative shift, θi < θ ref ,i ). A Bayesian False Positive occurs on component i if a directional claim is made that contradicts the true parameter value. Formally: 
+
+• A false positive increase occurs if δ+ 
+
+> i
+
+= 1 and θi ≤ θref ,i .
+
+• A false positive decrease occurs if δ− 
+
+> i
+
+= 1 and θi ≥ θref ,i .The event of a Bayesian false positive on component i, denoted by FP i, is defined as the union of these two mutually exclusive errors: FP i =  {δ+ 
+
+> i
+
+= 1 } ∩ { θi ≤ θref ,i } ∪  {δ− 
+
+> i
+
+= 1 } ∩ { θi ≥ θref ,i } .
+
+This allows us to define a Bayesian version of the FWER. 
+
+Definition 4.4 (Bayesian Family-Wise Error Rate (BFWER)) . The Bayesian Family-Wise Error Rate (BFWER) is defined as the posterior probability of making at least one Bayesian false positive across all d components. It quantifies the risk of incorrectly inferring either the existence or the direction of a difference in any part of the parameter vector. Formally, for a decision procedure characterized by the vectors δ+ and δ−, the BFWER is: BFWER = P
+
+> d
+
+[
+
+> i=1
+
+FP i y
+
+!
+
+= P
+
+> d
+
+[
+
+> i=1
+
+  {δ+ 
+
+> i
+
+= 1 } ∩ { θi ≤ θref ,i } ∪  {δ− 
+
+> i
+
+= 1 } ∩ { θi ≥ θref ,i } y
+
+!
+
+.
+
+Controlling the BFWER at a level α ensures that the probability of making any erroneous directional claim in the entire set of comparisons is bounded by α.The results established in Section 3.2.1 assures that if the decision induced by δ is based on a credible rectangle at a level 1 − α, then it controls the BFWER at a level α. Thus the support estimator bAn for αn = α controls the BFWER at a level α.
+
+Remark. By definition this does not provide a control on the usual frequentist FWER, the probability being controlled under two different set-up. However these two probabilities are linked, and a BFWER control still holds good FWER properties, as shown empirically in the next section. 18 5 Evaluation on a synthetic dataset 
+
+To evaluate the performance of the support estimator, we adopt a frequentist validation ap-proach, comparing our proposed methods against standard frequentist estimators that control the Family-Wise Error Rate (FWER). The four estimators assessed are: 
+
+• Bayes-Optimal : Our proposed support estimator based on the optimal credible rectangle. 
+
+• Bayes-Bonferroni : Our proposed support estimator based on the Bonferroni-type credible rectangle. 
+
+• Multiple-Test Bonferroni : A multiple correlation test applied to each coefficient, corrected via the Bonferroni procedure. 
+
+• Multiple-Test Holm–Bonferroni : A multiple correlation test applied to each coefficient, corrected via the Holm–Bonferroni procedure. 
+
+Simulation Plan Using a ground-truth covariance matrix Σ0 and its corresponding support 
+
+A0, we simulate n observations from X ∼ N (0 , Σ0) to estimate the support bA0. This process is repeated across S = 1000 independent seeds to ensure robust performance evaluation. We assess the estimators using two primary metrics. First, we compute the mean accuracy, defined as the average proportion of correctly estimated coefficients across the simulations: Acc = 1
+
+S
+
+> S
+
+X
+
+> s=1
+
+| bA(s)0 ∩ A0| + |( bA(s)0 )c ∩ Ac
+
+> 0
+
+|
+
+p(p − 1) /2
+
+!
+
+× 100 ,
+
+where p(p − 1) /2 is the total number of coefficients in the support to estimate. To quantify the stability of this performance across seeds, we also report the standard deviation of the accuracy, that is linked to the variability during the simulation process of X ∼ N (0 , Σ0): 
+
+σ2Acc = 1
+
+S − 1
+
+> S
+
+X
+
+> s=1
+
+
+
+Acc (s) − Acc 
+
+2
+
+,
+
+where Acc (s) is the accuracy for seed s and Acc is the mean accuracy. Second, to verify error control, we estimate the empirical FWER as the proportion of simulations containing at least one false positive: 
+
+\FWER = 1
+
+S
+
+> S
+
+X
+
+> s=1
+
+1
+
+
+
+∃(i, j ) ∈ bA(s)0 , (i, j ) /∈ A0̸ = ∅
+
+
+
+.
+
+We evaluate these metrics across varying sample sizes n ∈ { 50 , 100 , 500 } and three dis-tinct sparse positive-definite ground-truth matrices Σ0 (Figure in appendix). These matrices were selected to represent varying edge densities (2 .4%, 24%, and 48%). The highly sparse configuration (2 .4%) reflects common assumptions in fMRI sparse modeling, while the denser configurations align with proportions observed in our real-world datasets. This design allows us to determine whether specific methods offer a superior balance between error control and edge detection power under different structural and asymptotic conditions. 
+
+Results The results in Table 2 show that the Bayes-Optimal method has the best accuracy in almost every combination of Σ and n, and it advantage increases with the proportion of edges for n fixed. First, when the proportion of edges is high, Bayes-Optimal is much more efficient. This is linked to the dependencies between the coefficients, which are stronger when there are a lot of edges and are eliminated by the zero coefficients. The Bayes-Optimal method is the only one of the four estimators to take these dependencies into account. The same reasoning explains 19 Table 2: Metrics obtained for each method based on 1000 simulations for each configuration (Σ0, n ). Matrices Σ0 are characterized by their proportion of non-zeros coefficients (True Posi-tive). Metrics used are mean accuracy Acc and empirical FWER \FWER, both in percentages. 2.4% True Positive 24% True Positive 48% True Positive 
+
+n Method Acc ± σAcc \FWER Acc ± σAcc \FWER Acc ± σAcc \FWER 
+
+50 Bonf. rectangle (our) 98.2 ( ±0.1) 5.9 80.2 ( ±1.0) 4.9 40.1 ( ±3.0) 1.5 Optimal rectangle (our) 98.2 ( ±0.1) 7.8 80.5 ( ±1.0) 7.0 41.2 ( ±3.3) 2.4 Mult. test Bonf. 98.2 ( ±0.1) 4.8 79.8 ( ±0.9) 3.5 38.9 ( ±2.8) 1.1 Mult. test Holm-Bonf. 98.2 ( ±0.1) 4.9 79.8 ( ±0.9) 3.5 39.1 ( ±2.9) 1.2 100 Bonf. rectangle (our) 98.7 ( ±0.1) 6.2 85.0 ( ±1.1) 4.5 54.1 ( ±3.9) 1.4 Optimal rectangle (our) 98.7 ( ±0.1) 6.6 85.2 ( ±1.1) 5.4 55.1 ( ±4.1) 1.8 Mult. test Bonf. 98.7 ( ±0.1) 5.2 84.8 ( ±1.1) 3.9 53.3 ( ±3.8) 1.1 Mult. test Holm-Bonf. 98.7 ( ±0.1) 5.3 84.8 ( ±1.1) 4.2 54.1 ( ±4.0) 1.5 500 Bonf. rectangle (our) 99.4 ( ±0.1) 4.8 94.7 ( ±0.5) 4.3 84.8 ( ±1.7) 1.8 Optimal rectangle (our) 99.4 ( ±0.1) 5.3 94.8 ( ±0.5) 5.0 85.1 ( ±1.7) 2.0 Mult. test Bonf. 99.4 ( ±0.1) 5.0 94.7 ( ±0.5) 4.1 84.8 ( ±1.7) 1.7 Mult. test Holm-Bonf. 99.4 ( ±0.1) 5.1 94.8 ( ±0.5) 5.0 85.7 ( ±1.7) 3.1 why, on the other hand, the Bayes-Optimal method becomes nearly identical to the other three methods when the proportion of edges is low. A second observation from this table is that Bayesian estimators are more accurate when n is low. This is because the prior distribution stabilises the estimation in situations where the empirical estimator is very unstable. Overall, the gain in accuracy is very low or negligible when n = 500, but datasets of this length are unlikely in fMRI studies. Finally, the empirical FWER is slightly higher for Bayes-Optimal when n is low, but similar to the results obtained using the Holm–Bonferroni correction. It should be stressed that the Bayesian method controls a Bayesian FWER, which is not what we are estimating here. In conclusion, we believe that this simulation study demonstrate the effectiveness of our estimator in identifying significant edges while maintaining control over the BFWER, which tends to be less conservative than frequentist methods. The increased flexibility is due to the fact that the optimal rectangle takes into account the multivariate dependencies. However, this is unnecessary if n is high, as procedures such as the Holm–Bonferroni procedure can already detect most edges with much lower time and memory complexity. 
+
+# 6 Application to fMRI datasets 
+
+Here, we apply our approach (model and methodology) to well-studied datasets. This serves both to validate our results against existing findings but also to demonstrate the enhanced individual-level interpretability offered by our method. In this section we use the inverse-Wishart model presented in Section 4.1 with the optimal rectangle construction. The methodology used to assess significant differences between corre-lations is the one presented in Section 3.2.2. This comparison is ultimately a comparison of correlation matrices, but we use it to evaluate the difference between two fMRI scans. 20 6.1 Human Connectome Project dataset 
+
+Reliability of graph metrics has frequently been studied using test-retest datasets, such as the HCP dataset, which provides data for 100 healthy controls scanned at two different times. Studies like Termenon et al. [2016] used indicators such as IntraClass Correlation (ICC) to show that for many graph metrics, within-subject variance is lower than between-subject variance. We reproduced this analysis using our method to detect significant differences. For each scan 
+
+Sji (where i is the subject and j = 1 , 2 is the scan number), we compute the optimal rectangle for the correlation matrix at a 95% level. If two rectangles are disjoint, the fMRI scans are considered significantly different. We then calculate the proportion of significant differences within subjects (between S1 
+
+> i
+
+and S2 
+
+> i
+
+) and between subjects (for i1̸ = i2, between Sj1 
+
+> i1
+
+and Sj2 
+
+> i2
+
+). This proportion represents the frequency where at least one disjoint interval exists between two scans, indicating a significant global difference; we do not evaluate the number of differing edges. The proportion of times two scans of the same subject differ is 41%, whereas the between-subject difference rate is 83%. This aligns with known results on this dataset [Termenon et al., 2016]. Our approach is particularly interesting because it assesses whether differences are sig-nificant, whereas previous comparisons were more arbitrary. However, these results also confirm that fMRI connectivity varies due to numerous factors, including within-individual differences. We do not claim to solve this issue; our work focuses on matrix inference, and the inherent challenges of interpreting correlations remain. 
+
+6.2 Coma dataset 
+
+This dataset provides access to fMRI scans of 10 control volunteers and 10 patients who experi-enced a brain injury resulting in a coma. Both groups were scanned in the same setting using a brain atlas divided into p = 107 ROIs, with wavelet analysis providing n = 95 iid observations. This dataset is of interest because each patient was scanned twice: once 30 days after the brain injury, and again 60 days later, allowing for longitudinal analysis. Further details can be found in Oujamaa et al. [2023]. Previous studies have compared the control group with the patient group after 30 days and again after 60 days. They concluded that patients were closer to the healthy controls after 60 days than after 30 days, indicating a recovery period for the patients. However, this approach disregarded the individual evolution of each patient. In this section, our aim is to obtain similar results at the group level and to provide new tools for longitudinal follow-up of each patient. 
+
+Comparison to the control group To mimic the results of previous studies on this dataset, the first step is to use our method to compare patient scans to the control group. It is standard to use for the control group a matrix Ccontrol which is the mean of the correlation matrices of the volunteers. In our case, we want to introduce uncertainty into this matrix as it was computed on a low number of healthy subjects, so we consider a posterior distribution, IW (Ccontrol , ν + 95), for the control group. This allows us to reproduce, for this control matrix, the uncertainty that we have for each patient with n = 95 observations. We then compare the credible region of this posterior distribution to the credible region at the 95% level for each patient for both scans. The results are summarised in Table 3. We are particularly interested in how the patients’ scans evolve between the first and second scans compared to the control group. Analysis of Table 3 reveals a general trend of decreased differences in the second examination compared to the first. Of the 10 patients, seven exhibited a reduction in the metric, with two of them reaching a value of zero. This tendency was even more pronounced among the three patients diagnosed with a minimally conscious state (MCS). Notably, Patients 9 and 22, who displayed substantial deviations from the control state during the initial exam, showed a significant reduction in these differences by the second exam. 21 Table 3: Cousciousness of each patient (MCS for minimally conscious state , and C for coma )and comparison of credible rectangles based on the number of disjoint edges for each patient for both exams with the distribution IW (Ccontrol , ν + 95), based on a group of control subjects. Bold font is used for patients whose conscious state has changed. Patient Consciousness state Comparison to Ccontrol 
+
+Exam 1 Exam 2 Exam 1 Exam 2 
+
+3 MCS C 14 7
+
+4 C C 7 07 C C 3 68 C C 8 0
+
+9 MCS C 40 3
+
+15 C C 2 519 C C 12 21 
+
+22 MCS C 164 5
+
+25 C C 3 229 C C 9 5However, it is important to note that some patients deviated from this trend; Patient 19 in particular warrants further attention. 
+
+Longitudinal analysis of a patient The richness of our method lies in its ability to directly compare two scans of the same patient, as demonstrated with the previous dataset. When we applied this to patients in the coma dataset, we found significant differences between the two scans for each patient, resulting in a 100% within-subject difference. Combined with the previous results in Table 3, this result confirms our ability to detect changes induced by the recovery of patients. Lost connections Gained connections Temporal lobe Subcortical Sensorimotor Premotor Prefrontal Parietal Orbitofrontal Occipital Limbic Inferior temporal Cerebellum 
+
+(a) Patient 9. Lost connections Gained connections Temporal lobe Subcortical Sensorimotor Premotor Prefrontal Parietal Orbitofrontal Occipital Limbic Inferior temporal Cerebellum (b) Patient 22. 
+
+Figure 2: Network representations of the gained and lost connections, respectively in blue and red links, between the first and second exam for two patients. The ROIs are reorganized in subnetworks. A connection is considered gained (resp. lost) if it is significantly greater (resp. lower) in the second exam compared to the first. We can take a closer look at the representation of the credible rectangles. Specifically, 22 we will focus on Patients 9 and 22, who showed recovery between the two scans. Using the comparison between the first and second exams, we can identify where the differences occur. The methodology from Section 3.2.2 allows us to find the connections that were significantly affected between these two scans, as well as whether they were affected negatively or positively, by comparing the marginal intervals. To illustrate this, we have chosen to present them in the form of a chord diagram, reorganising the regions into subnetworks. An example can be seen in Figure 2, where these diagrams are represented for Patients 9 and 22. The edges that appear represent those with significant differences between the first and second exams, meaning these marginal intervals were disjoint. The colour of the edges represents the direction of evolution: if the interval of the second exam is greater, the connection has appeared (blue); if it is lower, the connection has been lost (red). The interesting aspect of this figure is how the two patients’ evolutions are completely different from a connectivity graph perspective. Patient 9 undergoes an overall loss of connectivity, whereas Patient 22 gains more connections. The affected subnetworks are also different. This supports our view that individual follow-up is essential.         
+
+> (a) Lower Quantile 1 (b) ˆCnExam 1 (c) Upper Quantile 1
+> (d) Lower Quantile 2 (e) ˆCnExam 2 (f) Upper Quantile 2
+
+Figure 3: Empirical correlation matrices and quantiles representation (lower and upper) of each credible rectangle for the subject 9 at two different time (Exam 1: 30 days after coma in first row, Exam 2: 60 days after coma). 
+
+Raising awareness of uncertainty Thanks to their rectangular shape, it is possible to represent the credible regions directly. Each credible rectangle provides two matrices for the upper and lower quantiles. While we have seen how this can be used to detect differences, the matrices can also be used to visualise uncertainty. Figure 3 shows both the empirical correlation matrices and the upper and lower quantile matrices for Patient 9 in both exams. This help us identify visually some zones that are highly correlated with high certainty; for instance in the 23 second row we detect a red square in the middle that corresponds to the visual cortex, with significantly non-zero coefficients (red in the lower matrix). This also illustrates the unstable nature of correlation matrix estimation based on a small number of realisations for a high-dimensional matrix. We believe this carries a strong message in itself as it raises awareness of instability. It encourages caution when working with such estimations. 
+
+6.3 Trade-off between data size and uncertainty 
+
+As demonstrated throughout this paper, the credible region size depends heavily on n, the number of data realizations. However, in fMRI acquisition, the number of realizations is limited by exam costs and patient discomfort during prolonged scans. Consequently, increasing the number of data points is often unfeasible. Alternatively, the credible region size is also influenced by the random variable’s dimension and the dependencies between coefficients. It is instructive to examine how the coefficients of C, alongside n and p, impact this size. Since the volume of rectangle of different dimensions are not comparable, we chose to compare them using the mean length of the marginal intervals instead. For a rectangle R = Q 
+
+> i<j
+
+[qlij , q uij ], the mean length is defined as: 
+
+ml(R) = 
+
+P 
+
+> i<j
+
+(quij − qlij )
+
+p(p − 1) /2 . (5) We evaluate ml for various inverse-Wishart distributions parametrized by ( n, p, ρ ), where n
+
+denotes the number of observations, p the matrix dimension, and ρ characterizes dependencies via Σ(ρ) as in Equation 3 with the distribution IW p(Σ(ρ), p + 2 + n). 
+
+Figure 4: Heatmaps of the mean length ml defined in Equation 5 as a function of the parameter 
+
+ρ, number of variables p, and number of time points n. The mean length is computed for 95% credible rectangles derived for the distribution of correlation coefficients based on the distribution IW p(Σ(ρ), p + 2 + n) (defined in Equation 3). Each cell represents the average interval length over 100 simulations. Figure 4 displays these results as a grid of n and p for fixed ρ. The results confirm the expected behavior: length decreases as n or ρ increases, and increases with p. However, the length tends to plateau as n decreases, following an initial sharp gain. This suggests that a moderate increase in scan length can efficiently decreases uncertainty. We present this grid primarily as a guide for compromise. Indeed, to detect significant differences in correlation (e.g., a difference of 0 .4), one could focus on a specific subnetwork of size p′ < p using this grid. Reducing the dimension increases statistical power. We argue that the abundance of information in fMRI scans often misleads researchers into analyzing the whole brain; however, focusing on specific brain subnetworks may yield more robust conclusions. 24 7 Discussion 
+
+The primary advantage of a Bayesian framework for modeling correlation matrices lies in access-ing the joint distribution of coefficients, a task rarely feasible in a non-asymptotic frequentist framework. We illustrated this benefit through FWER simulations, where frequentist proce-dures were proved to be over-conservative due to their inability to account for dependencies between coefficients. Although computing the joint distribution incurs higher computational costs, this approach serves as a compelling proof of concept, motivating a paradigm shift toward uncertainty-aware inference. Our central objective is the direct quantification and visualization of this uncertainty, partic-ularly when applied to real fMRI data. This application provides tangible tools for interpreting longitudinal patient evolution, offering critical interpretability at the single-subject level. While larger studies would be required to validate these findings in a definitive clinical trial, the cur-rent framework is already encouraging in itself. Extending this core goal, the grid presented in Figure 4 quantifies uncertainty as a function of ( p, n ) to guide the design of future clinical studies. By exposing the mathematical limits of uncertainty reduction, this grid demonstrates how to optimize study protocols, specifically by reducing the number of regions of interest to focus on biologically relevant subnetworks, thereby maximizing statistical power within feasible acquisition constraints. This encourages researchers to adopt modest, mathematically grounded objectives rather than attempting to overcome intrinsic high-dimensional limitations. We recognize that fMRI connectivity analysis encompasses more than just correlation ma-trix inference. Nevertheless, this study highlights the inherent instability of these matrices, cautioning against their uncritical use in deriving graph metrics. A key direction for future work involves propagating this quantified uncertainty into tools specifically designed for graph analysis. While our model is relatively simple, a choice that may invite criticism regarding potential bias or hyperparameter sensitivity, we argue that its behavior (specifically, slight shrinkage toward zero) aligns with several existing methods. The originality of this work does not lie in proposing a superior estimator, but in establishing a general, adaptive methodology to quantify and exploit estimation uncertainty. This approach informs decision-making, even if it cannot fully resolve the instability inherent in high-dimensional settings. This methodology remains adaptable to any model allowing posterior sampling. 
+
+# Acknowledgments 
+
+This work was partly supported by the Agence Nationale de la Recherche under the France 2030 programme, references ANR-23-IACL-0006 and ANR-21-JSTM-0001. The first dataset was provided by the Human Connectome Project, WU-Minn Consortium (Principal Investigators: David Van Essen and Kamil Ugurbil; 1U54MH091657) funded by the 16 NIH Institutes and Centers that support the NIH Blueprint for Neuroscience Research; and by the McDonnell Center for Systems Neuroscience at Washington University. Full project accessible at https://www.humanconnectome.org/study/hcp-young-adult .The second dataset is based on a coma patients study that was conducted at Grenoble Alpes University Hospital between February 2015 and March 2018. The protocol was approved by the Ethics committee of the University Hospital of Grenoble Alpes, France (Comit´ e Consultatif pour la Protection des Personnes Sud Est V, ID-RCB 2014-A01873-44/1). The study was registered on ClinicalTrials.gov (Identifier: NCT02647996). 25 A Supplementary Materials 
+
+To ensure the reproducibility and completeness of this study, we provide complementary re-sources: 
+
+• Appendix: detailed mathematical proofs for all propositions and theorems, along with additional figures that complement the main text. 
+
+• Open-Source Repository: A public GitLab repository hosting the full source code and data required to reproduce our work. This includes: 
+
+– The raw and preprocessed datasets used in the analysis. 
+
+– All scripts implementing the proposed algorithms (Sliced-Quantile Grid and BGHM online). 
+
+– Pre-computed results to facilitate immediate inspection. 
+
+– Specific scripts to regenerate every figure and table presented in this paper. The repository is available at: https://gricad-gitlab.univ-grenoble-alpes.fr/chevaual/ credible_rectangles_for_comparison_fmri 
+
+A.1 Additional figures 
+
+We include additional figure and table of simulation and methods mentioned in the main text.   
+
+> (a) 2 .4% of edges (b) 24% of edges (c) 48% of edges
+
+Figure 5: Ground-truth correlation matrices used for simulation study used in Section 5 for Table 2 
+
+A.2 Proofs 
+
+Proof of Proposition 3.2. Since Rθ is a closed rectangle, it is a closed set in Rd under any norm. For any θref /∈ Rθ, the distance to the closed set is attained; thus, there exists θ∗ ∈ Rθ such that 
+
+∥θ∗ − θref ∥ = d, with d > 0. Consider the open ball B∥·∥ (θref , d ) = {z ∈ Rd : ∥z − θref ∥ < d }. By definition of d as the minimum distance, B∥·∥ (θref , d ) ∩ Rθ = ∅. This implies: 
+
+P(∥θ − θref ∥ < d | y) ≤ P(θ / ∈ Rθ | y).
+
+Since P(θ ∈ Rθ | y) ≥ 1 − α, we have P(θ / ∈ Rθ | y) ≤ α, which concludes the proof. 26 Table 4: Comparison consciousness state (CS) and distance r defined in Proposition 3.2.1 between the credible region and the matrix of reference Ccontrol for both exams ID CS 1 CS 2 Dist 1 Dist 2 3 MCS C 3.05 3.04 4 C C 3.53 1.82 7 C C 2.36 2.81 8 C C 3.36 0.72 9 MCS C 5.43 3.13 15 C C 3.28 3.14 19 C C 3.99 5.06 22 MCS C 9.38 3.35 25 C C 2.30 1.30 29 C C 3.13 2.23 
+
+Proof of Proposition 3.3. The posterior expected loss is the probability of making at least one directional error: 
+
+Eθ|y[L(θ, δ )] = P
+
+> d
+
+[
+
+> i=1
+
+ {δ+ 
+
+> i
+
+= 1 , θ i ≤ θref ,i } ∪ { δ− 
+
+> i
+
+= 1 , θ i ≥ θref ,i } y
+
+!
+
+.
+
+Substituting the definitions of δ+ 
+
+> i
+
+and δ− 
+
+> i
+
+, this probability becomes and we have: 
+
+Eθ|y[L(θ, δ )] = P
+
+> d
+
+[
+
+> i=1
+
+({θref ,i < q i(t/ 2) and θi ≤ θref ,i } ∪ { θref ,i > q i(1 − t/ 2) and θi ≥ θref ,i }) y
+
+!
+
+= P
+
+> d
+
+[
+
+> i=1
+
+({θi < q i(t/ 2) } ∪ { θi > q i(1 − t/ 2) }) y
+
+!
+
+= P(θ / ∈ R(t) | y).
+
+Since R(t) is a credible region at level 1 − α, we have Eθ|y[L(θ, δ )] ≤ α.
+
+Proof of Proposition 3.4. Let RA and RB be (1 − α) credible regions for θA and θB respectively, with RA ∩ RB = ∅. By definition of credible regions: 
+
+P(θA ∈ RA|y) ≥ 1 − α
+
+P(θB ∈ RB |y) ≥ 1 − α
+
+If θA = θB = θ∗, then for equality to hold we must have θ∗ ∈ RA ∩ RB . But since 
+
+RA ∩ RB = ∅, we have: 
+
+{θA = θB } ⊆ { θA /∈ RA} ∪ { θB /∈ RB }
+
+Therefore: 
+
+P(θA = θB |y) ≤ P({θA /∈ RA} ∪ { θB /∈ RB }| y)By the union bound: 
+
+P({θA /∈ RA} ∪ { θB /∈ RB }| y) ≤ P(θA /∈ RA|y) + P(θB /∈ RB |y) ≤ α + α = 2 α
+
+Thus: 
+
+P(θA = θB |y) ≤ 2α
+
+27 Proof of proposition 3.6. The three point of this proposition are: (i) The Bonferroni-type rectangle verifies Equation 1: 
+
+P
+
+
+
+(θ1, . . . , θ d) ∈ R(tbonf  
+
+> α
+
+)|y
+
+
+
+≥ 1 − α. 
+
+(ii) The Naive rectangle based on π(θ|y) guarantees: 
+
+P (θ ∈ R(tnaive  
+
+> α
+
+)|y) ≤ (1 − α)(iii) The optimal quantile level tα exists and is included inside the interval [ αd , α ]
+
+Proof of (i) 
+
+By definition: 
+
+R(tbonf  
+
+> α
+
+) = 
+
+> d
+
+Y
+
+> i=1
+
+h
+
+qi
+
+ α
+
+2d
+
+
+
+, q i
+
+
+
+1 − α
+
+2d
+
+i 
+
+.
+
+The probability that the true parameter vector belongs to this region is: 
+
+P
+
+
+
+(θ1, . . . , θ d) ∈ R(tbonf  
+
+> α
+
+)|y
+
+
+
+= P
+
+> d
+
+\
+
+> i=1
+
+n
+
+qi
+
+ α
+
+2d
+
+
+
+≤ θi ≤ qi
+
+
+
+1 − α
+
+2d
+
+o 
+
+|y
+
+!
+
+.
+
+Using the complement rule and Boole’s inequality: 
+
+P
+
+> d
+
+\
+
+> i=1
+
+n
+
+qi
+
+ α
+
+2d
+
+
+
+≤ θi ≤ qi
+
+
+
+1 − α
+
+2d
+
+o 
+
+|y
+
+!
+
+= 1 −P
+
+> d
+
+[
+
+> i=1
+
+n
+
+θi < q i
+
+ α
+
+2d
+
+
+
+or θi > q i
+
+
+
+1 − α
+
+2d
+
+o 
+
+|y
+
+!
+
+.
+
+By definition of the quantile qi(·), we have P(θi < q i( α 
+
+> 2d
+
+)|y) ≤ α 
+
+> 2d
+
+and P(θi > q i(1 − α 
+
+> 2d
+
+)|y) ≤ 
+
+> α
+> 2d
+
+. Therefore: 
+
+P
+
+
+
+(θ1, . . . , θ d) ∈ R(1 −α)bonf |y
+
+
+
+≥ 1 −
+
+> d
+
+X
+
+> i=1
+
+ α
+
+2d + α
+
+2d
+
+
+
+= 1 − α. 
+
+This proves that the Bonferroni-type rectangle is a credible region at a level 1 − α, without independence assumption between the θi.
+
+Proof of (ii) 
+
+The Naive Rectangle is defined by : 
+
+R(tnaive  
+
+> α
+
+) = 
+
+> d
+
+Y
+
+> i=1
+
+h
+
+qi
+
+ α
+
+2
+
+
+
+, q i
+
+
+
+1 − α
+
+2
+
+i 
+
+.
+
+In particular we have : 
+
+θ ∈ R(tnaive  
+
+> α
+
+) = ⇒
+
+n
+
+q1
+
+ α
+
+2
+
+
+
+≤ θ1 ≤ q1
+
+
+
+1 − α
+
+2
+
+o 
+
+.
+
+Hence: 
+
+P (θ ∈ R(tnaive  
+
+> α
+
+)|y) ≤ P(
+
+h
+
+q1
+
+ α
+
+2
+
+
+
+, q 1
+
+
+
+1 − α
+
+2
+
+i 
+
+|y) = 1 − α. 
+
+Proof of (iii) 
+
+The two bounds from the naive and Bonferroni-type quantile levels in (i) and (ii), combined with the fact that the probability of the quantile-based region only increases as the quantile level decreases, prove point (iii): the existence of a level tα ∈ [ αd , α ] such that the probability of the rectangle set R(tα) is exactly 1 − α.28 Proof of Proposition 3.7. We want to prove that he rectangle constructed by the BGHM algo-rithm in the case where k is equal to ⌈(1 −α)M ⌉ provides an estimation of the optimal rectangle 
+
+R(tα), as well as an estimation of tα:ˆtα = 2( M + 1 − j⋆)
+
+M + 1 .
+
+Results from Besag et al. [1995] established that the rectangle defined in the Algorithm 1 is the smallest rectangle of this type containing at least k of the M samples. More precisely it implies that the proportion of samples inside this rectangle is between kM and k+2 dM . In this case if we define k as a function of M such that k = ⌈= (1 − α)M ⌉, then the associated rectangle 
+
+RM,k given by the previous algorithm has the following property: lim   
+
+> M→∞
+
+P(θ ∈ RM,k ) = 1 − α. 
+
+From this point we just have to prove that this hyperrectangle estimates a quantile-based rectangle to prove that this is an estimation of the optimal rectangle. Given M samples for parameter θi, the marginal order statistics θ(1)  
+
+> i
+
+≤ · · · ≤ θ(M ) 
+
+> i
+
+provide empirical quantile estimates: 
+
+θ[r] 
+
+> i
+
+= bqi
+
+ rM + 1 
+
+
+
+.
+
+Thus the hyperrectangle dY
+
+> i=1
+
+θ[M +1 −j⋆] 
+
+> i
+
+, θ [j⋆]
+
+> i
+
+
+
+estimates the theoretical region 
+
+bR(t) = 
+
+> d
+
+Y
+
+> i=1
+
+ bqi(t/ 2) , bqi(1 − t/ 2) ,
+
+where the quantile level t satisfies t = 2( M +1 −j⋆)  
+
+> M+1
+
+.The previous result about the asymptotic probability of this rectangle tells us that this is an estimation of R(tα), and that an estimation of tα is given by : ˆtα = 2( M + 1 − j⋆)
+
+M + 1 .
+
+Proof of Proposition 3.8. Let A, B ⊂ Rd be two disjoint batches of points. For any integer 
+
+m ≥ 1, define: 
+
+Em(A) = the set of m points in A with the largest values of S(·, A ),
+
+and similarly Em(B) for B and Em(A ∪ B) for A ∪ B.We want to prove that: 
+
+Em(A ∪ B) ⊆ E m(A) ∪ E m(B).
+
+We prove the contrapositive: if a point θ / ∈ E m(A) ∪ E m(B), then θ / ∈ E m(A ∪ B). Suppose θ ∈ A (the case θ ∈ B is symmetric). Since θ / ∈ E m(A), there exist at least m points in A with strictly larger scores than θ when computed within A:
+
+|{ θ′ ∈ A : S(θ′, A ) > S (θ, A )}| ≥ m. 
+
+29 Now consider the scores computed within the full set A∪B. For any point θ′ ∈ A, its rank on each coordinate can only decrease or stay the same when adding points from B, since additional points can only insert themselves ahead in the ordering. Consequently, for any θ′ ∈ A:min  
+
+> i
+
+ri(θ′, A ∪ B) ≤ min  
+
+> i
+
+ri(θ′, A ), max  
+
+> i
+
+ri(θ′, A ∪ B) ≥ max  
+
+> i
+
+ri(θ′, A ).
+
+From the definition of S, this implies S(θ′, A ∪ B) ≥ S(θ′, A ). In particular, the m points in 
+
+A with larger scores than θ in A maintain larger scores than θ in A ∪ B.Thus, there are at least m points in A ∪ B with scores strictly larger than S(θ, A ∪ B), meaning θ / ∈ E m(A ∪ B). 
+
+Proof of Theorem 4.1. We suppose that the model is under a Gaussian likelihood with zero mean, with a prior on the covariance matrix that is an inverse-Wishart distribution where the eigenvalues of Σ0 are bounded below by a strictly positive constant. In this situation we define the strict upper-triangular vectorization vech 0 : Rp×p → Rp(p−1) /2 of the corresponding correlation matrix C.We want to prove that in this case we have: 
+
+√n vech 0(C − Cn)|Xn
+
+> TV
+
+≈ Np(p−1) /2
+
+ 0, V ,
+
+where Cn is the empirical correlation matrix derived from Sn.Define the transformation g : Rp(p+1) /2 → Rp(p−1) /2 mapping the unique elements of Σ to the strict upper-triangular elements of the correlation matrix: 
+
+g(vech( Σ)) = vech 0(C),
+
+where C = D−1/2ΣD−1/2 and D = diag( Σ). The function g is differentiable at Σ because the diagonal entries are supposed to be bounded away from zero. Let ∇g denote its Jacobian matrix evaluated at Σ.From the BvM for covariance matrices, we have 
+
+√n vech( Σ − Sn)|Xn
+
+> TV
+
+≈ N( 0, V Σ),
+
+with V Σ = 2 B⊤ 
+
+> p
+
+(Sn ⊗ Sn)Bp.Applying the delta method (which preserves convergence in total variation for differentiable transformations), and using the linearity of vech and vech 0 yields 
+
+√n (g(vech( Σ)) − g(vech( Sn))) |Xn
+
+> TV
+
+≈ N( 0, ∇g V Σ ∇g⊤),
+
+which results in: 
+
+√n (vech 0(C) − vech 0(Cn)) |Xn
+
+> TV
+
+≈ N( 0, ∇g V Σ ∇g⊤),
+
+where Cn is the empirical correlation matrix. 
+
+Proof of Proposition 4.2. We aim to prove that bAn converges in probability to A0 as n → ∞ ,i.e., the support estimator is consistent for any sequence αn → 0 that respects the Gaussian tail decay implied by the BvM. The Bernstein-von Mises Theorem for correlation matrices vectorization 4.1 guarantees that, under standard regularity conditions, the posterior distribution π(vech 0(C)|Xn) contracts at rate 1 /√n around the true vech 0(C0). In particular, for every ( i, j ): 
+
+• If C0,ij ̸ = 0, the posterior of Cij concentrates around C0,ij . The credible interval Iij (tαn )is asymptotically centered around C0,ij with width of order Op(1 /√n). Provided αn → 0sufficiently slowly to maintain power against local alternatives, the interval excludes 0 with probability tending to one, as C0,ij is bounded away from zero. 30 • If C0,ij = 0, the posterior of Cij is asymptotically normal with mean zero and variance of order 1 /n . The sequence αn → 0 is chosen to decay fast enough to control false discoveries (shrinking the interval relative to fixed thresholds) but slow enough to respect the Gaussian contraction rate. Consequently, the interval contracts toward zero, ensuring 0 ∈ Iij (tαn ) with probability tending to one. 
+
+# References 
+
+Sophie Achard and Ed Bullmore. Efficiency and Cost of Economical Brain Functional Networks. 
+
+PLoS Computational Biology , 3(2):e17, February 2007. ISSN 1553-734X. doi: 10.1371/ journal.pcbi.0030017. URL https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1794324/ .Sophie Achard and Ir` ene Gannaz. Multivariate Wavelet Whittle Estimation in Long-range De-pendence. Journal of Time Series Analysis , 37(4):476–512, 2016. ISSN 1467-9892. doi: 10.1111/jtsa.12170. URL https://onlinelibrary.wiley.com/doi/abs/10.1111/jtsa. 12170 .Julian Besag, Peter Green, David Higdon, and Kerrie Mengersen. Bayesian Computation and Stochastic Systems. Statistical Science , 10(1):3–41, Febru-ary 1995. ISSN 0883-4237, 2168-8745. doi: 10.1214/ss/1177010123. URL 
+
+https://projecteuclid.org/journals/statistical-science/volume-10/issue-1/ Bayesian-Computation-and-Stochastic-Systems/10.1214/ss/1177010123.full .Jacob Bien and Robert J Tibshirani. Sparse estimation of a covariance matrix. Biometrika , 98 (4):807–820, 2011. Publisher: Oxford University Press. Bharat Biswal, F. Zerrin Yetkin, Victor M. Haughton, and James S. Hyde. Functional connec-tivity in the motor cortex of resting human brain using echo-planar mri. Magnetic Resonance in Medicine , 34(4):537–541, 1995. ISSN 1522-2594. doi: 10.1002/mrm.1910340409. eprint: https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.1910340409. Carlo Bonferroni. Teoria statistica delle classi e calcolo delle probabilita. Pubblicazioni del R istituto superiore di scienze economiche e commericiali di firenze , 8:3–62, 1936. Jinyuan Chang, Yumou Qiu, Qiwei Yao, and Tao Zou. Confidence regions for entries of a large precision matrix. Journal of Econometrics , 206(1):57–82, September 2018. ISSN 0304-4076. doi: 10.1016/j.jeconom.2018.03.020. URL https://www.sciencedirect.com/ science/article/pii/S0304407618300782 .Alice Chevaux, Ali Fahkar, K´ evin Polisano, Ir` ene Gannaz, and Sophie Achard. Benchmarking Brain Connectivity Graph Inference: A Novel Validation Approach. In 33rd European Signal Processing Conference (EUSIPCO 2025) , Palerme, Italy, September 2025. URL https:// hal.science/hal-04995510 .Sacha Epskamp, Denny Borsboom, and Eiko I. Fried. Estimating psychological networks and their accuracy: A tutorial paper. Behavior Research Methods , 50(1):195–212, February 2018. ISSN 1554-3528. doi: 10.3758/s13428-017-0862-1. URL http://link.springer.com/10. 3758/s13428-017-0862-1 .Christopher Ferrie. High posterior density ellipsoids of quantum states. New Journal of Physics ,16(2):023006, February 2014. ISSN 1367-2630. doi: 10.1088/1367-2630/16/2/023006. URL 
+
+https://doi.org/10.1088/1367-2630/16/2/023006 . Publisher: IOP Publishing. 31 Michael D. Fox and Marcus E. Raichle. Spontaneous fluctuations in brain activity observed with functional magnetic resonance imaging. Nature Reviews Neuroscience , 8(9):700–711, September 2007. ISSN 1471-0048. doi: 10.1038/nrn2201. URL https://www.nature.com/ articles/nrn2201 . Publisher: Nature Publishing Group. Andrew Gelman, John B Carlin, Hal S Stern, and Donald B Rubin. Bayesian data analysis .Chapman and Hall/CRC, 1995. Cedric E. Ginestet, Jun Li, Prakash Balachandran, Steven Rosenberg, and Eric D. Kolaczyk. Hypothesis testing for network data in functional neuroimaging. The Annals of Applied Statis-tics , 11(2):725–750, June 2017. ISSN 1932-6157, 1941-7330. doi: 10.1214/16-AOAS1015. URL 
+
+https://projecteuclid.org/journals/annals-of-applied-statistics/volume-11/ issue-2/Hypothesis-testing-for-network-data-in-functional-neuroimaging/10. 1214/16-AOAS1015.full .Matthew F. Glasser, Stamatios N. Sotiropoulos, J. Anthony Wilson, Timothy S. Coalson, Bruce Fischl, Jesper L. Andersson, Junqian Xu, Saad Jbabdi, Matthew Webster, Jonathan R. Poli-meni, David C. Van Essen, and Mark Jenkinson. The minimal preprocessing pipelines for the Human Connectome Project. NeuroImage , 80:105–124, October 2013. ISSN 1053-8119. doi: 10.1016/j.neuroimage.2013.04.127. URL https://www.sciencedirect.com/science/ article/pii/S1053811913005053 .Jim Griffin. Expressing and Visualizing Model Uncertainty in Bayesian Variable Se-lection Using Cartesian Credible Sets. Bayesian Analysis , 20(4):1371–1397, De-cember 2025. ISSN 1936-0975, 1931-6690. doi: 10.1214/25-BA1568. URL 
+
+https://projecteuclid.org/journals/bayesian-analysis/volume-20/issue-4/ Expressing-and-Visualizing-Model-Uncertainty-in-Bayesian-Variable-Selection-Using/ 10.1214/25-BA1568.full . Publisher: International Society for Bayesian Analysis. L. R Haff. An identity for the Wishart distribution with applications. Journal of Mul-tivariate Analysis , 9(4):531–544, December 1979. ISSN 0047-259X. doi: 10.1016/ 0047-259X(79)90056-3. URL https://www.sciencedirect.com/science/article/pii/ 0047259X79900563 .Leonhard Held. Simultaneous Posterior Probability Statements from Monte Carlo Output. 
+
+Journal of Computational and Graphical Statistics , 13(1):20–35, 2004. ISSN 1061-8600. URL 
+
+https://www.jstor.org/stable/1391142 .Sture Holm. A Simple Sequentially Rejective Multiple Test Procedure. Scandinavian Journal of Statistics , 6(2):65–70, 1979. ISSN 0303-6898. URL https://www.jstor.org/stable/ 4615733 .Sebastian H¨ opfl, Hans-Michael Tautenhahn, Vincent Wagner, and Nicole Erika Radde. Marginal Percentile Intervals in Bayesian Inference are Overconfident. IFAC-PapersOnLine , 58(23):19– 24, January 2024. ISSN 2405-8963. doi: 10.1016/j.ifacol.2024.10.004. URL https://www. sciencedirect.com/science/article/pii/S2405896324017506 .Yiye Jiang, Alice Chevaux, Wendy Meiring, Alex Petersen, Guillaume Kon Kam King, Julyan Arbel, and Sophie Achard. Prior elicitation for Bayesian estimation of single-subject con-nectivity networks, May 2026. URL http://arxiv.org/abs/2605.02587 . arXiv:2605.02587 [stat.ME]. Ashwini Joshi, Terhi Ollila, Ilkka Immonen, and Sangita Kulathinal. Bayesian Simultaneous Credible Intervals for Effect Measures from Multiple Markers. Statistics in Biopharmaceutical Research , 15(3):638–653, July 2023. ISSN 1946-6315. doi: 10.1080/19466315.2022.2110935. URL https://www.tandfonline.com/doi/full/10.1080/19466315.2022.2110935 .32 Junghi Kim, Jeffrey R. Wozniak, Bryon A. Mueller, Xiaotong Shen, and Wei Pan. Comparison of statistical tests for group differences in brain functional networks. NeuroImage , 101:681– 694, November 2014. ISSN 1095-9572. doi: 10.1016/j.neuroimage.2014.07.031. Arnoˇ st Kom´ arek and Emmanuel Lesaffre. Bayesian semiparametric accelerated failure time model for paired doubly-interval-censored data. Statistical Modelling , 6(1):3–22, 2006. doi: 10.1191/1471082X06st107oa. Olivier Ledoit and Michael Wolf. Honey, I shrunk the sample covariance matrix. UPF economics and business working paper , (691), 2003. Guillaume Marrelec, Barry Horwitz, Jieun Kim, M´ elanie P´ el´ egrini-Issac, Habib Benali, and Julien Doyon. Using partial correlation to enhance structural equation modeling of functional MRI data. Magnetic Resonance Imaging , 25(8):1181–1189, October 2007. ISSN 0730725X. doi: 10.1016/j.mri.2007.02.012. URL https://linkinghub.elsevier.com/retrieve/pii/ S0730725X07001415 .Lydia Oujamaa, Chantal Delon-Martin, Chlo´ e Jaroszynski, Maite Termenon, Stein Silva, Jean-Fran¸ cois Payen, and Sophie Achard. Functional hub disruption emphasizes consciousness recovery in severe traumatic brain injury. Brain Communications , 5(6):fcad319, November 2023. ISSN 2632-1297. doi: 10.1093/braincomms/fcad319. URL https://academic.oup. com/braincomms/article/doi/10.1093/braincomms/fcad319/7441049 .Edmund T. Rolls, Chu-Chung Huang, Ching-Po Lin, Jianfeng Feng, and Marc Joliot. Auto-mated anatomical labelling atlas 3. NeuroImage , 206:116189, February 2020. ISSN 1053-8119. doi: 10.1016/j.neuroimage.2019.116189. URL https://www.sciencedirect.com/science/ article/pii/S1053811919307803 .Partha Sarkar, Kshitij Khare, Malay Ghosh, and Matt P. Wand. High-Dimensional Bernstein Von-Mises Theorems for Covariance and Precision Matrices, July 2025. URL http://arxiv. org/abs/2309.08556 . arXiv:2309.08556 [math]. Stephen M. Smith, Christian F. Beckmann, Jesper Andersson, Edward J. Auerbach, Ja-nine Bijsterbosch, Gwena¨ elle Douaud, Eugene Duff, David A. Feinberg, Ludovica Grif-fanti, Michael P. Harms, Michael Kelly, Timothy Laumann, Karla L. Miller, Steen Moeller, Steve Petersen, Jonathan Power, Gholamreza Salimi-Khorshidi, Abraham Z. Snyder, An T. Vu, Mark W. Woolrich, Junqian Xu, Essa Yacoub, Kamil U˘ gurbil, David C. Van Essen, Matthew F. Glasser, and WU-Minn HCP Consortium. Resting-state fMRI in the Hu-man Connectome Project. NeuroImage , 80:144–168, October 2013. ISSN 1095-9572. doi: 10.1016/j.neuroimage.2013.05.039. Niansheng Tang and Bin Yu. Simultaneous confidence interval for assessing non-inferiority with assay sensitivity in a three-arm trial with binary endpoints. Pharmaceutical Statistics , 19(5): 518–531, September 2020. ISSN 1539-1612. doi: 10.1002/pst.2010. Ma¨ ıt´ e Termenon, Assia Jaillard, Chantal Delon-Martin, and Sophie Achard. Reliability of graph analysis of resting state fMRI using test-retest dataset from the Human Connectome Project. NeuroImage , 142:172, 2016. doi: 10.1016/j.neuroimage.2016.05.062. URL https: //inserm.hal.science/inserm-01330966 .N. Tzourio-Mazoyer, B. Landeau, D. Papathanassiou, F. Crivello, O. Etard, N. Delcroix, B. Ma-zoyer, and M. Joliot. Automated anatomical labeling of activations in SPM using a macro-scopic anatomical parcellation of the MNI MRI single-subject brain. NeuroImage , 15(1): 273–289, January 2002. ISSN 1053-8119. doi: 10.1006/nimg.2001.0978. 33 Brandon Whitcher, Peter Guttorp, and Donald B. Percival. Wavelet analysis of covariance with application to atmospheric time series. Journal of Geophysical Research: Atmospheres ,105(D11):14941–14962, 2000. ISSN 2156-2202. doi: 10.1029/2000JD900110. URL https: //onlinelibrary.wiley.com/doi/abs/10.1029/2000JD900110 .Andrew Zalesky, Alex Fornito, and Edward T. Bullmore. Network-based statistic: Identifying differences in brain networks. NeuroImage , 53(4):1197–1207, December 2010. ISSN 1053-8119. doi: 10.1016/j.neuroimage.2010.06.041. URL https://www.sciencedirect.com/science/ article/pii/S1053811910008852 .34

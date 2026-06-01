@@ -3,7 +3,7 @@
     <div class="dpr-daily-kicker">Daily Research Brief</div>
     <h3>最新日报</h3>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
-      <div class="dpr-daily-stat"><span>生成时间</span><strong>26-05-29 05:16 北京时间</strong></div>
+      <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-01 04:40 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
       <div class="dpr-daily-stat"><span>总数</span><strong>16</strong></div>
       <div class="dpr-daily-stat"><span>精读 / 速读</span><strong>6 / 10</strong></div>
@@ -11,66 +11,66 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>从自然阅读中AI对齐人类不升反降，到后顶叶神经元在自然观察里展现情境依赖的功能多样性，今日精读两篇9分研究聚焦感知与编码的深层机制。</p>
-<p>最值得关注：视觉语言模型并未全局增强与人类的阅读对齐，且背内侧后顶叶神经元的功能多样性高度取决于自然观察的上下文。</p>
-<p>下一步建议对比多模态模型的上下文编码与皮层临界梯度，检验情境信息如何重塑脑与机器的表征。</p>
+      <p>今日精读两篇高分行文，聚焦脑信号解码与稳健表征学习，速读覆盖人脑与AI表征对齐等前沿话题。</p>
+<p>最值得关注的是：利用自监督学习从fMRI中提取任务不变的功能表征，以及直接将脑信号转换为视觉问答答案的跨模态解码。</p>
+<p>建议普通读者持续追踪脑机接口与AI感知对齐的交叉突破，它们正在重新定义“理解”的边界。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202605/29/README">打开完整日报</a>
+    <a class="dpr-daily-detail-link" href="#/202606/01/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
     <div class="dpr-daily-paper-grid"><article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">01</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/2605.28818v1-vlms-may-not-globally-enhance-human-alignment-over-llms-during-natural-reading">VLMs May Not Globally Enhance Human Alignment over LLMs During Natural Reading</a>
-    <div class="dpr-daily-paper-title-zh">在自然阅读中，视觉语言模型可能无法全面超越大型语言模型的人类对齐能力</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/2605.28990v1-learning-robust-and-task-invariant-functional-representation-from-fmri-through-siamese-self-supervised-learning">Learning Robust and Task-Invariant Functional Representation from fMRI through Siamese Self-Supervised Learning</a>
+    <div class="dpr-daily-paper-title-zh">通过孪生自监督学习从fMRI中学习鲁棒且任务不变的功能表征</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>使用fMRI和眼动追踪评估VLM与人类的对齐</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>使用孪生自监督学习从fMRI学习鲁棒的功能表征</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">02</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-27-728098-v1-context-dependent-functional-diversity-of-dorsomedial-posterior-parietal-neurons-revealed-by-single-unit-fmri-mapping-during-naturalistic-viewing">Context-dependent functional diversity of dorsomedial posterior parietal neurons revealed by single-unit fMRI mapping during naturalistic viewing</a>
-    <div class="dpr-daily-paper-title-zh">自然观看下单单元fMRI映射揭示背内侧后顶叶神经元的情境依赖性功能多样性</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/2605.29588v1-brain-it-vqa-from-brain-signals-to-answers">Brain-IT-VQA: From Brain Signals to Answers</a>
+    <div class="dpr-daily-paper-title-zh">Brain-IT-VQA：从脑信号到答案</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>自然观看条件下跨被试的单神经元fMRI映射</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>从fMRI解码视觉问答，对齐大脑与视觉模型</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">03</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/2605.28693v1-misalignment-between-backpropagation-and-the-hierarchy-of-brain-responses-to-images">Misalignment Between Backpropagation and the Hierarchy of Brain Responses to Images</a>
-    <div class="dpr-daily-paper-title-zh">反向传播与大脑对图像响应的层级结构之间的错配</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>fMRI编码视觉模型梯度</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/2605.29591v1-mind-omni-a-unified-multi-task-framework-for-brain-vision-language-modeling-via-discrete-diffusion">Mind-Omni: A Unified Multi-Task Framework for Brain-Vision-Language Modeling via Discrete Diffusion</a>
+    <div class="dpr-daily-paper-title-zh">Mind-Omni：通过离散扩散实现大脑-视觉-语言建模的统一多任务框架</div>
+    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>通过离散扩散对齐大脑与视觉语言</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">04</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-12-724368-v3-deep-representation-learning-on-whole-brain-population-dynamics-uncovers-geometrically-separable-neural-codes">Deep Representation Learning on Whole-Brain Population Dynamics Uncovers Geometrically Separable Neural Codes</a>
-    <div class="dpr-daily-paper-title-zh">全脑群体动力学的深度表征学习揭示几何可分离的神经编码</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>全脑群体动力学表征学习</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/2605.29850v1-mirage-adaptive-multimodal-gating-for-whole-brain-fmri-encoding">MIRAGE: Adaptive Multimodal Gating for Whole-Brain fMRI Encoding</a>
+    <div class="dpr-daily-paper-title-zh">MIRAGE：面向全脑fMRI编码的自适应多模态门控机制</div>
+    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>多模态全脑fMRI跨被试编码</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">05</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-18-725986-v1-the-georgetown-reading-in-aging-neuroimaging-dataset-grand-reading-and-multimodal-mri-data-in-older-adults">The Georgetown Reading in Aging Neuroimaging Dataset (GRAND): Reading and multimodal MRI data in older adults</a>
-    <div class="dpr-daily-paper-title-zh">乔治敦老化神经影像阅读数据集：老年人的阅读和多模态 MRI 数据</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>跨被试多模态MRI和阅读数据</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-64898-2026-04-21-719805-v2-population-codes-for-biological-stereopsis-extend-beyond-correlation-based-binocular-disparity-computations">Population codes for biological stereopsis extend beyond correlation-based binocular disparity computations</a>
+    <div class="dpr-daily-paper-title-zh">生物立体视觉的群体编码超越了基于相关性的双眼视差计算</div>
+    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>跨被试fMRI研究立体视的群体编码及神经网络建模</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">06</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-21-726824-v1-a-shared-multi-feature-population-code-for-sensory-reliability-across-mouse-visual-cortex">A shared multi-feature population code for sensory reliability across mouse visual cortex</a>
-    <div class="dpr-daily-paper-title-zh">跨小鼠视觉皮层的感觉可靠性共享多特征群体编码</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>视觉皮层人口水平的感觉可靠性神经编码</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-64898-2026-05-24-727533-v1-behavioural-and-neural-signatures-across-diverse-cognitive-demands-in-a-multimodal-electroencephalography-functional-magnetic-resonance-imaging-design">Behavioural and neural signatures across diverse cognitive demands in a multimodal electroencephalography-functional magnetic resonance imaging design</a>
+    <div class="dpr-daily-paper-title-zh">多模态脑电图-功能磁共振成像设计中跨不同认知需求的行为与神经特征</div>
+    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>多模态EEG-fMRI设计，跨被试多任务</div>
   </div>
 </article></div>
   </section>
@@ -79,91 +79,91 @@
     <div class="dpr-daily-paper-grid"><article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">01</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-21-726898-v1-a-cortical-gradient-of-distance-to-criticality-governs-large-scale-resting-state-fmri-dynamics">A cortical gradient of distance to criticality governs large-scale resting-state fMRI dynamics</a>
-    <div class="dpr-daily-paper-title-zh">距离临界性的皮层梯度驱动大尺度静息态fMRI动力学</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/2605.27970v1-geometry-of-human-perceptual-domains-emerges-transiently-in-llm-representations">Geometry of Human Perceptual Domains Emerges Transiently in LLM Representations</a>
+    <div class="dpr-daily-paper-title-zh">人类感知域的几何结构在LLM表征中短暂涌现</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>跨被试fMRI临界距离梯度</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>LLM表征呈现类人感知几何结构，对齐大脑与机器</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">02</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-22-727273-v1-obsessive-compulsive-disorder-and-abstract-sequence-task-contributions-shift-prefrontal-cortical-connectivity">Obsessive-compulsive disorder and abstract sequence task contributions shift prefrontal cortical connectivity</a>
-    <div class="dpr-daily-paper-title-zh">强迫症与抽象序列任务改变前额叶皮层连接</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-1101-2025-06-23-660990-v2-intact-early-visual-representations-not-phosphene-adapted-features-account-for-human-perceptual-behavior-with-retinal-prostheses">Intact early visual representations, not phosphene-adapted features, account for human perceptual behavior with retinal prostheses</a>
+    <div class="dpr-daily-paper-title-zh">完整的早期视觉表征，而非光幻视适应特征，解释了视网膜假体下的人类感知行为</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>OCD患者跨被试前额叶连接的功能磁共振研究</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>通过假体模拟将DNN视觉表征与人类感知行为对齐</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">03</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-26-727967-v1-brain-wide-distributed-processing-underlying-natural-vision-and-audition">Brain-wide distributed processing underlying natural vision and audition</a>
-    <div class="dpr-daily-paper-title-zh">自然视觉与听觉背后的全脑分布式处理</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-64898-2026-05-28-728560-v1-directed-cortical-connectivity-inferred-from-neural-energy-metabolism">Directed cortical connectivity inferred from neural energy metabolism</a>
+    <div class="dpr-daily-paper-title-zh">基于神经能量代谢推断的定向皮层连接</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>自然视觉和听觉下的全脑分布式处理</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>从fMRI和PET能量代谢推断有向皮层连接</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">04</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/2605.20559v1-group-aware-matrix-estimation-and-latent-subspace-recovery">Group-Aware Matrix Estimation and Latent Subspace Recovery</a>
-    <div class="dpr-daily-paper-title-zh">群组感知的矩阵估计与潜在子空间恢复</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>面向异质神经数据的群体感知矩阵估计</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-64898-2026-05-28-728582-v1-a-biophysical-corticostriatal-model-predicts-learning-dependent-7t-fmri-dynamics-and-individual-reward-bias-in-humans">A biophysical corticostriatal model predicts learning-dependent 7T fMRI dynamics and individual reward bias in humans</a>
+    <div class="dpr-daily-paper-title-zh">一个生物物理皮层-纹状体模型预测人类学习依赖的7T fMRI动态和个体奖励偏差</div>
+    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>生物物理模型预测跨被试fMRI动力学和个体奖励偏差</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">05</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-1101-2023-05-18-541306-v8-foveated-metamers-of-the-early-visual-system">Foveated metamers of the early visual system</a>
-    <div class="dpr-daily-paper-title-zh">早期视觉系统的中心凹元刺激</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/2605.29900v1-ova-ib-one-vs-all-information-bottleneck-for-multi-modal-alignment">OVA-IB: One vs All Information Bottleneck for Multi-Modal Alignment</a>
+    <div class="dpr-daily-paper-title-zh">OVA-IB：用于多模态对齐的一对多信息瓶颈</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>早期视觉系统的感知模型</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>多模态对齐方法可应用于脑-机器表征对齐</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">06</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-1101-2025-11-25-690412-v2-decoding-the-neural-stages-from-action-and-object-recognition-to-mentalizing">Decoding the neural stages from action and object recognition to mentalizing</a>
-    <div class="dpr-daily-paper-title-zh">解析从动作与物体识别到心理化的神经阶段</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-1101-2024-11-15-623853-v5-neural-evidence-for-a-two-stage-model-of-visual-processing">Neural evidence for a two-stage model of visual processing</a>
+    <div class="dpr-daily-paper-title-zh">视觉加工两阶段模型的神经证据</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>fMRI跨模态RSA解码从动作到心理化的神经阶段</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>EEG视觉处理阶段</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">07</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/biorxiv-10-64898-2026-05-17-725713-v2-a-unified-form-of-batch-harmonization-equation-for-normative-modeling-a-location-scale-framework">A Unified Form of Batch Harmonization Equation for Normative Modeling: A Location Scale Framework</a>
-    <div class="dpr-daily-paper-title-zh">用于规范建模的批次协调方程的统一形式：位置-尺度框架</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-64898-2026-05-25-726064-v1-cortical-eigenmode-coordinates-provide-compact-subject-level-signatures-across-structural-mri-resting-state-fmri-and-eeg">Cortical eigenmode coordinates provide compact subject-level signatures across structural MRI, resting-state fMRI, and EEG</a>
+    <div class="dpr-daily-paper-title-zh">皮质本征模态坐标跨结构MRI、静息态fMRI与EEG提供紧凑的个体水平脑特征</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>统一批次校正用于规范模型，支持群体级先验</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>使用特征模态坐标的跨被试fMRI脑表征</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">08</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/2605.20732v1-deep-attention-reweighting-post-hoc-attention-based-feature-aggregation-in-cnns-for-disentangling-core-and-spurious-features-under-spurious-correlations">Deep Attention Reweighting: Post-Hoc Attention-Based Feature Aggregation in CNNs for Disentangling Core and Spurious Features under Spurious Correlations</a>
-    <div class="dpr-daily-paper-title-zh">深度注意力重加权：在虚假相关性下解耦核心与虚假特征的基于注意力的卷积神经网络事后特征聚合</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">6.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>事后注意力重加权通过解耦核心特征提升泛化</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-64898-2026-05-25-727742-v1-supervised-domain-adaptation-mitigates-cross-ethnicity-prediction-error-in-neuroimaging-based-cognitive-prediction">Supervised Domain Adaptation Mitigates Cross-Ethnicity Prediction Error in Neuroimaging Based Cognitive Prediction</a>
+    <div class="dpr-daily-paper-title-zh">有监督领域自适应缓解基于神经影像的认知预测中的跨种族预测误差</div>
+    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>跨族裔神经影像的域适应提升泛化性</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">09</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/2605.22679v1-conceptualizing-embeddings-sparse-disentanglement-for-vision-language-models">Conceptualizing Embeddings: Sparse Disentanglement for Vision-Language Models</a>
-    <div class="dpr-daily-paper-title-zh">概念化嵌入：视觉-语言模型的稀疏解缠</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/2605.30072v1-credible-rectangles-for-high-dimensional-posterior-comparison">Credible rectangles for high-dimensional posterior comparison</a>
+    <div class="dpr-daily-paper-title-zh">高维后验比较的可信矩形</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">6.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>视觉语言模型嵌入的稀疏解耦</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>用于跨被试fMRI脑连接图分析的贝叶斯框架</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">10</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202605/29/2605.27696v1-structure-over-pixels-learning-variable-length-visual-programs">Structure over Pixels: Learning Variable-Length Visual Programs</a>
-    <div class="dpr-daily-paper-title-zh">结构超越像素：学习可变长度的视觉程序</div>
+    <a class="dpr-daily-paper-title" href="#/202606/01/biorxiv-10-1101-2023-10-09-561548-v4-hippocampal-mechanisms-resolve-competition-in-memory-and-perception">Hippocampal mechanisms resolve competition in memory and perception</a>
+    <div class="dpr-daily-paper-title-zh">海马机制解决记忆与感知中的竞争</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">6.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>提出STROP令牌器，利用DINOv3特征学习结构化场景表示</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>使用fMRI模式相似性研究视觉搜索中的记忆竞争</div>
   </div>
 </article></div>
   </section>
