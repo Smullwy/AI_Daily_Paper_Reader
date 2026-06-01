@@ -11,7 +11,9 @@
   const DEEP_READ_TEXT_CHAR_LIMIT = 120000;
   const LOCAL_PDF_WORKFLOW_ID = 'local-pdf-deep-read.yml';
   const LOCAL_PDF_UPLOAD_DIR = 'docs/assets/local_pdfs/uploads';
-  const GITHUB_UPLOAD_MAX_BYTES = 80 * 1024 * 1024;
+  const GITHUB_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
+  const GITHUB_BATCH_MAX_FILES = 8;
+  const GITHUB_BATCH_MAX_RAW_BYTES = 120 * 1024 * 1024;
   const TITLE_MODE_AUTO = 'auto';
   const TITLE_MODE_FILENAME = 'filename';
   const DEEP_READ_SYSTEM_PROMPT =
@@ -1036,6 +1038,36 @@
     })),
   });
 
+  const getUploadEntrySize = (entry) => {
+    const size = entry && entry.file ? entry.file.size : entry && entry.size;
+    const n = Number(size || 0);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
+  const buildGitHubBatchUploadPlan = (entries, options = {}) => {
+    const maxFiles = Math.max(1, Number(options.maxFiles || GITHUB_BATCH_MAX_FILES));
+    const maxBytes = Math.max(1, Number(options.maxBytes || GITHUB_BATCH_MAX_RAW_BYTES));
+    const batches = [];
+    let current = [];
+    let currentBytes = 0;
+
+    (Array.isArray(entries) ? entries : []).forEach((entry) => {
+      const entryBytes = getUploadEntrySize(entry);
+      const exceedsFileCount = current.length >= maxFiles;
+      const exceedsByteBudget = current.length > 0 && currentBytes + entryBytes > maxBytes;
+      if (exceedsFileCount || exceedsByteBudget) {
+        batches.push({ items: current, totalBytes: currentBytes });
+        current = [];
+        currentBytes = 0;
+      }
+      current.push(entry);
+      currentBytes += entryBytes;
+    });
+
+    if (current.length) batches.push({ items: current, totalBytes: currentBytes });
+    return batches;
+  };
+
   const arrayBufferToBase64 = (buffer) => {
     const bytes = new Uint8Array(buffer || []);
     const chunkSize = 0x8000;
@@ -1100,14 +1132,15 @@
     return treeSha;
   };
 
-  const createGithubBlob = async ({ token, owner, repo, contentBase64 }) => {
+  const createGithubBlob = async ({ token, owner, repo, contentBase64, label }) => {
     const resp = await ghApiFetch(token, `https://api.github.com/repos/${owner}/${repo}/git/blobs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: contentBase64, encoding: 'base64' }),
     });
     if (!resp.ok) {
-      throw new Error(`创建 GitHub blob 失败：${await parseGitHubError(resp)}`);
+      const target = cleanLine(label);
+      throw new Error(`创建 GitHub blob 失败${target ? `（${target}）` : ''}：${await parseGitHubError(resp)}`);
     }
     const data = await resp.json().catch(() => null);
     if (!data || !data.sha) throw new Error('GitHub blob 响应缺少 sha。');
@@ -1166,9 +1199,10 @@
   const uploadFilesToGithubCommit = async ({ token, owner, repo, branch, files, message }) => {
     const blobEntries = [];
     for (const file of files) {
+      const label = cleanLine(file.label || (file.file && file.file.name) || file.path);
       const contentBase64 = file.contentBase64 || (file.file ? await fileToBase64(file.file) : '');
       if (!contentBase64) throw new Error(`待上传文件为空：${file.path}`);
-      const sha = await createGithubBlob({ token, owner, repo, contentBase64 });
+      const sha = await createGithubBlob({ token, owner, repo, contentBase64, label });
       blobEntries.push({ path: file.path, sha });
     }
 
@@ -1332,7 +1366,11 @@
     }
     candidates.forEach((item) => {
       if (Number(item.file && item.file.size || 0) > GITHUB_UPLOAD_MAX_BYTES) {
-        throw new Error(`${item.fileName || 'PDF'} 超过 ${formatBytes(GITHUB_UPLOAD_MAX_BYTES)}，请压缩后再提交。`);
+        const sizeText = formatBytes(item.file && item.file.size);
+        throw new Error(
+          `${item.fileName || 'PDF'} 为 ${sizeText}，超过网页上传安全上限 `
+          + `${formatBytes(GITHUB_UPLOAD_MAX_BYTES)}。请压缩后重试，或在本地 clone 仓库后用 git push 上传。`,
+        );
       }
     });
     const token = getGithubTokenForActions();
@@ -1343,8 +1381,8 @@
     setWorkflowInfo('');
     setStatus('正在确认 GitHub 仓库权限...', 'loading');
     const repoContext = await resolveRepoContextForActions(token);
-    const batchId = buildUploadBatchId();
-    const uploadEntries = candidates.map((item, index) => {
+    const rootBatchId = buildUploadBatchId();
+    const baseEntries = candidates.map((item) => {
       const fileName = item.fileName || (item.file && item.file.name) || 'local-paper.pdf';
       return {
         item,
@@ -1352,55 +1390,92 @@
         file: item.file,
         fileName,
         titleOverride: getImportItemTitle(item),
-        uploadPath: buildBatchUploadPath(batchId, index, fileName),
       };
     });
-    const manifestPath = buildBatchManifestPath(batchId);
-    const manifest = buildLocalPdfBatchManifest(uploadEntries);
-    const files = uploadEntries.map((entry) => ({
-      path: entry.uploadPath,
-      file: entry.file,
-    }));
-    files.push({
-      path: manifestPath,
-      contentBase64: utf8ToBase64(JSON.stringify(manifest, null, 2)),
-    });
+    const uploadPlan = buildGitHubBatchUploadPlan(baseEntries);
+    const batches = [];
+    const submittedItems = [];
 
-    setStatus(`正在一次性上传 ${candidates.length} 篇 PDF 批次到 ${repoContext.owner}/${repoContext.repo}...`, 'loading');
-    await uploadFilesToGithubCommit({
-      token,
-      owner: repoContext.owner,
-      repo: repoContext.repo,
-      branch: repoContext.defaultBranch,
-      files,
-      message: `[chore] upload local PDF batch for deep read: ${batchId}`,
-    });
+    setStatus(
+      uploadPlan.length > 1
+        ? `将 ${candidates.length} 篇 PDF 自动拆成 ${uploadPlan.length} 批上传，每批最多 ${GITHUB_BATCH_MAX_FILES} 篇 / ${formatBytes(GITHUB_BATCH_MAX_RAW_BYTES)}。`
+        : `正在上传 ${candidates.length} 篇 PDF 批次到 ${repoContext.owner}/${repoContext.repo}...`,
+      'loading',
+    );
 
-    setStatus('PDF 批次已上传，正在触发一次 GitHub Actions 后台精读...', 'loading');
-    const createdAt = new Date();
-    await dispatchLocalPdfWorkflow({
-      token,
-      owner: repoContext.owner,
-      repo: repoContext.repo,
-      branch: repoContext.defaultBranch,
-      manifestPath,
-    });
-    const run = await waitForLocalPdfWorkflowRun({
-      token,
-      owner: repoContext.owner,
-      repo: repoContext.repo,
-      branch: repoContext.defaultBranch,
-      createdAt,
-    });
+    for (let batchIndex = 0; batchIndex < uploadPlan.length; batchIndex += 1) {
+      const plan = uploadPlan[batchIndex];
+      const batchId = uploadPlan.length === 1
+        ? rootBatchId
+        : `${rootBatchId}-part-${String(batchIndex + 1).padStart(2, '0')}`;
+      const uploadEntries = plan.items.map((entry, index) => ({
+        ...entry,
+        uploadPath: buildBatchUploadPath(batchId, index, entry.fileName),
+      }));
+      const manifestPath = buildBatchManifestPath(batchId);
+      const manifest = buildLocalPdfBatchManifest(uploadEntries);
+      const files = uploadEntries.map((entry) => ({
+        path: entry.uploadPath,
+        file: entry.file,
+        label: entry.fileName,
+      }));
+      files.push({
+        path: manifestPath,
+        label: `${batchId}/manifest.json`,
+        contentBase64: utf8ToBase64(JSON.stringify(manifest, null, 2)),
+      });
+
+      setStatus(
+        `正在上传第 ${batchIndex + 1}/${uploadPlan.length} 批：${uploadEntries.length} 篇 PDF，约 ${formatBytes(plan.totalBytes)}...`,
+        'loading',
+      );
+      await uploadFilesToGithubCommit({
+        token,
+        owner: repoContext.owner,
+        repo: repoContext.repo,
+        branch: repoContext.defaultBranch,
+        files,
+        message: `[chore] upload local PDF batch for deep read: ${batchId}`,
+      });
+
+      setStatus(`第 ${batchIndex + 1}/${uploadPlan.length} 批已上传，正在触发 GitHub Actions 后台精读...`, 'loading');
+      const createdAt = new Date();
+      await dispatchLocalPdfWorkflow({
+        token,
+        owner: repoContext.owner,
+        repo: repoContext.repo,
+        branch: repoContext.defaultBranch,
+        manifestPath,
+      });
+      const run = await waitForLocalPdfWorkflowRun({
+        token,
+        owner: repoContext.owner,
+        repo: repoContext.repo,
+        branch: repoContext.defaultBranch,
+        createdAt,
+      });
+      batches.push({
+        batchId,
+        manifestPath,
+        run,
+        count: uploadEntries.length,
+      });
+      uploadEntries.forEach((entry) => {
+        submittedItems.push({
+          client_id: entry.clientId,
+          upload_path: entry.uploadPath,
+          batch_id: batchId,
+          manifest_path: manifestPath,
+          run,
+        });
+      });
+    }
     return {
       ok: true,
-      batchId,
-      manifestPath,
-      run,
-      items: uploadEntries.map((entry) => ({
-        client_id: entry.clientId,
-        upload_path: entry.uploadPath,
-      })),
+      batchId: rootBatchId,
+      batches,
+      items: submittedItems,
+      run: batches[0] && batches[0].run,
     };
   };
 
@@ -2069,6 +2144,7 @@
     try {
       const useLocalBackend = await isLocalBackendAvailable();
       let outcomes = [];
+      let submittedBatchCount = 0;
       if (useLocalBackend) {
         const data = await requestBackendBatchDeepRead(candidates);
         const results = Array.isArray(data && data.results) ? data.results : [];
@@ -2081,15 +2157,34 @@
         });
       } else {
         const data = await requestActionsBatchDeepRead(candidates);
-        outcomes = candidates.map((item) => applyOutcome(item, { ...data, route: '', run: data.run }, null));
+        submittedBatchCount = Array.isArray(data && data.batches) ? data.batches.length : 1;
+        const submittedItems = Array.isArray(data && data.items) ? data.items : [];
+        outcomes = candidates.map((item) => {
+          const submitted = submittedItems.find((entry) => entry && entry.client_id === item.id);
+          if (!submitted) return applyOutcome(item, null, '未返回该 PDF 的批次提交信息。');
+          return applyOutcome(
+            item,
+            {
+              ...data,
+              route: '',
+              run: submitted.run || data.run,
+              batchId: submitted.batch_id || data.batchId,
+              manifestPath: submitted.manifest_path || '',
+            },
+            null,
+          );
+        });
       }
       renderImportQueue();
       renderBatchWorkflowResults(outcomes);
       const failed = outcomes.filter((outcome) => outcome.error).length;
+      const successMessage = submittedBatchCount > 1
+        ? `批量后台精读已分 ${submittedBatchCount} 批提交：${outcomes.length} 篇。`
+        : `批量后台精读已一次性提交：${outcomes.length} 篇。`;
       setStatus(
         failed
           ? `批量后台精读已处理：${outcomes.length - failed} 篇成功/已提交，${failed} 篇失败。`
-          : `批量后台精读已一次性提交：${outcomes.length} 篇。`,
+          : successMessage,
         failed ? 'error' : 'success',
       );
       return outcomes;
@@ -2246,6 +2341,7 @@
         buildBatchUploadPath,
         buildBatchManifestPath,
         buildLocalPdfBatchManifest,
+        buildGitHubBatchUploadPlan,
         encodeGitHubPath,
         arrayBufferToBase64,
         isPdfFile,

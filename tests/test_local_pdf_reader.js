@@ -92,6 +92,24 @@ assert.deepStrictEqual(
   },
 );
 assert.deepStrictEqual(
+  helpers.buildGitHubBatchUploadPlan(
+    Array.from({ length: 17 }, (_, index) => ({ id: index, size: 1024 })),
+    { maxFiles: 8, maxBytes: 1024 * 1024 },
+  ).map((batch) => batch.items.length),
+  [8, 8, 1],
+);
+assert.deepStrictEqual(
+  helpers.buildGitHubBatchUploadPlan(
+    [
+      { id: 'a', size: 60 },
+      { id: 'b', size: 50 },
+      { id: 'c', size: 40 },
+    ],
+    { maxFiles: 10, maxBytes: 100 },
+  ).map((batch) => batch.items.map((item) => item.id)),
+  [['a'], ['b', 'c']],
+);
+assert.deepStrictEqual(
   helpers.normalizePdfFiles([
     { name: 'paper-a.pdf', type: 'application/pdf' },
     { name: 'paper-b.PDF', type: '' },
