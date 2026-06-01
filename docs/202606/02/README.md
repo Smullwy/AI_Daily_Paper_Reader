@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-02</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-02 06:27 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读聚焦神经科学与AI的深层对齐，速览了流形优化与跨域表征方法。</p>
-<p>最值得关注：监督训练无论采用何种生物合理规则，都会快速破坏早期视觉皮层对齐，且预测编码已被统一为指数族下的变分自由能最小化框架。</p>
-<p>建议读者跟进“学习规则如何塑造内部表征”这一核心冲突，并尝试将流形自适应路由引入自己的迁移任务。</p>
+      <p>今日精选15篇AI前沿论文，重点解读了视觉皮层对齐与预测编码框架的新突破。</p>
+<p>评分最高的研究发现，监督训练会快速破坏早期视觉皮层表征与生物学习规则的对齐性；预测编码框架被扩展为指数族假设下的变分自由能最小化，理论更统一。</p>
+<p>如果你想深入，建议从这两篇高分精读切入，并关注流形对齐、相对表征改进等速读方向，它们正成为跨领域迁移的关键技术。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/02/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -159,3 +158,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
