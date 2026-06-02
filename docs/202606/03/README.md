@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-03</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-03 06:11 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日从14篇前沿论文中精读4篇，聚焦跨模态神经编码与类人感知机制。</p>
-<p>最值得关注的两大方向：可解释的时间分辨神经编码揭示了AI语音模型与大脑响应的映射，而儿童视角多样性是让物体识别与人类对齐的基础。</p>
-<p>建议读者深入追踪自顶向下反馈在视听整合中的作用，以及概念绑定如何让嵌入模型更可靠，这可能是下一代多模态理解的关键。</p>
+      <p>今日精读从脑响应映射到儿童视角学习，揭示AI感知对齐人类的关键线索。</p>
+<p>最值得关注：Whisper的听觉表征与人类皮层高度契合，而仅仅增加视角多样性就能让物体识别更像人。</p>
+<p>若想让模型更懂世界，不妨从模仿孩子“多看不同角度”做起。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/03/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -150,3 +149,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
