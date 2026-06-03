@@ -1,0 +1,1054 @@
+Title: CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations
+
+URL Source: https://arxiv.org/pdf/2606.02221v1
+
+Published Time: Tue, 02 Jun 2026 03:17:08 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Chengfeng Wu 1 Tao Zou 2 Yanru Wu 1 Jingge Wang 1
+
+## Abstract 
+
+Multi-task learning (MTL) aims to construct a joint model for multiple tasks by sharing a common representation across domains. To achieve this goal, existing optimization-centric methods either balance task gradients or mod-ify the shared architecture. However, as these approaches remain agnostic to the content of the shared representation, they fail to disentan-gle task-relevant structure from spurious context, leading to negative transfer and poor generaliza-tion. To overcome this limitation, we propose 
+
+Causal Orthogonal Representations for Multi-
+
+Task Learning (CORE-MTL), a causally moti-vated representation-centric framework that en-courages a structured semantic-residual factor-ization of the shared representation, concentrat-ing task-relevant structure in the semantic stream while relegating nuisance variation to the resid-ual stream. We instantiate this framework in the visual domain by leveraging physical priors for structured scenes and statistical constraints for attributes. Theoretically, our method en-joys a tighter out-of-distribution generalization bound than optimization-centric methods and reduces task gradient interference without ex-plicit gradient projection or reweighting. Empiri-cally, CORE-MTL consistently outperforms exist-ing methods on visual multi-task benchmarks in both in-distribution and out-of-distribution set-tings. Code is publicly available at https: //github.com/Hope-Rita/CORE-MTL .
+
+> 1
+
+Shenzhen Key Laboratory of Ubiquitous Data Enabling, Ts-inghua Shenzhen International Graduate School, Tsinghua Uni-versity, Shenzhen, China 2State Key Laboratory of Complex & Critical Software Environment, Beihang University, Beijing, China. Correspondence to: Tao Zou <zoutao@buaa.edu.cn >.
+
+Proceedings of the 43 rd International Conference on Machine Learning , Seoul, South Korea. PMLR 306, 2026. Copyright 2026 by the author(s). 
+
+## 1. Introduction 
+
+Multi-task learning (MTL) aims to improve sample effi-ciency and robustness by training a shared encoder jointly on several related tasks. However, MTL often suffers from negative transfer: optimizing for one task can harm others, and performance can degrade sharply when the data distri-bution or environment changes. Most existing approaches either try to reconcile task gradients by reweighting or pro-jecting them at each update (e.g., GradNorm (Chen et al., 2018), PCGrad (Yu et al., 2020), STCH (Lin et al., 2024)), or modify the shared architecture so that each task attends to its own slice of the backbone features (e.g., MTAN (Liu et al., 2019)). While both directions have driven progress, we argue that a crucial aspect remains largely overlooked: the internal structure of the shared representation. Most approaches treat feature learning as a black box, ignoring how the entanglement between invariant semantic factors and spurious style factors limits both in-distribution (ID) stability and out-of-distribution (OOD) robustness. We advocate a representation-level perspective on MTL that focuses on how the shared feature space is structured, rather than on gradient rebalancing or task-specific heads. A key observation is that gradient conflict is often a symptom rather than the root cause of negative transfer (Shi et al., 2023). In practice, tasks are frequently coupled through shared nuisance-driven shortcuts—features that correlate with labels in-distribution but are not causally stable across tasks. When such nuisance variation is encoded in the shared representation, adjusting gradients alone cannot resolve the resulting conflicts. From this perspective, both gradient-balancing and architecture-based methods operate purely at the optimization level—reweighting losses, projecting updates, or changing task routing—without shaping what the shared representation itself is allowed to encode (Hu et al., 2022). As a result, nuisance factors can persist as shared shortcuts, leading to negative transfer and brittle OOD generalization. Motivated by this perspective, we propose Causal 
+
+Orthogonal Representations for Multi-Task Learning (CORE-MTL ), a representation-centric framework instanti-ated for visual multi-task learning that targets a causally motivated semantic–residual factorization that reduces 1
+
+> arXiv:2606.02221v1 [cs.CV] 1 Jun 2026 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations
+
+nuisance-driven shortcuts under an assumed latent SCM. The method combines a structural decomposition of the shared representation with a training scheme that encour-ages this decomposition according to the assumed seman-tic–nuisance factorization. First, on the architectural side, CORE-MTL decomposes the shared features into a seman-tic stream and a residual stream . The semantic stream cap-tures task-relevant information that is stable across tasks, while the residual stream absorbs task-irrelevant nuisance variation. Task predictors are built solely on the seman-tic stream, which prevents nuisance signals from acting as shortcuts during learning. Second, on the optimization side, CORE-MTL employs a unified objective that com-bines reconstruction, disentanglement, and counterfactual invariance losses to align the decomposition with the causal motivation. To assign clear roles to the semantic and resid-ual streams, we ground the latent factors using physical priors for structured scenes and statistical and architectural constraints for attributes. Hard grounding provides stronger semantic anchoring, while soft grounding supports func-tional disentanglement. This training scheme encourages nuisance variation to be confined to the residual stream and promotes stable shared semantics, resolving negative trans-fer at the representation level while remaining compatible with standard MTL pipelines. Our main contributions are summarized as follows: • From a causal perspective, we formalize the limitations of optimization-centric methods under an assumed latent SCM, proving that manipulating gradients on entangled representations can lead to an unavoidable OOD error floor. In contrast, our disentangled archi-tecture guarantees a tighter OOD generalization bound and induces gradient orthogonality. This mechanism resolves conflicts at the representation level, allowing distinct tasks to synergize naturally without the need for rigid post-hoc gradient correction. • We propose CORE-MTL , a representation-centric framework instantiated in the visual domain that encourages a structured factorization between task-relevant semantics and nuisance style factors via phys-ical or generic grounding. By aligning task heads to the semantic stream via disentanglement and counter-factual objectives, our method resolves conflicts at the representation level rather than through post-hoc gradi-ent surgery. • Experiments on three in-distribution and two out-of-distribution visual multi-task benchmarks, comparing 
+
+CORE-MTL to ten representative multi-task baselines, show consistent improvements in both ID and OOD performance while remaining effective as the number of tasks and attributes increases. 
+
+## 2. A Structural View of Multi-Task Learning 
+
+In this section, we study multi-task learning from a struc-tural perspective, focusing on optimization-centric methods that coordinate tasks only through their gradients. We an-alyze these methods under a simple causal view of shared representations and distribution shift. 
+
+2.1. Multi-Task Learning Setup 
+
+We consider a multi-task learning problem with K ≥ 2
+
+tasks sharing an input space X and having task-specific output spaces {Y t}Kt=1 . We denote the training dataset by 
+
+D = {(xi, {yt,i }Kt=1 )}Ni=1 , drawn from a joint distribution 
+
+P (X, Y 1, . . . , Y K ). A shared encoder Φθ : X → Rd with parameters θ maps an input x to a shared representation 
+
+h = Φ θ (x), which is then consumed by task-specific heads 
+
+{fϕt }Kt=1 to produce predictions ht(x) = fϕt (h).Given per-task loss functions Lt, the standard MTL objec-tive on a source domain S is the weighted risk 
+
+min 
+
+> θ, {ϕt}
+> K
+
+X
+
+> t=1
+
+wt E(x,y t)∼S
+
+Lt
+
+ ht(x), y t
+
+ , (1) where wt ≥ 0 denote task weights. To study robustness, we distinguish between a source do-main S and a target domain T . The population risk of task 
+
+t on a domain D ∈ { S, T } is 
+
+ED (ht) = E(x,y t)∼D
+
+h
+
+Lt
+
+ ht(x), y t
+
+i
+
+, (2) and the domain gap of task t is 
+
+∆t(h) = ET (ht) − E S (ht). (3) In the following sections, we analyze a lower bound on this gap ∆t(h), aiming to identify structural properties of the shared representation h that prevent standard multi-task training schemes from generalizing to target domains with style shifts. 
+
+2.2. Optimization-Centric MTL: An OOD Impossibility Result 
+
+To derive this limitation rigorously, we first formalize optimization-centric algorithms that dominate current MTL practice. 
+
+Definition 2.1 (Gradient-balancing methods G). Let Φθ
+
+denote the shared encoder parameterized by θ. A multi-task optimization algorithm belongs to G if it updates θ using directions of the form 
+
+g(θ) = 
+
+> K
+
+X
+
+> t=1
+
+wt(θ) ∇θ Lt(θ), (4) 2CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+where the weights wt(θ) are allowed to depend on the cur-rent gradients {∇ θ Lt(θ)}t, but the algorithm does not im-pose any structural constraint on the representation h.In other words, methods such as GradNorm, PCGrad and MGDA may differ in how they choose wt(θ), but all op-erate purely in gradient space and treat the shared feature geometry as fixed. To expose the OOD limitation of G, we adopt a simple causal model in which inputs are generated from invariant semantic factors and spurious residual factors. Let Zs denote invariant semantics and Zr denote residual factors capturing nuisance variation such as background or illumination, and assume at the population level 
+
+Zs ⊥ Zr , (5) with observations obtained via a generative mechanism X =
+
+g(Zs, Z r ).We now specialize this causal view to a linear-Gaussian structural causal model in which the encoder mixes Zs and 
+
+Zr by a fixed rotation. 
+
+Assumption 2.2 (Linear-Gaussian SCM with entanglement) .
+
+Let Zs ∼ N (0 , Σs) and Zr ∼ N (0 , ΣSr ) be independent latent semantic and residual factors. The encoder learns a representation 
+
+ˆZ = Φ ψ (X) = Rψ [Zs; Zr ], (6) where Rψ is a rotation matrix with angle ψ measuring how strongly Zs and Zr are mixed (Locatello et al., 2019). A domain shift changes only the residual covariance, from ΣSr
+
+(source) to ΣTr (target), while the distribution of Zs remains fixed. We adopt this standard invariant semantic assumption (Arjovsky et al., 2019) to focus our analysis on spurious correlations induced by nuisance shifts Σr , isolating them from label distribution shifts. 
+
+Remark 1. (Inevitable Spurious Reliance) Under As-sumption 2.2, ψ̸ = 0 implies that ˆZ structurally mixes semantics with noise, forcing any downstream predictor to 
+
+incorporate nuisance variations alongside robust features. With this structural setup, we can show that any algorithm in G faces a non-vanishing OOD error floor whenever the representation remains entangled. 
+
+Theorem 2.3 (OOD lower bound for gradient balancing) .
+
+Under Assumption 2.2, for any optimization-centric algo-rithm A ∈ G , there exists a linear task (which is L-Lipschitz) such that if the learned representation remains entangled, i.e., ψ̸ = 0 , there exists a target domain shift where the generalization gap is lower-bounded by 
+
+ET (h) − E S (h) ≥ c sin 2(ψ) ΣTr − ΣSr F , (7) 
+
+where c > 0 is a constant depending on the task geometry. Proof. See Appendix A. 
+
+Remark 2. (Irreducible OOD Error Floor) This lower bound establishes that no amount of gradient balancing can eliminate the sin 2 ψ-scaled error; robustness is fundamen-tally limited by representation geometry, not optimization dynamics. 
+
+2.3. A Representation-Level Solution: Disentangled Architectures and Guarantees 
+
+The lower bound above suggests that robustness cannot be achieved by manipulating gradients alone; we must change the structure of the shared representation itself. We therefore consider architectures that explicitly disentangle semantic and residual streams and restrict task heads to depend only on the semantic stream. Formally, we factorize the encoder output as ( ˆZs, ˆZr ) = Φ θ (X), where ˆZs is a semantic stream intended to capture invariant, task-relevant structure and ˆZr
+
+is a residual stream that absorbs nuisance variation treated as task-irrelevant noise. Task predictions are built only from 
+
+ˆZs, i.e., ht(x) = fϕt ( ˆZs).To guarantee robustness, we rely on the structural properties of the learned representation. We model the semantic stream as a function ˆZs = gs(Zs, Z r ) and define the leakage co-efficient λleak as the partial Lipschitz constant of gs with respect to the residual factors Zr :
+
+λleak ≜ sup 
+
+> zs
+
+sup  
+
+> zr̸=z′
+> r
+
+∥gs(zs, z r ) − gs(zs, z ′ 
+
+> r
+
+)∥∥zr − z′ 
+
+> r
+
+∥ . (8) A value of λleak = 0 implies a structurally disentangled encoder where ˆZs is invariant to Zr . Under this definition, we derive the following bound. 
+
+Theorem 2.4 (Disentangled OOD generalization bound) .
+
+Let H be the hypothesis class of models that predict solely from the semantic stream ˆZs. Under Assumption 2.2, there exist constants Ccap ≥ 0 and α > 0 such that for any 
+
+h ∈ H ,
+
+ET (h) − E S (h) ≤ Ccap + α λ leak W1
+
+ PS (Zr ), P T (Zr ),
+
+(9) 
+
+where W1 is the Wasserstein–1 distance between the source and target residual distributions. Proof. See Appendix C. 
+
+Remark 3. (Linear Robustness Scaling) Inequality (9) establishes that, under residual shifts, the OOD general-ization gap is bounded by a term scaling linearly with the leakage coefficient λleak . This implies that geometric dis-entanglement is a fundamental prerequisite for robustness: suppressing the encoder’s sensitivity to residual variations 3CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 𝒙 
+
+𝒙′ 
+
+CounterFactual Path 
+
+𝒛 !
+
+𝒛 "
+
+𝒛 𝒓 
+
+> $
+> …
+
+③ Task Prediction 
+
+𝑝 (𝑦 |𝑧 !)
+
+> …
+> Task
+> Decoder
+
+𝑝 (𝑦 |𝑧 !) )
+
+> Grounding
+> Decoder
+> 𝒟
+
+𝑃 (𝑥 |𝑧 !, 𝑧 ")
+
+𝑃 (𝑥 |𝑧 !, 𝑧 " 
+
+> $
+
+)
+
+Factual Path 
+
+𝑧 !)
+
+② Causal Reconstruction ① Causal Disentanglement 
+
+ℒ&'( 
+
+> Task
+> Decoder
+
+Reconstruction ( 𝒙 /)
+
+> Grounding
+> Decoder
+> 𝒟
+
+Counterfactual (𝒙 ))
+
+ℒ)*+ 
+
+> Shared
+> Encoder
+> Φ!
+> Shared
+> Encoder
+> Φ!
+> Φ!
+> Prediction ( 𝑦 $)
+> Counterfactual
+> Prediction ( 𝑦 $)
+
+ℒ&,( ℒ-./0  
+
+> Figure 1. Overview of the CORE-MTL architecture.
+
+serves to decouple the generalization bound from the mag-nitude of distribution shifts. Beyond robustness, disentangling the shared representation also changes how task losses interact through the backbone. We analyze the interaction between the primary task gra-dient and the auxiliary residual gradient within the shared backbone H.
+
+Proposition 2.5 (Gradient Orthogonality via Disentangle-ment) . Consider a task loss Ltask dependent on Zs and a residual regularization loss Lres dependent on Zr . Let 
+
+gtask and gres be their gradients with respect to the shared representation H. Assuming the task heads have bounded gradients almost surely, there exist constants c ≥ 0 and 
+
+δ ≥ 0 such that: 
+
+E cos 2(gtask , g res ) ≤ c · CKA( Zs, Z r ) + δ, (10) 
+
+where CKA( Zs, Z r ) is the independence measure mini-mized during training. Proof. See Appendix D. 
+
+Remark 4. (Structural Interference Mitigation) Gra-dient orthogonality emerges as a structural by-product of disentanglement, resolving task conflicts at their geometric source rather than through post-hoc gradient surgery. 
+
+## 3. Method 
+
+Section 2 highlights that robustness under style shifts can-not be obtained by coordinating task gradients alone when the shared features remain entangled. To address this, we propose CORE-MTL , a representation-centric framework de-signed to structurally disentangle invariant semantics from nuisance variations. As illustrated in Figure 1, our method is composed of a generic meta-framework that enforces causal separation, and a grounding mechanism that anchors these factors via reconstruction. 
+
+3.1. The CORE-MTL Meta-Framework 
+
+Our meta-framework establishes the necessary structural conditions for disentanglement. It consists of three com-ponents: a dual-stream encoder, a structural independence constraint, and a counterfactual invariance mechanism. 
+
+Dual-Stream Encoder. We encode an input x ∈ X with a shared encoder Φθ and explicitly factorize its output into two streams ( ˆZs, ˆZr ) = Φ θ (x), where ˆZs is designated to capture shared task-relevant semantics (e.g., geometry, object identity) and ˆZr absorbs complementary residual variation (e.g., texture, lighting, background). Crucially, task predictions are restricted to depend only on the semantic stream, ˆyt = fϕt ( ˆZs) for t = 1 , . . . , K . This structural constraint isolates task predictors from the residual stream, inherently preventing the model from exploiting nuisance variations as shortcuts. 
+
+Structural Independence via CKA. To encourage the semantic and residual representations to capture mutually exclusive information, we enforce statistical orthogonality. We use the linear Centered Kernel Alignment (CKA) (Korn-blith et al., 2019) as our independence regularizer and define the independence loss as: 
+
+LCKA = CKA (Zs, Zr ), (11) where Zs, Zr are the feature matrices of the current mini-batch. This objective minimizes the linear dependence be-tween the two streams. Crucially, under our linear–Gaussian 4CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+assumption, reducing this statistical dependence suppresses the Jacobian cross-terms, offering a tractable proxy for con-trolling the geometric leakage coefficient λleak appearing in Theorem 2.4 (see Appendix D for a formal connection). 
+
+Counterfactual Feature Augmentation. To encourage the semantic representation ˆZs to be invariant to nuisance factors, we introduce a Counter factual Augmentation (CFA) mechanism based on counterfactual-style recombination. We instantiate an auxiliary decoder ˆx = D( ˆZs, ˆZr ) to re-construct the input. During training, we synthesize counterfactual instances by intervening on the residual stream: we replace the original residual features with a random nuisance vector ˜Zr drawn from the empirical residual distribution, generating a coun-terfactual image ˜x = D( ˆZs, ˜Zr ).Crucially, since ˜x retains the original semantic content ˆZs
+
+but possesses a different nuisance context, a robust encoder must still yield correct task predictions from it. We en-force this by passing the counterfactual image ˜x through the shared encoder and minimizing the consistency loss: 
+
+LCFA =
+
+> K
+
+X
+
+> t=1
+
+wt Lt
+
+ fϕt ([Φ θ (˜ x)] s), y t
+
+, (12) where [Φ θ (·)] s denotes the semantic stream output of the shared encoder. In Figure 1 , ˜zs = [Φ θ (˜ x)] s denotes the semantic representation re-encoded from the synthesized image ˜x . This mechanism discourages the task predictors from relying on spurious correlations between task labels and nuisance variations. Since D only enforces structural constraints during training, it imposes no computational overhead at inference time. 
+
+3.2. Grounding Disentanglement via Reconstruction 
+
+While the meta-framework enforces statistical indepen-dence, independence alone is insufficient to determine a semantically meaningful factor-role assignment, leaving the factorization potentially ambiguous. Without additional con-straints, the model might satisfy the orthogonality objective by splitting features arbitrarily. To mitigate this ambiguity, we employ a generative reconstruction task as a proxy to ground the factorization. By minimizing a reconstruction objective ( Lrec ), we encourage the latent factors to retain the necessary information to reproduce the input, thereby pro-viding a grounding signal for assigning physical or semantic realities via the decoder D. We instantiate the decoder D
+
+differently depending on the availability of strong inductive biases in the target tasks. 3.2.1. H ARD GROUNDING VIA EXPLICIT PHYSICAL 
+
+DECOMPOSITION 
+
+In the context of geometric scene understanding, we exploit the physical laws of light transport as a structural prior to encourage a grounded semantic–residual decomposition. We formalize the grounding decoder D as a Physics-Based Inverse Rendering Decoder (architectural details in Ap-pendix E). Specifically, unlike a generic decoder over con-catenated latents, Dphy uses role-specific heads: the seman-tic stream ˆZs predicts geometric structure such as surface normals, while the residual stream ˆZr predicts photometric factors such as albedo and illumination. These factors are composed through a fixed physical shading model, imposing an asymmetric geometry–photometry role assignment dur-ing reconstruction. The reconstruction is then synthesized via a physical shading model: 
+
+ˆx = Dphy ( ˆZs, ˆZr ) ≈ A ( ˆZr )
+
+| {z } 
+
+> Albedo
+
+⊙ S (N ( ˆZs), L( ˆZr )) 
+
+| {z }
+
+> Shading
+
+, (13) where A, N , L denote albedo, normals, and lighting, respec-tively, S is the shading function, and ⊙ is the element-wise product. To align the latent factors with these physical quan-tities, we minimize a composite reconstruction objective: 
+
+Lrec = ∥x − ˆx∥1 + λlpips LPIPS (x, ˆx). (14) where LPIPS refers to the Learned Perceptual Image Patch Similarity metric (Zhang et al., 2018). This hard grounding physically biases the geometry-focused representation away from texture-related nuisances to benefit downstream tasks. 3.2.2. S OFT GROUNDING VIA IMPLICIT 
+
+ARCHITECTURAL CONSTRAINTS 
+
+For tasks where explicit physical equations are unavailable or overly complex, we demonstrate that CORE-MTL re-mains effective using soft grounding. In this setting, we instantiate D as a Generic Convolutional Decoder ( Dgen ) without explicit physical rendering equa-tions. The grounding objective simplifies to a standard image reconstruction loss: 
+
+Lrec = ∥x − D gen ( ˆZs, ˆZr )∥1. (15) Here, a functional separation is encouraged from the archi-tectural bottleneck and statistical independence. Since task heads only access ˆZs, discriminative features concentrate there, while the independence constraint ( LCKA ) forces re-maining variations required for reconstruction into ˆZr . This mechanism functionally mirrors the explicit physical decom-position: while hard grounding uses explicit physical priors to provide stronger factor-role anchoring, soft grounding achieves a similar structural orthogonality through statistical pressure. 5CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+3.3. Optimization Objectives 
+
+The total objective function integrates the task supervision with the framework’s regularization terms: 
+
+Ltotal =
+
+> K
+
+X
+
+> t=1
+
+wtLt+λCKA LCKA +λCFA LCFA +λrec Lrec ,
+
+(16) where Lrec switches between Eq. (14) and Eq. (15) de-pending on the instantiation. During the counterfactual pass (Eq. (12) ), we freeze Batch Normalization statistics to strictly evaluate robustness against synthesized style shifts. 
+
+## 4. Experiments 
+
+4.1. Experimental Setup 
+
+We evaluate on NYUv2 (Silberman et al., 2012) and 
+
+Cityscapes (Cordts et al., 2016) (in-distribution, ID) imple-mented with LibMTL (Lin & Zhang, 2023), CelebA (Liu et al., 2015) (scalability), GTA5 (Richter et al., 2016) →
+
+Cityscapes , and Cityscapes → Cityscapes-C (Hendrycks & Dietterich, 2019; Michaelis et al., 2019) (out-of-distribution, OOD). We compare CORE-MTL with representative base-lines spanning architecture-centric sharing (MTAN (Liu et al., 2019)), weighting or balancing (EW (Caruana, 1997), GradNorm (Chen et al., 2018), RLW (Lin et al., 2022), ExcessMTL (He et al., 2024)), gradient manipu-lation or fair allocation (PCGrad (Yu et al., 2020), Fair-Grad (Ban & Ji, 2024)), scalarization-based multi-objective optimization (STCH (Lin et al., 2024)), meta-optimization (MOML (Ye et al., 2021)), and representation-level methods (RepMTL (Wang et al., 2025)) using the same ResNet-50 backbone (He et al., 2016) unless otherwise specified. Ar-chitectural details are provided in Appendix E, while opti-mization and hyperparameters are deferred to Appendix F. 
+
+4.2. In-Distribution Results 
+
+On NYUv2 and Cityscapes, we evaluate semantic segmen-tation, depth estimation, and surface normal prediction us-ing the standard metrics in Table 1. With the expanded comparison set, CORE-MTL achieves the strongest overall trade-off across datasets, obtaining the best segmentation and depth performance on NYUv2 and the best segmenta-tion and depth relative error on Cityscapes, while remain-ing competitive on the remaining metrics. These results suggest that encouraging semantic–residual factorization improves dense multi-task prediction by reducing represen-tational entanglement rather than relying solely on gradient reweighting or projection. 
+
+4.3. Out-of-Distribution Results 
+
+Table 2 evaluates robustness under sim-to-real transfer and common corruptions. On GTA5 →Cityscapes, CORE-MTL achieves the best target-domain segmentation, pixel accu-racy, depth absolute error, and depth relative error among the compared methods, while also yielding the smallest mIoU and depth error gaps in most cases. This indicates that the learned semantic stream is less sensitive to source-specific residual variation under domain shift. On Cityscapes-C, CORE-MTL again achieves the best mIoU, pixel accuracy, and relative depth error, showing that the same factoriza-tion remains robust under corruption shifts. Overall, these results are consistent with Theorem 2.4: reducing residual leakage in the prediction stream improves OOD robustness. 
+
+4.4. Analysis of Structural Factorization 
+
+4.4.1. A NALYSIS OF LATENT FACTORIZATION 
+
+Structural factorization yields stable semantics and ab-sorbs residual variations. Qualitatively, Fig. 2 demon-strates that the counterfactual recombination D(ZCS  
+
+> s
+
+, Z GTA  
+
+> r
+
+)
+
+preserves scene layout while altering appearance statistics, supporting the intended factorization. Quantitatively, the feature-swapping analysis (Fig. 3, Table 3) reveals a high robustness ratio ( ∆Zr /∆Zs significantly larger than 1), con-firming that Zs remains stable under domain shifts while 
+
+Zr absorbs variations. Together, these results demonstrate that the learned structure prioritizes task-relevant seman-tics and buffers domain-specific nuisances, explaining the downstream gains in robustness.   
+
+> Figure 2. Cross-domain feature swapping. Left: Cityscapes con-tent (semantic stream). Middle: GTA5 reference (residual stream). Right: Synthesized output combining Cityscapes semantics with GTA5 residual appearance.
+
+Colored-Cityscapes stress test. Since Assumption 2.2 is idealized while real scenes often exhibit strong semantic– context correlations, we construct a shortcut-based Colored-Cityscapes benchmark: class colors are fixed in the source domain but permuted in the target domain. Appendix I shows that CORE-MTL remains the strongest under this shortcut shift, suggesting that its semantic–residual factor-ization reduces residual-appearance leakage rather than re-lying on literal semantic–residual independence. 4.4.2. A NALYSIS OF GRADIENT ORTHOGONALITY 
+
+Structure induces intrinsic gradient orthogonality. Un-like explicit gradient-projection methods such as PCGrad, Fig. 4 shows that CORE-MTL achieves near-zero cosine 6CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Table 1. In-Distribution performance. Left: NYUv2 (3 tasks). Right: Cityscapes (2 tasks). ↑ / ↓ indicate higher / lower is better. Method 
+
+NYUv2 (3 Tasks) Cityscapes (2 Tasks) Segmentation Depth Surface Normal Segmentation Depth mIoU ↑ Pix Acc ↑ Abs Err ↓ Rel Err ↓ Mean ↓ Med ↓ 11.25 ◦ ↑ 22.5 ◦ ↑ 30 ◦ ↑ mIoU ↑ Pix Acc ↑ Abs Err ↓ Rel Err ↓
+
+Single Task 0.5192 0.7396 0.5260 0.2076 24.2676 18.6778 0.3071 0.5800 0.7048 0.6869 0.9144 0.0129 47.9603 Equal Weighting 0.5316 0.7508 0.3911 0.1633 24.2909 17.7635 0.3393 0.5927 0.7051 0.6962 0.9192 0.0128 44.0340 PCGrad 0.5222 0.7433 0.3916 0.1609 24.3858 17.7999 0.3398 0.5915 0.7039 0.6998 0.9187 0.0128 44.5574 GradNorm 0.5264 0.7436 0.3896 0.1648 24.3864 17.6391 0.3425 0.5944 0.7055 0.7015 0.9197 0.0125 44.5520 STCH 0.5377 0.7483 0.3917 0.1569 23.2045 16.5197 0.3610 0.6203 0.7286 0.6952 0.9180 0.0123 42.8384 MTAN 0.5401 0.7542 0.3822 0.1610 24.0165 17.3356 0.3462 0.6023 0.7130 0.7023 0.9206 0.0126 45.5663 MOML 0.5303 0.7496 0.3952 0.1612 24.0679 17.4130 0.3469 0.5987 0.7093 0.6876 0.9146 0.0145 52.5924 RLW 0.5293 0.7510 0.3883 0.1601 24.0588 17.2890 0.3465 0.6033 0.7134 0.6995 0.9185 0.0131 43.6991 ExcessMTL 0.4846 0.7180 0.3877 0.1624 26.1446 19.8459 0.3043 0.5499 0.6676 0.6969 0.9195 0.0128 43.3338 FairGrad 0.5291 0.7427 0.3944 0.1585 23.0717 16.3569 0.3657 0.6239 0.7312 0.6986 0.9194 0.0121 43.7426 RepMTL 0.5492 0.7598 0.3727 0.1503 24.5348 19.6139 0.3018 0.5576 0.6847 0.7079 0.9184 0.0180 44.3230 
+
+CORE-MTL (Ours) 0.5693 0.7759 0.3544 0.1466 22.4927 16.8337 0.3501 0.6196 0.7360 0.7229 0.9245 0.0123 19.6088 
+
+Table 2. Out-of-distribution generalization. Left: Sim-to-real GTA5 →Cityscapes with source, target, and gap ∆ (performance drop or error gap). Right: Cityscapes-C robustness averaged over four corruptions (per-corruption results in Appendix J). Method                                                                                          
+
+> GTA5 →Cityscapes (Sim-to-Real) Cityscapes-C
+> mIoU ↑Pixel Acc ↑Abs Err ↓Rel Err ↓mIoU ↑Pixel Acc ↑Abs Err ↓Rel Err ↓
+> Source Target ∆↓Source Target ∆↓Source Target ∆↓Source Target ∆↓
+> Equal Weighting 0.6611 0.5407 0.1204 0.9347 0.8244 0.1103 0.0173 0.1347 0.1174 0.2675 303.07 302.80 0.5831 0.8521 0.0239 58.75 PCGrad 0.6605 0.5047 0.1558 0.9344 0.7943 0.1401 0.0162 0.1435 0.1273 0.2472 301.85 301.61 0.5851 0.8520 0.0230 59.20 GradNorm 0.6590 0.5233 0.1357 0.9352 0.8112 0.1240 0.0161 0.1364 0.1203 0.2062 294.48 294.27 0.5900 0.8522 0.0213 59.04 STCH 0.6548 0.5177 0.1371 0.9334 0.8240 0.1094 0.0158 0.1712 0.1554 0.1542 333.10 332.95 0.5853 0.8537 0.0192 54.57 MTAN 0.6637 0.5147 0.1490 0.9366 0.8016 0.1350 0.0163 0.1185 0.1022 0.1905 272.52 272.33 0.5887 0.8549 0.0218 56.55 MOML 0.6548 0.5314 0.1234 0.9417 0.8323 0.1094 0.0173 0.1235 0.1062 0.9818 287.25 286.27 0.5989 0.8633 0.0239 54.01 RLW 0.6629 0.5203 0.1426 0.9336 0.8119 0.1217 0.0177 0.1406 0.1229 0.1916 309.51 309.32 0.5916 0.8582 0.0212 56.82 ExcessMTL 0.6587 0.5430 0.1157 0.9361 0.8382 0.0979 0.0167 0.1586 0.1419 0.1895 321.17 320.98 0.5814 0.8534 0.0233 60.28 FairGrad 0.6665 0.4922 0.1743 0.9343 0.7756 0.1587 0.0266 0.1522 0.1256 0.5264 320.55 320.02 0.5806 0.8490 0.0188 54.46 RepMTL 0.6457 0.5343 0.1115 0.9416 0.8120 0.1313 0.0211 0.1128 0.0916 0.8887 277.73 276.84 0.5916 0.8560 0.0181 51.50
+> CORE-MTL (Ours) 0.6500 0.5435 0.1065 0.9422 0.8401 0.1021 0.0220 0.0979 0.0759 0.1882 235.23 235.04 0.6104 0.8670 0.0182 38.10
+
+(a) Intra-domain stability (b) Cross-domain stability 
+
+Figure 3. Stability analysis of semantic ( Zs) and residual ( Zr )streams. We measure feature shifts ( ∆Z) under (a) intra-domain residual shuffling and (b) cross-domain intervention. 
+
+Table 3. Stability analysis under interventions. We report feature shifts ( ∆Z) and the Robustness Ratio ( ∆Zr /∆Zs). High ratio indicates effective disentanglement. Setting ∆Zs(Sem ) ↓ ∆Zr (Res ) ↑ Ratio ↑
+
+Intra-Domain 0.1997 0.4158 2.08 Cross-Domain 0.2889 0.9466 3.28 
+
+similarity between task and reconstruction gradients as a geometric by-product of semantic–residual factorization. Fig. 5 instead visualizes pairwise task–task gradient inter-actions, where the structured block patterns indicate more organized task relationships rather than uniformly vanishing gradients. Thus, resolving interference at the representation level reshapes gradient interactions and reduces the reliance on post-hoc gradient surgery. 
+
+4.5. Scalability Results Structural orthogonality offers superior scalability. As shown in Table 4, CORE-MTL maintains near-constant training cost as the number of tasks K increases, avoiding the prohibitive linear scaling of gradient surgery (PCGrad 
+
+Figure 4. Subspace orthogonality on CelebA. Distribution of co-sine similarities between attribute task gradients and reconstruction gradients at the last shared encoder layer. 
+
+7CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Figure 5. Gradient interaction heatmaps on CelebA. Pairwise cosine similarities of task gradients at the last shared layer (see Appendix K for the attribute order). 
+
+Table 4. Scalability analysis on CelebA. Training time per epoch and average attribute accuracy vs. number of tasks ( K). #Tasks K Method Time / epoch (s) ↓ Avg Accuracy (%) ↑                                    
+
+> 10 Equal Weighting (EW) 86 88.52 PCGrad 690 88.32 STCH 89 88.39
+> CORE-MTL (Ours) 297 89.39
+> 20 Equal Weighting (EW) 91 91.55 PCGrad 1396 91.23 STCH 88 90.81
+> CORE-MTL (Ours) 297 91.80
+> 30 Equal Weighting (EW) 92 91.40 PCGrad 1950 91.41 STCH 91 90.80
+> CORE-MTL (Ours) 297 91.76
+> 40 Equal Weighting (EW) 94 91.52 PCGrad 2806 91.34 STCH 97 91.01
+> CORE-MTL (Ours) 300 91.77
+
+reaches 2806 s/epoch at K=40 ). Although the auxiliary decoder incurs a fixed overhead ( ≈ 300 s/epoch) compared to simple weighting ( ≈ 90 s/epoch), this cost does not compound with the number of tasks. Notably, CORE-MTL yields the highest average accuracy across different numbers of tasks, demonstrating a superior trade-off that avoids the prohibitive scaling of gradient surgery while consistently outperforming naive baselines. 
+
+4.6. Ablation Studies 
+
+4.6.1. C OMPONENT ABLATION 
+
+Table 5 shows that introducing the Dual-Stream (DS) back-bone already improves over Vanilla MTL, confirming the benefit of separating semantics from noise. Adding the auxil-iary reconstruction task yields further gains by providing an additional grounding signal that stabilizes the dual-stream decomposition and discourages shortcut solutions. The full model (DS+Grounding+CKA+CFA) achieves the strongest overall performance, indicating that CKA and CFA are com-plementary: CKA encourages cross-stream independence (Theorem 2.4), while CFA encourages prediction consis-tency under counterfactual-style residual substitution and reduces reliance on spurious correlations. 4.6.2. G ROUNDING DECODER DESIGN 
+
+We further examine whether the effectiveness of CORE-MTL relies on the explicit physics-based decoder. To this end, we replace the hard physical grounding decoder with a generic convolutional decoder while keeping the semantic– residual factorization and training objectives unchanged. As shown in Table 6, soft grounding already achieves com-petitive performance, indicating that CORE-MTL does not solely rely on hand-crafted physical rendering equations. Meanwhile, hard grounding obtains slightly stronger over-all performance, suggesting that physical priors provide a useful inductive bias for dense scene understanding. 4.6.3. S ENSITIVITY TO INDEPENDENCE 
+
+REGULARIZATION 
+
+Sensitivity analysis reveals the independence-capacity trade-off. We further investigate the impact of the inde-pendence constraint weight λCKA and the counterfactual augmentation weight λCFA . Detailed analyses for the inde-pendence regularization are provided in Appendix G, while the sensitivity to counterfactual perturbation magnitude is analyzed in Appendix H. In summary, we observe a clear “sweet spot” for λCKA (e.g., 1.0 on NYUv2). Overly weak regularization allows leakage, while excessive regulariza-tion constrains the semantic stream’s capacity. Similarly, the CFA ablation in Appendix H confirms that moderate counterfactual perturbations effectively regularize the model against OOD shifts, whereas excessive perturbation noise can destabilize the learning of the semantic manifold. 
+
+## 5. Related Work 
+
+Optimization-centric multi-task optimization. Standard approaches focus on weighting or balancing losses (e.g., GradNorm (Chen et al., 2018), uncertainty (Kendall et al., 2018), RLW (Lin et al., 2022), ExcessMTL (He et al., 2024)) or pursuing multi-objective optimization (MGDA (Sener & Koltun, 2018), MOML (Ye et al., 2021), STCH (Lin et al., 2024)). To mitigate conflicting gradients, “surgery” or allocation-based methods modify updates (e.g., PCGrad (Yu et al., 2020), CAGrad (Liu et al., 2021), Nash-MTL (Navon et al., 2022), FairGrad (Ban & Ji, 2024)), while recent works refine conflict geometry via rotation (Javaloy & Valera, 2022) or conic constraints (Hassanpour et al., 2025). Strategies like accumulation-based stabilization (Limarenko & Studenikina, 2025), Dual-Balancing (Lin et al., 2025), AutoScale (Yang et al., 2025), and MLB (Kontras et al., 8CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations                                                                                                               
+
+> Table 5. Component-wise ablation on NYUv2. DS: Dual Stream; Grounding: Grounding with Reconstruction; CKA: Independence Loss; CFA: Counterfactual Augmentation.
+> Components Segmentation Depth Surface Normal Method Dual Grounding CKA CFA mIoU ↑PixAcc ↑Abs ↓Rel ↓Mean ↓Med ↓11 .25 ◦↑22 .5◦↑30 ◦↑
+> Vanilla MTL 0.5249 0.7417 0.4418 0.1881 25.6201 19.8490 0.2926 0.5521 0.6776 DS ✓0.5352 0.7527 0.3813 0.1622 23.2973 16.9788 0.3517 0.6117 0.7230 DS+Grounding ✓✓0.5424 0.7546 0.3827 0.1611 23.2189 16.9394 0.3517 0.6130 0.7267 DS+Grounding+CKA ✓✓✓0.5547 0.7630 0.3876 0.1636 23.9179 18.5226 0.3165 0.5814 0.7041 Full ✓✓✓✓0.5693 0.7759 0.3544 0.1466 22.4927 16.8337 0.3501 0.6196 0.7360
+> Table 6. Ablation study on grounding decoder design on NYUv2. Soft grounding uses a generic convolutional decoder, while hard grounding uses the physics-based grounding decoder. Setting Segmentation Depth Surface Normal mIoU ↑Pix Acc ↑Abs Err ↓Rel Err ↓Mean ↓Med. ↓11.25 ◦↑22.5 ◦↑30 ◦↑
+> Soft Grounding 0.5652 0.7715 0.3555 0.1427 23.0044 17.3100 0.3415 0.6068 0.7238 Hard Grounding 0.5693 0.7759 0.3544 0.1466 22.4927 16.8337 0.3501 0.6196 0.7360
+
+2024) further stabilize training, yet typically address symp-toms rather than the root cause of representation entangle-ment (Shi et al., 2023). 
+
+Architecture-centric parameter sharing. Architectural methods reduce interference by modulating sharing. Ap-proaches like MTAN (Liu et al., 2019) and affinity-based designs (Sinodinos & Armanfard, 2025) encourage selective feature reuse. Mixture-of-experts models (e.g., MMoE (Ma et al., 2018), PLE (Tang et al., 2020)) decouple tasks via gated experts, with recent variants extending to large-scale backbones (Kong et al., 2025; Mehta et al., 2025). How-ever, routing decisions in these models remain primarily loss-driven rather than causal, leaving them susceptible to spurious correlations (Maheronnaghsh & Alvanagh, 2024). 
+
+Causal and structured representation learning. Robust generalization requires separating stable signals from nui-sance factors. While subspace methods like DSN (Bous-malis et al., 2016), invariant frameworks (e.g., IRM (Ar-jovsky et al., 2019), MRI (Huh & Baidya, 2022)), and representation-level methods such as RepMTL (Wang et al., 2025) improve domain separation, invariance, or task saliency, we repurpose disentanglement as a structural route toward gradient orthogonality (Proposition 2.5), tackling a key optimization source of negative transfer. Similarly, un-like generative approaches utilizing feature-statistics mixing (MixStyle (Zhou et al., 2021)) for synthesis, we integrate counterfactual mechanisms as a regularizer to discourage reliance on spurious shortcuts (Sun et al., 2025). Crucially, distinct from causal frameworks that rely on modular routing to select invariant subnetworks (Hu et al., 2022), CORE-MTL encourages internal semantic–residual factorization via physical or generic grounding. This provides factor-role anchoring for the semantic–residual split and structurally in-duces gradient orthogonality as a geometric byproduct, mit-igating entanglement-induced transfer conflicts (Lachapelle et al., 2023; Hendawy et al., 2024; Tian et al., 2025). 
+
+## 6. Conclusion and Limitations 
+
+Conclusion. We showed that entangled shared represen-tations, rather than the gradient balancing scheme itself, are a key source of task interference. Targeting this issue, CORE-MTL shifts the paradigm from post-hoc gradient surgery to intrinsic representation disentanglement. By im-posing a causally motivated semantic–residual structural bias, our framework resolves interference at its source and achieves superior OOD robustness. More broadly, our find-ings advocate a shift from purely optimization-centric task coordination toward structure-aware representation design for robust multi-task learning. 
+
+Limitations. Our theoretical analysis relies on a stylized linear-Gaussian latent SCM, and extending the guarantees to deep nonlinear representations remains future work. CORE-MTL is instantiated mainly for dense scene understanding tasks; more heterogeneous or multimodal task sets may require more flexible grounding mechanisms. 
+
+## Impact Statement 
+
+CORE-MTL aims to improve out-of-distribution robustness in shared perception models by separating task-relevant se-mantic structure from nuisance variation. This may help mitigate dataset bias and distribution shift in applications such as scene understanding or assistive perception. How-ever, as a general-purpose technique, it could also be used in sensitive settings such as surveillance or facial analysis, where fairness, privacy, and misuse concerns remain. Practi-tioners should conduct application-specific evaluations and safeguards before deployment in high-stakes settings. 9CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+## References 
+
+Arjovsky, M., Bottou, L., Gulrajani, I., and Lopez-Paz, D. Invariant risk minimization. CoRR , abs/1907.02893, 2019. Ban, H. and Ji, K. Fair resource allocation in multi-task learning. In Salakhutdinov, R., Kolter, Z., Heller, K. A., Weller, A., Oliver, N., Scarlett, J., and Berkenkamp, F. (eds.), Forty-first International Confer-ence on Machine Learning, ICML 2024, Vienna, Aus-tria, July 21-27, 2024 , Proceedings of Machine Learn-ing Research, pp. 2715–2731. PMLR / OpenReview.net, 2024. URL https://proceedings.mlr.press/ v235/ban24a.html .Bousmalis, K., Trigeorgis, G., Silberman, N., Krishnan, D., and Erhan, D. Domain separation networks. Advances in neural information processing systems , 29, 2016. Caruana, R. Multitask learning. Mach. Learn. , 28(1):41–75, 1997. Chen, Z., Badrinarayanan, V., Lee, C., and Rabinovich, A. Gradnorm: Gradient normalization for adaptive loss balancing in deep multitask networks. In Proceedings of the 35th International Conference on Machine Learn-ing, ICML 2018, Stockholmsm ¨assan, Stockholm, Sweden, July 10-15, 2018 , volume 80 of Proceedings of Machine Learning Research , pp. 793–802. PMLR, 2018. Cordts, M., Omran, M., Ramos, S., Rehfeld, T., Enzweiler, M., Benenson, R., Franke, U., Roth, S., and Schiele, B. The cityscapes dataset for semantic urban scene under-standing. In 2016 IEEE Conference on Computer Vision and Pattern Recognition, CVPR 2016, Las Vegas, NV, USA, June 27-30, 2016 , pp. 3213–3223. IEEE Computer Society, 2016. Hassanpour, N., Janjua, M. K., Zhang, K., Lavasani, S., Zhang, X., Zhou, C., and Gao, C. Fantastic multi-task gradient updates and how to find them in a cone. CoRR ,abs/2502.00217, 2025. He, K., Zhang, X., Ren, S., and Sun, J. Deep residual learning for image recognition. In 2016 IEEE Conference on Computer Vision and Pattern Recognition, CVPR 2016, Las Vegas, NV, USA, June 27-30, 2016 , pp. 770–778. IEEE Computer Society, 2016. He, Y., Zhou, S., Zhang, G., Yun, H., Xu, Y., Zeng, B., Chilimbi, T., and Zhao, H. Robust multi-task learning with excess risks. In Salakhutdinov, R., Kolter, Z., Heller, K. A., Weller, A., Oliver, N., Scarlett, J., and Berkenkamp, F. (eds.), Forty-first International Conference on Machine Learning, ICML 2024, Vienna, Austria, July 21-27, 2024 ,Proceedings of Machine Learning Research, pp. 18094– 18114. PMLR / OpenReview.net, 2024. URL https:// proceedings.mlr.press/v235/he24n.html .Hendawy, A., Peters, J., and D’Eramo, C. Multi-task rein-forcement learning with mixture of orthogonal experts. In 
+
+The Twelfth International Conference on Learning Repre-sentations, ICLR 2024, Vienna, Austria, May 7-11, 2024 .OpenReview.net, 2024. Hendrycks, D. and Dietterich, T. G. Benchmarking neural network robustness to common corruptions and pertur-bations. In 7th International Conference on Learning Representations, ICLR 2019, New Orleans, LA, USA, May 6-9, 2019 . OpenReview.net, 2019. Hu, Z., Zhao, Z., Yi, X., Yao, T., Hong, L., Sun, Y., and Chi, E. H. Improving multi-task generalization via regu-larizing spurious correlation. In Advances in Neural In-formation Processing Systems 35: Annual Conference on Neural Information Processing Systems 2022, NeurIPS 2022, New Orleans, LA, USA, November 28 - December 9, 2022 , 2022. Huh, D. and Baidya, A. The missing invariance principle found - the reciprocal twin of invariant risk minimization. In Advances in Neural Information Processing Systems 35: Annual Conference on Neural Information Processing Systems 2022, NeurIPS 2022, New Orleans, LA, USA, November 28 - December 9, 2022 , 2022. Javaloy, A. and Valera, I. Rotograd: Gradient homogeniza-tion in multitask learning. In The Tenth International Conference on Learning Representations, ICLR 2022, Virtual Event, April 25-29, 2022 . OpenReview.net, 2022. Kendall, A., Gal, Y., and Cipolla, R. Multi-task learning using uncertainty to weigh losses for scene geometry and semantics. In 2018 IEEE Conference on Computer Vision and Pattern Recognition, CVPR 2018, Salt Lake City, UT, USA, June 18-22, 2018 , pp. 7482–7491. Computer Vision Foundation / IEEE Computer Society, 2018. Kong, Y., Ma, G., Zhao, Q., Wang, H., Shen, L., Wang, X., and Tao, D. Mastering massive multi-task reinforce-ment learning via mixture-of-expert decision transformer. In Forty-second International Conference on Machine Learning, ICML 2025, Vancouver, BC, Canada, July 13-19, 2025 . OpenReview.net, 2025. Kontras, K., Chatzichristos, C., Blaschko, M. B., and Vos, M. D. Improving multimodal learning with multi-loss gradient modulation. In 35th British Machine Vision Conference, BMVC 2024, Glasgow, UK, November 25-28, 2024 . BMVA Press, 2024. 10 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Kornblith, S., Norouzi, M., Lee, H., and Hinton, G. E. Sim-ilarity of neural network representations revisited. In Chaudhuri, K. and Salakhutdinov, R. (eds.), Proceedings of the 36th International Conference on Machine Learn-ing, ICML 2019, 9-15 June 2019, Long Beach, California, USA , volume 97 of Proceedings of Machine Learning Research , pp. 3519–3529. PMLR, 2019. Lachapelle, S., Deleu, T., Mahajan, D., Mitliagkas, I., Ben-gio, Y., Lacoste-Julien, S., and Bertrand, Q. Synergies between disentanglement and sparsity: Generalization and identifiability in multi-task learning. In International Conference on Machine Learning, ICML 2023, 23-29 July 2023, Honolulu, Hawaii, USA , volume 202 of Proceed-ings of Machine Learning Research , pp. 18171–18206. PMLR, 2023. Limarenko, E. A. and Studenikina, A. A. Gcond: Gra-dient conflict resolution via accumulation-based sta-bilization for large-scale multi-task learning. CoRR ,abs/2509.07252, 2025. Lin, B. and Zhang, Y. Libmtl: A python library for deep multi-task learning. J. Mach. Learn. Res. , 24:209:1– 209:7, 2023. Lin, B., Ye, F., Zhang, Y., and Tsang, I. W. Reasonable effectiveness of random weighting: A litmus test for multi-task learning. Trans. Mach. Learn. Res. , 2022, 2022. URL https://openreview.net/forum? id=jjtFD8A1Wx .Lin, B., Jiang, W., Chen, P., Ye, F., Zhang, Y., Chen, Y.-C., Liu, S., Tsang, I. W., and Kwok, J. T. Dual-balancing for multi-task learning. Neural Networks , pp. 108317, 2025. Lin, X., Zhang, X., Yang, Z., Liu, F., Wang, Z., and Zhang, Q. Smooth tchebycheff scalarization for multi-objective optimization. In Forty-first International Conference on Machine Learning, ICML 2024, Vienna, Austria, July 21-27, 2024 . OpenReview.net, 2024. Liu, B., Liu, X., Jin, X., Stone, P., and Liu, Q. Conflict-averse gradient descent for multi-task learning. In Ad-vances in Neural Information Processing Systems 34: Annual Conference on Neural Information Processing Systems 2021, NeurIPS 2021, December 6-14, 2021, vir-tual , pp. 18878–18890, 2021. Liu, S., Johns, E., and Davison, A. J. End-to-end multi-task learning with attention. In IEEE Conference on Computer Vision and Pattern Recognition, CVPR 2019, Long Beach, CA, USA, June 16-20, 2019 , pp. 1871–1880. Computer Vision Foundation / IEEE, 2019. Liu, Z., Luo, P., Wang, X., and Tang, X. Deep learning face attributes in the wild. In 2015 IEEE International Con-ference on Computer Vision, ICCV 2015, Santiago, Chile, December 7-13, 2015 , pp. 3730–3738. IEEE Computer Society, 2015. Locatello, F., Bauer, S., Lucic, M., R ¨atsch, G., Gelly, S., Sch ¨olkopf, B., and Bachem, O. Challenging common assumptions in the unsupervised learning of disentangled representations. In Reproducibility in Machine Learning, ICLR 2019 Workshop, New Orleans, Louisiana, United States, May 6, 2019 . OpenReview.net, 2019. Ma, J., Zhao, Z., Yi, X., Chen, J., Hong, L., and Chi, E. H. Modeling task relationships in multi-task learning with multi-gate mixture-of-experts. In Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining, KDD 2018, London, UK, Au-gust 19-23, 2018 , pp. 1930–1939. ACM, 2018. Maheronnaghsh, M. and Alvanagh, T. A. Robustness to spu-rious correlation: A comprehensive review. In Computer Vision - ECCV 2024 Workshops - Milan, Italy, September 29-October 4, 2024, Proceedings, Part XVIII , volume 15640 of Lecture Notes in Computer Science , pp. 361– 379. Springer, 2024. Mehta, S., Dandekar, R., Dandekar, R., and Panat, S. Unify-ing mixture of experts and multi-head latent attention for efficient language models. CoRR , abs/2508.01261, 2025. Michaelis, C., Mitzkus, B., Geirhos, R., Rusak, E., Bring-mann, O., Ecker, A. S., Bethge, M., and Brendel, W. Benchmarking robustness in object detection: Au-tonomous driving when winter is coming. CoRR ,abs/1907.07484, 2019. Navon, A., Shamsian, A., Achituve, I., Maron, H., Kawaguchi, K., Chechik, G., and Fetaya, E. Multi-task learning as a bargaining game. In International Confer-ence on Machine Learning, ICML 2022, 17-23 July 2022, Baltimore, Maryland, USA , volume 162 of Proceedings of Machine Learning Research , pp. 16428–16446. PMLR, 2022. Richter, S. R., Vineet, V., Roth, S., and Koltun, V. Play-ing for data: Ground truth from computer games. In 
+
+Computer Vision - ECCV 2016 - 14th European Confer-ence, Amsterdam, The Netherlands, October 11-14, 2016, Proceedings, Part II , volume 9906 of Lecture Notes in Computer Science , pp. 102–118. Springer, 2016. Sener, O. and Koltun, V. Multi-task learning as multi-objective optimization. In Advances in Neural Infor-mation Processing Systems 31: Annual Conference on Neural Information Processing Systems 2018, NeurIPS 2018, December 3-8, 2018, Montr ´eal, Canada , pp. 525– 536, 2018. 11 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Shi, G., Li, Q., Zhang, W., Chen, J., and Wu, X. Recon: Re-ducing conflicting gradients from the root for multi-task learning. In The Eleventh International Conference on Learning Representations, ICLR 2023, Kigali, Rwanda, May 1-5, 2023 . OpenReview.net, 2023. Silberman, N., Hoiem, D., Kohli, P., and Fergus, R. Indoor segmentation and support inference from RGBD images. In Computer Vision - ECCV 2012 - 12th European Con-ference on Computer Vision, Florence, Italy, October 7-13, 2012, Proceedings, Part V , volume 7576 of Lecture Notes in Computer Science , pp. 746–760. Springer, 2012. Sinodinos, D. and Armanfard, N. Cross-task affinity learn-ing for multitask dense scene predictions. In IEEE/CVF Winter Conference on Applications of Computer Vision, WACV 2025, Tucson, AZ, USA, February 26 - March 6, 2025 , pp. 1546–1555. IEEE, 2025. Sun, H., Xie, Z., He, H., and Li, M. Mitigating negative transfer via reducing environmental disagreement. CoRR ,abs/2510.24044, 2025. Tang, H., Liu, J., Zhao, M., and Gong, X. Progressive layered extraction (PLE): A novel multi-task learning (MTL) model for personalized recommendations. In Rec-Sys 2020: Fourteenth ACM Conference on Recommender Systems, Virtual Event, Brazil, September 22-26, 2020 ,pp. 269–278. ACM, 2020. Tian, K., Zhao, S., Zhang, Y., and Yu, S. Multi-dimensional neural decoding with orthogonal representations for brain-computer interfaces. arXiv preprint arXiv:2508.08681 ,2025. Wang, Z., Li, S., and Xu, D. Rep-mtl: Unleashing the power of representation-level task saliency for multi-task learning. In IEEE/CVF International Conference on Computer Vision, ICCV 2025, Honolulu, HI, USA, October 19-25, 2025 , pp. 3413–3423. IEEE, 2025. doi: 10.1109/ICCV51701.2025.00326. URL https://doi. org/10.1109/ICCV51701.2025.00326 .Yang, Y., Ikemura, K., Zhang, Q., Zhu, X., Li, C., Batool, N., Mansouri, S. S., and Folkesson, J. Autoscale: Linear scalarization guided by multi-task optimization metrics. 
+
+CoRR , abs/2508.13979, 2025. Ye, F., Lin, B., Yue, Z., Guo, P., Xiao, Q., and Zhang, Y. Multi-objective meta learning. In Ranzato, M., Beygelzimer, A., Dauphin, Y. N., Liang, P., and Vaughan, J. W. (eds.), Advances in Neural Informa-tion Processing Systems 34: Annual Conference on Neural Information Processing Systems 2021, NeurIPS 2021, December 6-14, 2021, virtual , pp. 21338– 21351, 2021. URL https://proceedings. neurips.cc/paper/2021/hash/ b23975176653284f1f7356ba5539cfcb-Abstract. html .Yu, T., Kumar, S., Gupta, A., Levine, S., Hausman, K., and Finn, C. Gradient surgery for multi-task learning. In Advances in Neural Information Processing Systems 33: Annual Conference on Neural Information Process-ing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual , 2020. Zhang, R., Isola, P., Efros, A. A., Shechtman, E., and Wang, O. The unreasonable effectiveness of deep features as a perceptual metric. In 2018 IEEE Conference on Computer Vision and Pattern Recognition, CVPR 2018, Salt Lake City, UT, USA, June 18-22, 2018 , pp. 586–595. Computer Vision Foundation / IEEE Computer Society, 2018. Zhou, K., Yang, Y., Qiao, Y., and Xiang, T. Domain gener-alization with mixstyle. In 9th International Conference on Learning Representations, ICLR 2021, Virtual Event, Austria, May 3-7, 2021 . OpenReview.net, 2021. 12 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+## A. Proof of Theorem 2.3 (OOD lower bound for gradient balancing) 
+
+Proof. We give a concrete construction under the Linear-Gaussian SCM (Assumption 2.2) showing that if ψ̸ = 0 (en-tanglement), then there exists a residual shift inducing a non-vanishing OOD gap. The argument is by exhibiting one task/predictor for which any optimization-centric method in G can converge on source risk yet still suffer a target shift through the entangled coordinate. 
+
+Setup (a single linear task suffices). Let Zs ∼ N (0 , 1) and Zr ∼ N (0 , σ 2 
+
+> r,S
+
+) be independent. Let the label be generated by 
+
+Y = w⋆Zs + ε, ε ∼ N (0 , σ 2), (17) and let the (entangled) scalar representation used by the head be 
+
+ˆZ = cos ψ Z s + sin ψ Z r . (18) Consider a linear head h( ˆZ) = β ˆZ trained by minimizing source squared loss. This is a special case of our main setup with Lipschitz head; proving the lower bound here suffices because Theorem 2.3 is existential over target shifts and constants. 
+
+Step 1: Source-optimal solution. On the source domain, the population optimal coefficient is 
+
+β⋆ = Cov S (Y, ˆZ)Var S ( ˆZ) . (19) Using (17)–(18) and independence Zs ⊥ Zr ,
+
+Cov S (Y, ˆZ) = E(w⋆Zs)(cos ψZ s + sin ψZ r ) = w⋆ cos ψ E[Z2 
+
+> s
+
+] = w⋆ cos ψ, (20) 
+
+Var S ( ˆZ) = E(cos ψZ s + sin ψZ r )2 = cos 2 ψ Var( Zs) + sin 2 ψ Var S (Zr ) = cos 2 ψ + sin 2 ψ σ 2 
+
+> r,S
+
+. (21) Hence 
+
+β⋆ = w⋆ cos ψ
+
+cos 2 ψ + sin 2 ψ σ 2
+
+> r,S
+
+. (22) 
+
+Step 2: Target risk under a residual covariance shift. Now define a target domain by keeping Zs invariant but changing only the residual variance: Zr ∼ N (0 , σ 2 
+
+> r,T
+
+) with σ2
+
+> r,T
+
+̸ = σ2 
+
+> r,S
+
+. The target risk of the source-trained predictor is 
+
+ET (h) − E S (h) = ET
+
+(Y − β⋆ ˆZ)2 − ES
+
+(Y − β⋆ ˆZ)2. (23) Expanding Y − β⋆ ˆZ with (17)–(18) yields 
+
+Y − β⋆ ˆZ =  w⋆ − β⋆ cos ψZs − β⋆ sin ψ Z r + ε. (24) Because Zs ⊥ Zr ⊥ ε, cross terms vanish in expectation, and the only term that changes between source and target is the variance contribution from Zr :
+
+ET [( Y − β⋆ ˆZ)2] − ES [( Y − β⋆ ˆZ)2] = ( β⋆)2 sin 2 ψ ·   Var T (Zr ) − Var S (Zr ) (25) 
+
+= ( β⋆)2 sin 2 ψ ·  σ2 
+
+> r,T
+
+− σ2
+
+> r,S
+
+. (26) 
+
+Step 3: Lower bound in the form of Theorem 2.3. If ψ̸ = 0 , choose a target shift with σ2 
+
+> r,T
+
+> σ 2 
+
+> r,S
+
+, then (26) is strictly positive. Moreover, substituting (22) gives 
+
+ET (h) − E S (h) = 
+
+ (w⋆)2 cos 2 ψ
+
+(cos 2 ψ + sin 2 ψ σ 2 
+
+> r,S
+
+)2
+
+| {z } 
+
+> ≜c0>0
+
+sin 2 ψ · (σ2 
+
+> r,T
+
+− σ2 
+
+> r,S
+
+). (27) This matches the claimed sin 2 ψ scaling. For the vector case in Assumption 2.2, take a diagonal residual covariance shift so that ∥ΣTr − ΣSr ∥F is proportional to the variance change along one coordinate, and absorb the proportionality into c. This construction establishes an OOD error floor in the simplest linear task setting. Since the constructed linear predictor h( ˆZ) = β∗ ˆZ is L-Lipschitz with L = |β∗|, this counterexample suffices to prove that entanglement alone induces unavoidable residual-driven errors for the class of Lipschitz functions, limiting any optimization-centric algorithm in G.13 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+## B. A concrete independence proxy (Linear CKA) and its link to entanglement 
+
+In the main text, Indep( ˆZs, ˆZr ) is left as a generic dependence measure. In our implementation we use Linear CKA, and in this appendix we make explicit how it connects to the entanglement angle in Assumption 2.2. 
+
+Linear CKA (batch form). Given centered batch feature matrices U ∈ Rn×du and V ∈ Rn×dv , the (linear-kernel) CKA is 
+
+CKA( U, V ) = ∥U ⊤V ∥2
+
+> F
+
+∥U ⊤U ∥F ∥V ⊤V ∥F
+
+. (28) When both are batch-standardized so that 1 
+
+> n
+
+U ⊤U ≈ I and 1 
+
+> n
+
+V ⊤V ≈ I, Linear CKA is proportional to the squared Frobenius norm of the empirical cross-correlation matrix. 
+
+Lemma B.1 (CKA as an entanglement proxy) . Assume batch-standardized features Cov( ˆZs) = I and Cov( ˆZr ) = I
+
+(empirically, after centering/normalization). Then CKA( ˆZs, ˆZr ) = ∥ Corr( ˆZs, ˆZr )∥2 
+
+> F
+
+up to a constant factor. Proof. Under standardization, ∥ ˆZ⊤ 
+
+> s
+
+ˆZs∥F and ∥ ˆZ⊤ 
+
+> r
+
+ˆZr ∥F are constants, so (28) reduces to ∥ ˆZ⊤ 
+
+> s
+
+ˆZr ∥2 
+
+> F
+
+up to scaling, i.e., squared cross-correlation. 
+
+A convenient choice of Indep. To align with Theorem 2.4, it is often convenient to take 
+
+Indep( ˆZs, ˆZr ) ≜
+
+q
+
+CKA( ˆZs, ˆZr ) ≈ ∥ Corr( ˆZs, ˆZr )∥F , (29) so that the shift attenuation term is linear in the “leakage magnitude”. 
+
+## C. Proof of Theorem 2.4 
+
+Proof. We derive a capacity-aware OOD bound where the effect of residual shift is attenuated by the leakage coefficient 
+
+λleak .
+
+Step 1: Standard Domain Adaptation Bound. Let H be the hypothesis class of models predicting only from ˆZs. Standard learning-theoretic results (e.g., Wasserstein-based bounds for Lipschitz losses) bound the target risk by the source risk plus the distribution shift of the features: 
+
+ET (h) − E S (h) ≤ Ccap + α0 W1
+
+ PS ( ˆZs), P T ( ˆZs), (30) where Ccap handles capacity terms and α0 depends on the task head’s Lipschitz constant. 
+
+Step 2: Bounding Semantic Shift via Leakage. Under Assumption 2.2, domain shift affects only Zr . Thus, the joint distributions are PD (Zs, Z r ) = P (Zs) ⊗ PD (Zr ) for D ∈ { S, T }. Let πr be an optimal coupling between PS (Zr ) and 
+
+PT (Zr ). We construct a joint coupling Π by sampling Zs ∼ P (Zs) and (ZSr , Z Tr ) ∼ πr independently. Using the definition of λleak as the partial Lipschitz constant: 
+
+∥ ˆZs(Zs, Z Sr ) − ˆZs(Zs, Z Tr )∥ ≤ λleak ∥ZSr − ZTr ∥.
+
+Taking expectations under the coupling Π yields: 
+
+W1(PS ( ˆZs), P T ( ˆZs)) ≤ EΠ[∥ ˆZSs − ˆZTs ∥]
+
+≤ λleak Eπr [∥ZSr − ZTr ∥]= λleak W1(PS (Zr ), P T (Zr )) . (31) 
+
+Conclusion. Substituting (31) into (30) yields the claim. 14 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+## D. Proof of Proposition 2.5 
+
+Proof. To establish the bound, we first define the Jacobians of the semantic and residual mappings with respect to the shared backbone H. Let Zs = ϕs(H) and Zr = ϕr (H), and denote their Jacobians by: 
+
+Js = ∂Z s
+
+∂H , Jr = ∂Z r
+
+∂H . (32) By the chain rule, the gradients of the task and residual losses with respect to H are: 
+
+gtask = J⊤ 
+
+> s
+
+vs, gres = J⊤ 
+
+> r
+
+vr , (33) where vs = ∇Zs Ltask and vr = ∇Zr Lres are the error signals backpropagated from the respective heads. 
+
+Step 1: Bounding gradient cosine similarity. We analyze the squared cosine similarity: cos 2(gtask , g res ) =(⟨gtask , g res ⟩)2/(∥gtask ∥2∥gres ∥2). We explicitly expand the inner product using the Jacobian definitions: 
+
+⟨gtask , g res ⟩ = ⟨J⊤ 
+
+> s
+
+vs, J ⊤ 
+
+> r
+
+vr ⟩ = v⊤ 
+
+> s
+
+(JsJ⊤ 
+
+> r
+
+)vr . (34) Applying the Cauchy-Schwarz inequality: 
+
+|v⊤ 
+
+> s
+
+(JsJ⊤ 
+
+> r
+
+)vr | ≤ ∥ vs∥∥ vr ∥∥ JsJ⊤ 
+
+> r
+
+∥F . (35) Under the assumption that head gradients ∥vs∥ and ∥vr ∥ are bounded almost surely (e.g., by gradient clipping or Lipschitz continuity of the heads) and that backbone gradients are non-degenerate, there exist constants C1, δ 1 ≥ 0 such that: 
+
+cos 2(gtask , g res ) ≤ C1∥JsJ⊤ 
+
+> r
+
+∥2 
+
+> F
+
++ δ1. (36) Taking the expectation over the data distribution yields: 
+
+E[cos 2(gtask , g res )] ≤ C1E[∥JsJ⊤ 
+
+> r
+
+∥2 
+
+> F
+
+] + δ1. (37) 
+
+Step 2: Linking Jacobian overlap to Independence. We relate the Jacobian cross-term to the feature independence. Consider the local linearization of the streams around the centered batch data ˜H: Zs ≈ Js ˜H and Zr ≈ Jr ˜H. The empirical cross-covariance matrix Σsr satisfies: 
+
+Σsr = 1
+
+n ZsZ⊤ 
+
+> r
+
+≈ Js
+
+ 1
+
+n ˜H ˜H⊤
+
+
+
+J⊤ 
+
+> r
+
+≈ JsJ⊤ 
+
+> r
+
+, (38) assuming the backbone features are approximately whitened (e.g., via LayerNorm). Recall that CKA (Kornblith et al., 2019) approximates the squared Frobenius norm of the cross-covariance matrix. Thus, our independence measure implies: 
+
+CKA( Zs, Z r ) ∝ ∥ Σsr ∥2 
+
+> F
+
+≈ ∥ JsJ⊤ 
+
+> r
+
+∥2 
+
+> F
+
+. (39) Therefore, there exists a constant C2 and residual δ2 (accounting for linearization error) such that: 
+
+E[∥JsJ⊤ 
+
+> r
+
+∥2 
+
+> F
+
+] ≤ C2 · CKA( Zs, Z r ) + δ2. (40) 
+
+Step 3: Conclusion. Substituting Equation 40 into Equation 37 and merging constants ( c = C1C2, δ = C1δ2 + δ1), we obtain the bound in Proposition 2.5: 
+
+E[cos 2(gtask , g res )] ≤ c · CKA( Zs, Z r ) + δ. (41) This confirms that minimizing the dependence between streams structurally suppresses the interference between task-relevant and nuisance gradients. 
+
+## E. Model architecture details 
+
+Backbone and task heads (dense prediction). On NYUv2, Cityscapes, GTA5, and Cityscapes-C, we use a dilated ResNet-50 encoder pretrained on ImageNet. For all dense tasks (segmentation, depth, normals), we use DeepLabV3 +-style task heads. Given the semantic representation Zs, we apply an ASPP module to capture multi-scale context, concatenate it with a low-level feature from the encoder (projected by a 1 × 1 convolution), and then apply 3 × 3 and 1 × 1 convolutions followed by bilinear upsampling to recover the input resolution. The segmentation head outputs C-channel logits, the depth head outputs a single-channel regression map, and the normal head outputs 3 channels followed by ℓ2 normalization. All baselines share the same backbone and task head architectures as our method. 15 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Backbone and heads on CelebA. On CelebA, we also use a ResNet-50 backbone (with dilated convolutions disabled for classification) pretrained on ImageNet. After global average pooling, we apply a shared fully connected layer with 256 hidden units, BatchNorm, ReLU, and dropout (0.5), followed by a linear layer that outputs logits for 40 attributes. We train with the binary cross-entropy loss with logits. 
+
+Semantic and residual projectors. Our CORE-MTL model augments the encoder with two projectors: a semantic projector Ps and a residual projector Pr . On dense prediction benchmarks, both Ps and Pr are implemented as 1 × 1
+
+convolutions that map the combined encoder features (e.g., 2048 channels) to a lower-dimensional latent space (typically 256–512 channels). The semantic branch produces a spatial feature map Zs ∈ RCs×H×W that preserves spatial resolution. The residual branch produces a feature map Pr (H) ∈ RCr ×H×W , which is then passed through global average pooling to yield a spatially invariant residual vector zr ∈ RCr . On CelebA, we use lightweight Conv–BN–ReLU blocks for Ps and Pr .
+
+Decoder and counterfactual generator (training-time only). The decoder D takes (Zs, z r ) as input and reconstructs the input image (and optionally geometric signals) to support reconstruction and counterfactual augmentation losses. It is implemented as a stack of residual upsampling blocks without explicit skip connections from the encoder (i.e., not a full U-Net). For Causal Feature Augmentation (CFA), we generate counterfactual residual vectors by shuffling zr within a mini-batch, synthesize counterfactual images via D(Zs, z r [π]) , and re-encode them through the encoder and projectors before feeding them to the task heads. The decoder and CFA pathway are used only at training time and are entirely removed at inference. 
+
+## F. Experimental Details 
+
+F.1. Datasets and preprocessing NYUv2. We follow the LibMTL and MTAN preprocessing. The dataset is split into 795 training and 654 validation images. We consider three tasks: 13-class semantic segmentation, depth estimation, and surface normal prediction. Inputs are resized to 288 × 384 . For depth and normals, invalid pixels are masked out using a binary mask 1[P 
+
+> c
+
+GT c̸ = 0] during both training and evaluation. Depth evaluation uses mean absolute error (Abs Err) and relative error (Rel Err) without additional log transforms or clipping. Normals are evaluated with mean and median angular error and the percentage of pixels within 11 .25 ◦, 22 .5◦, and 30 ◦.
+
+Cityscapes (ID). For in-distribution multi-task learning, we use the Cityscapes subset and preprocessing provided by LibMTL. We adopt the standard 2975/500 train/val split and use two tasks: 7-class semantic segmentation and monocular depth estimation. The preprocessed images and labels are stored as 128 × 256 numpy arrays. Depth labels are obtained from the same preprocessed package (pseudo-depth derived from stereo disparity). We evaluate segmentation with mIoU and pixel accuracy, and depth with Abs Err and Rel Err. 
+
+F.2. Optimization and hyperparameters Optimizer and learning-rate schedule. Across all benchmarks (NYUv2, Cityscapes, GTA5 →Cityscapes, Cityscapes-C, and CelebA), we use the AdamW optimizer with an initial learning rate of 2 × 10 −4 and weight decay 10 −4. We adopt a cosine annealing learning-rate schedule with a minimum learning rate equal to 0.01 times the initial value. A warmup phase is used at the beginning of training: 5 warmup epochs for NYUv2, Cityscapes, Cityscapes-C, and CelebA, and 10 warmup epochs for GTA5 →Cityscapes. 
+
+Batch sizes, epochs, and hardware. We use the following batch sizes and training durations: NYUv2: batch size 16, 100 epochs; Cityscapes (ID): batch size 32, 100 epochs; GTA5 →Cityscapes: batch size 32, 100 epochs; Cityscapes-C: batch size 16, 100 epochs (using the model trained on clean Cityscapes); CelebA: batch size 256, 50 epochs. All experiments are implemented in PyTorch and run on NVIDIA A800 GPUs (80GB); unless otherwise noted, each experiment uses a single GPU. These configurations are chosen such that each experiment fits comfortably within one GPU. 
+
+Data augmentation. On NYUv2, we apply random horizontal flipping, random scale-and-crop with resize scales in 
+
+{1.0, 1.2, 1.5} to a fixed input size, and color jitter with brightness, contrast, and saturation set to 0.4 and hue 0.1. On CelebA, we use random horizontal flipping and mild color jitter (brightness, contrast, and saturation 0.1, no hue change), followed by resizing to 128 × 128 . For GTA5, Cityscapes, and Cityscapes-C, we follow the LibMTL preprocessing for 16 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Algorithm 1 CORE-MTL Training Procedure 
+
+1: Input: dataset D, batch size B, weights λrec , λ CKA , λ CFA , and λlpips , flag G ROUNDING TYPE (Hard/Soft) 
+
+2: Initialize: encoder E, projectors Ps, P r , task heads {ft}Kt=1 , decoder D
+
+3: repeat 
+
+4: 1) Encode & Factorize 
+
+5: Sample batch {(xi, {yt,i }Kt=1 )}Bi=1 ∼ D 
+
+6: hi ← E(xi)
+
+7: zs,i ← Ps(hi)
+
+8: zr,i ← { Pr (hi), GAP( hi)} { Spatial & global residual codes }
+
+9: 2) Task Prediction (Semantics Only) 
+
+10: ˆyt,i ← ft(zs,i )
+
+11: Ltask ← PKt=1 wt · 1
+
+> B
+
+PBi=1 Lt(ˆ yt,i , y t,i )
+
+12: 3) Grounding via Reconstruction 
+
+13: if HAS PHYSICS PRIOR then 
+
+14: ˆxi ← Dphy (zs,i , z r,i ) {Decodes Albedo & Lighting from zr }
+
+15: Lrec ← 1
+
+> B
+
+PBi=1 (∥xi − ˆxi∥1 + λlpips LPIPS( xi, ˆxi)) 
+
+16: else 
+
+17: ˆxi ← Dgen (zs,i , z r,i ) {Generic convolutional decoding }
+
+18: Lrec ← 1
+
+> B
+
+PBi=1 ∥xi − ˆxi∥1
+
+19: end if 
+
+20: 4) Structural Independence 
+
+21: LCKA ← LinearCKA( {zs,i }Bi=1 , {zr,i }Bi=1 ) {Minimize semantic-residual dependence }
+
+22: 5) Counterfactual Feature Augmentation (CFA) 
+
+23: if GROUNDING TYPE == Hard then 
+
+24: π ← Shuffle(1: B)
+
+25: xCFA  
+
+> i
+
+← Dphy (zs,i , z r,π (i)) {Synthesize via physical recombination }
+
+26: hCFA  
+
+> i
+
+← E(xCFA  
+
+> i
+
+); zCFA  
+
+> s,i
+
+← Ps(hCFA  
+
+> i
+
+)
+
+27: ˆyCFA  
+
+> t,i
+
+← ft(zCFA  
+
+> s,i
+
+)
+
+28: LCFA ← PKt=1 wt · 1
+
+> B
+
+PBi=1 Lt(ˆ yCFA  
+
+> t,i
+
+, y t,i )
+
+29: else 
+
+30: LCFA ← 0
+
+31: end if 
+
+32: 6) Optimization 
+
+33: Ltotal ← Ltask + λrec Lrec + λCKA LCKA + λCFA LCFA 
+
+34: Update θ ← θ − η∇θ Ltotal 
+
+35: until convergence resolution and normalization and apply random horizontal flipping as the primary augmentation. No additional photometric augmentation is used in these experiments. 
+
+F.3. Training Algorithm F.4. Loss weights 
+
+Our total loss is 
+
+Ltotal = Ltask + λrec Lrec + λCKA LCKA + λCFA LCFA ,
+
+where Ltask aggregates the task-specific losses (segmentation, depth, normals or attribute classification), Lrec includes geo-metric and appearance reconstruction terms (and auxiliary ℓ1/perceptual terms when applicable), LCKA is the independence regularizer between Zs and Zr , and LCFA is the consistency loss under counterfactual feature augmentation. Table 7 summarizes the loss weights used in our experiments. For NYUv2, λrec is reported as (αgeom , β app , λ L1 ); for Cityscapes and GTA5 →Cityscapes it is (αgeom , β app , λ img ).17 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations     
+
+> Table 7. Loss weights used in our experiments. “Rec.” lists (αgeom , β app ,·)as described in the text.
+
+Dataset λseg λdepth λnormal Rec. λCKA λCFA 
+
+NYUv2 20.0 10.0 10.0 (2 .0, 15 .0, 2.0) 1.0 1.0 Cityscapes (ID) 10.0 20.0 – (2 .0, 15 .0, 5.0) 1.0 1.0 GTA5 →Cityscapes 30.0 25.0 – (5 .0, 2.0, 5.0) 0.1 0.5 Cityscapes →Cityscapes-C 10.0 20.0 – (2 .0, 15 .0, 5.0) 1.0 1.0 CelebA – – – (5 .0, −, 1.0) 0.5 0.0 
+
+F.5. Hardware and software environment 
+
+All experiments are implemented in PyTorch and run on NVIDIA A800 GPUs with 80GB of memory. Although multiple GPUs are available, each experiment is conducted on a single GPU. This configuration is sufficient to train our model and all baselines with the batch sizes and resolutions described above. 
+
+## G. Sensitivity to Independence Regularization ( λCKA )
+
+In this section, we provide a detailed analysis of the trade-off between semantic independence and task performance by varying the independence loss weight λCKA .
+
+Training Dynamics. Figure 6 and Figure 7 illustrate the evolution of the independence metric (Linear CKA) during training on NYUv2 and the GTA5 →Cityscapes transfer setting, respectively. As expected, higher λCKA values lead to lower CKA scores, indicating stronger orthogonality between the semantic and residual streams. 
+
+Impact on Performance. Table 8 and Table 9 present the downstream performance. On NYUv2, we observe that 
+
+λCKA = 1 .0 yields the best balance, improving segmentation and depth estimation over the unregularized baseline ( λ = 0 ). However, setting λCKA too high ( 100 .0) degrades performance, particularly on surface normal prediction. This suggests that strictly orthogonalizing the representations may discard some useful shared information or over-constrain the semantic stream when the task difficulty is high.      
+
+> Figure 6. Independence(CKA) between Zsand Zrover epochs on NYUv2.
+
+## H. Sensitivity to Counterfactual Augmentation ( λCFA )
+
+Table 10 demonstrates the effect of the counterfactual consistency loss weight λCFA in the OOD setting (GTA5 →Cityscapes). By enforcing the model to output consistent predictions when the residual style codes are swapped, CFA actively immunizes the semantic stream against spurious correlations. We observe that a moderate weight (e.g., 0.5 or 1.0) significantly improves target domain performance (Tgt mIoU), indicating that the model successfully learns to be invariant to residual style factors. However, increasing λCFA to 5.0 leads to a 18 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations                                                                    
+
+> Table 8. Ablation on the CKA loss weight λCKA on NYUv2.
+> λCKA Seg Depth Normal mIoU ↑Pix Acc ↑Abs Err ↓Rel Err ↓Mean Ang ↓Median ↓Acc 11 ↑Acc 22 ↑Acc 30 ↑
+> 0.0 0.5636 0.7719 0.3555 0.1433 22.9829 17.2257 0.3416 0.6090 0.7255 0.1 0.5676 0.7749 0.3570 0.1451 22.8554 17.0985 0.3441 0.6127 0.7291 1.0 0.5694 0.7735 0.3555 0.1445 22.7650 17.0039 0.3464 0.6141 0.7303
+> 10.0 0.5647 0.7714 0.3509 0.1410 23.0706 17.4375 0.3390 0.6038 0.7220 100.0 0.5551 0.7656 0.3690 0.1484 23.9131 18.4297 0.3209 0.5821 0.7034
+> (a) Src: GTA5 (b) Tgt: Cityscapes
+> Figure 7. Validation Independence(CKA) between Zsand Zron the source (GTA5) and target (Cityscapes) domains.
+
+performance drop. This is likely because the perturbation noise becomes too strong relative to the task loss, effectively disrupting the learning of the primary semantic task on the source domain. 
+
+## I. Colored-Cityscapes Stress Test 
+
+Motivation. Assumption 2.2 uses an idealized latent SCM in which semantic factors and residual factors are separated for analysis. In real scenes, however, semantic content and contextual appearance are often strongly correlated. For example, road, sky, vegetation, and building regions usually co-occur with characteristic colors and textures. Such correlations can induce shortcut predictors that perform well in the source distribution but fail when the appearance statistics change. To examine whether CORE-MTL remains effective beyond this idealized setting, we construct a Colored-Cityscapes stress test that deliberately creates strong semantic–appearance dependence in the source distribution and breaks it in the target distribution. 
+
+Dataset construction. We build the stress test on top of the Cityscapes multi-task setting used in the main experiments. For the source distribution, each semantic class is assigned a fixed artificial color, and the input image is recolored according to its semantic mask. This creates a deterministic class–color association, making color a strong shortcut cue for semantic prediction. For the target distribution, we keep the same images, semantic labels, and depth labels, but permute the class–color mapping. Therefore, the target distribution preserves the underlying scene layout and task supervision while changing only the appearance shortcut. This controlled construction directly tests whether a method relies on residual appearance cues or learns a more stable task-relevant representation. 
+
+Results. As shown in Table 11, CORE-MTL achieves the best target-domain performance across all four metrics. In particular, under the permuted class–color mapping, CORE-MTL obtains the highest segmentation mIoU and pixel accuracy, as well as the lowest depth absolute and relative errors. These results show that CORE-MTL remains robust even when semantic content and appearance context are deliberately made strongly correlated in the source distribution, supporting that its semantic–residual factorization reduces residual-appearance leakage into the prediction stream. 19 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations                                                                                                             
+
+> Table 9. Ablation on the independence loss weight λCKA on GTA5 →Cityscapes. Src and Tgt denote GTA5 and Cityscapes, respectively.
+> λCKA Seg mIoU Seg Pix Acc Depth Abs Err Depth Rel Err Src ↑Tgt ↑Src ↑Tgt ↑Src ↓Tgt ↓Src ↓Tgt ↓
+> 0.0 0.6540 0.5795 0.9439 0.8678 0.0187 0.1064 0.5161 252.3461
+> 0.1 0.6583 0.5731 0.9439 0.8615 0.0181 0.1022 0.8236 252.6473 1.0 0.6449 0.5497 0.9445 0.8393 0.0222 0.1049 0.7117 252.9314 10.0 0.6573 0.5655 0.9438 0.8516 0.0169 0.0870 0.6980 252.8681 100.0 0.6550 0.5600 0.9429 0.8505 0.0169 0.1126 0.6595 290.2770
+> Table 10. Ablation on the counterfactual augmentation weight λCFA on GTA5 →Cityscapes. Src and Tgt denote GTA5 and Cityscapes, respectively.
+> λCFA Seg mIoU Seg Pix Acc Depth Abs Err Depth Rel Err Src ↑Tgt ↑Src ↑Tgt ↑Src ↓Tgt ↓Src ↓Tgt ↓
+> 00.6605 0.5303 0.9471 0.8267 0.0170 0.1207 0.3646 272.0598 0.1 0.6615 0.5174 0.9452 0.8399 0.0186 0.0924 0.4699 242.8646
+> 0.5 0.6466 0.5657 0.9393 0.8558 0.0171 0.1028 0.6887 255.1533 1.0 0.6537 0.5572 0.9440 0.8532 0.0179 0.1065 0.7325 263.7881 5.0 0.6655 0.5206 0.9460 0.8272 0.0181 0.1128 0.9077 265.3829
+
+## J. Cityscapes →Cityscapes-C per-corruption results 
+
+In this section, we provide a detailed breakdown of the performance on individual corruption types from the Cityscapes-C benchmark. While the main text reports the averaged robustness metrics (see Table 2), Tables 12 through 15 present the specific results for Contrast, Defocus Blur, Fog, and Gaussian Noise corruptions, respectively. Consistent with the aggregated results, CORE-MTL demonstrates superior robustness across these diverse domain shifts. Notably, in scenarios characterized by severe visibility reduction, such as Fog (Table 14), our method significantly outperforms gradient-balancing baselines (e.g., surpassing GradNorm and PCGrad by a large margin in mIoU). Similarly, under high-frequency noise interference like Gaussian Noise (Table 15), our approach maintains higher segmentation accuracy and substantially lower depth relative error. These consistent improvements reinforce our claim that structurally disentangling the invariant semantic stream ( Zs) effectively isolates task predictions from residual variations ( Zr ). 
+
+## K. CelebA attribute list (ordered) 
+
+In this section, we provide the complete list of 40 facial attributes from the CelebA dataset, presented in the specific order used across our scalability and gradient orthogonality experiments. Table 16 details the mapping between the attribute names and their corresponding indices. This ordering is crucial for interpreting the gradient interaction heatmaps presented in Figure 5 of the main text. By referencing this table, readers can correlate the high-conflict or orthogonal regions in the heatmaps with specific semantic attribute pairs (e.g., correlating index 21 “Male” with index 37 “Wearing Lipstick” to understand specific task interferences), thereby providing a granular view of how CORE-MTL mitigates optimization conflicts compared to baseline methods. 20 CORE-MTL: Rethinking Gradient Balancing via Causal Orthogonal Representations 
+
+Table 11. Colored-Cityscapes stress test. Class colors are fixed in the source distribution and permuted in the target distribution. Higher is better for mIoU and pixel accuracy, while lower is better for depth errors. 
+
+Method Source mIoU ↑ Source Pix Acc ↑ Source Abs Err ↓ Source Rel Err ↓ Target mIoU ↑ Target Pix Acc ↑ Target Abs Err ↓ Target Rel Err ↓
+
+EW 0.7811 0.9400 0.0123 42.7581 0.3356 0.4501 0.0319 47.0544 PCGrad 0.7800 0.9396 0.0125 42.1546 0.3525 0.4282 0.0370 46.6852 GradNorm 0.7795 0.9398 0.0121 43.0793 0.3545 0.4284 0.0409 46.6124 STCH 0.7719 0.9375 0.0119 42.8746 0.3548 0.4457 0.0251 44.4525 MTAN 0.7902 0.9421 0.0121 42.8665 0.3597 0.4204 0.0513 46.1531 CORE-MTL (Ours) 0.8295 0.9492 0.0121 28.2662 0.3738 0.4889 0.0249 32.1862 
+
+Table 12. Cityscapes →Cityscapes-C: Contrast corruption. Method Seg mIoU ↑ Seg Pix Acc ↑ Depth Abs Err ↓ Depth Rel Err ↓
+
+Equal Weighting 0.5300 0.8354 0.0267 74.2265 PCGrad 0.5282 0.8286 0.0281 75.4339 GradNorm 0.5364 0.8331 0.0240 70.8020 STCH 0.5398 0.8372 0.0224 65.9642 MTAN 0.5377 0.8337 0.0242 66.0131 MOML 0.5568 0.8482 0.0234 61.1203 RLW 0.5396 0.8370 0.0241 73.1554 ExcessMTL 0.5140 0.8261 0.0280 76.8556 FairGrad 0.5271 0.8288 0.0206 62.1508 RepMTL 0.5434 0.8389 0.0208 60.3663 
+
+CORE-MTL (Ours) 0.5405 0.8325 0.0234 46.5571 
+
+Table 13. Cityscapes →Cityscapes-C: Defocus Blur corruption. Method Seg mIoU ↑ Seg Pix Acc ↑ Depth Abs Err ↓ Depth Rel Err ↓
+
+Equal Weighting 0.6876 0.9162 0.0133 44.4824 PCGrad 0.6903 0.9159 0.0133 45.3982 GradNorm 0.6934 0.9168 0.0129 45.4517 STCH 0.6877 0.9151 0.0124 43.4140 MTAN 0.6924 0.9169 0.0132 46.7692 MOML 0.6923 0.9166 0.0143 45.8430 RLW 0.6913 0.9156 0.0134 45.0699 ExcessMTL 0.6879 0.9164 0.0133 44.5311 FairGrad 0.6892 0.9159 0.0123 43.8715 RepMTL 0.7110 0.9202 0.0123 39.4019 
+
+CORE-MTL (Ours) 0.7079 0.9191 0.0128 28.8479 
+
+Table 14. Cityscapes →Cityscapes-C: Fog corruption. Method Seg mIoU ↑ Seg Pix Acc ↑ Depth Abs Err ↓ Depth Rel Err ↓
+
+Equal Weighting 0.4567 0.7580 0.0399 66.4706 PCGrad 0.4667 0.7721 0.0358 65.9890 GradNorm 0.4696 0.7630 0.0334 69.7784 STCH 0.4556 0.7654 0.0280 63.6113 MTAN 0.4574 0.7673 0.0353 65.5247 MOML 0.4893 0.7934 0.0422 58.9439 RLW 0.4826 0.7881 0.0312 59.9741 ExcessMTL 0.4625 0.7705 0.0364 71.2259 FairGrad 0.4459 0.7531 0.0286 64.3044 RepMTL 0.4391 0.7670 0.0247 64.6777 
+
+CORE-MTL (Ours) 0.5165 0.8143 0.0219 43.1408 
+
+Table 15. Cityscapes →Cityscapes-C: Gaussian Noise corruption. Method Seg mIoU ↑ Seg Pix Acc ↑ Depth Abs Err ↓ Depth Rel Err ↓
+
+Equal Weighting 0.6580 0.8988 0.0156 49.8246 PCGrad 0.6553 0.8915 0.0150 49.9915 GradNorm 0.6607 0.8961 0.0148 50.1081 STCH 0.6580 0.8971 0.0138 45.2761 MTAN 0.6674 0.9017 0.0146 47.8989 MOML 0.6572 0.8951 0.0158 50.1173 RLW 0.6528 0.8919 0.0160 49.0778 ExcessMTL 0.6610 0.9004 0.0153 48.5149 FairGrad 0.6601 0.8980 0.0138 47.5155 RepMTL 0.6727 0.8978 0.0144 41.5611 
+
+CORE-MTL (Ours) 0.6766 0.9023 0.0146 33.8447 
+
+Table 16. CelebA attributes in the official order. 1 5 o Clock Shadow 11 Blurry 21 Male 31 Sideburns 2 Arched Eyebrows 12 Brown Hair 22 Mouth Slightly Open 32 Smiling 3 Attractive 13 Bushy Eyebrows 23 Mustache 33 Straight Hair 4 Bags Under Eyes 14 Chubby 24 Narrow Eyes 34 Wavy Hair 5 Bald 15 Double Chin 25 No Beard 35 Wearing Earrings 6 Bangs 16 Eyeglasses 26 Oval Face 36 Wearing Hat 7 Big Lips 17 Goatee 27 Pale Skin 37 Wearing Lipstick 8 Big Nose 18 Gray Hair 28 Pointy Nose 38 Wearing Necklace 9 Black Hair 19 Heavy Makeup 29 Receding Hairline 39 Wearing Necktie 10 Blond Hair 20 High Cheekbones 30 Rosy Cheeks 40 Young 
+
+21

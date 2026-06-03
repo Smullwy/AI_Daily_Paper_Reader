@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-04</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-04 05:55 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读脑科学与AI交叉研究，涵盖功能连接梯度与衰老、人脑与人工神经网络类别选择性差异，速读5项fMRI方法及生成模型进展。</p>
-<p>最值得关注：大脑功能连接梯度的空间模式可敏感区分正常衰老与阿尔茨海默病；人脑的类别选择性机制与当前深度网络存在本质不同。</p>
-<p>建议读者从“脑连接图谱如何助力神经退行性疾病早筛”切入，拓展阅读这两项高评分研究。</p>
+      <p>今日精读2篇脑科学与AI交叉论文，速读5篇前沿研究，聚焦大脑功能组织与人工模型的异同。</p>
+<p>最值得关注：功能连接梯度能分别表征正常老化与阿尔茨海默病，且人脑的类别选择性机制显著异于深度神经网络。</p>
+<p>建议读者延伸阅读多模态脑影像与计算模型对比，并关注静息态fMRI扫描参数对可靠性的影响。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/04/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -87,3 +86,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
