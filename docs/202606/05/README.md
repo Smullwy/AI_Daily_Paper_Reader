@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-05</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-05 05:14 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,9 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>脑重建和面孔-身体视觉整合均获高分精读，揭示层次化序列模型与人类感知机制的融合趋势；三维多模态对齐和混合时空记忆等速读方向同步跟进值得关注。</p>
+      <p>今日精读4篇、速读10篇，聚焦大脑重建与视觉认知前沿。</p>
+<p>最值得看：粗到细层级架构+序列Mamba实现高效脑信号重建，以及人脸与身体在视觉层级中从分离走向融合的新证据。</p>
+<p>关注多模态对齐与超图连接，可拓展对3D识别和脑网络的理解。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/05/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -148,3 +149,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
