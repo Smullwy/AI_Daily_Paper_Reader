@@ -101,6 +101,16 @@ assert.deepStrictEqual(
 assert.deepStrictEqual(
   helpers.buildGitHubBatchUploadPlan(
     [
+      { id: 'one', size: 1024 },
+      { id: 'two', size: 1024 },
+      { id: 'three', size: 1024 },
+    ],
+  ).map((batch) => batch.items.map((item) => item.id)),
+  [['one'], ['two'], ['three']],
+);
+assert.deepStrictEqual(
+  helpers.buildGitHubBatchUploadPlan(
+    [
       { id: 'a', size: 60 },
       { id: 'b', size: 50 },
       { id: 'c', size: 40 },

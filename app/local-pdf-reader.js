@@ -12,7 +12,7 @@
   const LOCAL_PDF_WORKFLOW_ID = 'local-pdf-deep-read.yml';
   const LOCAL_PDF_UPLOAD_DIR = 'docs/assets/local_pdfs/uploads';
   const GITHUB_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
-  const GITHUB_BATCH_MAX_FILES = 8;
+  const GITHUB_BATCH_MAX_FILES = 1;
   const GITHUB_BATCH_MAX_RAW_BYTES = 120 * 1024 * 1024;
   const TITLE_MODE_AUTO = 'auto';
   const TITLE_MODE_FILENAME = 'filename';
@@ -1364,15 +1364,6 @@
     if (!candidates.length) {
       throw new Error('没有可提交的 PDF。');
     }
-    candidates.forEach((item) => {
-      if (Number(item.file && item.file.size || 0) > GITHUB_UPLOAD_MAX_BYTES) {
-        const sizeText = formatBytes(item.file && item.file.size);
-        throw new Error(
-          `${item.fileName || 'PDF'} 为 ${sizeText}，超过网页上传安全上限 `
-          + `${formatBytes(GITHUB_UPLOAD_MAX_BYTES)}。请压缩后重试，或在本地 clone 仓库后用 git push 上传。`,
-        );
-      }
-    });
     const token = getGithubTokenForActions();
     if (!token) {
       throw new Error('未检测到 GitHub Token。请先在首页完成 GitHub Token 配置，并确保具备 repo 与 workflow 权限。');
@@ -1392,14 +1383,12 @@
         titleOverride: getImportItemTitle(item),
       };
     });
-    const uploadPlan = buildGitHubBatchUploadPlan(baseEntries);
+    const uploadPlan = buildGitHubBatchUploadPlan(baseEntries, { maxFiles: 1 });
     const batches = [];
     const submittedItems = [];
 
     setStatus(
-      uploadPlan.length > 1
-        ? `将 ${candidates.length} 篇 PDF 自动拆成 ${uploadPlan.length} 批上传，每批最多 ${GITHUB_BATCH_MAX_FILES} 篇 / ${formatBytes(GITHUB_BATCH_MAX_RAW_BYTES)}。`
-        : `正在上传 ${candidates.length} 篇 PDF 批次到 ${repoContext.owner}/${repoContext.repo}...`,
+      `将 ${candidates.length} 篇 PDF 拆成 ${uploadPlan.length} 个单篇任务逐个上传。`,
       'loading',
     );
 
@@ -1408,67 +1397,69 @@
       const batchId = uploadPlan.length === 1
         ? rootBatchId
         : `${rootBatchId}-part-${String(batchIndex + 1).padStart(2, '0')}`;
-      const uploadEntries = plan.items.map((entry, index) => ({
-        ...entry,
-        uploadPath: buildBatchUploadPath(batchId, index, entry.fileName),
-      }));
-      const manifestPath = buildBatchManifestPath(batchId);
-      const manifest = buildLocalPdfBatchManifest(uploadEntries);
-      const files = uploadEntries.map((entry) => ({
-        path: entry.uploadPath,
-        file: entry.file,
-        label: entry.fileName,
-      }));
-      files.push({
-        path: manifestPath,
-        label: `${batchId}/manifest.json`,
-        contentBase64: utf8ToBase64(JSON.stringify(manifest, null, 2)),
-      });
+      const entry = plan.items[0];
+      if (!entry) continue;
+      const fileSize = Number(entry.file && entry.file.size || 0);
 
-      setStatus(
-        `正在上传第 ${batchIndex + 1}/${uploadPlan.length} 批：${uploadEntries.length} 篇 PDF，约 ${formatBytes(plan.totalBytes)}...`,
-        'loading',
-      );
-      await uploadFilesToGithubCommit({
-        token,
-        owner: repoContext.owner,
-        repo: repoContext.repo,
-        branch: repoContext.defaultBranch,
-        files,
-        message: `[chore] upload local PDF batch for deep read: ${batchId}`,
-      });
+      try {
+        if (fileSize > GITHUB_UPLOAD_MAX_BYTES) {
+          throw new Error(
+            `${entry.fileName || 'PDF'} 为 ${formatBytes(fileSize)}，超过网页上传安全上限 `
+            + `${formatBytes(GITHUB_UPLOAD_MAX_BYTES)}。请压缩后重试，或在本地 clone 仓库后用 git push 上传。`,
+          );
+        }
 
-      setStatus(`第 ${batchIndex + 1}/${uploadPlan.length} 批已上传，正在触发 GitHub Actions 后台精读...`, 'loading');
-      const createdAt = new Date();
-      await dispatchLocalPdfWorkflow({
-        token,
-        owner: repoContext.owner,
-        repo: repoContext.repo,
-        branch: repoContext.defaultBranch,
-        manifestPath,
-      });
-      const run = await waitForLocalPdfWorkflowRun({
-        token,
-        owner: repoContext.owner,
-        repo: repoContext.repo,
-        branch: repoContext.defaultBranch,
-        createdAt,
-      });
-      batches.push({
-        batchId,
-        manifestPath,
-        run,
-        count: uploadEntries.length,
-      });
-      uploadEntries.forEach((entry) => {
+        const uploadPath = buildUploadPath(entry.fileName);
+        setStatus(
+          `正在上传第 ${batchIndex + 1}/${uploadPlan.length} 篇：${entry.fileName}（${formatBytes(fileSize)}）...`,
+          'loading',
+        );
+        await uploadPdfToGithub({
+          token,
+          owner: repoContext.owner,
+          repo: repoContext.repo,
+          branch: repoContext.defaultBranch,
+          file: entry.file,
+          uploadPath,
+        });
+
+        setStatus(`第 ${batchIndex + 1}/${uploadPlan.length} 篇已上传，正在触发 GitHub Actions 后台精读...`, 'loading');
+        const createdAt = new Date();
+        await dispatchLocalPdfWorkflow({
+          token,
+          owner: repoContext.owner,
+          repo: repoContext.repo,
+          branch: repoContext.defaultBranch,
+          uploadPath,
+          fileName: entry.fileName,
+          titleOverride: entry.titleOverride,
+        });
+        const run = await waitForLocalPdfWorkflowRun({
+          token,
+          owner: repoContext.owner,
+          repo: repoContext.repo,
+          branch: repoContext.defaultBranch,
+          createdAt,
+        });
+        batches.push({
+          batchId,
+          uploadPath,
+          run,
+          count: 1,
+        });
         submittedItems.push({
           client_id: entry.clientId,
-          upload_path: entry.uploadPath,
+          upload_path: uploadPath,
           batch_id: batchId,
-          manifest_path: manifestPath,
           run,
         });
-      });
+      } catch (error) {
+        submittedItems.push({
+          client_id: entry.clientId,
+          batch_id: batchId,
+          error: error && error.message ? error.message : '该 PDF 上传或触发后台精读失败。',
+        });
+      }
     }
     return {
       ok: true,
@@ -2162,6 +2153,7 @@
         outcomes = candidates.map((item) => {
           const submitted = submittedItems.find((entry) => entry && entry.client_id === item.id);
           if (!submitted) return applyOutcome(item, null, '未返回该 PDF 的批次提交信息。');
+          if (submitted.error) return applyOutcome(item, null, submitted.error);
           return applyOutcome(
             item,
             {
