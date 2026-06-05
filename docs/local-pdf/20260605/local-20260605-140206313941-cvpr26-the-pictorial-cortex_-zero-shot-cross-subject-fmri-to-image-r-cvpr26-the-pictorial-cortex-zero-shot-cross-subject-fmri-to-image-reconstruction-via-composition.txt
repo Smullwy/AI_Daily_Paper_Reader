@@ -1,0 +1,2051 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+1
+The Pictorial Cortex: Zero-Shot Cross-Subject
+fMRI-to-Image Reconstruction via Compositional
+Latent Modeling
+Jingyang Huo, Yikai Wang, Yanwei Fu, Jianfeng Feng
+Abstract—Decoding visual experiences from human brain
+activity remains a central challenge at the intersection of neu-
+roscience, neuroimaging, and artificial intelligence. A critical
+obstacle is the inherent variability of cortical responses: neural
+activity elicited by the same visual stimulus differs across
+individuals and trials due to anatomical, functional, cognitive,
+and experimental factors, making fMRI-to-image reconstruction
+highly non-injective. In this paper, we tackle a challenging yet
+practically meaningful problem: zero-shot cross-subject fMRI-to-
+image reconstruction (ZS-CS fMRI2Image), where the visual ex-
+perience of a previously unseen individual must be reconstructed
+without subject-specific training. To enable principled evaluation,
+we present a unified cortical-surface dataset – UniCortex-fMRI,
+assembled from multiple visual-stimulus fMRI datasets to pro-
+vide broad coverage of subjects and stimuli. Our UniCortex-fMRI
+is particularly processed by standardized data formats to make
+it possible to explore this possibility in the zero-shot scenario
+of cross-subject fMRI-to-image reconstruction. To tackle the
+modeling challenge, we propose the Pictorial Cortex (Pictorial-
+Cortex), which models fMRI activity using a compositional latent
+formulation that structures stimulus-driven representations under
+subject-, dataset-, and trial-related variability. PictorialCortex
+operates in a universal cortical latent space and implements this
+formulation through a latent factorization–composition module,
+reinforced by paired factorization and re-factorizing consistency
+regularization. During inference, surrogate latents synthesized
+under multiple seen-subject conditions are aggregated to guide
+diffusion-based image synthesis for unseen subjects. Extensive
+experiments demonstrate that PictorialCortex substantially im-
+proves zero-shot cross-subject visual reconstruction, highlighting
+the benefits of compositional latent modeling and multi-dataset
+training. The dataset, code, and models will be released and
+shared to the community.
+Index
+Terms—Neural
+Decoding,
+fMRI-to-Image,
+Cross-
+Subject, Diffusion Model.
+I. INTRODUCTION
+D
+ECODING visual experiences from human brain activity
+remains a central challenge in neuroscience and a rapidly
+advancing frontier bridging neuroimaging, computer vision,
+and artificial intelligence. In recent years, this pursuit has
+Jingyang Huo and Jianfeng Feng are with the Institute of Science and
+Technology for Brain-inspired Intelligence (ISTBI), Fudan University. Jian-
+feng Fen, and Yanwei Fu are also with the School of Data Science, Fudan
+University, Shanghai 200437, China, and Fudan ISTBI–ZJNU Algorithm
+Centre for Brain-Inspired Intelligence, Zhejiang Normal University, Jinhua
+321017, China. Yanwei Fu is also with Shanghai Innovation Institute, Shang-
+hai 200080, China (e-mail: jyhuo22@m.fudan.edu.cn, jffeng@fudan.edu.cn,
+yanweifu@fudan.edu.cn). Yanwei Fu is the corresponding author.
+Yikai Wang is with Nanyang Technological University (e-mail: yi-
+kai.wang@outlook.com).
+Manuscript received April 19, 2021; revised August 16, 2021.
+(b) Raw fMRI space.
+(c) Stimulus-driven latent space.
+Image 1
+Image 2
+Image 3
+Image 4
+(a) fMRI signals from Subject 1 and Subject 2.
+Sub 1
+Sub 2
+Sub 1
+Sub 2
+Sub 1
+Sub 2
+Sub 1
+Sub 2
+Fig. 1. fMRI responses of Subject 1 and Subject 2 under the same images:
+(a) raw fMRI responses on the cortical surface, (b) t-SNE of raw fMRI
+space, and (c) t-SNE of PictorialCortex stimulus-driven latent space. Colors
+indicate different images; star markers denote Subject 1, and upward triangles
+denote Subject 2. In the raw fMRI space, responses cluster by subject rather
+than image, while in the stimulus-driven latent space, the same images from
+different subjects are closely aligned.
+increasingly focused on a concrete and challenging task:
+reconstructing visual images directly from functional magnetic
+resonance imaging (fMRI) signals [1]. At its core, fMRI-to-
+image reconstruction seeks to answer a fundamental question:
+can the visual content perceived by a human observer be
+reliably inferred from their brain activity alone? In a typical
+stimulus-driven paradigm, subjects view visual stimuli while
+large-scale, distributed neural responses are elicited across
+the cortex and captured by fMRI. The objective of fMRI-to-
+image reconstruction is to transform these indirect and noisy
+neural measurements into images that are consistent with the
+observer’s perceptual experience.
+A central challenge of fMRI-to-image reconstruction stems
+from the inherent subjectivity of cortical responses. Human
+perception is not a direct replication of the external world,
+but rather the result of complex interactions between objective
+sensory input and subjective interpretation. Consequently, the
+fMRI responses elicited by the same visual stimulus can differ
+substantially across individuals, and even across repeated
+presentations within the same individual [2]. This subjectivity
+arXiv:2601.15071v1  [cs.CV]  21 Jan 2026
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+2
+manifests at multiple levels. (i) Inter-subject variability arises
+from differences in cortical anatomy, functional topography,
+vascular coupling, and baseline neural dynamics, leading dif-
+ferent individuals to exhibit distinct fMRI activation patterns
+under identical visual input [3]–[5]. As shown in Figure 1(a),
+the same image evokes markedly different cortical activation
+patterns across subjects. When visualized in the raw fMRI
+latent space (Figure 1(b)), responses are dominated by subject
+identity rather than stimulus content: fMRI patterns from
+the same subject are closer to each other even when the
+viewed images differ, while responses to the same image from
+different subjects are widely separated. This subject-dominated
+organization indicates individual cortical characteristics can
+overshadow objective image responses in fMRI signals. (ii)
+In addition to inter-subject variability, substantial intra-subject
+(trial-wise) variability further complicates decoding. Repeated
+presentations of the same stimulus can elicit different fMRI re-
+sponses due to fluctuations in attention, cognitive state, neural
+adaptation, slow baseline drifts, and measurement noise [2],
+[6], [7]. These sources of variability also interact with hetero-
+geneity in experimental protocols, including stimulus design,
+scanning parameters, and preprocessing pipelines, introducing
+additional dataset-dependent biases [8]. Together, these factors
+render the mapping from visual stimuli to fMRI responses
+highly non-injective, in which multiple, subject- and context-
+dependent neural patterns correspond to the same perceptual
+content. This non-injectivity poses a fundamental obstacle to
+robust and generalizable fMRI-to-image reconstruction.
+In this paper, we address a substantially more challenging
+yet practically and scientifically meaningful objective: zero-
+shot cross-subject fMRI-to-image reconstruction, abbreviated
+as ZS-CS fMRI2Image. In this setting, the goal is to re-
+construct the visual experience of a previously unseen indi-
+vidual without any subject-specific training. This formulation
+more accurately reflects real-world neuroimaging constraints,
+where collecting extensive fMRI data for each new subject is
+costly, time-consuming, and often impractical. Achieving ZS-
+CS fMRI2Image requires learning representations that are both
+robust and transferable across individuals, which in turn de-
+mands explicitly disentangling stimulus-driven visual content
+from the heterogeneous subject-specific, dataset-dependent,
+and trial-wise factors entangled in fMRI signals. To the best of
+our knowledge, zero-shot cross-subject fMRI-to-image recon-
+struction has received little systematic investigation, primarily
+due to the intertwined model and dataset challenges inherent
+to this task.
+Model Challenge. Recent advances in generative modeling,
+particularly diffusion-based image synthesis, have substan-
+tially revitalized research on fMRI-to-image reconstruction.
+Our prior work, NeuroPictor [9], introduced a diffusion-
+based framework that directly modulates image generation
+using multi-level conditioning extracted from fMRI signals. By
+mapping fMRI data onto a unified cortical-surface representa-
+tion, NeuroPictor showed that multi-individual pretraining can
+improve reconstruction quality for single-subject fine-tuning. It
+achieves precise control over both semantic and spatial aspects
+of reconstructed images, producing high-fidelity results. Nev-
+ertheless, our NeuroPictor, like most existing approaches [9]–
+[13], operates predominantly in a within-subject paradigm, in
+which decoders are trained (or fine-tuned) and evaluated on the
+same individual. While effective under controlled experimental
+settings, this paradigm implicitly treats subject- and trial-
+specific variability as noise rather than explicitly modeling it.
+As a result, these methods typically encode fMRI signals into a
+single visual latent space, collapsing heterogeneous sources of
+variability into a monolithic representation. When combined
+with the high dimensionality of fMRI data and pronounced
+inter-subject heterogeneity, this design encourages overfitting
+to idiosyncratic subject–stimulus associations, thereby harm-
+ing robustness and severely limiting generalization to unseen
+individuals and novel stimuli. Fundamentally, this limitation
+arises from inadequate modeling of multiple factors underlying
+cortical responses, as fMRI activity reflects a complex mixture
+of stimulus-driven visual information, individual anatomical
+and functional characteristics, cognitive state, and experimen-
+tal protocol.
+Dataset Challenge. Progress in zero-shot cross-subject fMRI-
+to-image reconstruction has also been constrained by the
+absence of an appropriate dataset-level testbed. Existing fMRI
+datasets exhibit a pronounced imbalance between subject
+diversity and stimulus variability, limiting principled evalu-
+ation of cross-subject generalization. Large-scale visual fMRI
+datasets such as NSD [14], BOLD5000 [15], and NOD [16]
+provide thousands of image–fMRI pairs per subject, but in-
+clude only a small number of individuals, encouraging models
+to overfit subject-specific regularities rather than learn subject-
+agnostic representations. In contrast, datasets such as HCP-
+Movie [17] offer substantially broader subject coverage but
+extremely sparse stimulus exposure per subject, making it
+difficult to disentangle stimulus-driven visual information from
+noise. As a result, neither dimension is sufficiently represented
+in isolation, impeding rigorous study of zero-shot cross-subject
+fMRI-to-image reconstruction. To overcome this limitation,
+we present UniCortex-fMRI, a unified cortical-surface fMRI
+dataset specifically designed as a principled testbed for cross-
+subject generalization. UniCortex-fMRI integrates four hetero-
+geneous visual-stimulus datasets—NSD, BOLD5000, NOD,
+and HCP-Movie—into a common fsLR cortical surface rep-
+resentation with standardized preprocessing and unified data
+formats, making the dataset directly and publicly usable by the
+research community. As a very large unified cortical-surface
+fMRI dataset for this task, UniCortex-fMRI provides extensive
+coverage of both subjects and stimuli and supports a principled
+evaluation protocol with controlled seen/unseen subject splits
+and consistent task definitions, enabling robust and systematic
+assessment of zero-shot cross-subject reconstruction.
+Proposed Framework. We further address the model chal-
+lenge, and propose the Pictorial Cortex (PictorialCortex),
+a framework that explicitly models the factors underlying
+cortical responses through a compositional latent formulation.
+Each fMRI observation is represented as a structured combi-
+nation of four interpretable components: (i) a stimulus-driven
+factor encoding stable visual content shared across subjects,
+(ii) a dataset factor capturing dataset- and protocol-specific
+variations, (iii) a subject factor reflecting individual cortical
+characteristics, and (iv) a nuisance factor modeling residual,
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+3
+trial-wise variability that does not carry stable or reusable
+stimulus semantics. By organizing these components through
+conditioning and recomposition, PictorialCortex emphasizes
+stimulus-driven representations that can generalize across sub-
+jects, while accommodating subjective and experimental vari-
+ability. Importantly, this formulation operates on a universal
+cortical latent space learned via a pretrained autoencoder,
+which maps heterogeneous fMRI activations into a compact,
+shared representation, providing a stable foundation for com-
+positional modeling across subjects.
+Formally, our PictorialCortex first pretrains a high-capacity
+autoencoder on cortical surface fMRI data from the large-scale
+UK Biobank [18] dataset. This pretraining embeds hetero-
+geneous neural responses into a shared and compact latent
+space that captures cortical structure while abstracting away
+subject-specific variability. This resulting universal cortical
+latent space serves as a stable representational substrate across
+individuals, forming the foundation for downstream cross-
+subject modeling.
+Building on this universal latent, we introduce a Latent
+Factorization–Composition Module (LFCM) that factorizes
+each fMRI observation into four interpretable components:
+stimulus-driven visual content, subject, dataset, and nuisance.
+The Factorizer maps the universal latent to stimulus and nui-
+sance codes conditioned on dataset and subject embeddings,
+while the Compositor recombines these components into sur-
+rogate latents. Notably, as in Figure 1(c), this factorization
+produces a stimulus-driven latent space that effectively aligns
+representations of the same stimulus across subjects while
+separating different stimuli within a single subject, capturing
+the objective visual content underlying the fMRI responses. To
+encourage robust factorization, we employ two complementary
+training mechanisms: (i) Paired Factorization and Reconstruc-
+tion encourages paired fMRI observations of the same stim-
+ulus to share a stimulus-driven code while capturing residual
+variability in the nuisance component, and (ii) Re-Factorizing
+Consistency Regularization exposes the Factorizer of LFCM
+to surrogate latents generated by the Compositor, encouraging
+that re-factorizing these latents recovers the original stimulus-
+driven and nuisance factors.
+During inference for an unseen subject, we first extract an
+initial stimulus-driven code using a default subject embedding.
+To mitigate distributional shifts, the Compositor in LFCM
+synthesizes surrogate fMRI latents under multiple seen-subject
+conditions, which are then re-factorized and aggregated to
+produce the final stimulus-driven code. This code subsequently
+guides diffusion-based image synthesis, enabling zero-shot
+cross-subject visual reconstruction.
+Extensive experiments demonstrate that PictorialCortex sub-
+stantially improves zero-shot cross-subject visual reconstruc-
+tion, validating the effectiveness of compositional latent mod-
+eling for subject-agnostic neurodecoding. Furthermore, results
+show that our model benefits from multi-dataset training
+on UniCortex-fMRI, highlighting the importance of diverse
+subjects for robust cross-subject generalization.
+Contributions. (1) We construct UniCortex-fMRI, the unified
+cortical-surface fMRI dataset, integrating four visual-stimulus
+datasets with extensive subject and stimulus coverage, en-
+abling systematic evaluation of zero-shot cross-subject gen-
+eralization. (2) We propose PictorialCortex, a compositional
+latent framework that disentangles fMRI signals into stimulus-
+driven, subject, dataset, and nuisance components, and em-
+ploys a factorization–composition learning strategy with paired
+factorization and re-factorizing consistency regularization to
+encourage robust, invariant stimulus representations across
+subjects while modeling individual and experimental vari-
+ability. (3) We leverage UK Biobank pretraining to learn
+a universal cortical latent space, supporting multi-dataset,
+multi-subject learning without requiring subject-specific en-
+coders. (4) We achieve state-of-the-art zero-shot cross-subject
+fMRI-to-image reconstruction, demonstrating the effectiveness
+of compositional modeling, surrogate-latent aggregation, and
+dataset diversity for subject-agnostic neurodecoding.
+II. RELATED WORK
+A. fMRI-to-image Reconstruction
+This task focuses on reconstructing visual images from
+recorded fMRI signals. Most methods operate in a within-
+subject paradigm, training separate models for each individ-
+ual to account for subject-specific neural response patterns.
+Early fMRI decoding studies focused on coarse semantic
+prediction [19], image classification [20], [21], stimulus re-
+trieval [22], or reconstructing simple patterns such as hand-
+written digits [23]. The advent of deep generative models,
+including GAN and VAE-based approaches, improved re-
+construction fidelity for natural images [24]–[27]. Recently,
+diffusion models [28] have substantially advanced fMRI-to-
+image reconstruction [12], [13], [29]–[32]. Chen et al. [29]
+leveraged masked brain modeling with Latent Diffusion Mod-
+els to improve semantic alignment, though text-only con-
+ditioning limits spatial fidelity. Other approaches integrate
+CLIP features with VAE intermediates [12], [13], [33]–[35]
+or incorporate low-level geometric cues like depth [31] and
+silhouettes [30] to enhance visual coherence. Our conference
+version, NeuroPictor [9], directly modulates diffusion model
+using multi-level fMRI conditioning, achieving precise control
+over semantic and spatial content. However, like most existing
+methods [9]–[13], it is limited to within-subject evaluation.
+In contrast, this work addresses the zero-shot cross-subject
+fMRI-to-image reconstruction problem, where no test-subject-
+specific training data is available.
+B. Cross-subject fMRI Decoding
+NeuroPictor [9] demonstrated that multi-subject pretraining
+followed by subject-specific refinement can improve within-
+subject decoding, highlighting the benefits of knowledge trans-
+fer across individuals. Similar observations have been reported
+in several NSD-based studies [10], [33], [34], [36]. Beyond
+simple fine-tuning, more recent approaches [10], [36]–[39]
+explore few-shot adaptation, where a small number of samples
+from a new subject are used to personalize a pretrained
+decoder. Despite these advances, zero-shot cross-subject gen-
+eralization remains largely unsolved. Kong et al. [40] show
+on 177 HCP-Movie subjects that decoding performance for
+unseen individuals strongly depends on the number of training
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+4
+subjects, emphasizing subject diversity as a key limiting factor.
+However, existing datasets [14]–[17] exhibit a fundamental
+imbalance: some provide dense stimulus coverage for only a
+few subjects, while others include many subjects but with ex-
+tremely sparse stimulus exposure. This mismatch prevents sys-
+tematic evaluation of zero-shot cross-subject fMRI-to-image
+reconstruction. In this work, we introduce UniCortex-fMRI,
+a unified dataset specifically designed as a principled testbed
+for zero-shot cross-subject fMRI-to-image reconstruction. By
+consolidating multiple major datasets, including NSD [14],
+BOLD5000 [15], NOD [16], and HCP-Movie [17], UniCortex-
+fMRI jointly expands subject diversity and stimulus coverage,
+enabling controlled evaluation of cross-subject generalization.
+C. Pretrained fMRI Encoders
+Learning robust fMRI encoders is crucial for scalable
+and generalizable decoding. Population-scale modeling ef-
+forts [41], [42] capture high-level cohort features for tasks
+such as sex classification, age regression, or disease pre-
+diction, but these representations lack the spatial and se-
+mantic fidelity needed for fine-grained image reconstruction.
+Many methods also struggle with anatomical heterogeneity in
+voxel space, which makes representations difficult to transfer
+across individuals. For example, masked brain modeling meth-
+ods [11], [43] pretrained on BOLD5000 capture contextual
+structure but typically rely on subject-specific projections to
+accommodate varying voxel dimensionalities. Similarly, recent
+multi-subject decoders [10], [36]–[38] rely on subject-specific
+linear projections to map heterogeneous voxel spaces into
+latent space. In contrast, our work builds upon the fMRI
+autoencoding strategy introduced in NeuroPictor [9], [44],
+which maps native-space fMRI signals onto a unified 2D
+fsLR cortical surface representation, enabling multi-individual
+modeling without subject-specific encoders. PictorialCortex
+further extends this approach by large-scale pretraining on UK
+Biobank and subsequent factorization to the UniCortex-fMRI
+dataset. Importantly, in our framework, this unified encoder
+does not serve as the final representation, but as a stable
+foundation upon which explicit compositional modeling of
+stimulus-related representations under subject-, dataset-, and
+nuisance-related influences is performed to support robust
+zero-shot cross-subject decoding.
+D. fMRI-conditioned Diffusion Models
+Existing fMRI-conditioned diffusion methods mainly fol-
+low two paradigms. One line [10], [12], [13] maps fMRI
+signals into pretrained multimodal spaces, such as VAE la-
+tents, CLIP text and vision embeddings [45], and performs
+image-to-image diffusion [46] generation under these priors.
+While effective, their high-dimensional latent spaces introduce
+redundancy, increasing overfitting risk and limiting cross-
+subject generalization. Another line [9], [29], relies on end-
+to-end implicit learning without explicit feature alignment,
+which lacks unified supervision and can be unstable for zero-
+shot cross-subject reconstruction. In contrast, we adopt IP-
+Adapter [47] as it operates on a compact latent space and
+enables direct image reconstruction from a single feature,
+Image 1
+Image 2
+Image 3
+Image 4
+GT Image
+Subject 1
+Subject 2
+Fig. 2. Visualizations of fMRI responses from two subjects viewing the same
+visual stimuli. In each row, the first column shows the ground-truth image.
+Columns 2–4 display three fMRI responses from Subject 1 under repeated
+presentations of the same image , while columns 5–7 show the corresponding
+three fMRI responses from Subject 2. Full size is in Appendix.
+making it particularly suited for robust zero-shot cross-subject
+fMRI-to-image reconstruction.
+III. TASK AND DATASET
+A. Task definition
+We study the problem of visual neurodecoding, which aims
+to reconstruct a perceived visual stimulus from human fMRI
+measurements. Let S denote an fMRI observation recorded
+from a subject during the presentation of a visual stimulus,
+and let I denote the ground-truth image. Each fMRI sample
+is additionally associated with a subject identity sub and a
+dataset or acquisition condition dataset, reflecting differences
+in experimental protocols, scanners, and stimulus paradigms.
+The goal of visual neurodecoding is to learn a mapping
+f : S →I,
+(1)
+such that the reconstructed image faithfully reflects the visual
+content that elicited the observed neural response.
+Within-subject decoding. Most existing fMRI-to-image re-
+construction methods operate in a within-subject setting, where
+both training and testing samples are drawn from the same
+individual under fixed experimental conditions. In this regime,
+subject- and trial-specific variability is not explicitly modeled;
+models implicitly assume such variability is negligible or
+constant. While this simplification facilitates learning, it results
+in models that are tightly coupled to individual subjects and
+experimental setups, limiting generalization to new subjects.
+Zero-shot cross-subject decoding. Thus, we tackle with zero-
+shot cross-subject visual decoding. Formally, during training
+the model observes fMRI samples from a set of subjects Utrain,
+while at test time it is evaluated on samples from a disjoint
+set of unseen subjects Utest, where Utrain ∩Utest = ∅. The
+objective is to reconstruct the visual stimulus experienced by
+an unseen subject only from their fMRI measurements, without
+any subject-specific fine-tuning.
+This setting highlights the non-injective nature of the stim-
+ulus–fMRI mapping: identical visual stimuli can evoke highly
+variable neural responses across subjects and trials due to
+anatomical, cognitive, and experimental differences. As in
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+5
+V1
+V1
+V2
+V2
+V3
+V3
+V4
+V4
+V3A
+V3
+A
+V6
+V6
+V6A
+V6A
+IP0
+V7
+IP0
+VMV2
+V8
+PIT
+LO2
+LO1
+V3CD V3B
+PHA1
+PHA2
+PHA3
+VVC
+FFC
+PH
+FST
+MST
+MT
+LO3
+V4t
+PHA1
+PHA2
+PHA3
+VVC
+VMV1
+VMV3
+VMV1
+VMV3
+VMV2
+PIT
+PH
+FST
+MST
+MT
+LO3
+FFC
+V8
+V7
+V3B
+V3CD LO1
+LO2
+V4t
+IPS1
+IPS1
+TE2p
+TE2p
+(a) Visual cortex localization
+(b) ROI-level parcellation
+Fig. 3.
+(a) Visualization of the visual cortex (VC) highlighted within the
+whole cortical surface. (b) ROI-level parcellation within the visual cortex,
+where colors indicate different visual areas.
+Figure 14, even for the same image, fMRI responses can
+differ markedly between subjects and across repeated trials
+within a single subject. Effective zero-shot decoding therefore
+requires disentangling stimulus-driven visual content from
+subject-, dataset-, and nuisance-related factors embedded in
+fMRI signals.
+B. UniCortex-fMRI Dataset
+Reliable evaluation of zero-shot cross-subject neurodecod-
+ing requires both broad subject diversity and sufficient visual
+stimulus variability. However, no prior resource jointly offers
+large-scale subject diversity and rich visual stimulus coverage
+suitable for visual decoding at scale. Existing fMRI datasets
+typically emphasize only on one of these dimensions: datasets
+with rich stimulus coverage often include only a small number
+of subjects, while datasets with many participants provide lim-
+ited and highly constrained stimulus exposure. This structural
+imbalance makes it difficult to disentangle stimulus-driven
+representations from dataset-, subject-, and nuisance-related
+variability, and severely limits cross-subject generalization.
+To address this limitation, we construct UniCortex-fMRI,
+a large dataset for visual-stimulus fMRI decoding with
+standardized preprocessing and unified data formats, mak-
+ing the dataset directly and publicly usable by the re-
+search community. UniCortex-fMRI consolidates multiple
+large-scale datasets into a unified representational and ex-
+perimental framework, enabling joint modeling across het-
+erogeneous acquisition protocols and systematic evaluation
+of zero-shot cross-subject decoding at scale. Specifically,
+UniCortex-fMRI integrates four widely used datasets: the
+Natural Scenes Dataset (NSD), the Brain, Object, Landscape
+Dataset (BOLD5000), the Natural Object Dataset (NOD),
+and the Human Connectome Project movie-watching dataset
+(HCP-Movie). These datasets cover complementary regimes of
+subject diversity and stimulus complexity. In total, the dataset
+comprises 219 subjects and 816,660 trial-wise pairs of fMRI
+recordings and visual stimuli.
+Across all datasets, raw fMRI recordings are reprocessed
+using a unified pipeline. All data are projected onto the fsLR-
+32k cortical surface, normalized by per-session z-scoring, and
+restricted to the visual cortex. We select both early and higher-
+level visual cortex regions of interest (RoIs) from the HCP-
+MMP atlas in fsLR32K space, including “V1, V2, V3, V3A,
+V3B, V3CD, V4, LO1, LO2, LO3, PIT, V4t, V6, V6A, V7,
+V8, PH, FFC, IP0, MT, MST, FST, VVC, VMV1, VMV2,
+VMV3, PHA1, PHA2, PHA3, TE2p, IPS1” (Figure 3). The
+resulting signals are converted into standardized 256×256 cor-
+tical activation maps. This harmonized representation enables
+consistent definition of training and testing splits, including
+controlled seen/unseen subject partitions, and supports joint
+learning across datasets without subject-specific encoders.
+Below, we describe the dataset-specific characteristics and
+train/test splits used throughout this work.
+Natural Scenes Dataset. NSD presents 73,000 natural images
+sourced from the MS-COCO dataset [48]. In the conference
+version of NeuroPictor [9], only the earlier incomplete NSD
+release was used. Here, we additionally incorporate the newly
+released three sessions for each subject. NSD includes eight
+subjects: subjects 1, 2, 5, 7 each viewed 10,000 images three
+times (30,000 trials per subject); subjects 3 and 6 viewed 8,000
+images three times (24,000 trials per subject); subjects 4 and
+8 viewed 7,500 images three times (22,500 trials per subject).
+Following NSD’s standard protocol, the 1,000 images viewed
+by all subjects are used as the test set. We further designate
+subject 1 as an unseen subject excluded from all training for
+evaluating zero-shot cross-subject decoding.
+HCP-Movie. The HCP-Movie dataset includes 177 partici-
+pants watching four movie clips (about 15 minutes each).
+In HCP-Movie, fMRI is natively sampled at 1 Hz, allowing
+each volume to be aligned with the video frame shown in
+the corresponding second. A 4-second shift is applied to
+compensate for the hemodynamic delay. Following the data
+split protocol in [40], we remove blank frames and obtain
+3,027 frames for training and 100 frames for testing for each
+subject. Subjects 1–10 are held out as unseen subjects.
+BOLD5000. BOLD5000 includes four subjects who collec-
+tively viewed almost 5,000 images: 1,000 scene images, 2,000
+COCO images, and 1,916 ImageNet images. We found that a
+subset of COCO images overlaps with the NSD test images.
+To avoid inadvertent cross-dataset leakage, all overlapping
+COCO images are reassigned to the test split. This results
+in 3,923 training images and 1,331 test images, differing from
+the official split. Subject 1 is designated as the unseen subject.
+Natural Object Dataset. NOD includes 30 participants and a
+total of 57,620 naturalistic images. Among the 30 participants,
+nine subjects (subjects 1–9) viewed a richer set of stimuli:
+they each completed four non-overlapping ImageNet sessions
+(4,000 unique images per subject) plus a COCO session
+containing 120 identical images shared across all nine subjects,
+each repeated ten times. The remaining 21 subjects (subjects
+10–30) completed only a single ImageNet session with 1,000
+subject-specific images. For experimental consistency, we con-
+struct subject-wise train/test splits as follows: for subjects 1–9,
+we use the 10 shared COCO images and 200 ImageNet images
+per subject as the test set; for subjects 10–30, we select 50
+images per subject as the test set. All remaining images are
+used for training. We designate subject 1 as an unseen subject
+for evaluating cross-subject generalization.
+IV. METHOD
+We build PictorialCortex on the UniCortex-fMRI dataset.
+As in Figure 4, it employs a compositional latent formulation
+that factorizes each fMRI observation into stimulus-driven
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+6
+Surrogate Latent
+Dataset
+Subject
+Visiual 
+Stimulus
+Non-Stimulus 
+Conditional 
+Variability
+Nuisance
+z
+Universal
+Encoder
+Stimulus-
+driven code
+Nuisance 
+code
+c
+n
+z
+fMRI 
+Input
+Latent Factorization–Composition Module (LFCM) 
+c
+Re-factorized 
+codes
+Human Perceptual Encoding
+Universal
+Decoder
+fMRI 
+Reconstruction
+Visual
+Encoder
+GT visual 
+feature
+gt
+c
+n
+Re-Factorizing
+Compositor
+Universal Latent
+Factorizer
+Dataset code 
+Subject code
+sub
+e
+data
+e
+Re-Factorizing
+Align
+Universal
+Encoder
+test
+z
+Factorizer
+Compositor
+Inference
+fMRI from
+Unseen Subject 
+Diffusion
+Image 
+Reconstruction
+sub
+def
+e
+data
+e
+te
+c
+te
+n
+tec
+Factorizer
+( )
+s
+z
+subs
+e
+Collection of 
+Seen Subject Codes
+Re-Factorizing
+fMRI 
+Input
+fMRI 
+Reconstruction
+Universal
+Encoder
+Universal
+ Decoder
+MSE
+Universal Cortical 
+Representation Learning
+Universal
+Latent
+( )
+te
+s
+c
+Average
+Collection of 
+surrogate latents
+Re-factorized 
+stimulus-driven codes
+Final canonical 
+Representation
+Fig. 4. Overview of the PictorialCortex framework. Given an fMRI signal arising from a visual stimulus, the observed cortical response is jointly influenced
+by stimulus-driven visual content as well as non-stimulus variability, including subject identity, dataset context, and trial-wise nuisance. (i) Top-left: Universal
+cortical representation learning maps fMRI inputs to a shared representational space, enabling reconstruction across subjects. (ii) Top-right: We first encode the
+fMRI input into a universal fMRI latent z using the universal encoder. Then, we perform compositional latent modeling via the proposed Latent Factorization–
+Composition Module (LFCM). The Factorizer decomposes each universal latent into a stimulus-driven code c and a nuisance code n, conditioned on subject
+and dataset codes. These components are recombined by the Compositor to synthesize surrogate fMRI latents ˜z. A subsequent re-factorization step is trained
+to enforce consistency when re-encoding surrogate fMRI latents. Both the original stimulus-driven code c and the re-factorized stimulus-driven code c′ are
+aligned with the ground-truth visual target cgt, while the nuisance codes n and n′ are aligned to encourage consistency under re-factorization. (iii) Bottom:
+During inference, fMRI signals from unseen subjects are factorized, composited and re-factorized to produce a refined stimulus-driven code (c′
+te) using seen
+subject conditions, which conditions the diffusion model to generate the reconstructed image (ˆI).
+visual, subject, dataset, and nuisance components. This design
+isolates invariant visual information while capturing residual,
+trial-wise variability in the nuisance factor, enabling robust
+zero-shot cross-subject decoding.
+Overview. As in Fig. 4, our PictorialCortex consists of
+three stages. (1) Stage I: Universal Cortical Representation
+Learning. We pretrain a high-capacity autoencoder on large-
+scale cortical fMRI data to obtain a universal latent space,
+providing a stable, shared domain for modeling heteroge-
+neous observations across subjects (Sec. IV-A). (2) Stage
+II: Compositional Latent Modeling. We factorize each fMRI
+observation into stimulus-driven, subject, dataset, and nui-
+sance components using the proposed Latent Factorization–
+Composition Module (LFCM). This stage isolates invariant
+visual content while explicitly modeling individual-specific
+characteristics, dataset-dependent context, and residual trial-
+wise variability. Robustness is enforced via Paired Factoriza-
+tion and Reconstruction (PFR) and Re-Factorizing Consis-
+tency Regularization (ReFCR) (Sec. IV-B–IV-C2). (3) Stage
+III: Inference. At inference, the stimulus-driven code of an
+unseen subject is refined via surrogate re-factorization across
+multiple seen-subject conditions, and subsequently used to
+condition a diffusion model for zero-shot image reconstruction
+(Sec. IV-D).
+A. Universal Cortical Representation Learning
+To enable the proposed compositional latent formulation
+and support reliable cross-subject modeling, we first learn a
+universal cortical latent representation shared across individ-
+uals. This stage aims to establish a common representational
+domain for heterogeneous fMRI observations, providing a
+stable and anatomically consistent foundation for subsequent
+factorization.
+Architecture. We train a high-capacity autoencoder on corti-
+cal surface fMRI data to map raw surface-level activations
+into a compact universal latent space that captures shared
+cortical structure while preserving trial-specific variability,
+providing a consistent anatomical reference across individuals
+and experimental settings. The autoencoder takes as input
+a cortical surface map S ∈R256×256; anatomically empty
+regions are removed prior to patch embedding to eliminate
+redundant spatial tokens and focus capacity on informative
+cortical areas. The remaining patches, together with learnable
+CLS tokens, are processed by a deep transformer encoder
+(EA(·)) to produce the latent representation,
+z = EA(S),
+(2)
+where z ∈RLr×dr, Lr denotes the number of CLS tokens,
+and dr their feature dimension. This latent representation
+serves as a universal cortical embedding prior to any explicit
+compositional modeling.
+A symmetric transformer decoder reconstructs the cortical
+surface map by injecting the CLS tokens and replacing masked
+spatial tokens with learnable guide tokens. This design forces
+the encoder to compress the entire cortical activation pattern
+into a compact set of latent tokens, encouraging the model to
+learn expressive representations. The decoder (DA(·)) outputs
+patch embeddings, which are mapped back to pixel space via
+an unpatchify operation. So we have the reconstructed cortical
+surface
+˜S = DA(z).
+(3)
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+7
+The autoencoder is trained using a reconstruction objective
+that minimizes the mean squared error between the original
+and reconstructed cortical surface maps:
+LA =
+S −˜S
+
+2
+2 ,
+(4)
+where S and ˜S denote the ground-truth and reconstructed
+fMRI surface maps, respectively. We pretrain this autoencoder
+on large-scale resting-state fMRI data from more than 40,000
+subjects in the UK Biobank dataset [18]. This large-scale
+pretraining yields a stable and expressive cortical latent space
+that generalizes across individuals and datasets.
+B. Latent Factorization–Composition Module (LFCM)
+The goal of compositional latent modeling is to derive
+a structured latent formulation that separates stimulus-driven
+information from heterogeneous sources of variability inherent
+in multi-dataset, multi-subject fMRI data.
+1) Method Overview: LFCM operates on the universal
+cortical latent representation z learned in Sec. IV-A. We
+introduce learnable embeddings esub and edata to represent
+subject identity and dataset context, respectively, which serve
+as conditioning signals during latent factorization and recom-
+position. Conditioned on subject and dataset context, each
+fMRI observation is factorized into (i) a stimulus-driven latent
+c encoding stable visual content shared across subjects, and
+(ii) a nuisance latent n capturing residual variability that is
+not transferable across subjects.
+Specifically, LFCM consists of two complementary compo-
+nents: a Factorizer F that decomposes a universal latent into
+structured components, and a Compositor C that recombines
+these components back into the universal latent space.
+Factorizer. Given a universal fMRI latent z, the Factorizer (F)
+performs subject- and dataset-conditioned latent factorization
+to parse the representation
+(c, n) = F(z | esub, edata),
+(5)
+into a stimulus-driven component c and a residual nuisance
+component n. And esub and edata are learnable embeddings
+encoding subject identity and dataset context, respectively.
+The output c is encouraged to capture stimulus-consistent
+visual structure, while n absorbs residual variability that is
+not reusable across subjects.
+Concretely, the universal latent z is first projected into an
+intermediate representation, which is then modulated by addi-
+tive subject and dataset embeddings, in analogy to positional
+encodings in transformer,
+h = Linear(z) + esub + edata.
+(6)
+During training, a small fraction (5%) of subject embed-
+dings are replaced with a default subject embedding esub
+def (in
+Eq. (21)), serving as the ‘placeholder’ for a neutral subject
+without individual-specific information in the inference stage.
+This enables the Factorizer to encode stimulus-driven content
+under unknown or unseen subject conditions. The conditioned
+representation h is then processed by a shared transformer
+stack with learnable queries to extract the stimulus-driven
+latent c and the nuisance latent n.
+Compositor. The Compositor (C) reconstructs a surrogate
+fMRI universal latent representation
+˜z = C(c, n | esub, edata).
+(7)
+Here, the stimulus-driven and nuisance latents (c and n) in
+Eq. (5) are concatenated and added by subject and dataset
+embeddings (esub, edata). It is further processed by a trans-
+former with learnable queries that attend to these conditioned
+latents to produce the reconstructed surrogate fMRI universal
+latent. The network details are in Supplementary Material.
+This factorization–composition design enables controlled
+recombination of stimulus, subject, dataset and nuisance in-
+formation, forming the basis for both training and inference.
+C. Training Mechanisms
+To ensure a stable and interpretable compositional structure,
+we employ two complementary strategies:
+(i) Paired Factorization and Reconstruction (PFR) ensures
+that the Factorizer and Compositor can faithfully decompose
+and recompose real fMRI latents under matched subject and
+dataset conditions:
+z
+F(·|esub,edata)
+−−−−−−−−−→(c, n)
+C(·|esub,edata)
+−−−−−−−−−→˜z.
+(8)
+(ii) Re-Factorizing Consistency Regularization (ReFCR) fur-
+ther constrains the Factorizer by re-encoding recomposed
+surrogate latents to recover consistent stimulus-driven and
+nuisance components:
+˜z
+F(·|esub,edata)
+−−−−−−−−−→(c′, n′).
+(9)
+This encourages the Factorizer to be robust and preserves
+stimulus-driven semantics even beyond the observed fMRI
+manifold. We give the details of PFR and ReFCR next.
+1) Paired Factorization and Reconstruction: Paired Fac-
+torization and Reconstruction (PFR) aims to learn a stable
+compositional latent formulation by leveraging multiple fMRI
+observations elicited by the same visual stimulus. The core
+intuition is that, although fMRI signals vary across trials or
+subjects, the underlying stimulus-driven information should
+remain invariant. PFR explicitly enforces this invariance by
+encouraging paired observations to share a common stimulus-
+driven representation, while attributing residual variability to
+nuisance factors.
+Implementations. Consider a paired set of fMRI surface maps
+(Si, Sj) corresponding to the same visual stimulus. Paired
+samples may come from repeated trials of the same subject
+or from different subjects, while typically sharing the same
+dataset context. Each surface map is first mapped into the
+universal cortical latent space (Sec. IV-A), producing universal
+latents zi and zj.
+The Latent Factorization–Composition Module then applies
+the Factorizer to decompose each universal latent into a
+stimulus-driven component and a nuisance component:
+(ci, ni) = F(zi | esubi, edatai),
+(10)
+(cj, nj) = F(zj | esubj, edataj).
+(11)
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+8
+Universal
+Latent
+iz
+fMRI 
+Input
+Visiual 
+Stimulus
+Factorizer
+Dataset
+Subject
+Non-Stimulus 
+Conditional 
+Variability
+Nuisance
+fMRI 
+Input
+Compositor
+Universal
+Latent
+jz
+Stimulus-
+driven code
+Nuisance 
+code
+ic
+in
+Stimulus-
+driven code
+Nuisance 
+code
+jc
+jn
+gt
+c
+Swap
+MSE
+MSE
+ic
+in
+jc
+jn
+Dataset code 
+Subject code
+Dataset
+Subject
+Non-Stimulus 
+Conditional 
+Variability
+Nuisance
+Dataset code 
+Subject code
+subi
+e
+iz
+swap
+iz
+jz
+ap
+j
+sw
+z
+jz
+jz
+iz
+iz
+Align
+Pair-wise 
+Sampling
+Surrogate 
+fMRI Latent
+sub j
+e
+datai
+e
+data j
+e
+Fig. 5. Overview of Paired Factorization and Reconstruction (PFR). Paired fMRI observations elicited by the same visual stimulus are encoded into a universal
+latent space and decomposed into stimulus-driven and nuisance components under subject and dataset conditioning. The stimulus-driven components from the
+paired samples are aligned to a shared visual target. To further strengthen disentanglement, a pairwise swapping operation exchanges the stimulus-driven codes
+between paired observations while preserving the other factors, and consistency is enforced by reconstructing the original fMRI signals both with and without
+swapping. Together, PFR constrains the stimulus-driven latent to be invariant across paired observations, while allowing non-stimulus factors to account for
+other variability.
+To enforce consistency of stimulus-driven representations
+across paired observations, we align ci and cj to a shared
+visual target representation cgt using an ℓ2 objective:
+Lalign =
+X
+k∈{i,j}
+ck −cgt2
+2 .
+(12)
+Here, the ground-truth visual target cgt is obtained by ex-
+tracting image feature from the original image using IP-
+Adapter and its internal resampler. This alignment encourages
+the stimulus-driven components to encode identical visual
+semantics, independent of subject- or trial-specific variability.
+Given the decomposed components, the Compositor re-
+combines them to reconstruct each universal latent under its
+corresponding subject and dataset embeddings:
+˜zk = C(ck, nk | esubk, edatak),
+k ∈{i, j}.
+(13)
+Reconstruction fidelity is enforced jointly in the universal
+latent space and the original fMRI surface space:
+Lreck = ∥zk −˜zk∥2
+2 + ∥Sk −DA(˜zk)∥2
+2 ,
+k ∈{i, j}.
+(14)
+Importantly, we introduce a pairwise swapping operation
+that enforces stimulus invariance with respect to subject and
+trial factors, mitigating spurious correlations arising from
+subject- and trial-specific variability. Specifically, for each
+paired sample (zi, zj), we recombine the stimulus-driven com-
+ponent from one observation with the nuisance component and
+conditioning factors from the other. Without loss of generality,
+we construct:
+˜zswap
+i
+= C(cj, ni | esubi, edatai),
+(15)
+and define ˜zswap
+j
+analogously by exchanging the roles of i
+and j. Thus, the reconstruction consistency under pairwise
+swapping is enforced by:
+Lrecswap =
+X
+k∈{i,j}
+
+∥zk −˜zswap
+k
+∥2
+2 + ∥Sk −DA(˜zswap
+k
+)∥2
+2
+
+.
+(16)
+This operation enforces disentanglement by ensuring that c
+encodes invariant visual semantics across paired observations,
+while the other codes encode the dataset-, subject- and resid-
+ual trial-specific variability. Thus, the overall reconstruction
+objective is:
+Lrec = Lreci + Lrecj + Lrecswap.
+(17)
+2) Re-Factorizing Consistency Regularization: Paired Fac-
+torization and Reconstruction (PFR) enforces disentanglement
+only on real fMRI latents on-manifold observed during train-
+ing, providing limited guarantees under distribution shift. In
+contrast, zero-shot cross-subject decoding is inherently off-
+manifold, as neural responses from unseen subjects may de-
+viate systematically from the empirical training distribution.
+We therefore introduce Re-Factorizing Consistency Regular-
+ization (ReFCR) to promote stable factorization beyond the
+observed manifold. ReFCR leverages surrogate fMRI latents
+synthesized by the Latent Factorization–Composition Module
+(LFCM) Compositor, which recombines stimulus and nuisance
+factors to generate structurally valid but unobserved neural
+configurations. Enforcing consistent re-factorization on these
+surrogate latents effectively expands the Factorizer’s training
+domain and improves off-manifold generalization.
+Implementations. Given a surrogate latent ˜zsg
+i , either recon-
+structed from factorized components (˜zi) or generated via
+pairwise swapping operation (˜zswap
+i
+), we re-encode it using
+the Factorizer conditioned on the corresponding subject and
+dataset embeddings:
+(c′
+i, n′
+i) = F(˜zsg
+i
+| esubsg
+i , edatasg
+i ).
+(18)
+Let nsg
+i
+denote the nuisance component used to construct ˜zsg
+i .
+ReFCR enforces that re-factorizing surrogate latents recovers
+a stimulus-driven representation aligned with the ground-
+truth visual target cgt
+i , while preserving the original nuisance
+structure nsg
+i . The resulting consistency objective is
+LReFCR =
+X
+i
+c′
+i −cgt
+i
+2
+2 + ∥n′
+i −nsg
+i ∥2
+2
+
+.
+(19)
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+9
+By enforcing compositional consistency on surrogate la-
+tents, ReFCR trains the Factorizer to preserve stimulus se-
+mantics and nuisance structure beyond the observed fMRI
+manifold, thereby complementing the disentanglement learned
+by PFR and strengthening cross-subject generalization.
+Final Objectives. All components of the proposed framework
+are learned jointly by optimizing a sum of objectives:
+L = Lrec + Lalign + LReFCR
+(20)
+D. Inference
+Given an unseen subject, our goal is to reconstruct the
+perceived visual stimulus without any subject-specific fine-
+tuning. Let zte denote the universal fMRI latent of a test
+sample. We first perform a preliminary factorization using the
+LFCM Factorizer:
+(cte, nte) = F(zte | esub
+def , edata),
+(21)
+where esub
+def is a shared default subject embedding (Sec. IV-B1)
+used for all unseen individuals.
+Although cte provides an initial estimate of the stimulus-
+driven content, directly decoding it can be suboptimal due
+to the distributional shifts between seen and unseen subjects.
+Therefore, to obtain a robust, subject-invariant representation,
+we use the Compositor as a latent-space fMRI generator, re-
+expressing the same stimulus under multiple subject-specific
+configurations. Specifically, we combine the factorized test
+latents (cte, nte) with a collection of subject embeddings
+drawn from the corresponding training dataset, denoted by
+{esub
+s
+}s∈S, where S indexes all subjects in the corresponding
+training set, as well as a default subject embedding. This
+combination is used to synthesize a collection of surrogate
+fMRI latents {˜z(s)}s∈S. Each surrogate latent is then re-
+factorized by the Factorizer, producing a subject-conditioned
+stimulus-driven code c(s)
+te .
+To align these codes with the training manifold, each c(s)
+te
+is
+normalized and rescaled using the mean and standard devia-
+tion of the training visual features under the corresponding
+acquisition condition, yielding a stable canonical latent for
+diffusion-based image synthesis.
+The final stimulus representation is obtained by averag-
+ing over these re-factorized stimulus-driven codes across all
+subject-conditioned surrogates:
+c′
+te = 1
+|S|
+X
+s∈S
+c(s)
+te .
+(22)
+Aggregating across subject-conditioned latents produces a
+canonical representation that mitigates subject bias and sta-
+bilizes predictions.
+Finally, the canonical representation c′
+te is fed to the IP-
+Adapter diffusion model to generate a high-fidelity reconstruc-
+tion of the perceived visual content.
+ˆI = Diffusion
+ c′
+te
+
+.
+(23)
+The resulting image ˆI serves as the reconstructed visual
+stimulus corresponding to the input fMRI signal.
+V. EXPERIMENTS
+A. Experimental setup
+Implementation Details. We first train the universal fMRI
+autoencoder for 250,000 iterations with a batch size of 352
+using 8 NVIDIA H100 GPUs. The autoencoder contains
+approximately 1.27B parameters. The CLS token length is
+set to 4. Both the Transformer encoder and decoder have
+32 layers, with an embedding dimension of 1280 and 16
+attention heads. We optimize the model using AdamW with
+a learning rate of 1 × 10−4, a warm-up period of 20,000
+steps, and a weight decay of 0.01. For compositional latent
+modeling, the universal autoencoder is frozen and only the
+Latent Factorization–Composition Module (LFCM) is trained.
+LFCM contains approximately 195M parameters. Training is
+performed for 50,000 iterations with a batch size of 128 on
+2 NVIDIA H200 GPUs. We use the AdamW optimizer, with
+a learning rate of 5 × 10−5, 10,000 warm-up steps, and a
+weight decay of 0.01. We adopt image features extracted
+by IP-Adapter SDXL Plus as ground-truth visual targets.
+Accordingly, the stimulus-driven code has a dimensionality
+of 16 × 2048, while the stimulus-independent nuisance code
+is represented by a single 1 × 2048 vector. In the UniCortex-
+fMRI dataset, paired samples arise from both repeated trials
+of the same subject viewing the same stimulus, which facili-
+tates disentanglement of trial-specific nuisance variability, and
+different subjects viewing the same stimulus, which promotes
+separation of subject-specific factors. For datasets where exact
+stimulus pairs are sparse, we additionally inject small Gaussian
+noise to simulate trial-wise variability. During inference, we
+set the Classifier-Free Guidance (CFG) [49] scale to 5.0.
+Evaluation Metrics. We evaluate reconstruction quality from
+both low-level visual fidelity and high-level perceptual con-
+sistency. Low-level consistency is assessed using four com-
+monly adopted metrics: pixelwise correlation, LPIPS [50],
+AlexNet(2), and AlexNet(5). Pixelwise correlation measures
+the average Pearson correlation between each reconstructed
+image and its corresponding ground-truth image at the pixel
+level. LPIPS computes perceptual distance based on deep
+features and captures local texture and appearance discrepan-
+cies. AlexNet(2) and AlexNet(5) denote two-way classification
+accuracy using features extracted from the second and fifth
+convolutional layers of AlexNet [51], respectively. High-level
+consistency is evaluated by comparing semantic representa-
+tions extracted from pretrained visual encoders. Specifically,
+EfficientNet-B1 (EffNet-B) [52] and SwAV-ResNet50 [53]
+are used to compute the average feature distance between
+reconstructions and ground-truth images, measuring alignment
+in learned representation spaces. In addition, Inception [54]
+and CLIP [45] are employed to perform two-way classification
+based on their corresponding feature embeddings, assessing
+whether reconstructions preserve discriminative high-level vi-
+sual content.
+B. Main Results
+1) Competitors: We compare our method against two rep-
+resentative open-source fMRI-to-image reconstruction frame-
+works, MindBridge [37] and MindEye2 [10], as well as our
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+10
+GT
+OURS
+Neuropictor
+Mindeye2
+Mindbridge
+GT
+OURS
+Neuropictor
+Mindeye2
+Mindbridge
+NSD
+BOLD5000
+NOD
+HCP-
+Movie
+Fig. 6. Qualitative comparison of our method and representative competitors. Rows 1–2: NSD; rows 3–4: BOLD5000; rows 5–6: NOD; rows 7–8: HCP-movie.
+For each stimulus, we show the ground-truth image, our reconstruction, and results from competing methods. Our approach consistently outperforms existing
+methods in the challenging zero-shot cross-subject setting.
+prior conference version, NeuroPictor [9]. In their original
+formulations, MindBridge and MindEye2 are designed around
+subject-specific fMRI encoders, where voxel dimensionality
+varies across subjects. To enable cross-subject evaluation, we
+equip these methods with our unified cortical surface, while
+preserving their original model architectures and training ob-
+jectives. All competing methods are retrained on our proposed
+UniCortex-fMRI dataset.
+2) Quantitative results: Table I reports the quantitative
+comparison between our method and existing fMRI-to-image
+reconstruction frameworks under the UniCortex-fMRI dataset.
+AVG denotes the standard UniCortex setting obtained by
+averaging metrics across the four datasets. Overall, our ap-
+proach consistently and substantially outperforms all com-
+peting methods across both low-level and high-level metrics.
+Compared with NeuroPictor, MindBridge, and MindEye2, we
+observe significant gains in perceptual similarity and feature-
+based recognition scores, indicating that our reconstructions
+better preserve visual content under cross-subject evaluation.
+A key limitation of previous methods, including NeuroPictor,
+MindBridge, and MindEye2, is their lack of explicit modeling
+of dataset-, subject- and trial-specific factors. In addition,
+NeuroPictor does not provide a unified visual reference across
+subjects. As a result, these approaches struggle to generalize
+to unseen subjects, even when retrained on the unified cortical
+surface. In contrast, our method explicitly separates stimulus-
+driven content from subject- and trial-specific variations via
+compositional latent modeling, enabling robust cross-subject
+generalization and more accurate reconstructions. Examining
+dataset-wise results, NSD achieves the highest overall scores
+among all datasets, likely benefiting from its higher signal-to-
+noise ratio and dense stimulus repetitions during acquisition.
+Performance on HCP and BOLD5000 remains competitive,
+while NOD shows relatively lower scores, reflecting increased
+variability in the dataset. These results demonstrate that our
+compositional latent framework effectively captures stable
+stimulus representations and translates them into faithful visual
+reconstructions, validating its effectiveness for zero-shot cross-
+subject fMRI-to-image decoding.
+3) Qualitative results: Figure 6 visualizes fMRI-to-image
+reconstructions for unseen subjects in a zero-shot inference
+setting, comparing our method with representative base-
+lines, including NeuroPictor [9], MindBridge [37], and Mind-
+Eye2 [10]. In this challenging scenario, our approach reliably
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+11
+TABLE I
+QUANTITATIVE COMPARISON OF ZERO-SHOT CROSS-SUBJECT BRAIN DECODING. BASELINE METHODS REPORT AVERAGED RESULTS, WHILE OURS
+REPORTS DATASET-WISE PERFORMANCE AND THE OVERALL AVERAGE.
+METHOD
+DATA
+Low-Level
+High-Level
+PixCorr ↑
+LPIPS ↓
+AlexNet(2) ↑
+AlexNet(5) ↑
+Inception ↑
+CLIP ↑
+EffNet-B ↓
+SwAV ↓
+NeuroPictor [9]
+Avg.
+.017
+.731
+54.7%
+57.4%
+56.9%
+56.9%
+.952
+.622
+MindBridge [37]
+Avg.
+.050
+.751
+58.6%
+62.9%
+60.2%
+60.6%
+.954
+.626
+MindEye2 [10]
+Avg.
+.095
+.739
+58.2%
+59.8%
+57.9%
+56.5%
+.948
+.616
+OURS
+NSD
+.158
+.655
+82.9%
+85.7%
+77.1%
+77.5%
+.854
+.500
+HCP
+.133
+.667
+74.4%
+76.2%
+76.1%
+77.0%
+.771
+.443
+BOLD5000
+.083
+.704
+67.3%
+72.7%
+67.1%
+68.3%
+.920
+.594
+NOD
+.044
+.734
+61.4%
+69.0%
+59.4%
+61.8%
+.974
+.638
+Avg.
+.104
+.690
+71.5%
+75.9%
+69.9%
+71.2%
+.880
+.544
+Fig. 7.
+Ablation study on key components of our framework. Each subfigure corresponds to one evaluation metric. Light blue bars indicate results from
+ablation experiments, while dark blue bars show the full model.
+reconstructs both the semantic content and the spatial structure
+of the original stimuli. In contrast, competing methods often
+produce blurred or semantically inconsistent reconstructions,
+reflecting their limited ability to generalize to unseen subjects.
+These failures can be attributed to the lack of explicit disentan-
+glement between stimulus-driven content and subject- or trial-
+specific variations in previous approaches. By modeling these
+factors separately, our method generates robust and faithful
+reconstructions, maintaining high perceptual fidelity across
+multiple datasets. This demonstrates the effectiveness of our
+compositional latent framework for zero-shot cross-subject
+fMRI decoding.
+C. Ablation Study
+We conduct a comprehensive ablation study to evaluate
+the contributions of the Latent Factorization–Composition
+Module (LFCM), compositional components, the universal
+fMRI autoencoder, inference-stage refinements, and multi-
+dataset integration. Figures 7 and 8 provide visual summaries
+of these effects across eight evaluation metrics, illustrating the
+performance drop when a specific component is removed or a
+design choice is altered. These results highlight the critical role
+of each component in achieving robust zero-shot cross-subject
+fMRI-to-image reconstruction.
+1) Latent Factorization–Composition Module: Removing
+the Compositor (w/o Comp.) reduces the model to a direct
+mapping from fMRI latent to stimulus code, losing the ability
+to disentangle stimulus-driven content from nuisance factors.
+This significantly degrades performance because the model
+can no longer isolate subject- and trial-independent repre-
+sentations. Removing the Re-Factorizing Consistency Regu-
+larization (w/o ReFCR) weakens the factorizer’s robustness
+to off-manifold latents, leading to less stable reconstructions.
+Similarly, disabling the pairwise swapping of stimuli across
+subjects and trials (w/o swap) limits the exposure of the
+factorizer to diverse surrogate latents, reducing its ability to
+generalize to unseen subjects.
+2) Compositional Components: We further evaluate the
+contribution of each compositional component by removing
+the dataset condition (w/o Datas.), subject condition (w/o
+Subj.), or nuisance component (w/o Nuis.). Removing any of
+these components consistently degrades performance, indicat-
+ing that omitting any factor leads to an incomplete modeling
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+12
+Fig. 8. Comparison of multi-dataset integration versus single-dataset training. Each panel shows one evaluation metric. Multi-dataset pretraining consistently
+improves most metrics, demonstrating more stable and generalizable stimulus representations.
+of fMRI variability. In particular, removing the nuisance com-
+ponent results in the most severe performance drop. Without a
+nuisance term, the model is forced to explain trial-specific and
+non-stimulus-related variability directly through the stimulus-
+driven code, coupling semantic content with residual noise.
+This introduces ambiguity in the latent space and makes the
+stimulus code less identifiable.
+3) Universal Autoencoder: Training without a pre-trained
+universal autoencoder (w/o UnivAE) also reduces performance.
+Although the UniCortex-fMRI dataset contains over 800k
+fMRI samples across 219 subjects, it lacks the scale of
+large pretraining datasets like UKB needed to capture a
+high-capacity shared latent space. The universal autoencoder
+provides a robust latent foundation that enhances subsequent
+factorization and decoding.
+4) Inference-Stage Refinements: We examine the contribu-
+tions of our inference-stage refinements. Removing surrogate-
+based re-factorizing (w/o c′
+te) forces direct use of the initial
+estimated latent, resulting in decreased robustness to subject-
+specific distributional shifts. Disabling rescaling for the pre-
+dicted stimulus-driven latents (w/o rescale) also degrades
+performance, as the predicted latent may deviate in scale
+from the training feature distribution, reducing stability for
+the diffusion model.
+5) Multi-Dataset Integration: To assess the effect of com-
+bining multiple datasets, we compare single-dataset training
+(Single dataset) with multi-dataset joint training (UniCortex).
+Figure 8 visualizes the results across eight evaluation metrics.
+Overall, integrating all four datasets improves performance for
+the majority of metrics. In particular, seven out of eight met-
+rics show gains under multi-dataset training, with especially
+notable improvements in AlexNet and CLIP classification
+accuracies. This demonstrates that multi-dataset pretraining
+yields more stable and generalizable stimulus representations
+than training on individual datasets alone. PixCorr shows a
+slightly lower value for multi-dataset training compared to
+some individually trained datasets. This likely arises because
+single-dataset training allows the model to more closely fit the
+dataset-specific image distribution, producing reconstructions
+Fig. 9. Impact of subject scale on cross-subject generalization. We show the
+relative performance of zero-shot fMRI-to-image reconstruction for different
+numbers of subjects, normalized by the full 209-subject performance (set
+to 1.0). Lines and points represent the mean across five random samplings;
+shaded regions indicate standard deviation.
+that are pixelwise closer to each dataset’s stimuli. In contrast,
+multi-dataset training encourages learning a more generalized
+representation that balances across diverse datasets. Among
+the four datasets, NSD and BOLD5000 benefit most from
+multi-dataset integration. Both datasets feature a wide range
+of stimulus images (thousands per subject) but relatively few
+subjects (8 for NSD, 4 for BOLD5000). Introducing additional
+subjects from other datasets improves the model’s ability
+to disentangle subject-specific factors and strengthens cross-
+subject generalization, leading to larger performance gains.
+These ablation results collectively confirm that each com-
+ponent contributes critically to the robust and accurate recon-
+struction of visual stimuli from fMRI, particularly under the
+challenging zero-shot cross-subject setting.
+D. Impact of Subject Scale
+We investigate how the number of subjects in the training
+data affects zero-shot cross-subject fMRI-to-image reconstruc-
+tion performance, as shown in Figure 9. We consider subsets
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+13
+of 10, 25, 50, 100, and 150 subjects, and normalize all
+metrics relative to the full 209-subject performance (set to
+1.0). For each subset size, we perform five random samplings
+of subjects. Lines and points represent the mean across these
+samplings, and the shaded regions indicate standard deviation.
+Subjects are sampled in a stratified manner across datasets.
+Ensuring that each subset contains at least one subject from
+each dataset, the remaining subjects are sampled proportion-
+ally to dataset sizes. The results demonstrate that performance
+consistently improves with increasing subject count across all
+metrics. The steepest improvement occurs between 10 and 25
+subjects, reflecting that small datasets lack sufficient inter-
+subject variability to learn robust, generalizable representa-
+tions. As the number of subjects approaches 150 and 209,
+the performance curve flattens, indicating diminishing returns
+when subject diversity is nearly saturated. These findings
+highlight the importance of including a sufficient number of
+subjects to capture stable, cross-subject stimulus representa-
+tions for zero-shot fMRI decoding.
+VI. CONCLUSION
+In
+this
+work,
+we
+explored
+the
+challenge
+of
+cross-
+subject fMRI-to-image reconstruction in zero-shot scenario,
+a paradigm complicated by substantial inter- and intra-subject
+variability in cortical responses. To enable principled evalua-
+tion and learning, we first constructed UniCortex-fMRI by in-
+tegrating multiple heterogeneous visual-stimulus datasets and
+providing broad coverage of subjects and stimuli. Building on
+this resource, we proposed PictorialCortex, a compositional
+latent framework that explicitly disentangles stimulus-driven
+visual information from dataset-, subject-, and trial-specific
+nuisance factors. Leveraging a universal cortical latent space
+pretrained on large-scale fMRI data and a Latent Factoriza-
+tion–Composition Module with paired factorization and re-
+factorizing consistency regularization, our method achieves
+robust zero-shot reconstruction for previously unseen sub-
+jects. Extensive experiments demonstrate that PictorialCortex
+faithfully recovers semantic and spatial content across diverse
+datasets, benefits from multi-dataset pretraining, and scales
+effectively with the number of subjects. Overall, our work
+provides both a principled dataset and a scalable, generalizable
+decoding framework, supporting further study of subject-
+agnostic neural representations and cross-subject visual recon-
+struction.
+ACKNOWLEDGMENTS
+We thank Yun Wang for valuable discussions on neuro-
+science that helped inform this work.
+REFERENCES
+[1] G. H. Glover, “Overview of functional magnetic resonance imaging,”
+Neurosurgery Clinics, vol. 22, no. 2, pp. 133–139, 2011.
+[2] G. K. Aguirre, E. Zarahn, and M. D’Esposito, “The variability of human,
+bold hemodynamic responses,” Neuroimage, vol. 8, no. 4, pp. 360–369,
+1998.
+[3] S. Mueller, D. Wang, M. D. Fox, B. T. Yeo, J. Sepulcre, M. R. Sabuncu,
+R. Shafee, J. Lu, and H. Liu, “Individual variability in functional
+connectivity architecture of the human brain,” Neuron, vol. 77, no. 3,
+pp. 586–595, 2013.
+[4] T. O. Laumann, E. M. Gordon, B. Adeyemo, A. Z. Snyder, S. J. Joo,
+M.-Y. Chen, A. W. Gilmore, K. B. McDermott, S. M. Nelson, N. U.
+Dosenbach et al., “Functional system and areal organization of a highly
+sampled individual human brain,” Neuron, vol. 87, no. 3, pp. 657–670,
+2015.
+[5] J. S. Guntupalli, M. Hanke, Y. O. Halchenko, A. C. Connolly, P. J.
+Ramadge, and J. V. Haxby, “A model of representational spaces in
+human cortex,” Cerebral cortex, vol. 26, no. 6, pp. 2919–2934, 2016.
+[6] R. A. Poldrack, T. O. Laumann, O. Koyejo, B. Gregory, A. Hover, M.-Y.
+Chen, K. J. Gorgolewski, J. Luci, S. J. Joo, R. L. Boyd et al., “Long-
+term neural and physiological phenotyping of a single human,” Nature
+communications, vol. 6, no. 1, p. 8885, 2015.
+[7] C. Summerfield and T. Egner, “Expectation (and attention) in visual
+cognition,” Trends in cognitive sciences, vol. 13, no. 9, pp. 403–409,
+2009.
+[8] M. Yu, K. A. Linn, P. A. Cook, M. L. Phillips, M. McInnis, M. Fava,
+M. H. Trivedi, M. M. Weissman, R. T. Shinohara, and Y. I. Sheline,
+“Statistical harmonization corrects site effects in functional connectivity
+measurements from multi-site fmri data,” Human brain mapping, vol. 39,
+no. 11, pp. 4213–4227, 2018.
+[9] J. Huo, Y. Wang, Y. Wang, X. Qian, C. Li, Y. Fu, and J. Feng,
+“Neuropictor: Refining fmri-to-image reconstruction via multi-individual
+pretraining and multi-level modulation,” in European Conference on
+Computer Vision.
+Springer, 2024, pp. 56–73.
+[10] P. S. Scotti, M. Tripathy, C. K. T. Villanueva, R. Kneeland, T. Chen,
+A. Narang, C. Santhirasegaran, J. Xu, T. Naselaris, K. A. Norman et al.,
+“Mindeye2: Shared-subject models enable fmri-to-image with 1 hour of
+data,” arXiv preprint arXiv:2403.11207, 2024.
+[11] Z. Chen, J. Qing, T. Xiang, W. L. Yue, and J. H. Zhou, “Seeing beyond
+the brain: Conditional diffusion model with sparse masked modeling for
+vision decoding,” arXiv preprint arXiv:2211.06956, 2022.
+[12] P. S. Scotti, A. Banerjee, J. Goode, S. Shabalin, A. Nguyen, E. Cohen,
+A. J. Dempster, N. Verlinde, E. Yundler, D. Weisberg et al., “Recon-
+structing the mind’s eye: fmri-to-image with contrastive learning and
+diffusion priors,” arXiv preprint arXiv:2305.18274, 2023.
+[13] F. Ozcelik and R. VanRullen, “Natural scene reconstruction from fmri
+signals using generative latent diffusion,” Scientific Reports, vol. 13,
+no. 1, p. 15666, 2023.
+[14] E. J. Allen, G. St-Yves, Y. Wu, J. L. Breedlove, J. S. Prince, L. T.
+Dowdle, M. Nau, B. Caron, F. Pestilli, I. Charest et al., “A massive 7t
+fmri dataset to bridge cognitive neuroscience and artificial intelligence,”
+Nature neuroscience, vol. 25, no. 1, pp. 116–126, 2022.
+[15] N. Chang, J. A. Pyles, A. Marcus, A. Gupta, M. J. Tarr, and E. M.
+Aminoff, “Bold5000, a public fmri dataset while viewing 5000 visual
+images,” Scientific data, vol. 6, no. 1, p. 49, 2019.
+[16] Z. Gong, M. Zhou, Y. Dai, Y. Wen, Y. Liu, and Z. Zhen, “A large-scale
+fmri dataset for the visual processing of naturalistic scenes,” Scientific
+Data, vol. 10, no. 1, p. 559, 2023.
+[17] D. C. Van Essen, S. M. Smith, D. M. Barch, T. E. Behrens, E. Yacoub,
+K. Ugurbil, W.-M. H. Consortium et al., “The wu-minn human connec-
+tome project: an overview,” Neuroimage, vol. 80, pp. 62–79, 2013.
+[18] K. L. Miller, F. Alfaro-Almagro, N. K. Bangerter, D. L. Thomas,
+E. Yacoub, J. Xu, A. J. Bartsch, S. Jbabdi, S. N. Sotiropoulos, J. L. An-
+dersson et al., “Multimodal population brain imaging in the uk biobank
+prospective epidemiological study,” Nature neuroscience, vol. 19, no. 11,
+pp. 1523–1536, 2016.
+[19] D. D. Cox and R. L. Savoy, “Functional magnetic resonance imaging
+(fmri)“brain reading”: detecting and classifying distributed patterns of
+fmri activity in human visual cortex,” Neuroimage, vol. 19, no. 2, pp.
+261–270, 2003.
+[20] J. V. Haxby, M. I. Gobbini, M. L. Furey, A. Ishai, J. L. Schouten, and
+P. Pietrini, “Distributed and overlapping representations of faces and
+objects in ventral temporal cortex,” Science, vol. 293, no. 5539, pp.
+2425–2430, 2001.
+[21] B. Thirion, E. Duchesnay, E. Hubbard, J. Dubois, J.-B. Poline, D. Lebi-
+han, and S. Dehaene, “Inverse retinotopy: inferring the visual content
+of images from brain activation patterns,” Neuroimage, vol. 33, no. 4,
+pp. 1104–1116, 2006.
+[22] K. N. Kay, T. Naselaris, R. J. Prenger, and J. L. Gallant, “Identifying
+natural images from human brain activity,” Nature, vol. 452, no. 7185,
+pp. 352–355, 2008.
+[23] S. Schoenmakers, M. Barth, T. Heskes, and M. Van Gerven, “Linear
+reconstruction of perceived images from human brain activity,” Neu-
+roImage, vol. 83, pp. 951–961, 2013.
+[24] G. Shen, T. Horikawa, K. Majima, and Y. Kamitani, “Deep image
+reconstruction from human brain activity,” PLoS computational biology,
+vol. 15, no. 1, p. e1006633, 2019.
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+14
+[25] M. Mozafari, L. Reddy, and R. VanRullen, “Reconstructing natural
+scenes from fmri patterns using bigbigan,” in 2020 International Joint
+Conference on Neural Networks, IJCNN 2020, Glasgow, United King-
+dom, July 19-24, 2020.
+IEEE, 2020, pp. 1–8.
+[26] Z. Ren, J. Li, X. Xue, X. Li, F. Yang, Z. Jiao, and X. Gao, “Reconstruct-
+ing seen image from brain activity by visually-guided cognitive repre-
+sentation and adversarial learning,” NeuroImage, vol. 228, p. 117602,
+2021.
+[27] Z. Gu, K. W. Jamison, M. Khosla, E. J. Allen, Y. Wu, G. St-Yves,
+T. Naselaris, K. Kay, M. R. Sabuncu, and A. Kuceyeski, “Neurogen:
+activation optimized image synthesis for discovery neuroscience,” Neu-
+roImage, vol. 247, p. 118812, 2022.
+[28] R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, “High-
+resolution image synthesis with latent diffusion models,” in Proceedings
+of the IEEE/CVF Conference on Computer Vision and Pattern Recogni-
+tion, 2022, pp. 10 684–10 695.
+[29] Z. Chen, J. Qing, T. Xiang, W. L. Yue, and J. H. Zhou, “Seeing beyond
+the brain: Conditional diffusion model with sparse masked modeling
+for vision decoding,” in Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, 2023, pp. 22 710–22 720.
+[30] B. Zeng, S. Li, X. Liu, S. Gao, X. Jiang, X. Tang, Y. Hu, J. Liu, and
+B. Zhang, “Controllable mind visual diffusion model,” arXiv preprint
+arXiv:2305.10135, 2023.
+[31] M. Ferrante, F. Ozcelik, T. Boccato, R. VanRullen, and N. Toschi, “Brain
+captioning: Decoding human brain activity into images and text,” arXiv
+preprint arXiv:2305.11560, 2023.
+[32] T. Fang, Q. Zheng, and G. Pan, “Alleviating the semantic gap for gen-
+eralized fmri-to-image reconstruction,” Advances in Neural Information
+Processing Systems, vol. 36, 2024.
+[33] Y. Liu, Y. Ma, G. Zhu, H. Jing, and N. Zheng, “See through their minds:
+Learning transferable brain decoding models from cross-subject fmri,” in
+Proceedings of the AAAI Conference on Artificial Intelligence, vol. 39,
+no. 6, 2025, pp. 5730–5738.
+[34] R. Quan, W. Wang, Z. Tian, F. Ma, and Y. Yang, “Psychometry: An
+omnifit model for image reconstruction from human brain activity,”
+in Proceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, 2024, pp. 233–243.
+[35] Z. Wang, Z. Zhao, L. Zhou, and P. Nachev, “Unibrain: A unified model
+for cross-subject brain decoding,” arXiv preprint arXiv:2412.19487,
+2024.
+[36] Z. Gong, Q. Zhang, G. Bao, L. Zhu, R. Xu, K. Liu, L. Hu, and D. Miao,
+“Mindtuner: Cross-subject visual decoding with visual fingerprint and
+semantic correction,” in Proceedings of the AAAI Conference on Artifi-
+cial Intelligence, vol. 39, no. 13, 2025, pp. 14 247–14 255.
+[37] S. Wang, S. Liu, Z. Tan, and X. Wang, “Mindbridge: A cross-subject
+brain decoding framework,” in Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, 2024, pp. 11 333–11 342.
+[38] I. Han, J. Lee, and J. C. Ye, “Mindformer: A transformer architecture for
+multi-subject brain decoding via fmri,” arXiv preprint arXiv:2405.17720,
+2024.
+[39] Y. Xu, B. Liu, W. Shao, Y. Du, S. He, and T. Zhu, “Cross-subject
+mind decoding from inaccurate representations,” in Proceedings of the
+IEEE/CVF International Conference on Computer Vision, 2025, pp.
+15 066–15 075.
+[40] X. Kong, K. Huang, P. Li, and L. Zhang, “Toward generalizing
+visual
+brain
+decoding
+to
+unseen
+subjects,”
+in
+International
+Conference on Representation Learning, Y. Yue, A. Garg, N. Peng,
+F. Sha, and R. Yu, Eds., vol. 2025, 2025, pp. 25 484–25 497.
+[Online]. Available: https://proceedings.iclr.cc/paper files/paper/2025/
+file/3f9bbf77fbd858e5b6e39d39fe84ed2e-Paper-Conference.pdf
+[41] J. O. Caro, A. H. d. O. Fonseca, C. Averill, S. A. Rizvi, M. Rosati,
+J. L. Cross, P. Mittal, E. Zappala, D. Levine, R. M. Dhodapkar et al.,
+“Brainlm: A foundation model for brain activity recordings,” bioRxiv,
+pp. 2023–09, 2023.
+[42] Z. Dong, R. Li, Y. Wu, T. T. Nguyen, J. Chong, F. Ji, N. Tong, C. Chen,
+and J. H. Zhou, “Brain-jepa: Brain dynamics foundation model with
+gradient positioning and spatiotemporal masking,” Advances in Neural
+Information Processing Systems, vol. 37, pp. 86 048–86 073, 2024.
+[43] Z. Chen, J. Qing, and J. H. Zhou, “Cinematic mindscapes: High-
+quality video reconstruction from brain activity,” arXiv preprint
+arXiv:2305.11675, 2023.
+[44] X. Qian, Y. Wang, J. Huo, J. Feng, and Y. Fu, “fmri-pte: A large-
+scale fmri pretrained transformer encoder for multi-subject brain activity
+decoding,” arXiv preprint arXiv:2311.00342, 2023.
+[45] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal,
+G. Sastry, A. Askell, P. Mishkin, J. Clark et al., “Learning transferable
+visual models from natural language supervision,” in International
+conference on machine learning.
+PMLR, 2021, pp. 8748–8763.
+[46] X. Xu, Z. Wang, G. Zhang, K. Wang, and H. Shi, “Versatile diffusion:
+Text, images and variations all in one diffusion model,” in Proceedings
+of the IEEE/CVF International Conference on Computer Vision, 2023,
+pp. 7754–7765.
+[47] H. Ye, J. Zhang, S. Liu, X. Han, and W. Yang, “Ip-adapter: Text
+compatible image prompt adapter for text-to-image diffusion models,”
+arXiv preprint arXiv:2308.06721, 2023.
+[48] T.-Y. Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ramanan,
+P. Doll´ar, and C. L. Zitnick, “Microsoft coco: Common objects in
+context,” in Computer Vision–ECCV 2014: 13th European Conference,
+Zurich, Switzerland, September 6-12, 2014, Proceedings, Part V 13.
+Springer, 2014, pp. 740–755.
+[49] J. Ho and T. Salimans, “Classifier-free diffusion guidance,” arXiv
+preprint arXiv:2207.12598, 2022.
+[50] R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang, “The
+unreasonable effectiveness of deep features as a perceptual metric,” in
+CVPR, 2018.
+[51] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “Imagenet classification
+with deep convolutional neural networks,” Advances in neural informa-
+tion processing systems, vol. 25, 2012.
+[52] M. Tan and Q. Le, “Efficientnet: Rethinking model scaling for con-
+volutional neural networks,” in International conference on machine
+learning.
+PMLR, 2019, pp. 6105–6114.
+[53] M. Caron, I. Misra, J. Mairal, P. Goyal, P. Bojanowski, and A. Joulin,
+“Unsupervised learning of visual features by contrasting cluster assign-
+ments,” Advances in neural information processing systems, vol. 33, pp.
+9912–9924, 2020.
+[54] C. Szegedy, V. Vanhoucke, S. Ioffe, J. Shlens, and Z. Wojna, “Rethinking
+the inception architecture for computer vision,” in Proceedings of the
+IEEE conference on computer vision and pattern recognition, 2016, pp.
+2818–2826.
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+15
+Supplementary Material
+I. IMPLEMENTATION DETAILS
+Universal fMRI Autoencoder. We first train the universal
+fMRI autoencoder to obtain a shared cortical latent space
+that can represent fMRI signals across multiple subjects. The
+autoencoder is trained on the UKB dataset [18] for 250,000
+iterations with a batch size of 352 on 8 NVIDIA H100 GPUs.
+It contains approximately 1.27B parameters in total. The CLS
+token length is set to 4 to encode global cortical information.
+Both the Transformer encoder and decoder consist of 32
+layers, with an embedding dimension of 1280 and 16 attention
+heads. We optimize the autoencoder using AdamW with a
+learning rate of 1 × 10−4, a warm-up period of 20,000 steps,
+and a weight decay of 0.01.
+Latent Factorization–Composition Module (LFCM). After
+training the universal autoencoder, its parameters are frozen
+to preserve the learned universal latent space. We then train
+the Latent Factorization–Composition Module (LFCM) for
+compositional latent modeling. LFCM contains approximately
+195M parameters and is trained for 50,000 iterations with a
+batch size of 128 on 2 NVIDIA H200 GPUs. We use AdamW
+with a learning rate of 5 × 10−5, 10,000 warm-up steps, and
+a weight decay of 0.01.
+Latent representations and visual targets. We adopt image
+features extracted by IP-Adapter SDXL Plus [47] as ground-
+truth visual targets to guide the learning of stimulus-driven
+codes. Accordingly, the stimulus-driven latent code c has a
+dimensionality of 16 × 2048, while the stimulus-independent
+nuisance code n is represented by a single 1 × 2048 vector.
+We adopt image features extracted by IP-Adapter SDXL
+Plus [47] as ground-truth visual targets to guide the learning
+of stimulus-driven codes. Accordingly, the stimulus-driven
+latent code c has a dimensionality of 16 × 2048, while
+the stimulus-independent nuisance code n is represented by
+a single 1 × 2048 vector. Both subject embeddings esub
+and dataset embeddings edata are implemented as learnable
+1×2048 vectors, which are incorporated into the latent inputs
+to provide contextual conditioning for both the Factorizer and
+the Compositor.
+Architecture of the Factorizer and Compositor. Both the
+Factorizer and the Compositor are implemented as symmetric
+Transformer blocks, each consisting of two Transformer layers
+with an embedding dimension of 2048 and 32 attention heads.
+In the Factorizer, a set of 17 learnable queries of dimension
+17 × 2048 is used to extract the latent components. The first
+16 queries produce the stimulus-driven code c (16 × 2048)
+corresponding to the visual target features extracted by IP-
+Adapter, while the last query produces the nuisance code
+n (1 × 2048). In the Compositor, 4 learnable queries of
+dimension 4 × 2048 are employed to reconstruct the universal
+latent, corresponding to the 4 CLS tokens of the autoencoder
+latent. Before being fed into the Transformer blocks, the
+learnable subject and dataset embeddings are added to the
+latent inputs as conditioning signals. The Compositor queries
+attend to the concatenated stimulus-driven and nuisance codes
+to synthesize surrogate universal latents, while the Factorizer
+queries attend to the input universal latent to decompose it
+into the corresponding components.
+II. MORE VISUALIZATIONS
+We provide additional visualizations of our method in zero-
+shot cross-subject fMRI-to-image reconstruction. Figure 10
+presents reconstruction results across multiple datasets. All
+results are obtained from unseen subjects that are excluded
+from training. Specifically, rows 1–4 correspond to the NSD
+dataset, row 5 shows results from BOLD5000, and row 6
+corresponds to NOD. Figure 11 further reports per-subject
+reconstruction results on the HCP-Movie dataset. Subjects
+1–10 are treated as unseen during training and evaluated
+individually at test time. The visualizations demonstrate that
+our approach maintains stable reconstruction quality across
+different unseen subjects.
+We additionally provide a comparison between reconstruc-
+tions from unseen subjects (i.e., zero-shot cross-subject re-
+construction in our setting) and seen subjects used during
+training, as shown in Figure 12. In each group, the first
+column shows the ground-truth image, the second column
+corresponds to the reconstruction from an unseen subject,
+and the third column shows the reconstruction from a seen
+subject. All reconstructions are generated from test-set stim-
+uli that are never observed during training. Although our
+method demonstrates robust zero-shot generalization to unseen
+subjects, reconstructions from unseen subjects are generally
+slightly less accurate than those from seen subjects, which is
+expected due to unavoidable subject-specific domain shifts.
+Reconstructions from seen subjects typically exhibit more
+precise semantic details and stronger spatial consistency. These
+results suggest that further improving generalization to unseen
+subjects remains an important and promising direction for
+future research.
+Figure 14 visualizes fMRI responses from different subjects
+and repeated trials under identical visual stimuli. For each
+image, we show multiple fMRI responses recorded from
+two subjects across repeated presentations. In each row, the
+first column shows the ground-truth image. Columns 2–4
+display three fMRI responses from Subject 1 under repeated
+presentations of the same image , while columns 5–7 show
+the corresponding three fMRI responses from Subject 2. As
+can be observed, even when viewing the same image, the
+elicited fMRI responses vary across subjects, and also across
+trials within the same subject. This visualization shows the
+pronounced inter-subject and intra-subject variability inherent
+in fMRI signals.
+III. FAILURE CASES
+Figure 13 illustrates representative failure cases of our
+method. Despite our advancements, zero-shot cross-subject
+fMRI-to-image reconstruction remains challenging, particu-
+larly when discriminating semantically similar concepts. As
+shown in the Figure 13, some reconstructions preserve coarse
+spatial layouts but drift toward semantically related yet in-
+correct concepts, such as confusing a crouching dog with
+a squirrel, a white airplane with a white train, zebras with
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+16
+GT
+OURS
+GT
+OURS
+GT
+OURS
+GT
+OURS
+Fig. 10. Additional visualizations of zero-shot cross-subject fMRI-to-image reconstruction.
+cows on grasslands, or foxes with dogs. For scenes involving
+humans, the model often captures approximate poses or spatial
+configurations but sometimes misinterpreting or omitting some
+semantic attributes, e.g., confusing skiing with surfing, or
+generating a running person without the associated object such
+as a tennis racket. These failure cases indicate that, for unseen
+subjects, fine-grained semantic generalization remains difficult
+under cross-subject cortical variability.
+IV. BROADER IMPACT
+Beyond model performance, this work makes broader con-
+tributions at both the dataset and methodological levels.
+First, we provide a curated dataset that enables systematic
+evaluation of zero-shot cross-subject fMRI decoding by using
+heterogeneous datasets. Unlike prior studies that focus on
+narrowly controlled settings or subject-specific training, our
+dataset and evaluation protocol explicitly target cross-subject
+generalization without subject-specific finetuning. This estab-
+lishes a unified testbed for comparing representation learning
+methods under realistic and challenging transfer scenarios.
+Second, by organizing heterogeneous fMRI data into a
+unified representational and evaluation framework, our work
+offers a scalable pathway for future research. As neuroimaging
+studies continue to grow in scale and diversity, the ability
+to aggregate data across datasets, experimental protocols, and
+populations becomes increasingly important. Our dataset con-
+struction and evaluation strategy provide a practical foundation
+for scaling cross-subject neurodecoding research beyond iso-
+lated datasets, encouraging more reproducible and comparable
+progress in the field.
+Third, at the methodological level, PictorialCortex intro-
+duces a paradigm of interpretable, compositional latent formu-
+lation for jointly modeling fMRI activation patterns. By explic-
+itly modeling cortical responses using stimulus-driven, subject-
+related, dataset-related, and nuisance components within a
+shared latent space, our approach provides a structured lens
+for studying how different sources of variability interact in
+neural signals.
+Looking forward, this modeling philosophy may inspire
+future work on neural representation analysis, cross-population
+neuroscience, and brain–machine interfaces, particularly in
+settings that demand generalization. We hope that the com-
+bination of scalable data resources and compositional latent
+modeling will foster more robust, generalizable neurodecoding
+systems.
+V. LIMITATIONS AND FUTURE WORK
+Although PictorialCortex demonstrates strong performance,
+several limitations remain. The framework relies on a pre-
+trained autoencoder to establish the universal cortical latent
+space. While this provides stability and scalability, errors or
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+17
+GT
+Sub 1
+Sub 2
+Sub 3
+Sub 4
+Sub 5
+Sub 6
+Sub 7
+Sub 8
+Sub 9
+Sub 10
+Fig. 11. Per-subject zero-shot cross-subject fMRI-to-image reconstruction results on unseen subjects from the HCP-Movie dataset. The first column shows
+the ground-truth image, while columns 2–11 present reconstructions for subjects 1–10, respectively.
+GT
+Unseen sub.
+Seen sub.
+GT
+Unseen sub.
+Seen sub.
+GT
+Unseen sub.
+Seen sub.
+Fig. 12. Visually Comparison on the reconstructed images from unseen and seen subjects by our model. In each group, the first column shows the ground-truth
+image, the second column presents the reconstruction from an unseen subject, and the third column shows the reconstruction from a seen subject.
+
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021
+18
+GT
+OURS
+GT
+OURS
+GT
+OURS
+GT
+OURS
+Fig. 13. Visualizations for some failure cases.
+Image 1
+Image 2
+Image 3
+Image 4
+GT Image
+Subject 1
+Subject 2
+Fig. 14. Visualizations of fMRI responses from two subjects viewing the same visual stimuli. In each row, the first column shows the ground-truth image.
+Columns 2–4 display three fMRI responses from Subject 1 under repeated presentations of the same image , while columns 5–7 show the corresponding three
+fMRI responses from Subject 2.
+biases introduced at this stage may propagate to downstream
+compositional modeling. Joint or adaptive optimization of
+representation learning and factor disentanglement remains an
+open direction. In addition, the model focuses on static visual
+perception. Extending the compositional latent framework to
+temporal dynamics, such as video perception or mental im-
+agery over time, represents an important and nontrivial future
+direction. Overall, we view PictorialCortex as a step toward
+cross-subject neural decoding, and anticipate that future work
+combining richer experimental designs and more expressive
+latent models will further advance this line of research.
