@@ -1,0 +1,1529 @@
+Meta-learning In-Context Enables Training-Free Cross Subject Brain Decoding
+Mu Nan1,2∗
+Muquan Yu1,3∗
+Weijian Mai1,4
+Jacob S. Prince5
+Hossein Adeli6
+Rui Zhang1
+Jiahang Cao1,4
+Benjamin Becker1
+John A. Pyles7
+Margaret M. Henderson8
+Chunfeng Song4
+Nikolaus Kriegeskorte6
+Michael J. Tarr8
+Xiaoqing Hu1
+Andrew F. Luo1B
+1University of Hong Kong
+2Shenzhen Loop Area Institute
+3Chinese University of Hong Kong
+4Shanghai Artificial Intelligence Laboratory
+5Harvard University
+6Columbia University
+7University of Washington
+8Carnegie Mellon University
+ezacngmpg@connect.hku.hk, mqyu@link.cuhk.edu.hk, aluo@hku.hk
+Abstract
+Visual decoding from brain signals is a key challenge at the
+intersection of computer vision and neuroscience, requir-
+ing methods that bridge neural representations and compu-
+tational models of vision. A field-wide goal is to achieve
+generalizable, cross-subject models. A major obstacle to-
+wards this goal is the substantial variability in neural rep-
+resentations across individuals, which has so far required
+training bespoke models or fine-tuning separately for each
+subject. To address this challenge, we introduce a meta-
+optimized approach for semantic visual decoding from fMRI
+that generalizes to novel subjects without any fine-tuning.
+By simply conditioning on a small set of image-brain acti-
+vation examples from the new individual, our model rapidly
+infers their unique neural encoding patterns to facilitate ro-
+bust and efficient visual decoding. Our approach is explic-
+itly optimized for in-context learning of the new subject’s
+encoding model and performs decoding by hierarchical in-
+ference, inverting the encoder. First, for multiple brain re-
+gions, we estimate the per-voxel visual response encoder
+parameters by constructing a context over multiple stim-
+uli and responses. Second, we construct a context consist-
+ing of encoder parameters and response values over multi-
+ple voxels to perform aggregated functional inversion. We
+demonstrate strong cross-subject and cross-scanner gener-
+alization across diverse visual backbones without retrain-
+ing or fine-tuning. Moreover, our approach requires neither
+anatomical alignment nor stimulus overlap. This work is a
+critical step towards a generalizable foundation model for
+non-invasive brain decoding. Code and models are publicly
+available at https://github.com/ezacngm/braInCodec.
+1. Introduction
+Developing robust theories of intelligence requires gener-
+alizable, population-wide models of human brain function.
+An important step has been the development of high-fidelity
+visual decoders of brain activity [15, 99], enabled by condi-
+tional image generation models and the availability of high-
+quality fMRI visual datasets. Visual reconstruction serves
+as a unique and demanding testbed for conditional gener-
+ation, requiring vision models to synthesize images from
+signals that are not only noisy but also highly abstract. A
+common strategy decomposes this challenge into two sub-
+problems: (1) learning a mapping from high-dimensional
+brain activity to a compact visual-semantic representation;
+and (2) synthesizing naturalistic images from that repre-
+sentation.
+The synthesis challenge has been addressed
+by leveraging large-scale generative models as image pri-
+ors [85, 88]. Simultaneously, high-quality neural activity
+datasets [2, 14, 35, 44, 45, 59] at scale have provided suffi-
+cient data to solve the mapping sub-problem on an individ-
+ual basis, driving the recent surge in high-fidelity, within-
+subject reconstructions.
+Despite this recent progress, a critical barrier prevents
+widespread application of brain decoding: current mod-
+els cannot generalize across subjects, necessitating per-
+subject models or subject-specific fine-tuning [94, 106].
+This challenge is rooted in the profound inter-subject vari-
+ability in neural signals which arises from complex interact-
+ing sources [101], including differences in anatomical struc-
+ture and functional organization shaped by development, in-
+dividual experience, and neuroplasticity [12, 32, 100, 107].
+As a result, the mapping function learned for one individual
+is ineffective for another, necessitating retraining or fine-
+tuning via gradient descent, a data-intensive and compu-
+tationally demanding process. Developing a data-efficient
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+3604
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+ ­
+
+
+
+­
+­
+
+
+
+
+
+
+
+
+
+	
+­
+
+	
+
+
+
+
+
+
+
+
+	
+	
+
+
+­
+­
+­
+Figure 1. Overview of our hierarchical brain decoding framework. Encoders predict brain activity from stimulus, while decoders
+reconstruct stimulus from brain activity. (a) Our framework can generalize to novel subjects without any fine-tuning. In the first stage, we
+infer parameters of a forward model (image-computable encoder) by constructing a context using stimuli/activity pairs for a single voxel,
+repeated for every voxel. In the second stage, we construct a context across multiple voxels, fusing the encoder parameters with observed
+brain activations to decode the stimuli. Our approach requires neither anatomical alignment, nor stimulus overlap. (b) Decoding results
+on BOLD5000 after training on NSD, our method can generalize without fine-tuning across scanners, voxel size, and subjects. (c) Our
+model performance positively scales with both the number of images provided in Stage 1, and the number of voxels provided in Stage 2.
+generalizable cross-subject visual decoding model is there-
+fore essential for building population-wide theories and for
+enabling applications in brain-computer interfaces (BCIs),
+cognitive assessment, and personalized diagnostics.
+A principled approach is to recognize that neural de-
+coding is fundamentally an inverse problem.
+A robust
+solution should be constrained by an accurate forward
+model of the system that characterizes how the brain of
+an individual subject represents information.
+In compu-
+tational neuroscience, this forward model is referred to
+as an “encoding model” [73], which predicts brain ac-
+tivity from stimuli.
+Meanwhile, the inverse operation
+is performed by the decoding model.
+Following this
+principle, our approach structures the decoding process
+as a functional inversion problem that we solve hierar-
+chically.
+First, we estimate the visual response func-
+tion weights for individual voxels in-context [114]; Sec-
+ond, we build a decoder that performs contextual integra-
+tion across multiple brain regions to perform a subject-
+specific functional inversion to reconstruct the visual stimu-
+lus. This two-stage in-context learning process enables gen-
+eralization to novel subjects without any fine-tuning and
+with relatively small amounts of new data. Since image
+synthesis from brain activity has been well explored using
+pretrained generative models, we instead focus on decoding
+image embeddings from novel subjects.
+We name our method BrainCoDec (Brain In-Context De-
+coding), and outline the approach in Figure 1. Concretely:
+(1) Our method generalizes to novel subjects, requires no
+anatomical alignment or stimulus overlap, and is the first
+to work across different scanners and acquisition protocols
+without gradient-based finetuning. (2) Through selective
+dropout of functionally specialized regions and by using
+only a small subset of voxels from higher visual cortex,
+we demonstrate strong robustness to input variability. (3)
+Attention visualizations across images from diverse cate-
+gories reveal interpretable spatial maps that align closely
+with known functional regions of the visual cortex. This
+approach marks a significant step towards a truly universal
+and scalable brain foundation model for investigating neural
+representations across the human population.
+2. Related work
+Computational Encoding and Decoding Models. Com-
+putational analysis of neural data usually leverage two com-
+plementary approaches.
+Encoding models predict neural
+activity from stimuli, and decoding models that reconstruct
+stimuli from brain activity [23, 34, 40, 48, 67, 73, 76, 87, 95,
+96]. Both approaches have benefited from the development
+from feature extractors trained on large-scale datasets, with
+the dominant approach leveraging linear mappings from
+learned features to neural activity [25, 27, 33, 38, 52, 93],
+with more recent approaches utilizing attention based pa-
+rameterization [1, 4, 6]. Core to our current work is the
+approach proposed in [114], which meta-optimizes an en-
+coding model to generalize to novel subjects.
+Encoders
+can be used to investigate the selectivity in visual cor-
+tex [26, 50, 51, 57, 65, 90, 110, 111], or combined with
+3605
+
+
+2nd Level ICL Transformer Decoder
+1st Level ICL Transformer Encoder
+Voxel Resp.
+Function
+Activation
+Figure 2. Model architecture of BrainCoDec. In stage one, the in-context encoder infers encoder parameters by in-context learning
+across stimuli/activation pairs for a single voxel. This is repeated across the voxels of interest. In stage two, we integrate across multiple
+voxels, taking as input the voxelwise parameters and activation corresponding to a novel image. Both stages can vary the context sizes.
+generative models to synthesize new stimuli [5, 13, 37, 63,
+64, 69, 81, 82, 86, 104]. By leveraging generative models,
+stimulus can be decoded from fMRI, EEG, and MEG for
+images [8, 15, 24, 28, 39, 58, 61, 62, 66, 68, 79, 94, 99],
+dynamic visual stimuli [16, 30, 36, 60, 91, 113, 115], and
+speech/audio/language [7, 47, 70, 78, 80, 102, 108]. Recent
+work seeks to achieve generalization via flatmaps [56, 105],
+1D pooling [106] or surface learning
+[21], these ap-
+proaches implicitly (flatmaps & pooling) or explicitly (sur-
+face) require anatomical alignment.
+Inverting Encoding Models for Decoding. Prior work has
+sought to decode (identify the category or semantic near-
+est neighbor) of stimuli by comparing patterns of neural ac-
+tivations [42, 43, 53, 77]. Reconstructing viewed images
+from neural activity by inverting a forward model (encoder)
+has been previously demonstrated using simple stimuli [9],
+which inverts the encoder using ordinary least squares to
+solve for the color of the image. Similar approaches that
+convert between encoders that predict neural activation and
+decoders have been utilized in the context of motion di-
+rection [54, 89], orientation [10], and more complex stim-
+uli like faces [20, 41], natural images [49, 72, 92] and
+movies [75]. Generally these methods are based on the prin-
+ciple of matching stimuli and their predicted brain activity
+to the true observed brain activity, and decoding the stim-
+uli by solving or identifying the solution. Our learned ap-
+proach significantly extends this prior work by functioning
+even when the system is under-determined (fewer voxels
+than stimulus representation), and being able to account for
+biases in the encoder estimation.
+Meta-Learning and In-Context Learning. Meta-learning
+focuses on training models to rapidly adapt to new tasks
+by leveraging prior knowledge acquired from a distribu-
+tion of related tasks [46]. It facilitates fast generalization
+to novel problems with few examples and minimal train-
+ing effort. Classic approaches include meta-optimization
+methods [29, 74, 84] and metric-based formulations [97].
+In parallel, large language models display strong in-context
+learning (ICL) capability [11, 103]: given prompts with
+demonstrations, model behaviors could be adjusted at infer-
+ence time effectively without updating parameters [18, 71].
+These observations may suggest that in-context learning
+serves as an implicit meta-learning mechanism, whereby
+transformers develop internal adaptation procedures during
+the pretraining stage [22, 31]. In our work, which aims
+to learn the functional mapping between visual stimuli and
+voxelwise brain responses, we construct a framework that
+integrates meta-training with in-context learning. This ap-
+proach enables training-free adaptation to novel subjects.
+3. Methods
+Our method is based on the learned inversion of a set of en-
+coders. The framework leverages meta-learning, and uses
+few-shot, in-context examples for the decoding of unseen
+stimuli (Figure 2). For unseen subjects, this approach does
+not require any fine-tuning. We first define the problem in
+Section 3.1, and discuss how stimuli can be recovered by
+inverting a set of encoders in Section 3.2. In Section 3.3
+we discuss how hierarchical in-context learning can enable
+training-free decoding on novel subjects. Since image gen-
+eration is relatively well studied, in this work we focus on
+decoding an image embedding, as it is core to the mapping
+problem, and evaluate method performance using retrieval
+following [55, 94, 109].
+3.1. Motivation and Problem Definition
+Substantial cross-subject variability in neural responses
+poses a major obstacle to generalizable brain decoding.
+Rather than directly learning a fixed inversion mapping,
+we reformulate neural decoding as a meta-learning prob-
+lem that learns how to perform functional inversion. Cru-
+cially, our approach does not rely on any shared stimuli or
+anatomical alignment across subjects.
+Formally, let an image I be represented by its embed-
+ding vector I = ϕ(I) ∈R1×d, where ϕ denotes a pre-
+trained image feature extractor such as CLIP [83], and d is
+the embedding dimension. For a given image stimulus I,
+3606
+
+
+
+1.00
+0.80
+0.40
+0.20
+0.00
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+	
+
+	
+
+	
+
+
+ 
+ 
+
+
+
+
+
+ 
+ 
+
+
+
+
+
+ 
+ 
+
+
+
+
+
+ 
+ 
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+	
+
+	
+
+	
+
+	
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+
+
+
+	
+Figure 3. Contextual scaling and ablation analysis of BrainCoDec. Top: Image-context scaling from stage 1. Decoder performance
+scales positively with more images collected for the novel subject. Middle: Voxel-context scaling from stage 2. Top-1 retrieval accuracy
+improves consistently as the number of in-context voxels increases with all visual backbones across all subjects. Bottom: Ablation
+comparison. Cosine similarities for four variants using CLIP backbone, synthetic data pretraining (PT Only), gradient inversion (Inversion),
+training with subject hold-out (FT HO; BrainCoDec), and training on seen subjects (FT no HO). These results show that models trained
+with real neural data outperform the models trained with only synthetic data, with only marginal gains from fine-tuning on a subject.
+the corresponding fMRI response for a subject is denoted
+as BI = (β1, β2, . . . , βK)I ∈R1×K, where K is the num-
+ber of voxels in the subject’s visual cortex. During test-
+ing, for a new subject we observe a small set of n context
+image-brain activation pairs {(Ii, B′
+i)}n
+i=1, where B′
+i rep-
+resents the measured voxel activations for the i-th image.
+Our goal is to infer the embedding Inovel of an unseen im-
+age from its corresponding brain response B′
+novel using only
+these context examples.
+3.2. Decoding as the Functional Inversion
+Let us assume that the forward model (image-computable
+encoder) predicts for a given voxel vk: fk(I) ⇒ˆβI,k. Ide-
+ally, given a sufficient number of voxels {v1, v2, v3, . . . , vj}
+where j ≫d and encoder functions that are error free, we
+can uniquely solve for the stimulus I∗by inverting the en-
+coding model such that:
+I∗= arg min
+I
+ j
+X
+m
+∥fm(I) −βm∥2
+2
+!
+(1)
+In practice, the forward models of the encoders could be bi-
+ased and inaccurate, the choice of metric/distance may af-
+fect the solution, and knowledge about the distribution of
+the inputs or outputs may improve the decoder. Unlike prior
+work that learn decoders to map from neural representations
+to stimuli directly, our approach takes a meta-learning view
+and learns a model to perform in-context functional inver-
+sion across a variable number of higher visual cortex voxels.
+3.3. Hierarchical Training-Free Stimulus Decoding
+Our decoding approach leverages a hierarchical inference
+process, with two successive in-context stages, each with a
+distinct type of context. In Stage 1, we perform in-context
+inference across multiple stimulus-response pairs to infer
+the voxelwise response (encoder) function parameters. We
+run this per-voxel, across all voxels of interest. In Stage
+2, we construct a voxel context across multiple voxels to
+perform inversion and estimate the image embedding. Here
+the context consists of an aggregate of voxelwise encoder
+parameters and activations for a single novel stimulus.
+Encoder Parameter Estimation.
+In Stage 1 we adopt
+BrainCoRL’s approach [114] to estimate the per-voxel pa-
+rameters. For a novel subject, for voxel vq we have a context
+defined by {(I1, β1,q), (I2, β2,q), ..., (In, βn,q)}, where we
+have the voxel’s activation in response to n images. Let the
+pretrained BrainCoRL model be Tθ, then:
+ωq = Tθ ({(It, βt,q)}n
+t=1)
+(2)
+where the model can output the voxelwise function weights
+of a novel subject without any fine-tuning. Note that we per-
+3607
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+	
+
+
+Figure 4. Image retrieval comparison on a subject unseen during training (S1). For each method (BrainCoDec-200, MindEye2 +
+anatomical alignment, TGBD), columns list the Top-1–3 retrieved images out of 907 test images from left to right, ranked by similarity in
+the evaluation embedding space. Red boxes mark correct hits. Our model can yield very high semantic retrieval consistency without any
+fine-tuning.
+Table 1. Quantitative comparison of unseen subject brain decoding performance. Top-1 and Top-5 retrieval accuracy (%) on unseen
+NSD subjects (S1, S2, S5, S7) for MindEye2 + anatomical alignment, TGBD, and BrainCoDec-200 (200 in-context images). Our method
+substantially outperforms prior methods while requiring neither subject-specific fine-tuning nor large-scale training data. Mean accuracies
+across subjects are reported in the rightmost column; additional metrics and standard deviations are provided in the Appendix.
+S1
+S2
+S5
+S7
+Mean
+Models
+Top-1↑Top-5↑Top-1↑
+Top-5↑
+Top-1↑
+Top-5↑
+Top-1↑
+Top-5↑
+Top-1↑
+Top-5↑
+MindEye2 [94]
+4.11%
+12.9%
+3.82%
+10.70%
+2.87%
+9.58%
+2.51%
+6.49%
+3.90%
+9.81%
+TGBD [55]
+1.27%
+3.89%
+0.56%
+2.33%
+0.84%
+3.34%
+0.39%
+1.41%
+0.82%
+3.09%
+BrainCoDec-200
+25.5%
+56.6%
+22.9%
+52.4%
+23.2%
+55.8%
+19.2%
+51.2%
+22.7%
+54.0%
+form this stage independently for each voxel in higher vi-
+sual cortex, computing contextual structure across stimuli
+separately for each voxel.
+Contextual Functional Inversion. In Stage 2, the model
+performs functional inversion by constructing a context
+across voxels within a single subject. This approach allows
+us to flexibly adapt our model to novel subjects which have
+different voxel counts. Our approach does not require any
+reference to anatomy, and does not require cross-subject
+anatomical alignment. Each voxel vk is represented by a
+context token ck, defined as the concatenation of its pre-
+dicted response parameter ωk derived from stage 1, and
+the measured activation βk from the novel stimulus, ck =
+[ωk, βk]. The voxel context for a subject is then {ck}m
+k=1,
+where m ≤K. We train a transformer Pγ with variable-
+length voxel contexts to approximate the aggregated inverse
+mapping:
+ˆI ≈Pγ({ck}m
+k=1)
+(3)
+where Pγ denotes a learned transformer that jointly inverts
+the functional representations of multiple voxels.
+Test-time Context Scaling. At test time, when a new sub-
+ject is presented, the number of K voxels available for de-
+coding may vary across individuals. This variability in con-
+text size poses a challenge for model generalization. Unlike
+transformers in language modeling, where outputs depend
+on the sequential order of tokens, our model should be in-
+variant to both the number and the order of voxel token in-
+puts. To accommodate variable-length contexts, we adopt
+logit scaling [3, 17, 98]. Assuming a query/key (q, k) with
+d features and a length l context:
+αorig = q · k
+√
+d
+;
+αscaled = log (l) · q · k
+√
+d
+(4)
+Our model integrates a [CLS] token for output. We omit
+positional embeddings to achieve order invariance.
+Training Objective. To achieve both fine-grained align-
+ment and instance-level discriminability, we employ a hy-
+brid cosine-contrastive loss that combines cosine embed-
+ding loss and an InfoNCE loss. Let I be unit vectors:
+Ltotal =
+
+Lcos + α LinfoNCE
+
+(5)
+3608
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+Figure 5. Robustness of removing voxels from ROIs. Cosine similarity of masking out category-specific voxels (Food, Faces, Places,
+Words) across four unseen NSD subjects on top-activating images from the test set. For each category, we compare performance using
+full context voxels from higher visual cortex versus masking out category-selective ROIs. Across nearly all conditions, masking the
+corresponding functional region has minimal impact on decoding performance, indicating strong robustness and distributed representation
+learning in BrainCoDec. Masking scene-selective regions (PPA/OPA/RSC) leads to some performance drop.
+where for a batch size of N:
+Ltotal = 1
+N
+N
+X
+i=1
+×
+ 
+1 −ˆI⊤
+i Ii
+
+−log
+exp(ˆI⊤
+i Ii/τ)
+PN
+j=1 exp(ˆI⊤
+i Ij/τ)
+!
+We found this loss to work well for our task, as it optimizes
+both reconstruction and discriminability.
+4. Experiments and Analysis
+In this section we comprehensively evaluate BrainCoDec’s
+capability. We first describe the experimental setup in Sec-
+tion 4.1. We then examine the effectiveness on unseen sub-
+ject generalization in Section 4.2, and the decoding robust-
+ness in Section 4.3. Next, we investigate the model’s in-
+ternal representational structure via attention-based analy-
+ses in Section 4.4. Finally, we evaluate its ability to adapt
+to new scanner, voxel sizes, and scanning protocols on the
+BOLD5000 data in Section 4.5.
+Together, these experi-
+ments provide a rigorous characterization of the model’s
+decoding capability, robustness, and interpretability.
+4.1. Experiment Setup
+Dataset.
+We evaluate model performance on Natu-
+ral Scenes Dataset (NSD) [2] and further validate on
+BOLD5000 [14]. Both are large-scale fMRI datasets. NSD
+is the largest available 7T neural dataset, in which each sub-
+ject viewed ∼10,000 images for up to three times. There is
+no overlap between train and test images. BOLD5000 is a
+3T dataset, in which each subject viewed ∼5,000 images,
+but only a subset of images was viewed four times.
+For NSD, four subjects (S1, S2, S5, S7) completed
+the whole scanning among all eight subjects, and thus are
+mainly used in our experiments. For each NSD subject,
+roughly 9,000 images are uniquely seen by to that subject,
+while ∼1,000 images are commonly viewed by all eight
+subjects. To rigorously evaluate BrainCoDec on novel sub-
+jects, we use the 3 × 9,000 unique images from three sub-
+jects as meta-training data, the 1 × 9,000 unique images
+from one held-out subject as the support image context, and
+the 1,000 common images viewed by the held-out subject
+as the final test set. We perform analyses in subject-native
+volume space (func1pt8mm) for all NSD subjects. For
+the data preprocessing, voxelwise betas are z-scored within
+each session and then averaged across repeats of the same
+stimulus. For ROI-level evaluations, we apply a t-statistic
+threshold of t > 2 using independent functional localizer
+data provided with the dataset to refine broad ROI defini-
+tions following prior work [64]. For quantitative evalua-
+tions, we apply a voxel-quality cutoff of ncsnr > 0.2 fol-
+lowing [19]. For BOLD5000, we use a model trained on
+the four NSD subjects (no subject held-out) and evaluate di-
+rectly on BOLD5000 subjects (CSI1, CSI2, CSI3) without
+additional training using 5-fold cross-validation. We only
+utilize those stimuli with four repeats and apply a cutoff of
+ncsnr > 0.3 as the dataset authors recommend. Voxel
+stimuli responses are averaged over all the repeats.
+Training Strategy.
+Our training strategy is inspired by
+LLM pipelines and consists of three stages: pretraining,
+contextual extension, and supervised fine-tuning. In the pre-
+training stage, we adopt an analysis-by-synthesis scheme
+that does not use any real fMRI data.
+We simulate a
+large population of voxels by sampling synthetic weights
+and corresponding beta responses with random Gaussian
+noise, and train the model with a fixed voxel-context size
+of 200. In the second stage, we introduce variable-length
+contexts by randomly drawing the number of voxels from
+Uniform(200, 4000), enabling the model to become robust
+to changes in context length. In the final fine-tuning stage,
+the model is optimized on real fMRI measurements, us-
+3609
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+Figure 6. Semantic attention patterns in BrainCoDec. Left: Example face and place stimuli used for category-specific analysis. Middle:
+Comparison of category t-values from an independent NSD functional localizer, with the corresponding attention-weight maps from the
+final self-attention layer when decoding these stimuli, showing closely matched spatial distributions. Right: UMAP projection of voxelwise
+attention weights across the full test set. Color-coded clusters separate body/face-selective regions in green (EBA, FFA/aTL-faces) and
+scene-selective regions in red (RSC, OPA, PPA).
+ing subject-specific beta values and voxel response parame-
+ters estimated by the pretrained BraInCoRL across different
+image-context sizes, leading to fast convergence and effec-
+tive adaptation to biologically realistic neural signals.
+Evaluation Metrics. We evaluate cross-subject decoding
+on the foundational nearest-neighbor image retrieval task,
+which accurately reflects the capabilities of decoding mod-
+els.
+Our method can also be extended to reconstruction
+tasks by incorporating an additional pretrained image gen-
+erator such as IP-Adapter [112] and Stable Diffusion [88].
+To quantitatively compare with other methods, we adopt
+4 decoding quality evaluation metrics following [55, 94],
+top-1 accuracy , top-5 accuracy, mean rank, and cosine sim-
+ilarity. To note all our evaluation experiments are per-
+formed on novel subjects that are unseen by the model
+during training, with exception of the no subject held-out
+(“no HO”) in the ablation study in Figure 3.
+4.2. Unseen Subject Brain Decoding
+SOTA Method Comparison. We evaluate unseen subject
+decoding image retrieval task with CLIP backbone follow-
+ing the MindEye2 protocol [94]. We compare against two
+state-of-the-art methods, MindEye2 [94] and TGBD [55],
+across all four leave-one-subject-out conditions. For fair
+comparisons, TGBD is retrained using its official recipe us-
+ing the same dataset split as ours; MindEye2 is evaluated us-
+ing its official released fine-tuned model with MNI volume
+anatomical alignment when inferring on novel subjects. We
+report the limited-context variant using only 200 of the
+9 000 support images, denoted BrainCoDec-200. Quanti-
+tative and qualitative results appear in Table 1 and Figure 4,
+respectively. As shown above, BrainCoDec delivers consis-
+tently stronger retrieval performance than both baselines on
+the generalizations to unseen subjects without retraining.
+Contextual Scaling.
+We investigate how BrainCoDec’s
+performance scales with the two aspects of context, im-
+age context and voxel context, respectively.
+The results
+are shown in Figure 3. A clear scaling pattern emerges
+across all subjects and visual backbones (CLIP, DINO, and
+SigLIP). Increasing either the image or voxel context size
+consistently improves decoding.
+Remarkably, with only
+200 images and 4,000 voxels, BrainCoDec achieves similar
+accuracy as inference using full context (all ∼9,000 images
+and all higher-visual-cortex voxels). This shows that our
+framework requires only a fraction of subject-specific data
+to reach comparable decoding performance.
+Ablation Study. We compare four configurations, Brain-
+CoDec with synthetic data pretraining only, gradient-based
+functional inversion, BrainCoDec trained with real data
+with or without subject holdout (seen subject scenario). As
+illustrated in Figure 3, both fine-tuned variants significantly
+outperform the pretrained-only and direct-inversion base-
+lines, confirming the effectiveness of BrainCoDec.
+The
+performance gap due to subject holdout is marginal.
+In
+contrast, models trained with pretraining only or direct in-
+version exhibit substantially lower cosine similarity, under-
+scoring the necessity of contextual fine-tuning for accurate
+cross-subject decoding.
+4.3. Robust Decoding through ROI Dropout
+We examine if BrainCoDec requires functionally special-
+ized cortical regions during decoding. For each semantic
+category (faces, places, food, and words), we first identify
+the test images that elicit the strongest mean beta activations
+within the corresponding functional voxels. We then sys-
+tematically mask out the corresponding category-selective
+regions (e.g., removing PPA, occipital place area (OPA),
+and retrosplenial cortex (RSC) for scene-related stimuli)
+3610
+
+
+and evaluate the resulting decoding performance. As shown
+in Figure 5, the model exhibits remarkable robustness to
+such targeted regional dropout. Masking category-related
+ROIs leads to minimal degradation for most categories, in-
+dicating that BrainCoDec does not rely on any single func-
+tional region to perform aggregated decoding.
+4.4. Neural Interpretability via Attention Analysis
+We analyze the internal attention dynamics of BrainCoDec
+by extracting the attention weights from the last layer during
+the decoding of test images belonging to distinct semantic
+categories using the same activation-based selection crite-
+rion as before. As visualized in Figure 6, the learned at-
+tention weights reveal highly interpretable spatial patterns.
+Face-related stimuli elicit elevated attention weights in vox-
+els in the face- (FFA) and body-selective (EBA) regions,
+while place-related stimuli elicit elevated attention weights
+in place-related regions (PPA, OPA, and RSC). These re-
+sults confirm that BrainCoDec learns to allocate selective
+focus consistent with established cortical semantics.
+We project the predicted voxel-wise attention weights
+across the entire test dataset into a three-dimensional man-
+ifold using UMAP. The resulting embedding exhibits clear
+semantic clustering across higher visual cortex. This emer-
+gent organization mirrors known representational gradients
+in visual areas, demonstrating that our model internalizes
+not merely how to perform functional inversion, but where
+to find semantically relevant neural representations.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 7. Image-context scaling on BOLD5000. Retrieval Mean
+rank (lower is better) across three unseen subjects as the number
+of in-context image–brain pairs increases.
+4.5. New Scanner Adaptation on BOLD5000
+We further assess cross-site generalization on BOLD5000,
+which differs substantially from NSD and thus provides a
+stringent test of new-scanner adaptation. Retrieval tasks are
+performed with 5-fold cross validation on BOLD5000 test
+images. Compared with NSD, BOLD5000 was acquired
+on a 3T scanner with different stimulus timing (slow event-
+related design with a 10 s inter-trial interval), a substantially
+different image set, a different voxel size (2 mm isotropic),
+and a different subject pool. Despite these shifts, Brain-
+CoDec achieves remarkable results on strong retrieval per-
+formance and exhibits a similar contextual scaling trend
+(Figure 7, Figure 8). Results are consistent across held-
+out subjects and across image-encoder backbones (Table 2).
+
+
+
+
+
+Figure 8. Top-4 image retrieval on BOLD5000. We visualize the
+retrieval result on a new-scanner unseen subject (CSI1) using 20
+images as context. The right columns display the Top-4 retrieved
+images. Red boxes indicate correct hits. Our model can generalize
+to novel datasets and scanning parameters without training.
+Our model clearly could transfer its pretrained knowledge
+to new scanners, which is valuable in practical applications
+where retraining new models for new subjects is resource-
+intensive and time-consuming.
+Table 2. Quantitative results of BOLD5000. We directly test
+BrainCoDec using just 20 images as in-context and a different 20
+images as the test set on three unseen subjects from BOLD5000.
+Chance Top-1 Acc is 5%. All metrics are averaged across all
+folds of all three unseen subjects.
+Backbones
+Top-1 Acc.
+Top-5 Acc.
+Mean Rank Cosine Sim.
+CLIP
+31.45±12.80% 81.67±9.42%
+3.49±0.76
+0.72±0.02
+DINOv2
+13.99±5.83% 53.33±6.74%
+6.78±0.87
+0.08±0.01
+SigLIP
+23.67±8.05% 73.41±8.25%
+4.47±0.93
+0.66±0.01
+5. Conclusion
+We present a foundation framework for fMRI decoding that
+generalizes across subjects, scanners, and acquisition pro-
+tocols without any fine-tuning. By meta-learning how to
+invert visual encoding functions and performing hierarchi-
+cal in-context inference across stimuli and voxels, Brain-
+CoDec achieves substantial gains in data efficiency, inter-
+pretability, and cross-subject performance over strong base-
+lines. Beyond decoding, our approach offers a principled
+computational lens on population-level cortical organiza-
+tion and demonstrates how learned functional inversion can
+scale across heterogeneous neural datasets. Looking for-
+ward, the same strategy can be extended to EEG, MEG,
+and other modalities, opening a pathway toward a univer-
+sal, training-free neural decoding model for cognitive sci-
+ence, machine perception, and real-world BCIs.
+3611
+
+
+References
+[1] Hossein Adeli, Sun Minni, and Nikolaus Kriegeskorte. Pre-
+dicting brain activity using transformers. bioRxiv, pages
+2023–08, 2023. 2
+[2] Emily J Allen, Ghislain St-Yves, Yihan Wu, Jesse L
+Breedlove, Jacob S Prince, Logan T Dowdle, Matthias Nau,
+Brad Caron, Franco Pestilli, Ian Charest, et al. A massive 7t
+fmri dataset to bridge cognitive neuroscience and artificial
+intelligence. Nature neuroscience, 25(1):116–126, 2022. 1,
+6
+[3] Jinze Bai, Shuai Bai, Yunfei Chu, Zeyu Cui, Kai Dang,
+Xiaodong Deng, Yang Fan, Wenbin Ge, Yu Han, Fei
+Huang, et al.
+Qwen technical report.
+arXiv preprint
+arXiv:2309.16609, 2023. 5
+[4] Guangyin Bao, Qi Zhang, Zixuan Gong, Zhuojia Wu,
+and Duoqian Miao.
+Mindsimulator:
+Exploring brain
+concept localization via synthetic fmri.
+arXiv preprint
+arXiv:2503.02351, 2025. 2
+[5] Pouya Bashivan, Kohitij Kar, and James J DiCarlo. Neural
+population control via deep image synthesis. Science, 364
+(6439):eaav9436, 2019. 3
+[6] Roman Beliy, Navve Wasserman, Amit Zalcher, and Michal
+Irani. The wisdom of a crowd of brains: A universal brain
+encoder. arXiv preprint arXiv:2406.12179, 2024. 2
+[7] Ludovic Bellier, Ana¨ıs Llorens, D´eborah Marciano, Ay-
+segul Gunduz, Gerwin Schalk, Peter Brunner, and Robert T
+Knight. Music can be reconstructed from human auditory
+cortex activity using nonlinear decoding models. PLoS bi-
+ology, 21(8):e3002176, 2023. 3
+[8] Yohann Benchetrit, Hubert Banville, and Jean-R´emi King.
+Brain decoding: toward real-time reconstruction of visual
+perception. arXiv preprint arXiv:2310.19812, 2023. 3
+[9] Gijs Joost Brouwer and David J Heeger. Decoding and re-
+constructing color from responses in human visual cortex.
+Journal of Neuroscience, 29(44):13992–14003, 2009. 3
+[10] Gijs Joost Brouwer and David J Heeger. Cross-orientation
+suppression in human visual cortex. Journal of neurophys-
+iology, 106(5):2108–2119, 2011. 3
+[11] Tom Brown, Benjamin Mann, Nick Ryder, Melanie Sub-
+biah, Jared D Kaplan, Prafulla Dhariwal, Arvind Neelakan-
+tan, Pranav Shyam, Girish Sastry, Amanda Askell, et al.
+Language models are few-shot learners. Advances in neu-
+ral information processing systems, 33:1877–1901, 2020.
+3
+[12] Qing Cai, Lise Van der Haegen, and Marc Brysbaert. Com-
+plementary hemispheric specialization for language pro-
+duction and visuospatial attention. Proceedings of the Na-
+tional Academy of Sciences, 110(4):E322–E330, 2013. 1
+[13] Diego Garc´ıa Cerdas, Christina Sartzetaki, Magnus Pe-
+tersen, Gemma Roig, Pascal Mettes, and Iris Groen. Brain-
+activ: Identifying visuo-semantic properties driving corti-
+cal selectivity using diffusion-based image manipulation.
+bioRxiv, pages 2024–10, 2024. 3
+[14] Nadine Chang, John A Pyles, Austin Marcus, Abhinav
+Gupta, Michael J Tarr, and Elissa M Aminoff. Bold5000,
+a public fMRI dataset while viewing 5000 visual images.
+Scientific Data, 6(1):1–18, 2019. 1, 6
+[15] Zijiao Chen, Jiaxin Qing, Tiange Xiang, Wan Lin Yue, and
+Juan Helen Zhou. Seeing beyond the brain: Conditional
+diffusion model with sparse masked modeling for vision
+decoding. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 22710–
+22720, 2023. 1, 3
+[16] Zijiao Chen, Jiaxin Qing, and Juan Helen Zhou. Cinematic
+mindscapes: High-quality video reconstruction from brain
+activity. arXiv preprint arXiv:2305.11675, 2023. 3
+[17] David Chiang and Peter Cholak.
+Overcoming a the-
+oretical limitation of self-attention.
+arXiv preprint
+arXiv:2202.12172, 2022. 5
+[18] Julian Coda-Forno, Marcel Binz, Zeynep Akata, Matt
+Botvinick, Jane Wang, and Eric Schulz. Meta-in-context
+learning in large language models. Advances in Neural In-
+formation Processing Systems, 36:65189–65201, 2023. 3
+[19] Colin Conwell, Jacob S Prince, Kendrick N Kay, George A
+Alvarez, and Talia Konkle. A large-scale examination of
+inductive biases shaping high-level visual representation in
+brains and machines. Nature communications, 15(1):9383,
+2024. 6
+[20] Alan S Cowen, Marvin M Chun, and Brice A Kuhl. Neu-
+ral portraits of perception: reconstructing face images from
+evoked brain activity. Neuroimage, 94:12–22, 2014. 3
+[21] Zheng Cui, Dong Nie, Pengcheng Xue, Xia Wu, Daoqiang
+Zhang, and Xuyun Wen.
+Brainx: A universal brain de-
+coding framework with feature disentanglement and neuro-
+geometric representation learning. In Proceedings of the
+34th ACM International Conference on Information and
+Knowledge Management, pages 478–487, 2025. 3
+[22] Damai Dai, Yutao Sun, Li Dong, Yaru Hao, Shuming Ma,
+Zhifang Sui, and Furu Wei. Why can gpt learn in-context?
+language models implicitly perform gradient descent as
+meta-optimizers. arXiv preprint arXiv:2212.10559, 2022.
+3
+[23] Yuqin Dai, Zhouheng Yao, Chunfeng Song, Qihao Zheng,
+Weijian Mai, Kunyu Peng, Shuai Lu, Wanli Ouyang, Jian
+Yang, and Jiamin Wu. Mindaligner: Explicit brain func-
+tional alignment for cross-subject visual decoding from
+limited fmri data. arXiv preprint arXiv:2502.05034, 2025.
+2
+[24] Adrien Doerig, Tim C Kietzmann, Emily Allen, Yihan Wu,
+Thomas Naselaris, Kendrick Kay, and Ian Charest.
+Se-
+mantic scene descriptions as an objective of human vision.
+arXiv preprint arXiv:2209.11737, 2022. 3
+[25] Serge O Dumoulin and Brian A Wandell. Population recep-
+tive field estimates in human visual cortex. Neuroimage, 39
+(2):647–660, 2008. 2
+[26] Cory Efird, Alex Murphy, Joel Zylberberg, and Alona
+Fyshe. What’s the opposite of a face? finding shared de-
+codable concepts and their negations in the brain. arXiv
+e-prints, pages arXiv–2405, 2024. 2
+[27] Michael Eickenberg, Alexandre Gramfort, Ga¨el Varoquaux,
+and Bertrand Thirion. Seeing it all: Convolutional network
+layers map the function of the human visual system. Neu-
+roImage, 152:184–194, 2017. 2
+[28] Matteo Ferrante, Furkan Ozcelik, Tommaso Boccato, Rufin
+VanRullen, and Nicola Toschi. Brain captioning: Decoding
+3612
+
+
+human brain activity into images and text. arXiv preprint
+arXiv:2305.11560, 2023. 3
+[29] Chelsea Finn, Pieter Abbeel, and Sergey Levine. Model-
+agnostic meta-learning for fast adaptation of deep networks.
+In International conference on machine learning, pages
+1126–1135. PMLR, 2017. 3
+[30] Camilo Fosco, Benjamin Lahner, Bowen Pan, Alex An-
+donian, Emilie Josephs, Alex Lascelles, and Aude Oliva.
+Brain netflix: Scaling data to reconstruct videos from brain
+signals.
+In European Conference on Computer Vision,
+pages 457–474. Springer, 2024. 3
+[31] Shivam Garg, Dimitris Tsipras, Percy S Liang, and Gre-
+gory Valiant. What can transformers learn in-context? a
+case study of simple function classes. Advances in Neural
+Information Processing Systems, 35:30583–30598, 2022. 3
+[32] Isabel Gauthier, Pawel Skudlarski, John C Gore, and
+Adam W Anderson. Expertise for cars and birds recruits
+brain areas involved in face recognition.
+Nature neuro-
+science, 3(2):191–197, 2000. 1
+[33] Guy Gaziv, Roman Beliy, Niv Granot, Assaf Hoogi,
+Francesca Strappini, Tal Golan, and Michal Irani.
+Self-
+supervised natural image reconstruction and large-scale se-
+mantic classification from brain activity. NeuroImage, 254:
+119121, 2022. 2
+[34] Alessandro T Gifford, Benjamin Lahner, Pablo Oyarzo,
+Aude Oliva, Gemma Roig, and Radoslaw M Cichy. What
+opportunities do large-scale visual neural datasets offer to
+the vision sciences community? Journal of Vision, 24(10):
+152–152, 2024. 2
+[35] Zhengxin Gong, Ming Zhou, Yuxuan Dai, Yushan Wen,
+Youyi Liu, and Zonglei Zhen. A large-scale fmri dataset
+for the visual processing of naturalistic scenes. Scientific
+Data, 10(1):559, 2023. 1
+[36] Zixuan Gong, Guangyin Bao, Qi Zhang, Zhongwei Wan,
+Duoqian Miao, Shoujin Wang, Lei Zhu, Changwei Wang,
+Rongtao Xu, Liang Hu, Ke Liu, and Yu Zhang. Neuro-
+clips: Towards high-fidelity and smooth fMRI-to-video re-
+construction. In The Thirty-eighth Annual Conference on
+Neural Information Processing Systems, 2024. 3
+[37] Zijin Gu, Keith Wakefield Jamison, Meenakshi Khosla,
+Emily J Allen, Yihan Wu, Ghislain St-Yves, Thomas Nase-
+laris, Kendrick Kay, Mert R Sabuncu, and Amy Kuceyeski.
+NeuroGen: activation optimized image synthesis for dis-
+covery neuroscience. NeuroImage, 247:118812, 2022. 3
+[38] Umut G¨uc¸l¨u and Marcel AJ Van Gerven. Deep neural net-
+works reveal a gradient in the complexity of neural rep-
+resentations across the ventral stream. Journal of Neuro-
+science, 35(27):10005–10014, 2015. 2
+[39] Zhanqiang Guo, Jiamin Wu, Yonghao Song, Jiahui Bu,
+Weijian Mai, Qihao Zheng, Wanli Ouyang, and Chunfeng
+Song. Neuro-3d: Towards 3d visual decoding from eeg sig-
+nals. In Proceedings of the Computer Vision and Pattern
+Recognition Conference, pages 23870–23880, 2025. 3
+[40] Kuan Han, Haiguang Wen, Junxing Shi, Kun-Han Lu,
+Yizhen Zhang, Di Fu, and Zhongming Liu. Variational au-
+toencoder: An unsupervised model for encoding and de-
+coding fmri activity in visual cortex.
+NeuroImage, 198:
+125–136, 2019. 2
+[41] Stefan Haufe, Frank Meinecke, Kai G¨orgen, Sven D¨ahne,
+John-Dylan Haynes, Benjamin Blankertz, and Felix Bieß-
+mann.
+On the interpretation of weight vectors of linear
+models in multivariate neuroimaging. Neuroimage, 87:96–
+110, 2014. 3
+[42] James V Haxby, M Ida Gobbini, Maura L Furey, Alumit
+Ishai, Jennifer L Schouten, and Pietro Pietrini. Distributed
+and overlapping representations of faces and objects in ven-
+tral temporal cortex. Science, 293(5539):2425–2430, 2001.
+3
+[43] John-Dylan Haynes and Geraint Rees. Decoding mental
+states from brain activity in humans. Nature reviews neuro-
+science, 7(7):523–534, 2006. 3
+[44] Martin N Hebart, Oliver Contier, Lina Teichmann, Adam H
+Rockter, Charles Y Zheng, Alexis Kidder, Anna Corriveau,
+Maryam Vaziri-Pashkam, and Chris I Baker. Things-data,
+a multimodal collection of large-scale datasets for investi-
+gating object representations in human brain and behavior.
+Elife, 12:e82580, 2023. 1
+[45] Tomoyasu Horikawa and Yukiyasu Kamitani. Generic de-
+coding of seen and imagined objects using hierarchical vi-
+sual features. Nature communications, 8(1):15037, 2017.
+1
+[46] Timothy Hospedales, Antreas Antoniou, Paul Micaelli, and
+Amos Storkey. Meta-learning in neural networks: A sur-
+vey. IEEE transactions on pattern analysis and machine
+intelligence, 44(9):5149–5169, 2021. 3
+[47] Hyejeong Jo, Yiqian Yang, Juhyeok Han, Yiqun Duan, Hui
+Xiong, and Won Hee Lee. Are eeg-to-text models working?
+arXiv preprint arXiv:2405.06459, 2024. 3
+[48] Yukiyasu Kamitani and Frank Tong. Decoding the visual
+and subjective contents of the human brain. Nature neuro-
+science, 8(5):679–685, 2005. 2
+[49] Kendrick N Kay, Thomas Naselaris, Ryan J Prenger, and
+Jack L Gallant.
+Identifying natural images from human
+brain activity. Nature, 452(7185):352–355, 2008. 3
+[50] Meenakshi Khosla and Leila Wehbe.
+High-level visual
+areas act like domain-general filters with strong selectiv-
+ity and functional specialization. bioRxiv, pages 2022–03,
+2022. 2
+[51] Meenakshi Khosla, Keith Jamison, Amy Kuceyeski, and
+Mert Sabuncu.
+Characterizing the ventral visual stream
+with response-optimized neural encoding models.
+Ad-
+vances in Neural Information Processing Systems, 35:
+9389–9402, 2022. 2
+[52] David Klindt, Alexander S Ecker, Thomas Euler, and
+Matthias Bethge.
+Neural system identification for large
+populations separating “what” and “where”. Advances in
+neural information processing systems, 30, 2017. 2
+[53] Peter Kok and Floris P De Lange. Shape perception simul-
+taneously up-and downregulates neural activity in the pri-
+mary visual cortex. Current Biology, 24(13):1531–1535,
+2014. 3
+[54] Peter Kok, Gijs Joost Brouwer, Marcel AJ van Gerven, and
+Floris P de Lange. Prior expectations bias sensory repre-
+sentations in visual cortex.
+Journal of Neuroscience, 33
+(41):16275–16284, 2013. 3
+3613
+
+
+[55] Xiangtao Kong, Kexin Huang, Ping Li, and Lei Zhang. To-
+ward generalizing visual brain decoding to unseen subjects.
+arXiv preprint arXiv:2410.14445, 2024. 3, 5, 7
+[56] Connor Lane, Daniel Z Kaplan, Tanishq Mathew Abraham,
+and Paul S Scotti. Scaling vision transformers for functional
+mri with flat maps. arXiv preprint arXiv:2510.13768, 2025.
+3
+[57] Alexander Lappe, Anna Bogn´ar, Ghazaleh Ghamkahri Ne-
+jad, Albert Mukovskiy, Lucas Martini, Martin Giese, and
+Rufin Vogels. Parallel backpropagation for shared-feature
+visualization. Advances in Neural Information Processing
+Systems, 37:22993–23012, 2024. 2
+[58] Dongyang Li, Chen Wei, Shiying Li, Jiachen Zou, Haoyang
+Qin, and Quanying Liu. Visual decoding and reconstruction
+via eeg embeddings with guided diffusion. arXiv preprint
+arXiv:2403.07721, 2024. 3
+[59] Yipeng Li, Wei Jin, Jia Yang, Wanru Li, Baoqi Gong, Xieyi
+Liu, Zhengxin Gong, Kesheng Wang, Zishuo Zhao, Jingqiu
+Luo, et al.
+Triple-n dataset: Non-human primate neural
+responses to natural scenes. BioRxiv, pages 2025–05, 2025.
+1
+[60] Xuan-Hao Liu, Yan-Kai Liu, Yansen Wang, Kan Ren, Han-
+wen Shi, Zilong Wang, Dongsheng Li, Bao-Liang Lu, and
+Wei-Long Zheng. Eeg2video: Towards decoding dynamic
+visual perception from eeg signals. Advances in Neural In-
+formation Processing Systems, 37:72245–72273, 2024. 3
+[61] Yulong Liu, Yongqiang Ma, Wei Zhou, Guibo Zhu,
+and Nanning Zheng.
+Brainclip:
+Bridging brain and
+visual-linguistic representation via clip for generic natu-
+ral visual stimulus decoding from fmri.
+arXiv preprint
+arXiv:2302.12971, 2023. 3
+[62] Yizhuo Lu, Changde Du, Dianpeng Wang, and Huiguang
+He. Minddiffuser: Controlled image reconstruction from
+human brain activity with semantic and structural diffusion.
+arXiv preprint arXiv:2303.14139, 2023. 3
+[63] Andrew Luo, Margaret Marie Henderson, Michael J. Tarr,
+and Leila Wehbe. Brainscuba: Fine-grained natural lan-
+guage captions of visual cortex selectivity. In The Twelfth
+International Conference on Learning Representations,
+2024. 3
+[64] Andrew F Luo, Margaret M Henderson, Leila Wehbe, and
+Michael J Tarr. Brain diffusion for visual exploration: Cor-
+tical discovery using large scale generative models. arXiv
+preprint arXiv:2306.03089, 2023. 3, 6
+[65] Andrew F Luo, Jacob Yeung, Rushikesh Zawar, Shau-
+rya Dewan, Margaret M Henderson, Leila Wehbe, and
+Michael J Tarr.
+Brain mapping with dense features:
+Grounding cortical semantic selectivity in natural images
+with vision transformers. arXiv preprint arXiv:2410.05266,
+2024. 2
+[66] Weijian Mai and Zhijun Zhang. Unibrain: Unify image re-
+construction and captioning all in one diffusion model from
+human brain activity.
+arXiv preprint arXiv:2308.07428,
+2023. 3
+[67] Weijian Mai, Jian Zhang, Pengfei Fang, and Zhijun Zhang.
+Brain-conditional multimodal synthesis: A survey and tax-
+onomy. IEEE Transactions on Artificial Intelligence, 6(5):
+1080–1099, 2024. 2
+[68] Weijian Mai,
+Jiamin Wu,
+Yu Zhu,
+Zhouheng Yao,
+Dongzhan Zhou, Andrew F Luo, Qihao Zheng, Wanli
+Ouyang, and Chunfeng Song. Synbrain: Enhancing visual-
+to-fmri synthesis via probabilistic representation learning.
+arXiv preprint arXiv:2508.10298, 2025. 3
+[69] Takuya Matsuyama, Shinji Nishimoto, and Yu Takagi.
+Lavca:
+Llm-assisted visual cortex captioning.
+arXiv
+preprint arXiv:2502.13606, 2025. 3
+[70] Sean L Metzger, Kaylo T Littlejohn, Alexander B Silva,
+David A Moses, Margaret P Seaton, Ran Wang, Maximil-
+ian E Dougherty, Jessie R Liu, Peter Wu, Michael A Berger,
+et al. A high-performance neuroprosthesis for speech de-
+coding and avatar control. Nature, 620(7976):1037–1046,
+2023. 3
+[71] Sewon Min, Mike Lewis, Luke Zettlemoyer, and Hannaneh
+Hajishirzi. Metaicl: Learning to learn in context. arXiv
+preprint arXiv:2110.15943, 2021. 3
+[72] Thomas Naselaris, Ryan J Prenger, Kendrick N Kay,
+Michael Oliver, and Jack L Gallant. Bayesian reconstruc-
+tion of natural images from human brain activity. Neuron,
+63(6):902–915, 2009. 3
+[73] Thomas Naselaris, Kendrick N Kay, Shinji Nishimoto, and
+Jack L Gallant. Encoding and decoding in fMRI. Neuroim-
+age, 56(2):400–410, 2011. 2
+[74] Alex Nichol, Joshua Achiam, and John Schulman.
+On
+first-order meta-learning algorithms.
+arXiv preprint
+arXiv:1803.02999, 2018. 3
+[75] Shinji Nishimoto, An T Vu, Thomas Naselaris, Yuval Ben-
+jamini, Bin Yu, and Jack L Gallant. Reconstructing visual
+experiences from brain activity evoked by natural movies.
+Current biology, 21(19):1641–1646, 2011. 3
+[76] Kenneth A Norman, Sean M Polyn, Greg J Detre, and
+James V Haxby. Beyond mind-reading: multi-voxel pat-
+tern analysis of fmri data. Trends in cognitive sciences, 10
+(9):424–430, 2006. 2
+[77] Kathleen M O’Craven and Nancy Kanwisher. Mental im-
+agery of faces and places activates corresponding stimulus-
+specific brain regions. Journal of cognitive neuroscience,
+12(6):1013–1023, 2000. 3
+[78] Subba Reddy Oota, Emin C¸ elik, Fatma Deniz, and Mariya
+Toneva.
+Speech language models lack important brain-
+relevant semantics.
+arXiv preprint arXiv:2311.04664,
+2023. 3
+[79] Furkan Ozcelik and Rufin VanRullen. Brain-diffuser: Natu-
+ral scene reconstruction from fmri signals using generative
+latent diffusion. arXiv preprint arXiv:2303.05334, 2023. 3
+[80] Brian N Pasley, Stephen V David, Nima Mesgarani, Adeen
+Flinker, Shihab A Shamma, Nathan E Crone, Robert T
+Knight, and Edward F Chang. Reconstructing speech from
+human auditory cortex.
+PLoS biology, 10(1):e1001251,
+2012. 3
+[81] Pawel Pierzchlewicz,
+Konstantin Willeke,
+Arne Nix,
+Pavithra Elumalai, Kelli Restivo, Tori Shinn, Cate Nealley,
+Gabrielle Rodriguez, Saumil Patel, Katrin Franke, et al. En-
+ergy guided diffusion for generating neurally exciting im-
+ages. Advances in Neural Information Processing Systems,
+36:32574–32601, 2023. 3
+3614
+
+
+[82] Carlos R Ponce, Will Xiao, Peter F Schade, Till S Hart-
+mann, Gabriel Kreiman, and Margaret S Livingstone.
+Evolving images for visual neurons using a deep genera-
+tive network reveals coding principles and neuronal prefer-
+ences. Cell, 177(4):999–1009, 2019. 3
+[83] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya
+Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,
+Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learn-
+ing transferable visual models from natural language super-
+vision. In International conference on machine learning,
+pages 8748–8763. PmLR, 2021. 3
+[84] Aravind Rajeswaran, Chelsea Finn, Sham M Kakade, and
+Sergey Levine. Meta-learning with implicit gradients. Ad-
+vances in neural information processing systems, 32, 2019.
+3
+[85] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey
+Chu, and Mark Chen.
+Hierarchical text-conditional
+image generation with clip latents.
+arXiv preprint
+arXiv:2204.06125, 2022. 1
+[86] N Apurva Ratan Murty, Pouya Bashivan, Alex Abate,
+James J DiCarlo, and Nancy Kanwisher.
+Computational
+models of category-selective brain regions enable high-
+throughput tests of selectivity. Nature communications, 12
+(1):5540, 2021. 3
+[87] Ziqi Ren, Jie Li, Xuetong Xue, Xin Li, Fan Yang, Zhicheng
+Jiao, and Xinbo Gao. Reconstructing seen image from brain
+activity by visually-guided cognitive representation and ad-
+versarial learning. NeuroImage, 228:117602, 2021. 2
+[88] Robin Rombach, Andreas Blattmann, Dominik Lorenz,
+Patrick Esser, and Bj¨orn Ommer. High-resolution image
+synthesis with latent diffusion models. In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 10684–10695, 2022. 1, 7
+[89] Sameer Saproo and John T Serences. Attention improves
+transfer of motion information between v1 and mt. Journal
+of Neuroscience, 34(10):3586–3596, 2014. 3
+[90] Gabriel H. Sarch, Michael J. Tarr, Katerina Fragkiadaki,
+and Leila Wehbe. Brain dissection: fmri-trained networks
+reveal spatial selectivity in the processing of natural images.
+bioRxiv, 2023. 2
+[91] Steffen Schneider, Jin Hwa Lee, and Mackenzie Weygandt
+Mathis. Learnable latent embeddings for joint behavioural
+and neural analysis. Nature, 617(7960):360–368, 2023. 3
+[92] Sanne Schoenmakers, Markus Barth, Tom Heskes, and
+Marcel Van Gerven. Linear reconstruction of perceived im-
+ages from human brain activity. NeuroImage, 83:951–961,
+2013. 3
+[93] Martin Schrimpf, Idan Asher Blank, Greta Tuckute, Ca-
+rina Kauf, Eghbal A Hosseini, Nancy Kanwisher, Joshua B
+Tenenbaum, and Evelina Fedorenko. The neural architec-
+ture of language.
+Proceedings of the National Academy
+of Sciences of the United States of America, 118(45):1–12,
+2021. 2
+[94] Paul S Scotti, Mihir Tripathy, Cesar Kadir Torrico Vil-
+lanueva, Reese Kneeland, Tong Chen, Ashutosh Narang,
+Charan Santhirasegaran, Jonathan Xu, Thomas Naselaris,
+Kenneth A Norman, et al. Mindeye2: Shared-subject mod-
+els enable fmri-to-image with 1 hour of data. arXiv preprint
+arXiv:2403.11207, 2024. 1, 3, 5, 7
+[95] Katja Seeliger, Umut G¨uc¸l¨u, Luca Ambrogioni, Yagmur
+G¨uc¸l¨ut¨urk, and Marcel AJ van Gerven.
+Generative ad-
+versarial networks for reconstructing natural images from
+brain activity. NeuroImage, 181:775–785, 2018. 2
+[96] Guohua Shen, Tomoyasu Horikawa, Kei Majima, and
+Yukiyasu Kamitani. Deep image reconstruction from hu-
+man brain activity.
+PLoS computational biology, 15(1):
+e1006633, 2019. 2
+[97] Jake Snell, Kevin Swersky, and Richard Zemel. Prototyp-
+ical networks for few-shot learning.
+Advances in neural
+information processing systems, 30, 2017. 3
+[98] J Su. Analyzing the scale operation of attention from the
+perspective of entropy invariance. Technical report, Techni-
+cal report, Dec 2021. URL https://kexue.fm/archives/8823,
+2021. 5
+[99] Yu Takagi and Shinji Nishimoto. High-resolution image re-
+construction with latent diffusion models from human brain
+activity. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 14453–
+14463, 2023. 1, 3
+[100] Michael J Tarr and Isabel Gauthier. FFA: a flexible fusiform
+area for subordinate-level visual processing automatized by
+expertise. Nature neuroscience, 3(8):764–769, 2000. 1
+[101] John Darrell Van Horn, Scott T Grafton, and Michael B
+Miller. Individual variability in brain activity: a nuisance
+or an opportunity? Brain imaging and behavior, 2(4):327–
+334, 2008. 1
+[102] Ga¨el Varoquaux, Pradeep Reddy Raamana, Denis A En-
+gemann, Andr´es Hoyos-Idrobo, Yannick Schwartz, and
+Bertrand Thirion.
+Assessing and tuning brain decoders:
+cross-validation, caveats, and guidelines. NeuroImage, 145:
+166–179, 2017. 3
+[103] Johannes Von Oswald, Eyvind Niklasson, Ettore Ran-
+dazzo, Jo˜ao Sacramento, Alexander Mordvintsev, Andrey
+Zhmoginov, and Max Vladymyrov. Transformers learn in-
+context by gradient descent. In International Conference
+on Machine Learning, pages 35151–35174. PMLR, 2023.
+3
+[104] Edgar Y Walker, Fabian H Sinz, Erick Cobos, Tal-
+iah Muhammad, Emmanouil Froudarakis, Paul G Fahey,
+Alexander S Ecker, Jacob Reimer, Xaq Pitkow, and An-
+dreas S Tolias. Inception loops discover what excites neu-
+rons most using deep predictive models.
+Nature neuro-
+science, 22(12):2060–2065, 2019. 3
+[105] Haonan Wang, Jingyu Lu, Hongrui Li, and Xiaomeng
+Li.
+Zebra: Towards zero-shot cross-subject generaliza-
+tion for universal brain visual decoding.
+arXiv preprint
+arXiv:2510.27128, 2025. 3
+[106] Shizun Wang, Songhua Liu, Zhenxiong Tan, and Xinchao
+Wang. Mindbridge: A cross-subject brain decoding frame-
+work.
+In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 11333–
+11342, 2024. 1, 3
+[107] Roel M Willems, Marius V Peelen, and Peter Hagoort.
+Cerebral lateralization of face-selective and body-selective
+3615
+
+
+visual areas depends on handedness. Cerebral cortex, 20
+(7):1719–1725, 2010. 1
+[108] Francis R Willett, Erin M Kunz, Chaofei Fan, Donald T
+Avansino, Guy H Wilson, Eun Young Choi, Foram Kamdar,
+Matthew F Glasser, Leigh R Hochberg, Shaul Druckmann,
+et al. A high-performance speech neuroprosthesis. Nature,
+620(7976):1031–1036, 2023. 3
+[109] Weihao Xia, Raoul de Charette, Cengiz ¨Oztireli, and Jing-
+Hao Xue. Umbrae: Unified multimodal decoding of brain
+signals. arXiv preprint arXiv:2404.07202, 2(3):6, 2024. 3
+[110] Huzheng Yang, James Gee, and Jianbo Shi. Alignedcut:
+Visual concepts discovery on brain-guided universal feature
+space. arXiv preprint arXiv:2406.18344, 2024. 2
+[111] Huzheng Yang, James Gee, and Jianbo Shi. Brain decodes
+deep nets. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 23030–
+23040, 2024. 2
+[112] Hu Ye, Jun Zhang, Sibo Liu, Xiao Han, and Wei Yang. Ip-
+adapter: Text compatible image prompt adapter for text-to-
+image diffusion models. arXiv preprint arXiv:2308.06721,
+2023. 7
+[113] Jacob Yeung, Andrew F Luo, Gabriel Sarch, Margaret M
+Henderson, Deva Ramanan, and Michael J Tarr.
+Neural
+representations of dynamic visual stimuli. arXiv preprint
+arXiv:2406.02659, 2024. 3
+[114] Muquan Yu, Mu Nan, Hossein Adeli, Jacob S Prince,
+John A Pyles, Leila Wehbe, Margaret M Henderson,
+Michael J Tarr, and Andrew F Luo. Meta-learning an in-
+context transformer model of human higher visual cortex.
+arXiv preprint arXiv:2505.15813, 2025. 2, 4
+[115] Yu Zhu, Bo Lei, Chunfeng Song, Wanli Ouyang, Shan Yu,
+and Tiejun Huang. Multi-modal latent variables for cross-
+individual primary visual cortex modeling and analysis. In
+Proceedings of the AAAI Conference on Artificial Intelli-
+gence, pages 1228–1236, 2025. 3
+3616
