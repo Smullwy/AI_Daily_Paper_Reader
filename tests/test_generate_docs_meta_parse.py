@@ -1,4 +1,5 @@
 import importlib.util
+import html
 import json
 import sys
 import tempfile
@@ -44,6 +45,7 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
                     [
                         "---",
                         'title: "Attention Is All You Need"',
+                        "title_zh: 注意力即一切",
                         "authors: Ashish Vaswani, Noam Shazeer",
                         'tags: ["query:transformer", "paper:attention"]',
                         "date: 20170612",
@@ -59,6 +61,7 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
             )
             item = self.mod._parse_generated_md_to_meta(str(path), "pid", "quick")
             self.assertEqual(item["title_en"], "Attention Is All You Need")
+            self.assertEqual(item["title_zh"], "注意力即一切")
             self.assertTrue(item["authors"].startswith("Ashish Vaswani"))
             self.assertIn("query:transformer", item["tags"])
             self.assertEqual(item["date"], "20170612")
@@ -148,6 +151,150 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
         self.assertIn(("query", "equation-discovery"), tags)
         self.assertNotIn(("query", "sr:composite"), tags)
         self.assertEqual(tags.count(("query", "sr")), 1)
+
+    def test_extract_reader_topic_tags_uses_short_sources(self):
+        paper = {
+            "topic_tags": [
+                "continual learning",
+                "使用偏信息分解分析多模态语言模型中的模态交互",
+            ],
+            "keywords": ["domain generalization"],
+            "llm_tags": [
+                "query:ai4nd",
+                "paper:ai4nd:composite",
+                "paper:domain adaptation",
+            ],
+            "llm_evidence_en": "continual learning, domain generalization, replay control",
+            "canonical_evidence": "使用偏信息分解分析多模态语言模型中的模态交互",
+        }
+
+        topics = self.mod.extract_reader_topic_tags(paper)
+
+        self.assertEqual(
+            topics,
+            ["continual learning", "domain generalization", "domain adaptation", "replay control"],
+        )
+        self.assertNotIn("ai4nd", " ".join(topics).lower())
+        self.assertFalse(any("使用偏信息" in topic for topic in topics))
+        self.assertEqual(
+            self.mod.extract_reader_topic_tags({"canonical_evidence": "symbolic regression, equation discovery"}),
+            ["symbolic regression", "equation discovery"],
+        )
+        self.assertEqual(
+            self.mod.extract_reader_topic_tags(
+                {
+                    "canonical_evidence": (
+                        "This paper proposes Frobenius reinitialization, and improves "
+                        "the stability-plasticity tradeoff."
+                    )
+                }
+            ),
+            [],
+        )
+        self.assertEqual(
+            self.mod.extract_reader_topic_tags({"canonical_evidence": "本文提出稳定性和可塑性平衡方法，适合当前订阅方向"}),
+            [],
+        )
+
+    def test_extract_reader_topic_tags_prefers_english_professional_terms(self):
+        eva_topics = self.mod.extract_reader_topic_tags(
+            {
+                "title": "EVA-Net: Subject-Independent EEG Motor Decoding with Video-Derived Motor Priors",
+                "primary_category": "cs.AI",
+                "categories": ["cs.AI"],
+                "llm_evidence_en": (
+                    "EEG motor decoding with video-derived semantic priors via cross-modal alignment"
+                ),
+                "canonical_evidence": "通过跨模态对齐的视频语义先验进行EEG运动解码",
+                "matched_query_text": (
+                    "Prioritize papers on multimodal alignment, cross modal representation learning, "
+                    "or latent representation matching that could inspire neural decoding."
+                ),
+            }
+        )
+
+        self.assertEqual(
+            eva_topics,
+            [
+                "EEG motor decoding",
+                "video-derived semantic priors",
+                "cross-modal alignment",
+                "Artificial Intelligence",
+            ],
+        )
+        self.assertFalse(any("Prioritize" in topic or "通过" in topic for topic in eva_topics))
+
+        edit_topics = self.mod.extract_reader_topic_tags(
+            {
+                "title": "Do Text Edits Generalize to Visual Generation? Benchmarking Cross-Modal Knowledge Editing in UMMs",
+                "categories": ["cs.CL", "cs.CV"],
+                "llm_evidence_en": "cross-modal knowledge editing in multimodal models",
+                "canonical_evidence": "多模态模型中的跨模态知识编辑",
+                "matched_query_text": "multimodal alignment",
+            }
+        )
+
+        self.assertEqual(
+            edit_topics,
+            [
+                "cross-modal knowledge editing",
+                "multimodal models",
+                "multimodal alignment",
+                "NLP",
+                "Computer Vision",
+            ],
+        )
+
+    def test_update_sidebar_payload_includes_short_topic_tags(self):
+        with tempfile.TemporaryDirectory() as d:
+            sidebar_path = Path(d) / "_sidebar.md"
+            sidebar_path.write_text("* Daily Papers\n", encoding="utf-8")
+
+            self.mod.update_sidebar(
+                str(sidebar_path),
+                "20260522",
+                [
+                    (
+                        "202605/22/test-paper",
+                        "Test Paper",
+                        "测试论文",
+                        [("score", "9.0"), ("query", "ai4nd")],
+                    )
+                ],
+                [
+                    (
+                        "202605/22/quick-paper",
+                        "Quick Paper",
+                        "速读论文",
+                        [("score", "7.0"), ("paper", "bridge")],
+                    )
+                ],
+                {
+                    "202605/22/test-paper": "使用偏信息分解分析多模态语言模型中的模态交互",
+                    "202605/22/quick-paper": "methodological bridge",
+                },
+                "2026-05-22",
+                paper_topic_tags_by_id={
+                    "202605/22/test-paper": [
+                        "continual learning",
+                        "domain generalization",
+                        "使用偏信息分解分析多模态语言模型中的模态交互",
+                    ],
+                    "202605/22/quick-paper": ["methodological bridge"],
+                },
+            )
+
+            content = sidebar_path.read_text(encoding="utf-8")
+            payloads = [
+                json.loads(html.unescape(chunk.split('"', 1)[0]))
+                for chunk in content.split('data-sidebar-item="')[1:]
+            ]
+            payload_by_title = {payload["title"]: payload for payload in payloads}
+            payload = payload_by_title["Test Paper"]
+            self.assertEqual(payload["topic_tags"], ["continual learning", "domain generalization"])
+            self.assertEqual(payload["reader_section"], "deep")
+            self.assertEqual(payload["tags"], [{"kind": "query", "label": "ai4nd"}])
+            self.assertEqual(payload_by_title["Quick Paper"]["reader_section"], "quick")
 
     def test_build_markdown_content_writes_figures_json_front_matter(self):
         paper = {
@@ -312,8 +459,11 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
             content = sidebar_path.read_text(encoding="utf-8")
             self.assertNotIn("暂无日报", content)
             self.assertIn("2026-05-22 <!--dpr-date:20260522-->", content)
-            self.assertIn("* 本地 PDF 解析", content)
-            self.assertIn('href="#/local-pdf">上传解析</a>', content)
+            self.assertIn("* 📄 本地 PDF 解析", content)
+            self.assertIn('href="#/local-pdf">📝 上传解析</a>', content)
+            self.assertIn("#/reader-library", content)
+            self.assertIn("#/reports/weekly/README", content)
+            self.assertIn("#/reports/monthly/README", content)
             self.assertIn(
                 '<a class="dpr-sidebar-brief-link" href="#/202605/22/README">📝 今日简报</a>',
                 content,
@@ -336,8 +486,8 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
             )
 
             content = sidebar_path.read_text(encoding="utf-8")
-            self.assertIn('* 本地 PDF 解析\n  * <a class="dpr-sidebar-brief-link" href="#/local-pdf">上传解析</a>\n* Daily Papers', content)
-            self.assertIn("* Daily Papers\n  * 2026-05-22", content)
+            self.assertIn('* 📄 本地 PDF 解析\n  * <a class="dpr-sidebar-brief-link" href="#/local-pdf">📝 上传解析</a>\n* 🗂️ Daily Papers', content)
+            self.assertIn("* 🗂️ Daily Papers\n  * 2026-05-22", content)
             self.assertIn("📝 今日简报", content)
             self.assertNotIn("* Daily Papers  * 2026-05-22", content)
 
@@ -366,8 +516,8 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
             )
 
             content = sidebar_path.read_text(encoding="utf-8")
-            self.assertIn('* 本地 PDF 解析\n  * <a class="dpr-sidebar-brief-link" href="#/local-pdf">上传解析</a>\n* Daily Papers', content)
-            self.assertIn("* Daily Papers\n  * 2026-05-22", content)
+            self.assertIn('* 📄 本地 PDF 解析\n  * <a class="dpr-sidebar-brief-link" href="#/local-pdf">📝 上传解析</a>\n* 🗂️ Daily Papers', content)
+            self.assertIn("* 🗂️ Daily Papers\n  * 2026-05-22", content)
             self.assertIn("📝 今日简报", content)
             self.assertNotIn("* Daily Papers  * 2026-05-22", content)
             self.assertNotIn("旧条目", content)
