@@ -1,0 +1,2335 @@
+1
+StableMind: Source-Free Cross-Subject fMRI
+Decoding with Regularized Adaptation
+Jintao Guo†, Lin Wang†, Shumeng Li, Jian Zhang, Yulin Zhou, Luyang Cao, Hairong Zheng∗, Yinghuan Shi∗
+Abstract—Existing cross-subject fMRI decoding methods typ-
+ically train a model on multiple scanned subjects and then
+adapt it to a new subject using substantial paired fMRI-image
+data. However, in realistic scenarios, new-subject fMRI data
+are often limited due to costly data acquisition, and raw data
+from previous subjects may be inaccessible, leading existing
+methods to suffer performance degradation during new-subject
+adaptation. In this paper, we identify that this degradation
+stems from two key issues: brain-side instability caused by
+large subject differences in fMRI responses, and image-side
+supervision unreliability caused by fine-grained visual details that
+are not reliably supported by limited fMRI signals. To address
+these challenges, we propose StableMind, a regularized adapta-
+tion framework designed to improve brain-side representation
+stability and image-side supervision reliability. (1) To stabilize
+brain representations, StableMind reuses ridge projections from
+the pretrained model as adaptation priors to constrain limited-
+data new-subject adaptation, and applies Fourier-based feature-
+level brain augmentation to improve robustness to individual
+variability. (2) To improve image supervision reliability, Sta-
+bleMind introduces difficulty-aware image blur for brain-image
+alignment, reducing the influence of fine-grained visual details
+that are weakly supported by limited fMRI signals while preserv-
+ing stable visual structure. Experiments on the Natural Scenes
+Dataset under a unified 1-hour adaptation protocol demonstrate
+that StableMind achieves 84.02% image retrieval accuracy and
+81.66% brain retrieval accuracy averaged over four subjects,
+surpassing the state-of-the-art method by 5.71% brain retrieval
+accuracy with fewer trainable adaptation parameters. Our code
+is available at https://github.com/lingeringlight/StableMind.
+Index Terms—Brain Decoding; Cross-Subject Adaptation;
+Source-Free Adaptation; Feature-Level Augmentation
+I. INTRODUCTION
+Understanding how the human brain encodes visual per-
+ception is a core problem in cognitive science and Brain-
+Computer Interface (BCI) research [1], [2]. Functional mag-
+netic resonance imaging (fMRI) provides a noninvasive basis
+† Jintao Guo and Lin Wang contributed equally to this work.
+∗Corresponding authors: Hairong Zheng and Yinghuan Shi.
+Jintao Guo, Shumeng Li, Jian Zhang, Yulin Zhou, Luyang Cao, and
+Yinghuan Shi are with the National Key Laboratory for Novel Soft-
+ware Technology and the Institute of Brain-Machine Interface, Nan-
+jing
+University,
+Nanjing
+210023,
+China.
+Jian
+Zhang
+is
+also
+with
+the
+School
+of
+Intelligence
+Science
+and
+Technology,
+Nanjing
+Uni-
+versity,
+Nanjing
+215163,
+China
+(e-mail:
+guojintao@smail.nju.edu.cn
+;
+lism@smail.nju.edu.cn ; zhang.jian@nju.edu.cn ; zhouyulin@smail.nju.edu.cn
+; caoluyang@smail.nju.edu.cn ; syh@nju.edu.cn).
+Lin Wang is with the School of Electrical and Electronic Engineer-
+ing, Nanyang Technological University, Singapore 639798 (e-mail: lin-
+wang@ntu.edu.sg).
+Hairong Zheng is with the Institute of Brain-Machine Interface, Nanjing
+University, Nanjing 210023, China, and also with the Shenzhen Institute
+of Advanced Technology, Chinese Academy of Sciences, Shenzhen 518055,
+China (e-mail: hr.zheng@siat.ac.cn).
+(a) Amplitude Shows Larger Cross-Subject Variability than Phase
+Subject 1
+Subject 2
+Subject 5
+Subject 7
+Amplitude
+Amplitude
+Amplitude
+Amplitude
+Phase
+Phase
+Phase
+Phase
+fMRI
+Sub 1
+Sub 2
+Sub 5
+Sub 7
+Sub 1
+Sub 2
+Sub 5
+Sub 7
+Sub 1
+Sub 2
+Sub 5
+Sub 7
+Density
+Amplitude
+Phase
+Frequency
+Cross-Subject Distribution Discrepancy
+Shared Image
+Brain Signals
+Image Encoder
+fMRI
+Entire Image
+Visual Focus
+(b) Brain Signals Do Not Fully Capture Fine-Grained Details
+Different Category Stimuli
+Fine-detail mismatch
+Fig. 1. Two key challenges in cross-subject brain decoding. The experiments
+are conducted on images shared across 4 subjects. (a) Cross-subject fMRI
+representations exhibit noticeable subject-dependent variations, which make
+direct adaptation to a new subject prone to overfitting under limited data. (b) A
+conceptual illustration of image-side mismatch under limited-data adaptation:
+full-image supervision may contain fine-grained details that are not always
+reliably reflected in brain responses. Directly enforcing such full-detail brain-
+image alignment may therefore introduce unreliable visual cues.
+for this study by offering precise localization of functional
+regions in the visual cortex [3], [4]. Brain decoding aims
+to reconstruct natural visual stimuli from fMRI brain activ-
+ity and to visualize internal mental representations [5], [6],
+[7], [8]. Recent progress leverages large-scale generative and
+multimodal models by translating fMRI patterns into embed-
+dings of pretrained deep networks and then performing image
+retrieval or reconstruction, often with vision-language priors
+such as CLIP [9] and diffusion models [10]. This paradigm
+has substantially improved reconstruction quality and provided
+a useful framework for studying the correspondence between
+neural representations and visual semantics [11], [12].
+Early fMRI decoding studies typically adopt a subject-
+specific paradigm, where a separate decoder is trained for
+arXiv:2605.02586v1  [cs.CV]  4 May 2026
+
+
+2
+each individual subject to obtain high-fidelity reconstruc-
+tions [8], [13]. Although effective, this paradigm requires
+large amounts of fMRI recordings for every new subject and
+generalizes poorly across individuals due to substantial inter-
+subject variability in brain responses [14], [5]. This severely
+limits the scalability of fMRI decoding in practical brain-
+computer interface and clinical scenarios, where collecting
+tens of hours of high-quality fMRI data for each new subject
+is often expensive and impractical. To alleviate this limitation,
+recent cross-subject decoding methods pretrain a shared model
+on multiple source subjects and adapt it to a new target subject
+with limited fMRI data [14], [12], [15], [11]. In realistic
+deployment, however, source-subject fMRI signals may be
+unavailable during target adaptation due to privacy, storage,
+or data-sharing constraints. This leads to a practical source-
+free cross-subject adaptation scenario, where a multi-subject
+pretrained decoder must be adapted to a new subject using
+only limited target-subject fMRI data.
+In this work, we revisit source-free cross-subject fMRI de-
+coding from a regularized adaptation perspective. We identify
+two coupled sources of instability in this setting. First, fMRI
+representations exhibit substantial subject-specific variations,
+even under shared stimuli and standardized acquisition proto-
+cols. As illustrated in Fig. 1(a), even for shared visual stimuli
+in NSD, brain representations from different subjects show
+noticeable distributional variations, especially in amplitude-
+related spectral statistics. Under limited target-subject data,
+directly adapting the subject-specific voxel-to-latent projection
+may overfit to these subject-specific patterns, leading to un-
+stable brain-to-visual mapping. Second, the correspondence
+between fMRI representations and fine-grained visual details
+could be unstable under limited-data adaptation. As shown in
+Fig. 1(b), full-image supervision preserves rich visual details,
+whereas the corresponding brain responses may provide only
+partial or noisy evidence for these details. Directly enforcing
+full-detail image supervision may thus introduce overly strong
+cross-modal constraints, guiding the model to fit visual cues
+that are not reliably supported by the limited target-subject
+fMRI data. These factors suggest that the instability of source-
+free cross-subject fMRI decoding arises not only from subject-
+level distribution discrepancy, but also from stimulus-level
+mismatch between brain responses and image supervision.
+To address these challenges, we propose StableMind, a
+regularized source-free adaptation framework for cross-subject
+fMRI decoding under limited target-subject data. Different
+from prior methods that mainly emphasize latent alignment
+or lightweight fine-tuning, StableMind explicitly stabilizes
+target adaptation at both the subject-transfer and cross-modal
+supervision levels. For subject-transfer regularization, Sta-
+bleMind introduces cross-subject ridge reuse, which incorpo-
+rates source-subject projection priors into the target voxel-to-
+latent mapping and regularizes the under-constrained target
+projection during adaptation. To further improve representation
+robustness, StableMind employs Fourier-based feature-level
+brain augmentation, which perturbs amplitude-related statistics
+of intermediate brain features while preserving their structural
+phase information, reducing sensitivity to subject-dependent
+variations. For cross-modal supervision regularization, Sta-
+bleMind develops a difficulty-aware image blur strategy that
+adaptively modulates image-side supervision according to
+sample-level alignment reliability. This strategy reduces the
+influence of unreliable fine-grained details for easier samples
+while preserving sufficient visual structure for harder samples,
+leading to more reliable brain-image alignment under limited
+data. In summary, our contributions are as follows:
+• We revisit source-free cross-subject fMRI decoding from
+a regularized adaptation perspective, identifying two
+coupled instability sources under limited target-subject
+data, i.e., subject-level fMRI distribution discrepancy and
+stimulus-level brain-image supervision mismatch.
+• We propose StableMind, a regularized source-free adap-
+tation framework that explicitly targets the two instability
+sources. It alleviates subject-level representation discrep-
+ancy via source-guided projection reuse and feature-level
+brain augmentation, and mitigates stimulus-level supervi-
+sion mismatch via difficulty-aware image supervision.
+• Extensive experiments on the NSD benchmark under the
+unified 1-hour adaptation protocol show that StableMind
+achieves superior retrieval performance and competitive
+reconstruction quality with fewer trainable adaptation
+parameters, e.g., improving brain retrieval by 5.71%
+(81.66% vs. 75.95%) over the state-of-the-art method.
+II. RELATED WORKS
+fMRI-Based Brain Decoding. Brain decoding aims to
+reconstruct stimuli perceived by subjects from their brain
+activity, providing a promising tool for analyzing how the
+brain processes external information [16], [17], [18]. Early
+studies [1], [19] revealed the layer-wise correspondences be-
+tween visual cortex activity and deep neural networks (DNNs)
+representations, thus proposing to use linear mappings from
+fMRI to intermediate feature spaces to decode coarse visual
+attributes. With advances in deep generative models [20], [21],
+brain decoding shifted from feature prediction to visual stimuli
+reconstruction, which is achieved by mapping brain signals to
+the latent spaces of large models [8], [22], [23]. Recently, brain
+decoding has been greatly advanced by multimodal methods,
+including self-supervised or masked brain modeling to denoise
+neural features [7], [24], contrastive learning to align fMRI and
+multimodal priors [25], [26], [27], and fine-grained supervision
+using multi-layer or token-level CLIP [9] features [8], [7],
+[12], [6], as well as unified or language-augmented decoding
+systems such as UniBrain [28], UMBRAE [29], and NVL [30].
+Despite advances, these models are trained independently per
+subject, requiring dozens of hours of expensive fMRI train-
+ing data to attain high-quality results [8]. Recent pioneering
+studies have explored cross-subject decoding by pretraining on
+multiple subjects and fine-tuning on a new subject with limited
+data [14], [12], [15], [11], [31], but they mainly focus on repre-
+sentation alignment, leaving the stability of limited-data target
+adaptation less explicitly addressed. In contrast, we propose
+a unified adaptation framework that jointly improves subject-
+specific input mapping, brain-side representation robustness,
+and image-side supervision during fine-tuning, enabling robust
+cross-subject decoding under limited data.
+
+
+3
+Cross-Subject Functional Alignment. In visual decoding,
+single-subject models have exposed the issue of excessive
+reliance on the data volume of individual subjects [32], [8],
+[13], leading researchers to shift toward cross-subject studies
+[33], [12], [14]. However, as brains differ both in size and
+processing mechanisms [34], [35], the resulting variability in
+fMRI signals has spurred research into brain alignment meth-
+ods. Early studies typically depend on shared stimuli, requiring
+paired data from multiple subjects exposed to identical visual
+inputs, and learned functional mappings through reconstruc-
+tion loss optimization [36]. To remove this limitation, recent
+works have explored functional alignment in latent space [8],
+[37], [12], [11], which allows these methods to perform cross-
+subject visual decoding on the Natural Scenes Dataset (NSD)
+[35], the largest open-source dataset that lacks shared stimuli.
+Representatively, MindEye2 [14] employs ridge regression to
+align different subjects into a shared latent space, followed by
+a shared decoding module to learn fMRI-to-stimuli mappings.
+MindBridge [12] proposes to generate pseudo shared stimuli
+to construct paired data for brain alignment. MindTuner [11]
+explores lightweight LoRA-style adapters for fine-tuning a
+shared backbone to improve data-efficient adaptation. Duala
+[31] further introduces dual-level alignment of subjects and
+stimuli to improve cross-subject fMRI decoding, but its adap-
+tation process relies on leveraging source-subject distribution
+information. Despite their success, these methods mainly fo-
+cus on latent functional alignment or lightweight fine-tuning,
+with less attention to adaptation stability under limited new-
+subject data. In contrast, StableMind stabilizes target-subject
+adaptation by jointly regularizing subject-specific voxel-to-
+latent mapping, brain-side representation learning, and image-
+side supervision, making it suitable for limited-data adaptation
+without revisiting raw source-subject fMRI-image pairs.
+III. METHOD
+A. Problem Setting and Notations
+Collecting high-quality fMRI signals is costly and time-
+consuming, which makes brain decoding particularly challeng-
+ing in limited-data adaptation settings [14]. In this work, we
+focus on source-free cross-subject brain decoding, where a
+model pretrained on multiple source subjects is adapted to
+a new target subject using only a small amount of target-
+subject fMRI data [11], [14]. During this adaptation stage, raw
+source-subject fMRI-image pairs are unavailable. Following
+prior settings [14], we first pretrain a multi-subject model
+on full training sessions from source subjects and then fine-
+tune it on a held-out subject using only a single one-hour
+fMRI session, corresponding to approximately 2.5% of the
+full subject-specific training data. Formally, for each subject
+s, we denote the paired fMRI-image data as (I, V (s)), where
+I ∈R3×H×W is the visual stimulus and V (s) ∈Rds is the cor-
+responding voxel response with ds voxels. A subject-specific
+ridge mapper R(s) : Rds →RK projects voxel responses
+into a shared latent space, yielding M = R(s)(V (s)) ∈RK.
+The brain encoder F(·; θ) then transforms M into token-level
+embeddings ZB ∈RT ×C, which are aligned with CLIP image
+tokens ZV = FV (I) extracted by a frozen image encoder FV .
+-40
+-20
+20
+40
+0
+0
+Subj5
+Subj2
+Subj7
+Subj1
+Subj1→Subj5
+Subj1→Subj2
+Subj1→Subj7
+Subj 1
+Subj 2
+Subj 5
+Subj 7
+Subj 1 via Subj 2 Ridge
+Subj 1 via Subj 5 Ridge
+Subj 1 via Subj 7 Ridge
+60
+40
+20
+-20
+-40
+-60
+0
+Ridge-level Feature t-SNE
+Fig. 2. Ridge-level feature distributions visualized by t-SNE on Subject 1. We
+apply ridge mappings learned from different subjects to the same target-subject
+input from Subject 1 and visualize the resulting latent features. The same target
+input is projected to different regions when using different subject-specific
+ridges, indicating that the ridge layer captures subject-dependent patterns.
+A diffusion prior further predicts CLIP image embeddings
+from brain tokens, enabling end-to-end reconstruction. The
+baseline training objective follows MindEye2 and combines
+the diffusion-prior loss Lprior, the low-level blurry reconstruc-
+tion loss Llow, and a bidirectional contrastive loss LBiMixCo.
+Building upon this foundation, we focus on the new-subject
+fine-tuning stage, where only limited fMRI data from the target
+subject are available. We propose StableMind, a regular-
+ized source-free adaptation framework that stabilizes limited-
+data target adaptation from two aspects, i.e., subject-level
+representation regularization and stimulus-level supervision
+regularization. As shown in Fig. 3, StableMind consists of
+three complementary modules that regularize different stages
+of adaptation: (1) cross-subject ridge reuse, which incorporates
+source-subject priors into the voxel-to-hidden projection; (2)
+feature-level brain augmentation, centered on Fourier-based
+spectral perturbation, which improves the robustness of learned
+brain representations; and (3) difficulty-aware image blur,
+which adaptively reshapes image-side supervision by sample-
+level alignment difficulty. In the following parts, we describe
+each component in detail.
+B. Cross-Subject Ridge Reuse
+Existing cross-subject decoding methods typically introduce
+a subject-specific ridge projection to map voxel responses into
+a shared latent space, due to the mismatch in voxel dimen-
+sionality across subjects [11], [12], [14], [15]. However, when
+only limited target-subject data are available during adaptation,
+the ridge projection learned for the new subject can be under-
+constrained and prone to overfitting, leading to unstable voxel-
+to-latent mapping. To investigate the role of ridge projections,
+we visualize in Fig. 2 the latent features obtained by applying
+different subject-specific ridge mappings to the same target-
+subject input. Although the input fMRI responses are fixed,
+different ridge mappings project them to noticeably different
+regions in the latent space. This observation suggests that the
+
+
+4
+Linear
+Linear
+Mixer B1
+fMRI Embeddings
+Shared Space (4096)
+Linear
+Linear
+Mixer
+B2
+FBA
+Linear
+N ×
+LoRA
+Retrieval
+Diffusion & Low-level
+DIB
+Linear
+Linear
+…
+Linear
+Target Subject
+Source Ridges
+𝑉𝒕∈ℝdt
+Avg.
+Distillation
+loss 𝓛src
+1 −𝛼
+𝛼
++
+Fused Features
+Raw fMRIs
+pad / trunc
+1) Cross-Subject Ridge Reuse
+…
+𝒙B
+𝒙1
+Noise
+Batch Features
+𝓝(𝟎, Σ𝝁/𝝈
+𝟐
+(𝓐𝒊))
+Amplitude
+Across
+Batch
+Amplitude-Statistics Perturbation
+𝝁1, 𝝈1
+𝝁B, 𝝈B
+…
+Perturbed
+Amplitude
+𝓐 (𝒙i)
++
+෩𝓐 (𝒙i)
+DFT(∙)
+IDFT(∙)
+Phase
+Preserved
+𝝁i, 𝝈i
+෥𝝁i, ෥𝝈i
+Intermediate 
+Feature 𝒙𝒊
+Perturbed
+Feature ෥𝒙𝒊
+𝓟 (𝒙i)
+𝓐 (𝒙1)
+𝓐 (𝒙B)
+2) Feature-Level Brain Augmentation (FBA)
+3) Difficulty-Aware Image Blur (DIB)
+Image-wise Difficulty Bank
+EMA
+…
+Similarity
+ℎ1
+ℎ2
+ℎ3
+ℎ4
+ℎ5
+ℎn
+Difficulty-Based 
+Blur Radius
+fMRI 
+Original 
+Blurred 
+Blur
+𝑟𝑖∝ℎ𝑖
+…
+ℒclip + ℒclip
+blur
+Seen Images
+ℒBiMixCo  + ℒPrior + ℒlowlevel
+Source-Free
+Fig. 3.
+Overview of StableMind. StableMind targets cross-subject fMRI-to-image decoding under limited new-subject data. (a) A multi-subject pretrained
+decoder is adapted to a new subject using only a single fMRI session. (b) On the brain side, StableMind improves adaptation through cross-subject ridge reuse,
+which injects source-subject priors into the subject-specific voxel-to-hidden mapping, and feature-level brain augmentation, centered on Fourier-based spectral
+perturbation, which improves representation robustness under subject-specific variations. (c) On the image side, StableMind introduces a difficulty-aware image
+blur that adaptively modulates supervision according to sample-level alignment difficulty, reducing the influence of unreliable high-frequency details during
+cross-modal alignment. Together, these components improve the robustness of cross-subject brain-image alignment under limited-data adaptation.
+ridge layer encodes subject-dependent projection patterns and
+can be used to model cross-subject variations in the voxel-to-
+latent mapping. Based on this observation, we propose Cross-
+Subject Ridge Reuse (CSRR), which incorporates source-
+subject ridge mappings as weak priors to regularize the target-
+subject projection during adaptation. Instead of treating the
+target ridge as an isolated mapping learned from limited data,
+CSRR exposes target adaptation to source-derived projection
+priors, thereby regularizing the target projection with cross-
+subject priors.
+Let Vt ∈Rdt denote the voxel response of the target subject,
+and let the corresponding ridge mapper be parameterized by
+(Wt, bt). Its output is formulated as:
+Rt = WtVt + bt.
+(1)
+Since source and target subjects may have different voxel
+dimensionalities, directly applying a source-subject ridge to
+target-subject responses requires a dimension-matching oper-
+ation. We use a simple padding/truncation operator A(·, ds)
+to match the input dimensionality of the source ridge. This
+operation is not intended to establish voxel-wise anatomical
+correspondence across subjects. Instead, it enables each frozen
+source ridge to produce a weak output-space projection prior.
+The source-prior signal is therefore used only after projection,
+where multiple source ridges are aggregated to provide a
+consensus regularizer for the target ridge. For each source
+subject s ∈S with voxel dimension ds, we compute its
+projected feature under the ridge mapping of subject s:
+Rs = WsA(Vt, ds) + bs.
+(2)
+We aggregate the source-subject ridge outputs as
+Rsrc = 1
+|S|
+X
+s∈S
+Rs.
+(3)
+To inject source-subject priors into target-subject adaptation,
+we fuse the target-subject ridge output with the aggregated
+source prior:
+R = (1 −α)Rt + αRsrc,
+(4)
+where α ∈[0, 1] controls the strength of prior injection. This
+formulation balances the target-specific estimate Rt, which is
+learned from limited data, with the aggregated source prior
+Rsrc, which provides a more stable reference induced by mul-
+tiple source-subject projections. In this way, CSRR regularizes
+the under-constrained target ridge in the output space [38]. To
+further regularize the target-subject ridge without suppressing
+meaningful subject-specific adaptation, we introduce a weak
+cosine distillation term as below:
+Lsrc = 1 −cos
+ Rt, sg(Rsrc)
+
+,
+(5)
+where sg(·) denotes stop-gradient. We introduce wsrc as the
+weight of Lsrc in the training loss. The cosine distillation term
+provides a weak constraint on the target ridge by aligning it
+with the aggregated source prior, while the stop-gradient op-
+eration and small loss weight prevent over-regularization. The
+final ridge representation R is then fed into the downstream
+brain encoder. Overall, CSRR can be viewed as a lightweight
+output-space regularization mechanism [39], where multiple
+
+
+5
+source ridges provide a consensus prior for stabilizing limited-
+data adaptation, consistent with multi-source adaptation prin-
+ciples [40], [41]. Importantly, CSRR does not assume exact
+voxel-wise correspondence across subjects. The source ridges
+are used only to generate weak projected priors after dimen-
+sionality matching and aggregation, rather than to directly
+decode target-subject voxels.
+C. Feature-Level Brain Augmentation
+Existing cross-subject decoding methods mainly emphasize
+latent alignment or lightweight adaptation of a shared decoder
+[14], [11], [12]. Although effective, such methods do not fully
+address the instability of brain-side representations during
+target-subject fine-tuning with limited data. In this setting, the
+model needs to preserve meaningful subject-specific charac-
+teristics, but may also become biased toward sample-specific
+patterns, which can weaken the shared cross-subject structure
+learned during pretraining. This limitation suggests the need to
+explicitly regularize intermediate brain representations during
+adaptation, rather than relying solely on latent alignment. Mo-
+tivated by prior methods [42] suggesting that spectral domain
+provides a useful space for regularizing the model to learn
+robust semantic features, we empirically investigate cross-
+subject brain features in frequency domain. As illustrated in
+Fig. 1, the brain features extracted by the model exhibit notice-
+able cross-subject differences in their spectral statistics, with
+larger cross-subject discrepancy observed in amplitude-related
+statistics. Based on this observation, we propose feature-level
+brain augmentation, a Fourier-based regularization strategy for
+limited-data target-subject adaptation.
+Specifically, we perturb amplitude-related statistics while
+keeping the phase term unchanged, introducing controlled
+variation without disrupting the overall representation struc-
+ture. Given the i-th brain intermediate feature xi ∈RK,
+where K denotes the latent space dimension, we first obtain
+its discrete Fourier transform [43], [44], [45]:
+F(xi)k =
+K−1
+X
+n=0
+xn
+i e−j2π n
+K k,
+(6)
+and its corresponding amplitude and phase are computed:
+A(xi) =
+
+R2(xi) + I2(xi)
+ 1
+2 , P(xi) = arctan
+ I(xi)
+R(xi)
+
+,
+(7)
+where R(xi) and I(xi) represent the real and imaginary
+part of F(xi), respectively. We use Gaussian amplitude-
+statistics perturbation as a practical regularizer. Specifically,
+we compute the sample-level mean and standard deviation of
+the amplitude spectrum:
+µ(Ai) = 1
+K
+K−1
+X
+k=0
+A(xi)k,
+(8)
+σ(Ai)2 = 1
+K
+K−1
+X
+k=0
+[A(xi)k −µ(A(xi))]2.
+(9)
+Inspired by previous advanced methods [46], [47], [48],
+[49], within a mini-batch, we estimate the batch-level variation
+of these statistics, i.e., the standard deviations of the statistics
+µ(Ai) and σ(Ai), as follows:
+Σ2
+µ = 1
+B
+B
+X
+i
+[µ(A(xi)) −E[µ(A(xi))]]2,
+(10)
+Σ2
+σ = 1
+B
+B
+X
+i
+[σ(A(xi)) −E[σ(A(xi))]]2.
+(11)
+To perturb amplitude statistics around their empirical mini-
+batch distribution while avoiding arbitrary feature corruption,
+we adopt Gaussian resampling to provide smooth and bounded
+statistical shifts, i.e., sampling perturbed statistics ˜µ and ˜σ as:
+˜µ(Ai) ∼N(µ(Ai), Σ2
+µ), ˜σ(Ai) ∼N(σ(Ai), Σ2
+σ),
+(12)
+and reconstruct the perturbed amplitude as:
+˜
+A(xi) = ˜σ(Ai)A(xi) −µ(Ai)
+σ(Ai) + ϵ
++ ˜µ(Ai).
+(13)
+The above resampled amplitude
+˜
+A(xi) and the original
+phase P(xi) are combined to form the augmented frequency:
+˜F(xi) = ˜
+A(xi)ejP(xi), which is mapped back to the spatial
+domain to get the perturbed fMRI embeddings:
+˜xk
+i = F−1( ˜F(xi))k = 1
+K
+K−1
+X
+n=0
+˜F(xi)nej2π n
+K k,
+(14)
+By introducing controlled perturbations to spectral statistics,
+the proposed augmentation discourages the model from relying
+on unstable sample-specific patterns, as such patterns become
+inconsistent across augmented views and are less likely to
+be reinforced during training. By keeping the phase term
+unchanged and perturbing only amplitude statistics, the aug-
+mentation avoids excessive disruption to the original feature
+structure while exposing the model to controlled spectral
+variations. We analyze the effect of different perturbations
+in Sec. IV-D, where Gaussian modeling yields diverse yet
+structured feature variations and leads to the best performance.
+D. Difficulty-Aware Image Blur
+Most existing cross-subject decoding methods directly use
+clean images or their pretrained visual embeddings as su-
+pervision targets [14], [12], [11]. However, under limited-
+data target-subject adaptation, such full-detail supervision can
+aggravate overfitting, since fine-grained image details (e.g.,
+textures and background structures) are not always reliably
+reflected in brain responses. To address this issue, we pro-
+pose difficulty-aware image blur, which adaptively controls
+fine-grained visual detail preserved in image-side supervision
+according to the current brain-image alignment. Specifically,
+samples that are easier to align may further overfit to fine-
+grained visual details under limited data, and therefore receive
+stronger blur regularization. In contrast, harder samples retain
+more visual structure, since excessive blur may further weaken
+their limited alignment signal.
+(1) Difficulty estimation. Let ZB, ZV ∈RB×C denote the
+normalized brain and clean-image embeddings in a mini-batch,
+
+
+6
+respectively. Following the clean-image alignment setting, we
+first compute the sample-wise cosine similarity:
+si = cos(zb,i, zx,i),
+(15)
+where zb,i and zx,i are the i-th rows of ZB and ZV . We then
+standardize the similarity within the mini-batch and convert it
+into an easiness score:
+ˆsi = si −µbatch
+σbatch + ϵ ,
+ei = σ
+ ˆsi
+T
+
+,
+(16)
+where σ(·) is the sigmoid function, T is a temperature
+parameter, and ϵ is a small constant for numerical stability.
+To obtain a more stable estimate across training steps, we
+maintain an image-wise difficulty bank and update it using
+exponential moving average:
+bi ←m bi + (1 −m) ei,
+(17)
+where m ∈[0, 1) is the momentum coefficient. The corre-
+sponding hardness score is then defined as
+hi = 1 −bi.
+(18)
+A larger hi indicates that the sample is harder to align and
+should retain more unblurred visual structure during image-
+side supervision.
+(2) Difficulty-aware blur construction. Given an image Ii ∈
+RH×W ×3, we first generate a uniformly blurred version Ibase
+i
+using a Gaussian kernel [49]:
+Ibase
+i
+(u, v) =
+k
+X
+p=−k
+k
+X
+q=−k
+Ii(u −p, v −q) G(p, q),
+(19)
+G(p, q) =
+1
+2πσ2 exp
+
+−p2 + q2
+2σ2
+
+.
+(20)
+We then construct a spatial blending mask centered at the im-
+age center, where the clear-region radius is adjusted according
+to the sample difficulty:
+ri = clamp
+ ρis(1 + βhhi), rmin, rmax
+
+,
+(21)
+where clamp(x, a, b) = min(max(x, a), b), s is a global
+scaling factor, and βh control hardness-aware expansion. ρi
+denotes the LayerCAM-derived image-wise base radius ratio,
+where the salient region radius is estimated from the heatmap
+statistics and normalized by the image size [50]. Since ri
+increases with the hardness score hi, harder samples preserve
+a larger clear region and thus retain more semantic and struc-
+tural cues. Easier samples receive a smaller clear region and
+stronger peripheral blur, which reduces the risk of overfitting
+to unreliable fine-grained details. The blending mask is:
+αi(u, v) = exp
+ 
+−λα
+s
+(u −ch)2 + (v −cw)2
+r2
+i + ϵ
+!
+,
+(22)
+where λα controls the decay rate from the center to the
+periphery [49]. The final blurred image is constructed as
+Iblur
+i
+= αi ⊙Ii + (1 −αi) ⊙Ibase
+i
+,
+(23)
+where ⊙denotes element-wise multiplication. The blurred-
+image embedding is obtained by Zblur
+V
+= FV (Iblur).
+(3) Difficulty-aware auxiliary supervision. We use the
+blurred image as an auxiliary supervision target together with
+the clean image. The blurred-image alignment loss is Lblur
+clip =
+Lclip(ZB, Zblur
+V
+), and the image-side alignment objective is
+Lall
+clip = Lclip(ZB, ZV ) + wblur Lclip(ZB, Zblur
+V
+).
+(24)
+This module is designed to improve the reliability of image-
+side supervision under limited-data adaptation. By assigning
+stronger blur regularization to easy samples and adopting a
+more conservative strategy for hard samples, the proposed
+method downweights fine-grained visual details that may be
+less reliably reflected in brain responses, while preserving
+sufficient visual structure for reliable cross-modal alignment.
+IV. EXPERIMENTS AND RESULTS
+A. Datasets and Implementation Details
+Datasets. We conduct experiments on the Natural Scenes
+Dataset (NSD) [35], the largest public 7T fMRI dataset con-
+taining brain responses from 8 subjects viewing natural images
+from MS-COCO [51]. Each subject completed 30-40 one-hour
+sessions (approximately 750 trials per session, with 3 seconds
+per image). Following recent cross-subject decoding works
+under limited-data adaptation [14], [11], [15], we use only a
+single fMRI session (containing one hour of fMRI data) from
+the target subject during adaptation for method evaluation.
+Following [14], [11], we pretrain the shared model on data
+from 7 subjects and fine-tune it on a held-out target subject.
+For all quantitative experiments, we use subjects 1, 2, 5, 7 as
+the target-subject evaluation set, as they are the four NSD sub-
+jects who completed all 40 sessions. The corresponding voxel
+counts are 15,724, 14,278, 13,039, and 12,682, respectively.
+Unless otherwise specified, all results are averaged over these
+four subjects under a unified 1-hour adaptation protocol.
+Implementation Details. For each subject, we train a
+subject-specific ridge layer to project the input voxel response
+into a shared 4,096-dimensional latent space. The downstream
+decoder is first pretrained on the source subjects and then
+fine-tuned on the held-out target subject. All fine-tuning ex-
+periments are conducted for 150 epochs on a single Tesla
+A800 80GB GPU, using a batch size of 10 and the AdamW
+optimizer with a learning rate of 3×10−4. The weights of the
+low-level reconstruction loss, diffusion-prior loss, and skip-
+LoRA correlation loss are set to 0.5, 1.0, and 1.5, respectively.
+The ranks of all LoRA and Skip-LoRA modules are set
+to 8. During fine-tuning, we use BiMixCo loss in the first
+one-third of training and SoftCLIP loss in the remaining
+epochs. The final reconstructed image is obtained by weighted
+averaging of the high-level reconstruction and the low-level
+blurry reconstruction with a ratio of 3:1. For StableMind, the
+weight of the blur-based alignment loss Lblur
+clip is set to 0.50.
+The Gaussian blur kernel size is set to 51. The source-prior
+fusion weight α in Eq. (4) is set to 0.1, the momentum m
+used to update the image-wise difficulty bank in Eq. (17) is
+set to 0.85, the temperature T in Eq. (16) is set to 0.028,
+the global radius scaling factor s is set to 0.92, βh is 0.18,
+and λα in Eq. (22) is 3. rmin and rmax are 0.18 and 0.28.
+For retrieval evaluation, we follow [14] by computing Top-1
+
+
+7
+TABLE I
+COMPARISON WITH STATE-OF-THE-ART METHODS ON NSD UNDER THE UNIFIED 1-HOUR ADAPTATION PROTOCOL.
+WE REPORT THE FOUR-SUBJECT AVERAGE AND THE PER-SUBJECT RESULTS ON SUBJECTS 1, 2, 5, AND 7. WE REPORT LOW-LEVEL (PIXCORR, SSIM,
+ALEX(2/5)), HIGH-LEVEL (INCEPTION, CLIP, EFFNET, SWAV), AND RETRIEVAL (IMAGE/BRAIN) METRICS. “TR. PARAM.” COUNTS TRAINABLE
+ADAPTATION PARAMETERS. BEST IS BOLD.
+Method
+Low-Level
+High-Level
+Retrieval
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+MindEye2 (1h) [14] (ICML’24)
+0.195
+0.419
+84.21%
+90.54%
+80.66%
+80.00%
+0.805
+0.465
+78.97%
+57.39%
+MindBridge (1h) [12] (CVPR’24)
+0.112
+0.229
+79.60%
+89.00%
+82.30%
+86.70%
+0.840
+0.521
+79.60%
+56.70%
+MindAligner (1h) [15] (ICML’25)
+0.206
+0.414
+85.60%
+91.63%
+82.13%
+81.08%
+0.802
+0.463
+78.93%
+75.26%
+MindTuner (1h) [11] (AAAI’25)
+0.224
+0.420
+87.70%
+93.63%
+84.75%
+83.45%
+0.781
+0.440
+83.00%
+75.95%
+StableMind (1h) (Ours)
+0.226
+0.415
+87.83%
+93.63%
+85.08%
+83.56%
+0.784
+0.445
+84.02%
+81.66%
+MindEye2 (subj1) [14] (ICML’24)
+0.235
+0.428
+88.02%
+93.33%
+83.56%
+81.76%
+0.798
+0.459
+93.96%
+77.63%
+MindAligner (subj1) [15] (ICML’25)
+0.226
+0.415
+88.19%
+93.26%
+83.48%
+81.76%
+0.800
+0.459
+90.90%
+86.88%
+MindTuner (subj1) [11] (AAAI’25)
+0.262
+0.422
+90.60%
+94.90%
+85.80%
+84.60%
+0.774
+0.433
+94.20%
+87.40%
+StableMind (subj1) (Ours)
+0.255
+0.418
+90.88%
+95.41%
+86.42%
+85.31%
+0.768
+0.433
+95.07%
+92.96%
+MindEye2 (subj2) [14] (ICML’24)
+0.200
+0.433
+85.00%
+92.13%
+81.86%
+79.89%
+0.807
+0.454
+90.53%
+67.18%
+MindAligner (subj2) [15] (ICML’25)
+0.218
+0.426
+88.08%
+93.33%
+82.47%
+81.62%
+0.791
+0.452
+90.04%
+85.61%
+MindTuner (subj2) [11] (AAAI’25)
+0.225
+0.425
+89.10%
+95.10%
+84.80%
+83.70%
+0.781
+0.440
+93.70%
+82.80%
+StableMind (subj2) (Ours)
+0.232
+0.426
+89.30%
+94.96%
+86.11%
+84.41%
+0.779
+0.441
+94.04%
+92.01%
+MindEye2 (subj5) [14] (ICML’24)
+0.175
+0.405
+83.11%
+90.83%
+82.32%
+78.53%
+0.781
+0.444
+66.94%
+46.96%
+MindAligner (subj5) [15] (ICML’25)
+0.197
+0.409
+84.69%
+91.61%
+82.63%
+80.12%
+0.784
+0.454
+70.62%
+65.95%
+MindTuner (subj5) [11] (AAAI’25)
+0.208
+0.415
+86.60%
+93.70%
+87.70%
+85.90%
+0.750
+0.422
+72.20%
+68.10%
+StableMind (subj5) (Ours)
+0.211
+0.413
+86.49%
+93.10%
+86.00%
+84.28%
+0.773
+0.439
+75.04%
+71.14%
+MindEye2 (subj7) [14] (ICML’24)
+0.170
+0.408
+80.70%
+85.90%
+74.90%
+79.84%
+0.834
+0.504
+64.44%
+37.77%
+MindAligner (subj7) [15] (ICML’25)
+0.183
+0.407
+81.45%
+88.31%
+79.92%
+80.83%
+0.834
+0.487
+64.18%
+62.58%
+MindTuner (subj7) [11] (AAAI’25)
+0.202
+0.417
+84.50%
+90.80%
+80.70%
+79.60%
+0.817
+0.465
+71.90%
+65.50%
+StableMind (subj7) (Ours)
+0.206
+0.403
+84.66%
+91.10%
+81.77%
+80.24%
+0.817
+0.467
+71.94%
+70.53%
+TABLE II
+EFFICIENCY COMPARISON RESULTS. “TR. PARAM.” REFERS TO THE
+MODEL’S TRAINABLE PARAMETERS WHEN ADDING A NEW SUBJECT.
+RIDGE REGRESSION PARAMETERS CORRESPOND TO SUBJECT 1.
+Method
+Training Parameters
+Inference
+Ridge
+Backbone
+Adapter
+MindEye2 [14]
+64.41M
+1903M
+260M
+9.447s
+MindAligner [15]
+139.23M
+0M
+0M
+9.573s
+MindTuner [11]
+64.41M
+12.30M
+0M
+-
+StableMind (Ours)
+64.41M
+4.04M
+0M
+9.654s
+accuracy over a candidate pool of 300 samples (chance level
+1/300), where cosine similarity is used for matching, and the
+results are averaged over 30 random trials to reduce sampling
+variance. Unless otherwise specified, the reported “4.04M”
+trainable parameter count includes all trainable adaptation
+modules excluding subject-specific ridge layers, following
+the counting protocol used in prior comparisons. The frozen
+source-subject ridge layers used by CSRR are retained as part
+of the pretrained decoder and are not updated during target
+adaptation. We therefore report them separately from trainable
+adaptation parameters.
+B. Comparison with SOTA methods
+Image and Brain Retrievals. Tab. I illustrates the retrieval
+comparison with recent cross-subject brain decoding methods
+under the unified 1-hour adaptation protocol, including the
+image retrieval that retrieves image embeddings with the
+highest cosine similarity based on fMRI embeddings, and
+the brain retrieval that retrieves fMRI embeddings using
+the highest similarity with image embeddings. On the four-
+subject average, StableMind achieves 84.02% image retrieval
+accuracy and 81.66% brain retrieval accuracy, improving over
+the SOTA method MindTuner [11] by 1.02% (84.02% vs.
+83.00%) and 5.71% (81.66% vs. 75.95%), respectively, and
+substantially outperforming MindEye2 [14] on brain retrieval
+by 24.27%(81.66% vs. 57.39%). These improvements indi-
+cate that StableMind yields more discriminative brain-image
+representations under limited-data subject transfer. The com-
+bination of source-guided projection regularization, feature-
+level Fourier augmentation, and difficulty-aware image-side
+supervision helps stabilize the alignment between brain and
+image representations while reducing the effect of subject-
+specific variations. The per-subject results show that Sta-
+bleMind achieves the best retrieval performance on all four
+target subjects. These results indicate that StableMind provides
+effective cross-modal representation alignment and improves
+cross-subject adaptation under the limited 1-hour setting.
+Brain-to-Image Reconstruction. We evaluate fMRI-to-
+image reconstruction quality using both low-level metrics (Pix-
+Corr, SSIM [52], AlexNet(2), and AlexNet(5) [53]) and high-
+level metrics (Inception [54], CLIP [9], EffNet [55], and SwAV
+[56]). As shown in Tab. I, averaged over the four target sub-
+jects, StableMind improves over MindEye2 [14] on most re-
+construction metrics, increasing PixCorr from 0.195 to 0.226,
+Alex(2) from 84.21% to 87.83%, Inception from 80.66%
+to 85.08%, and CLIP from 80.00% to 83.56%. Compared
+
+
+8
+TABLE III
+ABLATION OF THE THREE MAIN COMPONENTS ON SUBJECT 1 UNDER THE 1-HOUR ADAPTATION PROTOCOL. CSRR, FBA, AND DIB DENOTE
+CROSS-SUBJECT RIDGE REUSE, FEATURE-LEVEL BRAIN AUGMENTATION, AND DIFFICULTY-AWARE IMAGE BLUR, RESPECTIVELY.
+Method
+Low-Level
+High-Level
+Retrieval
+CSRR
+FBA
+DIB
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+-
+-
+-
+0.241
+0.414
+89.71%
+94.54%
+84.78%
+82.90%
+0.788
+0.446
+93.58%
+89.94%
+-
+✓
+✓
+0.248
+0.415
+90.20%
+95.04%
+85.15%
+83.94%
+0.781
+0.441
+94.64%
+92.61%
+✓
+-
+✓
+0.245
+0.414
+89.65%
+94.50%
+85.36%
+84.28%
+0.783
+0.440
+94.71%
+92.31%
+✓
+✓
+-
+0.252
+0.416
+90.37%
+95.20%
+85.17%
+84.21%
+0.771
+0.437
+94.13%
+92.51%
+✓
+✓
+✓
+0.255
+0.418
+90.88%
+95.41%
+86.42%
+85.31%
+0.768
+0.433
+95.07%
+92.96%
+TABLE IV
+ABLATION STUDY OF CROSS-SUBJECT RIDGE REUSE (CSRR) ON SUBJECT 1. “SOURCEFUSE” DENOTES FEATURE FUSION WITH SOURCE PRIORS, WHILE
+“COSLOSS” IS THE COSINE DISTILLATION LOSS.
+Variant
+Low-Level
+High-Level
+Retrieval
+SourceFuse
+CosLoss
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+-
+-
+0.248
+0.415
+90.20%
+95.04%
+85.15%
+83.94%
+0.781
+0.441
+94.64%
+92.61%
+-
+✓
+0.250
+0.417
+90.43%
+95.16%
+86.24%
+84.79%
+0.770
+0.434
+94.50%
+91.93%
+✓
+-
+0.251
+0.417
+90.88%
+95.32%
+86.33%
+84.62%
+0.775
+0.436
+94.61%
+92.07%
+✓
+✓
+0.255
+0.418
+90.88%
+95.41%
+86.42%
+85.31%
+0.768
+0.433
+95.07%
+92.96%
+94.0
+93.0
+0.0
+0.025
+0.050
+0.075
+0.100
+92.0
+94.61
+92.07
+94.81
+92.84
+92.96
+94.57
+91.91
+91.52
+94.10
+Baseline (Brain)
+Ours (Brain)
+95.07
+Retrieval Accuracy (%)
+𝜔src
+95.0
+Baseline (Image)
+Ours (Image)
+91.0
+(a) Weight of Lsrc.
+95.5
+94.0
+93.5
+93.0
+0.0
+0.25
+0.50
+0.75
+1.00
+92.0
+94.13
+92.51
+94.62
+92.74
+92.96
+94.82
+92.56
+92.51
+94.81
+Baseline (Brain)
+Ours (Brain)
+95.07
+Retrieval Accuracy (%)
+𝜔blur
+95.0
+94.5
+92.5
+Baseline (Image)
+Ours (Image)
+(b) Weight of Lblur
+clip .
+Fig. 4.
+Parameter sensitivity of StableMind to the weight wsrc of the
+source-prior consistency loss Lsrc and the weight wblur of the blurred-image
+alignment loss Lblur
+clip . Experiments are conducted on Subject 1.
+with MindTuner[11], StableMind achieves broadly comparable
+reconstruction performance, with advantages on several high-
+level metrics and slight degradation on others, while using
+substantially fewer trainable adaptation parameters(4.04M vs.
+12.30M). This result suggests that StableMind provides a
+parameter-efficient adaptation strategy while maintaining com-
+petitive reconstruction quality. Overall, these results suggest
+that StableMind provides a competitive and parameter-efficient
+solution for cross-subject fMRI-to-image decoding, achieving
+clear retrieval gains and broadly comparable reconstruction
+quality under the same protocol.
+C. Ablation Studies
+Ablation Study of Main Components. We further analyze
+the contribution of the three main components in StableMind,
+namely cross-subject ridge reuse (CSRR), feature-level brain
+augmentation (FBA), and difficulty-aware image blur (DIB).
+The experiments are conducted on Subject 1 under the 1-hour
+adaptation protocol. As shown in Tab. III, all three two-module
+variants improve over the baseline without any additional
+module, indicating that each component contributes useful
+regularization under limited-data adaptation. In particular, the
+combination of FBA and DIB improves PixCorr from 0.241
+to 0.248, increases image retrieval by 1.06% (94.64% vs.
+93.58%) and brain retrieval by 2.67% (92.61% vs. 89.94%),
+suggesting that jointly regularizing brain-side features and
+image-side supervision already provides a clear benefit. The
+combination of CSRR and DIB improves Inception from
+84.78% to 85.36% and CLIP from 82.90% to 84.28%, while
+also improving retrieval performance, indicating that stabiliz-
+ing the input projection and refining image-side supervision
+are both beneficial for semantic alignment. Similarly, com-
+bining CSRR and FBA yields consistent gains on low-level
+and high-level reconstruction metrics, increasing PixCorr to
+0.252 and Inception to 85.17%, which supports the role of
+brain-side regularization in improving adaptation robustness.
+When all three components are enabled, StableMind achieves
+the best performance across all reported metrics. These results
+show that the three components are complementary, i.e., CSRR
+regularizes subject-level transfer, FBA improves robustness to
+subject-specific feature variation, and DIB further provides
+reliable image-side supervision during alignment.
+Parameter Sensitivity. We investigate the sensitivity of
+StableMind to two key hyperparameters, i.e., the weight wsrc
+of the source-prior consistency loss Lsrc and the weight
+wblur of the blurred-image alignment loss Lblur
+clip . As shown
+in Fig. 4, we vary wsrc in {0.0, 0.025, 0.050, 0.075, 0.100}
+and wblur in {0.0, 0.25, 0.50, 0.75, 1.00}, reporting both image
+retrieval and brain retrieval accuracies. For Lsrc, enabling
+source-prior consistency improves both retrieval directions
+over the 0.0 setting. The best performance is achieved at
+wsrc = 0.05, where image retrieval increases from 94.61% to
+95.07% and brain retrieval increases from 92.07% to 92.96%.
+
+
+9
+TABLE V
+COMPARISON OF DIFFERENT SOURCE-PRIOR CONSTRUCTION STRATEGIES IN CSRR ON SUBJECT 1 UNDER THE UNIFIED 1-HOUR ADAPTATION
+PROTOCOL. “RANDOM ONE” RANDOMLY SELECTS A SINGLE SOURCE-SUBJECT RIDGE PRIOR, “NEAREST ONE” USES THE MOST SIMILAR SOURCE
+SUBJECT, AND “ALL AVERAGE” AGGREGATES ALL AVAILABLE SOURCE PRIORS.
+Source Prior
+Low-Level
+High-Level
+Retrieval
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+Random One
+0.251
+0.416
+90.71%
+95.17%
+85.70%
+84.25%
+0.773
+0.436
+94.53%
+92.25%
+Nearest One
+0.255
+0.417
+90.78%
+95.20%
+85.76%
+83.67%
+0.776
+0.438
+94.42%
+92.10%
+All Average
+0.255
+0.418
+90.88%
+95.41%
+86.42%
+85.31%
+0.768
+0.433
+95.07%
+92.96%
+TABLE VI
+COMPARISON OF DIFFERENT IMAGE-SIDE SUPERVISION STRATEGIES ON SUBJECT 1 UNDER THE UNIFIED 1-HOUR ADAPTATION PROTOCOL. “CLEAN
+IMAGE” USES THE ORIGINAL IMAGE SUPERVISION, “WHOLE BLUR” APPLIES UNIFORM BLUR TO THE ENTIRE IMAGE, “FIXED-RADIUS BLUR” USES A
+PREDEFINED BLUR RADIUS, AND “DIFFICULTY-AWARE BLUR” ADAPTIVELY ADJUSTS BLUR BASED ON ALIGNMENT DIFFICULTY.
+Image-Side Blur
+Low-Level
+High-Level
+Retrieval
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+Clean image
+0.252
+0.416
+90.37%
+95.20%
+85.17%
+83.21%
+0.771
+0.437
+94.13%
+92.51%
+Whole blur
+0.253
+0.417
+90.57%
+95.03%
+85.68%
+84.26%
+0.774
+0.438
+93.84%
+92.18%
+Fixed-radius blur
+0.251
+0.417
+90.68%
+95.18%
+85.93%
+84.70%
+0.772
+0.437
+94.60%
+92.69%
+Difficulty-aware blur
+0.255
+0.418
+90.88%
+95.41%
+86.42%
+85.31%
+0.768
+0.433
+95.07%
+92.96%
+TABLE VII
+COMPARISON OF DIFFERENT FEATURE-LEVEL BRAIN AUGMENTATION (FBA) VARIANTS ON SUBJECT 1 UNDER THE UNIFIED 1-HOUR ADAPTATION
+PROTOCOL. “NO FBA” REMOVES FEATURE-LEVEL AUGMENTATION, “RANDOM NOISE” ADDS UNSTRUCTURED RANDOM PERTURBATION, “UNIFORM”
+SAMPLES AMPLITUDE STATISTICS FROM A UNIFORM DISTRIBUTION, “SWAP” REPLACES AMPLITUDE STATISTICS WITH THOSE FROM ANOTHER SAMPLE,
+“MIX” INTERPOLATES AMPLITUDE STATISTICS BETWEEN SAMPLES, AND “GAUSSIAN” IS THE GAUSSIAN AMPLITUDE-STATISTICS PERTURBATION.
+Feature
+Augmentation
+Low-Level
+High-Level
+Retrieval
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+Vanilla
+0.245
+0.414
+89.65%
+94.50%
+85.36%
+84.28%
+0.783
+0.440
+94.71%
+92.31%
+Random Noise
+0.246
+0.415
+90.01%
+94.80%
+84.99%
+83.27%
+0.781
+0.443
+94.09%
+91.39%
+Uniform Model
+0.245
+0.416
+89.83%
+94.61%
+84.64%
+84.44%
+0.778
+0.445
+94.47%
+91.08%
+Swap Amplitude
+0.250
+0.414
+90.34%
+95.12%
+86.17%
+84.64%
+0.775
+0.439
+94.63%
+92.51%
+Mix Amplitude
+0.249
+0.413
+90.36%
+94.87%
+84.64%
+84.25%
+0.780
+0.439
+94.65%
+92.77%
+Gaussian Model
+0.255
+0.418
+90.88%
+95.41%
+86.42%
+85.31%
+0.768
+0.433
+95.07%
+92.96%
+Larger weights lead to a slight decline, suggesting that overly
+strong source-prior regularization may suppress target-specific
+adaptation. For Lblur
+clip , blur-aware supervision also brings clear
+gains over the clean-only setting. The best trade-off is obtained
+at wblur = 0.50, improving image retrieval from 94.13% to
+95.07% and brain retrieval from 92.51% to 92.96%. When
+wblur is further increased, the performance gradually decreases
+but remains comparable to the baseline, indicating that mod-
+erate blur supervision is beneficial while excessive blur may
+weaken useful visual details. Therefore, we set wsrc = 0.05
+and wblur = 0.50 as the default values in all experiments.
+D. Analytical Experiments
+Analysis of Cross-Subject Ridge Reuse. We analyze the
+two key designs in CSRR in Tab. IV. “SourceFuse” denotes
+feature fusion with source-subject ridge priors, and “CosLoss”
+denotes the cosine distillation loss that regularizes the target
+ridge output toward the source-prior representation. As shown
+in Tab. IV, using either SourceFuse or CosLoss alone improves
+most reconstruction metrics over the baseline. With only
+CosLoss, PixCorr increases from 0.248 to 0.250, Inception
+from 85.15% to 86.24%, and CLIP from 83.94% to 84.79%.
+With only SourceFuse, PixCorr further increases to 0.251,
+Alex(2) to 90.88%, and Inception to 86.33%. When both
+components are used together, CSRR achieves the best overall
+performance, including PixCorr 0.255, CLIP 85.31%, image
+retrieval 95.07%, and brain retrieval 92.96%. These results
+suggest that SourceFuse and CosLoss provide complementary
+regularization for stabilizing the target-subject projection un-
+der limited-data adaptation.
+Effect of Source-Prior Construction. We compare three
+strategies for constructing the source prior in Tab. V. “Random
+One” randomly selects one source-subject ridge as the prior,
+“Nearest One” selects the source subject whose ridge represen-
+tation is most similar to the target subject, and “All Average”
+averages ridge outputs from all source subjects as our default
+strategy. As shown in the table, “All Average” achieves the
+best overall performance, improving Inception from 85.70%
+
+
+10
+TABLE VIII
+ABLATION ON THE POSITIONS OF FEATURE-LEVEL BRAIN AUGMENTATION (FBA) ON SUBJECT 1. “VANILLA” DENOTES STABLEMIND WITHOUT FBA,
+“BLOCK k” APPLIES FBA TO A SINGLE BACKBONE BLOCK, AND “BLOCKS i-j” APPLIES FBA TO MULTIPLE BLOCKS.
+Feature
+Augmentation
+Low-Level
+High-Level
+Retrieval
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+Vanilla
+0.245
+0.414
+89.65%
+94.50%
+85.36%
+84.28%
+0.783
+0.440
+94.71%
+92.31%
+Block 1
+0.245
+0.416
+89.99%
+94.63%
+84.85%
+83.81%
+0.781
+0.445
+94.33%
+92.34%
+Block 2
+0.249
+0.417
+90.40%
+94.92%
+84.80%
+84.66%
+0.778
+0.439
+94.77%
+92.74%
+Block 3
+0.249
+0.416
+90.51%
+95.27%
+85.92%
+84.97%
+0.779
+0.439
+94.89%
+92.38%
+Block 4
+0.241
+0.399
+89.23%
+94.03%
+83.86%
+83.43%
+0.790
+0.451
+93.98%
+91.60%
+Blocks 1-2
+0.247
+0.415
+90.03%
+94.87%
+86.13%
+84.59%
+0.775
+0.439
+94.59%
+93.44%
+Blocks 2-3
+0.255
+0.418
+90.88%
+95.41%
+86.42%
+85.31%
+0.768
+0.433
+95.07%
+92.96%
+Blocks 1-3
+0.249
+0.415
+90.29%
+94.89%
+85.95%
+85.10%
+0.771
+0.437
+94.94%
+93.09%
+to 86.42%, CLIP from 84.25% to 85.31%, image retrieval
+from 94.53% to 95.07%, and brain retrieval from 92.25% to
+92.96% compared with “Random One”. Although “Nearest
+One” obtains comparable PixCorr (0.255), it is worse on CLIP
+(83.67%) and brain retrieval (92.10%). These results suggest
+that aggregating multiple source priors provides more reliable
+cross-subject guidance than relying on a single source.
+Effect of Image-Side Blur. We evaluate different image-
+side supervision strategies in Tab. VI. “Clean image” uses
+the original image without blur, “Whole blur” applies uni-
+form blur to the entire image, “Fixed-radius blur” preserves
+a fixed central region while blurring the surrounding area,
+and “Difficulty-aware blur” adaptively adjusts the clear re-
+gion and blur strength according to sample-level alignment
+difficulty. Compared with clean supervision, “Whole blur”
+improves high-level alignment, increasing Inception from
+85.17% to 85.68% and CLIP from 83.21% to 84.26%, but
+slightly reduces retrieval performance (image / brain retrieval:
+93.84%/92.18% vs. 94.13%/92.51%). “Fixed-radius blur”
+provides a stronger balance, achieving 0.251 PixCorr, 84.70%
+CLIP, and 92.69% brain retrieval. The proposed difficulty-
+aware blur achieves the best overall results, improving PixCorr
+to 0.255, Inception to 86.42%, CLIP to 85.31%, and image /
+brain retrieval to 95.07%/92.96%. These results suggest that
+adaptive blur provides more effective image-side supervision
+than either full-detail supervision or non-adaptive blur.
+Why Use Gaussian Distribution for Amplitude Mod-
+eling? We compare multiple FBA variants with different
+augmentations in Tab. VII. “Vanilla” denotes StableMind
+without feature-level brain augmentation. “Random Noise”
+adds element-wise random noise to the amplitude spectrum.
+“Uniform Model” samples the mean and standard deviation of
+amplitude statistics from a uniform distribution. “Swap Ampli-
+tude” replaces the amplitude statistics of one sample with those
+from another sample, while “Mix Amplitude” interpolates am-
+plitude statistics between samples. “Gaussian Model” samples
+amplitude statistics from a Gaussian distribution estimated
+from mini-batch statistics. As shown in Tab. VII, unstructured
+perturbations are less effective. “Random Noise” slightly im-
+proves low-level metrics but reduces high-level alignment and
+retrieval, with CLIP decreasing to 83.27% and brain retrieval
+to 91.39%. Similarly, “Uniform Model” underperforms Vanilla
+Subject 1
+Subject 2
+Subject 5
+Subject 7
+Full Data 
+(40 hours)
+MindEye2
+(1 hour)
+StableMind
+(1 hour)
+Fig. 5. The Voxel-wise ridge weights on the NSD cortical flat map. For each
+subject, we project the first-layer ridge weights onto the cortical surface using
+pycortex [57]. The top row is the model trained on the full 40-hour dataset
+(as an upper bound), the middle and bottom rows are the MindEye2 and our
+StableMind trained with only 1 hour of data.
+in CLIP (83.44% vs. 84.28%) and brain retrieval (91.08% vs.
+92.31%), indicating that uniformly perturbing amplitude statis-
+tics may introduce unrealistic feature shifts. “Swap Ampli-
+tude” and “Mix Amplitude” provide more structured sample-
+level perturbations and improve PixCorr (0.250 and 0.249)
+as well as brain retrieval (92.51% and 92.77%), but their
+CLIP scores remain lower than Vanilla. In contrast, “Gaussian
+Model” achieves the best overall performance, improving
+PixCorr to 0.255, CLIP to 85.31%, and brain retrieval to
+92.96%. This suggests that modeling amplitude perturbations
+as smooth statistical shifts around the empirical distribution
+provides a more effective regularization than unstructured or
+distribution-agnostic perturbations. Thus, Gaussian amplitude
+modeling provides an effective feature-level augmentation for
+improving robustness to subject-specific fMRI variations while
+preserving high-level semantic alignment.
+Different Positions of Feature-level Brain Augmentation.
+As shown in Tab. VIII, we evaluate the effectiveness of
+feature-level brain augmentation (FBA) at different blocks of
+the backbone (containing four blocks). The results show that
+
+
+11
+Seen Image
+MindEye2 (1h)
+[ICML’24]
+MindAligner (1h) 
+[ICML’25]
+StableMind (1h)
+[Ours]
+Fig. 6.
+Qualitative fMRI-to-image reconstructions of our StableMind and other representive methods, including MindEye2 [14] and MindAligner [15].
+StableMind produces reconstructions that more closely match the visual stimuli in both appearance and semantics than previous methods.
+Airplane
+Bathroom
+Food
+Giraffe
+Surfer
+Tennis
+Train
+-20
+-10
+10
+20
+0
+15
+10
+5
+0
+-5
+-10
+-15
+Airplane
+Bathroom
+Food
+Giraffe
+Surfer
+Tennis
+Train
+-20
+-10
+10
+20
+0
+20
+10
+-10
+-20
+0
+MindEye2 (Baseline)
+StableMind (Ours)
+Brain Retrieval (↑): 77.63%
+Cluster Ratio (↑): 1.864
+Brain Retrieval (↑): 92.46%
+Cluster Ratio (↑): 2.679
+Fig. 7.
+The t-SNE visualization of MindEye2 and StableMind finetuned on
+subject 1 under the 1-hour adaptation setting. StableMind yields tighter intra-
+class clusters and clearer inter-class separation than MindEye2. The numbers
+above each panel denote brain-retrieval accuracy and cluster ratio.
+FBA is most effective when applied to intermediate blocks
+(Blocks 2 or 3), while applying it to Block 1 yields moderate
+improvements. In contrast, applying FBA to Block 4 leads to
+a marginal performance drop. One possible explanation is that
+features at Block 4 are directly used by multiple training objec-
+tives, making them more sensitive to perturbations. Excessive
+perturbations at this stage could disrupt both reconstruction
+and retrieval performance. We further investigate multi-layer
+configurations of FBA. Applying FBA jointly to Blocks 2 and
+3 achieves the best overall performance, while extending it to
+Blocks 1-3 results in slightly inferior results. This observa-
+tion suggests that overly strong perturbations may hinder the
+model’s ability to learn consistent semantic representations.
+Therefore, we adopt Blocks 2 and 3 as the default FBA
+positions for all cross-subject adaptation experiments.
+Neuroscience Interpretability of StableMind. Following
+MindTuner [11], we further assess where subject-specific
+structure is captured in the visual cortex. For each subject, we
+compare three decoders, including (1) the MindEye2 model
+finetuned on the full 40-hour NSD training set, which serves as
+an approximate upper bound; (2) the MindEye2 model trained
+with only 1 hour of fMRI per subject; and (3) our StableMind
+model under the same 1-hour budget. We then use pycortex
+[57] to project the first-layer ridge weights onto the NSD
+2D flat map and treat the magnitude of each weight as the
+TABLE IX
+CROSS-SUBJECT SPECTRAL DISCREPANCY IN THE CLIP-ALIGNED LATENT
+SPACE. WE REPORT THE AVERAGE PAIRWISE FREQUENCY, AMPLITUDE,
+AND PHASE GAPS ACROSS TARGET SUBJECTS. LOWER VALUES INDICATE
+SMALLER CROSS-SUBJECT DISCREPANCY.
+Method
+Frequency Gap↓
+Amplitude Gap↓
+Phase Gap↓
+MindEye2 [14]
+40.395
+20.068
+0.162
+MindAligner [15]
+29.826
+12.337
+0.162
+MindTuner [11]
+16.550
+10.145
+0.159
+StableMind (Ours)
+8.449
+6.078
+0.157
+importance of the corresponding voxel. As shown in Fig. 5, the
+full-data ridge model produces structured weight patterns with
+clear separations between different visual areas. When trained
+with only 2.5% of the data, MindEye2 yields more fragmented
+and low-contrast maps, where different visual regions are
+poorly differentiated and voxel-wise dependencies are harder
+to interpret. In contrast, our StableMind recovers sharper and
+more coherent patterns that more closely resemble the full-data
+results, concentrating importance within known visual ROIs.
+These results suggest that StableMind learns more spatially
+coherent voxel-weight patterns under limited-data adaptation,
+which are more consistent with the full-data ridge maps.
+Feature Visualization. We further visualize the learned rep-
+resentations using t-SNE in Fig. 7. Compared with MindEye2,
+StableMind produces more compact intra-class clusters and
+clearer separation between different classes. This is reflected
+by both higher brain-retrieval accuracy and a larger cluster
+ratio, indicating improved discriminability of the learned rep-
+resentations. These visualization results are consistent with the
+quantitative gains brought by the proposed components. CSRR
+regularizes the subject-specific projection by leveraging source
+priors, while FBA introduces structured perturbations that
+enhance robustness to cross-subject variability. In addition,
+DIB reduces the influence of unstable fine-grained visual
+details during alignment, leading to more semantically consis-
+tent representations. As a result, StableMind better preserves
+class-level structure under limited-data adaptation, which is
+consistent with its gains in retrieval performance.
+Effectiveness of StableMind in Reducing Cross-Subject
+Gaps. To investigate the effect of StableMind on cross-subject
+
+
+12
+alignment, we quantify spectral discrepancies between subjects
+in the CLIP-aligned latent space. For each subject s, let the
+projected representation be z(s) ∈RB×1×N, where B is the
+number of samples and N is the feature length. We compute
+the 1-D discrete Fourier transform:
+F
+
+z(s)
+[k] =
+N−1
+X
+n=0
+¯z(s)[n] e−j2πnk/N,
+k = 0, . . . , N −1,
+(25)
+and obtain the corresponding amplitude and phase spectra as
+A
+ z(s)
+and P
+ z(s)
+. We then average the frequency and
+amplitude spectra over the batch dimension:
+¯F(s) = 1
+B
+B
+X
+b=1
+F
+
+z(s)
+b
+
+,
+(26)
+¯
+A(s) = 1
+B
+B
+X
+b=1
+A
+
+z(s)
+b
+
+.
+(27)
+For phase, we use a circular average to respect its periodicity:
+¯P(s) = Angle
+ 
+1
+B
+B
+X
+b=1
+e jP(z(s)
+b
+)
+!
+.
+(28)
+For a pair of subjects (p, q), the frequency, amplitude, and
+phase gaps are computed as:
+Dfreq(p, q) =
+ ¯F(p) −¯F(q)
+2,
+(29)
+Damp(p, q) =
+ ¯
+A(p) −¯
+A(q)
+2,
+(30)
+Dpha(p, q) =
+Angle
+
+ej( ¯
+P(p)−¯
+P(q))
+2 .
+(31)
+The values in Tab. IX are obtained by averaging these pairwise
+gaps over all subject pairs. As shown in Tab. IX, StableMind
+achieves the lowest spectral discrepancies among all compared
+methods. Compared with MindEye2, StableMind reduces the
+frequency gap from 40.395 to 8.449 and the amplitude gap
+from 20.068 to 6.078. It obtains lower gaps than MindAligner
+and MindTuner, with an amplitude gap of 6.078 compared
+with 12.337 and 10.145, respectively. The phase gap is rela-
+tively small for all methods, while StableMind still achieves
+the lowest value (0.157). These results indicate that Stable-
+Mind extracts consistent latent representations across subjects,
+especially in amplitude-related spectral statistics, consistent
+with the motivation of feature-level brain augmentation.
+Reconstruction Results. We visualize fMRI-to-image re-
+constructions to qualitatively assess the effectiveness of our
+framework. As illustrated in Fig. 6, we treat Subject 1 as a new
+subject and fine-tune the models on 1-hour data of Subject 1.
+The first row shows the visual stimuli, and the second row
+shows reconstructions from a decoder trained on the full 40-
+hour data. The third and fourth rows correspond to MindEye2
+[14] and MindAligner [15] trained with 1 hour of fMRI data
+for Subject 1, while the last row reports the reconstructions
+from our StableMind under the same 1-hour budget. Compared
+with other methods, StableMind tends to recover object shapes,
+colors, and scene layouts that are closer to the visual stimuli.
+The results indicate that StableMind effectively exploits lim-
+ited fMRI data to reconstruct meaningful visual content.
+V. CONCLUSION
+In this work, we presented StableMind, a regularized source-
+free adaptation framework for cross-subject fMRI decod-
+ing under limited target-subject data. Rather than focusing
+solely on latent alignment, our method explicitly addresses
+two key challenges in practical adaptation, including the
+strong subject-specific variability in brain signals and the
+mismatch between brain responses and fine-grained visual
+supervision. To tackle these issues, StableMind introduces a
+set of complementary designs that operate at different stages
+of the adaptation process. We first regularize the voxel-to-
+latent projection by incorporating cross-subject ridge priors,
+which stabilize target-subject mapping under limited data.
+We then improve representation robustness via Fourier-based
+feature-level brain augmentation, which reduces sensitivity to
+subject-dependent variations. Finally, we refine the image-side
+supervision through a difficulty-aware blur strategy, which
+mitigates the influence of unreliable visual details during
+alignment. Experiments on the NSD benchmark under the 1-
+hour setting show that StableMind improves retrieval perfor-
+mance and achieves competitive reconstruction quality against
+strong baselines, while requiring fewer trainable adaptation
+parameters. Further analyses indicate that the proposed design
+effectively reduces cross-subject spectral discrepancies and
+leads to structured latent representations. Our results suggest
+that improving cross-subject brain decoding requires not only
+better alignment, but also effective adaptation regularization at
+both the subject-transfer and stimulus-supervision levels.
+REFERENCES
+[1] T. Horikawa and Y. Kamitani, “Generic decoding of seen and imagined
+objects using hierarchical visual features,” Nature communications,
+2017. 1, 2
+[2] C. Qian, X. Sun, Y. Wang, X. Zheng, Y. Wang, and G. Pan, “Binless
+kernel machine: Modeling spike train transformation for cognitive neural
+prostheses,” Neural Computation, 2020. 1
+[3] Y. Lin, J. Li, and H. Wang, “Dcnn-gan: Reconstructing realistic image
+from fmri,” in MVA, 2019. 1
+[4] R. Beliy, G. Gaziv, A. Hoogi, F. Strappini, T. Golan, and M. Irani,
+“From voxels to pixels and back: Self-supervision in natural-image
+reconstruction from fmri,” in NeurIPS, 2019. 1
+[5] W. Mai and Z. Zhang, “Unibrain: Unify image reconstruction and
+captioning all in one diffusion model from human brain activity,” arXiv
+preprint arXiv:2308.07428, 2023. 1, 2
+[6] W. Xia, R. De Charette, C. Oztireli, and J.-H. Xue, “Dream: Visual
+decoding from reversing human visual system,” in WACV, 2024. 1, 2
+[7] Z. Chen, J. Qing, T. Xiang, W. L. Yue, and J. H. Zhou, “Seeing beyond
+the brain: Conditional diffusion model with sparse masked modeling for
+vision decoding,” in CVPR, 2023. 1, 2
+[8] P. Scotti, A. Banerjee, J. Goode, S. Shabalin, A. Nguyen, A. Dempster,
+N. Verlinde, E. Yundler, D. Weisberg, K. Norman et al., “Reconstructing
+the mind’s eye: fmri-to-image with contrastive learning and diffusion
+priors,” in NeurIPS, 2023. 1, 2, 3
+[9] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal,
+G. Sastry, A. Askell, P. Mishkin, J. Clark et al., “Learning transferable
+visual models from natural language supervision,” in ICML, 2021. 1, 2,
+7
+[10] R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, “High-
+resolution image synthesis with latent diffusion models,” in CVPR, 2022.
+1
+[11] Z. Gong, Q. Zhang, G. Bao, L. Zhu, R. Xu, K. Liu, L. Hu, and D. Miao,
+“Mindtuner: Cross-subject visual decoding with visual fingerprint and
+semantic correction,” in AAAI, 2025. 1, 2, 3, 5, 6, 7, 8, 11
+[12] S. Wang, S. Liu, Z. Tan, and X. Wang, “Mindbridge: A cross-subject
+brain decoding framework,” in CVPR, 2024. 1, 2, 3, 5, 7
+
+
+13
+[13] Y. Takagi and S. Nishimoto, “High-resolution image reconstruction with
+latent diffusion models from human brain activity,” in CVPR, 2023. 2,
+3
+[14] P. S. Scotti, M. Tripathy, C. K. T. Villanueva, R. Kneeland, T. Chen,
+A. Narang, C. Santhirasegaran, J. Xu, T. Naselaris, K. A. Norman et al.,
+“Mindeye2: Shared-subject models enable fmri-to-image with 1 hour of
+data,” in ICML, 2024. 2, 3, 5, 6, 7, 11, 12
+[15] Y. Dai, Z. Yao, C. Song, Q. Zheng, W. Mai, K. Peng, S. Lu, W. Ouyang,
+J. Yang, and J. Wu, “Mindaligner: Explicit brain functional alignment
+for cross-subject visual decoding from limited fmri data,” arXiv preprint
+arXiv:2502.05034, 2025. 2, 3, 6, 7, 11, 12
+[16] T. Naselaris, K. N. Kay, S. Nishimoto, and J. L. Gallant, “Encoding and
+decoding in fmri,” Neuroimage, 2011. 2
+[17] H. J. Kim, B. K. Lux, E. Lee, E. S. Finn, and C.-W. Woo, “Brain
+decoding of spontaneous thought: Predictive modeling of self-relevance
+and valence using personal narratives,” Proceedings of the National
+Academy of Sciences, 2024. 2
+[18] M. W. Mathis, A. P. Rotondo, E. F. Chang, A. S. Tolias, and A. Mathis,
+“Decoding the brain: From neural representations to mechanistic mod-
+els,” Cell, 2024. 2
+[19] G. Shen, T. Horikawa, K. Majima, and Y. Kamitani, “Deep image
+reconstruction from human brain activity,” PLoS computational biology,
+2019. 2
+[20] I. Goodfellow, J. Pouget-Abadie, M. Mirza, B. Xu, D. Warde-Farley,
+S. Ozair, A. Courville, and Y. Bengio, “Generative adversarial networks,”
+Communications of the ACM, 2020. 2
+[21] J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,”
+in NeurIPS, 2020. 2
+[22] J. Gao, Y. Fu, Y. Wang, X. Qian, J. Feng, and Y. Fu, “Mind-3d:
+Reconstruct high-quality 3d objects in human brain,” in ECCV, 2024. 2
+[23] J. Gao, Y. Fu, Y. Fu, Y. Wang, X. Qian, and J. Feng, “Mind-3d++:
+Advancing fmri-based 3d reconstruction with high-quality textured mesh
+generation and a comprehensive dataset,” IEEE TPAMI, 2025. 2
+[24] G. Bao, Q. Zhang, Z. Gong, J. Zhou, W. Fan, K. Yi, U. Naseem, L. Hu,
+and D. Miao, “Wills aligner: Multi-subject collaborative brain visual
+decoding,” in AAAI, 2025. 2
+[25] S. Lin, T. Sprague, and A. K. Singh, “Mind reader: Reconstructing
+complex images from brain activities,” in NeurIPS, 2022. 2
+[26] X. Xu, Z. Wang, G. Zhang, K. Wang, and H. Shi, “Versatile diffusion:
+Text, images and variations all in one diffusion model,” in ICCV, 2023.
+2
+[27] R. Quan, W. Wang, Z. Tian, F. Ma, and Y. Yang, “Psychometry: An
+omnifit model for image reconstruction from human brain activity,” in
+CVPR, 2024. 2
+[28] Z. Wang, Z. Zhao, L. Zhou, and P. Nachev, “Unibrain: A unified model
+for cross-subject brain decoding,” arXiv preprint arXiv:2412.19487,
+2024. 2
+[29] W. Xia, R. de Charette, C. Oztireli, and J.-H. Xue, “Umbrae: Unified
+multimodal brain decoding,” in ECCV, 2024. 2
+[30] G. Shen, D. Zhao, X. He, L. Feng, Y. Dong, J. Wang, Q. Zhang, and
+Y. Zeng, “Neuro-vision to language: Enhancing brain recording-based
+visual reconstruction and language interaction,” in NeurIPS, 2024. 2
+[31] S. Li, J. Guo, J. Zhang, Y. Zhou, L. Cao, and Y. Shi, “Duala: Dual-
+level alignment of subjects and stimuli for cross-subject fmri decoding,”
+2026. 2, 3
+[32] F. Ozcelik and R. VanRullen, “Natural scene reconstruction from fmri
+signals using generative latent diffusion,” Scientific Reports, 2023. 3
+[33] Y. Liu, Y. Ma, G. Zhu, H. Jing, and N. Zheng, “See through their minds:
+Learning transferable brain decoding models from cross-subject fmri,”
+in AAAI, 2025. 3
+[34] E. S. Finn, D. Scheinost, D. M. Finn, X. Shen, X. Papademetris, and
+R. T. Constable, “Can brain state be manipulated to emphasize individual
+differences in functional connectivity?” NeuroImage, 2017. 3
+[35] E. J. Allen, G. St-Yves, Y. Wu, J. L. Breedlove, J. S. Prince, L. T.
+Dowdle, M. Nau, B. Caron, F. Pestilli, I. Charest et al., “A massive 7t
+fmri dataset to bridge cognitive neuroscience and artificial intelligence,”
+Nature neuroscience, 2022. 3, 6
+[36] S. Rastegarnia, M. St-Laurent, E. DuPre, B. Pinsard, and P. Bellec,
+“Brain decoding of the human connectome project tasks in a dense
+individual fmri dataset,” NeuroImage, 2023. 3
+[37] M. Ferrante, T. Boccato, F. Ozcelik, R. VanRullen, and N. Toschi,
+“Through their eyes: multi-subject brain decoding with simple alignment
+techniques,” Imaging Neuroscience, 2024. 3
+[38] T. Hastie, R. Tibshirani, and J. Friedman, The Elements of Statistical
+Learning.
+Springer, 2009. 4
+[39] B. Sch¨olkopf and A. J. Smola, Learning with Kernels.
+MIT Press,
+2002. 4
+[40] S. Ben-David, J. Blitzer, K. Crammer, and F. Pereira, “Analysis of
+representations for domain adaptation,” in NeurIPS, 2007. 5
+[41] Y. Mansour, M. Mohri, and A. Rostamizadeh, “Domain adaptation with
+multiple sources,” in NeurIPS, 2009. 5
+[42] J. Guo, N. Wang, L. Qi, and Y. Shi, “Aloft: A lightweight mlp-
+like architecture with dynamic low-frequency transform for domain
+generalization,” in CVPR, 2023. 5
+[43] H. J. Nussbaumer, “The fast fourier transform,” in Fast Fourier transform
+and convolution algorithms, 1981. 5
+[44] D. Sundararajan, The discrete Fourier transform: theory, algorithms and
+applications.
+World Scientific, 2001. 5
+[45] S. K. Jena, “Discrete fourier transform,” in Fourier, Laplace, and the
+Tangled Love Affair with Transforms: The Art of Signal Synthesis and
+Analysis, 2025. 5
+[46] G. K. Aguirre, E. Zarahn, and M. D’Esposito, “Empirical analyses of
+bold fmri statistics,” Neuroimage, 1997. 5
+[47] M. W. Woolrich, C. F. Beckmann, T. E. Nichols, S. M. Smith, P. Val-
+sasina, M. A. Rocca, and M. Filippi, “Statistical analysis of fmri data,”
+in fMRI techniques and protocols, 2025. 5
+[48] W. Yao, Z. Lyu, M. Mahmud, N. Zhong, B. Lei, and S. Wang, “Catd:
+Unified representation learning for eeg-to-fmri cross-modal generation,”
+IEEE Transactions on Medical Imaging, 2025. 5
+[49] H. Wu, Q. Li, C. Zhang, Z. He, and X. Ying, “Bridging the vision-brain
+gap with an uncertainty-aware blur prior,” in CVPR, 2025. 5, 6
+[50] P.-T. Jiang, C.-B. Zhang, Q. Hou, M.-M. Cheng, and Y. Wei, “Layercam:
+Exploring hierarchical class activation maps for localization,” IEEE
+transactions on image processing, 2021. 6
+[51] T.-Y. Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ramanan,
+P. Doll´ar, and C. L. Zitnick, “Microsoft coco: Common objects in
+context,” in ECCV, 2014. 6
+[52] Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, “Image
+quality assessment: from error visibility to structural similarity,” IEEE
+transactions on image processing, 2004. 7
+[53] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “Imagenet classification
+with deep convolutional neural networks,” in NeurIPS, 2012. 7
+[54] C. Szegedy, V. Vanhoucke, S. Ioffe, J. Shlens, and Z. Wojna, “Rethinking
+the inception architecture for computer vision,” in CVPR, 2016. 7
+[55] M. Tan and Q. Le, “Efficientnet: Rethinking model scaling for convo-
+lutional neural networks,” in ICML, 2019. 7
+[56] M. Caron, I. Misra, J. Mairal, P. Goyal, P. Bojanowski, and A. Joulin,
+“Unsupervised learning of visual features by contrasting cluster assign-
+ments,” in NeurIPS, 2020. 7
+[57] J. S. Gao, A. G. Huth, M. D. Lescroart, and J. L. Gallant, “Pycortex:
+an interactive surface visualizer for fmri,” Frontiers in neuroinformatics,
+2015. 10, 11

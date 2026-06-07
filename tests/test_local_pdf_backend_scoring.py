@@ -147,6 +147,107 @@ class LocalPdfBackendScoringTest(unittest.TestCase):
                     docs_path=docs,
                 )
 
+    def test_batch_manifest_retries_item_until_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            docs = Path(tmp) / "docs"
+            batch_dir = docs / "assets" / "local_pdfs" / "uploads" / "batch-1"
+            batch_dir.mkdir(parents=True)
+            pdf = batch_dir / "paper.pdf"
+            pdf.write_bytes(b"%PDF-1.4")
+            manifest = batch_dir / "manifest.json"
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "client_id": "item-1",
+                                "upload_path": str(pdf),
+                                "original_filename": "paper.pdf",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            calls = {"count": 0}
+            original = self.mod.generate_local_pdf_deep_doc_from_file
+
+            def flaky_generate(**kwargs):
+                calls["count"] += 1
+                if calls["count"] < 3:
+                    raise RuntimeError(f"temporary failure {calls['count']}")
+                return {"ok": True, "route": "#/local-pdf/ok"}
+
+            self.mod.generate_local_pdf_deep_doc_from_file = flaky_generate
+            try:
+                result = self.mod.generate_local_pdf_deep_docs_from_manifest(
+                    manifest_path=str(manifest),
+                    docs_dir=str(docs),
+                    cleanup_uploads=True,
+                    max_attempts=3,
+                )
+            finally:
+                self.mod.generate_local_pdf_deep_doc_from_file = original
+
+            self.assertEqual(calls["count"], 3)
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["succeeded"], 1)
+            self.assertEqual(result["failed"], 0)
+            self.assertEqual(result["results"][0]["attempts"], 3)
+            self.assertEqual(len(result["results"][0]["retry_errors"]), 2)
+            self.assertFalse(pdf.exists())
+            self.assertFalse(manifest.exists())
+
+    def test_batch_manifest_reports_failure_after_three_attempts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            docs = Path(tmp) / "docs"
+            batch_dir = docs / "assets" / "local_pdfs" / "uploads" / "batch-1"
+            batch_dir.mkdir(parents=True)
+            pdf = batch_dir / "paper.pdf"
+            pdf.write_bytes(b"%PDF-1.4")
+            manifest = batch_dir / "manifest.json"
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "client_id": "item-1",
+                                "upload_path": str(pdf),
+                                "original_filename": "paper.pdf",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            calls = {"count": 0}
+            original = self.mod.generate_local_pdf_deep_doc_from_file
+
+            def failing_generate(**kwargs):
+                calls["count"] += 1
+                raise RuntimeError(f"still failing {calls['count']}")
+
+            self.mod.generate_local_pdf_deep_doc_from_file = failing_generate
+            try:
+                result = self.mod.generate_local_pdf_deep_docs_from_manifest(
+                    manifest_path=str(manifest),
+                    docs_dir=str(docs),
+                    cleanup_uploads=True,
+                    max_attempts=3,
+                )
+            finally:
+                self.mod.generate_local_pdf_deep_doc_from_file = original
+
+            self.assertEqual(calls["count"], 3)
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["succeeded"], 0)
+            self.assertEqual(result["failed"], 1)
+            self.assertEqual(result["results"][0]["attempts"], 3)
+            self.assertEqual(len(result["results"][0]["retry_errors"]), 3)
+            self.assertEqual(result["results"][0]["error"], "still failing 3")
+            self.assertTrue(pdf.exists())
+            self.assertTrue(manifest.exists())
+
     def test_local_pdf_basename_parts_are_truncated_before_combining(self):
         title = (
             "NeurIPS25 NOBEL - One Brain, Omni Modalities_ Towards Unified "

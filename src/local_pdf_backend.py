@@ -29,6 +29,7 @@ _GENERATION_LOCK = threading.Lock()
 _REFINE_MODULE = None
 _LOCAL_PDF_ASSET_KEY_MAX_LEN = 96
 _LOCAL_PDF_SLUG_MAX_LEN = 96
+_LOCAL_PDF_BATCH_MAX_ATTEMPTS = 3
 
 
 def _clean_line(value: Any) -> str:
@@ -574,10 +575,12 @@ def generate_local_pdf_deep_docs_from_manifest(
     docs_dir: str | None = None,
     date_str: str | None = None,
     cleanup_uploads: bool = False,
+    max_attempts: int = _LOCAL_PDF_BATCH_MAX_ATTEMPTS,
 ) -> Dict[str, Any]:
     docs_path = Path(docs_dir or gen6.resolve_docs_dir()).resolve()
     manifest_file, items = _load_local_pdf_batch_manifest(manifest_path=manifest_path, docs_path=docs_path)
     day = (date_str or datetime.now(timezone.utc).strftime("%Y%m%d")).strip()
+    safe_max_attempts = max(1, int(max_attempts or 1))
     results: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
 
@@ -588,27 +591,45 @@ def generate_local_pdf_deep_docs_from_manifest(
             "upload_path": item.get("upload_path_raw") or str(item["upload_path"]),
             "filename": item.get("filename") or item["upload_path"].name,
         }
-        try:
-            result = generate_local_pdf_deep_doc_from_file(
-                pdf_path=str(item["upload_path"]),
-                filename=item.get("filename") or item["upload_path"].name,
-                title_override=item.get("title_override") or None,
-                llm_config_json=llm_config_json,
-                docs_dir=str(docs_path),
-                date_str=day,
-            )
-            result.update(result_base)
-            results.append(result)
-            if cleanup_uploads:
-                item["upload_path"].unlink(missing_ok=True)
-        except Exception as exc:
-            failure = {
-                **result_base,
-                "ok": False,
-                "error": str(exc),
-            }
-            results.append(failure)
-            failures.append(failure)
+        retry_errors: list[str] = []
+        for attempt in range(1, safe_max_attempts + 1):
+            try:
+                result = generate_local_pdf_deep_doc_from_file(
+                    pdf_path=str(item["upload_path"]),
+                    filename=item.get("filename") or item["upload_path"].name,
+                    title_override=item.get("title_override") or None,
+                    llm_config_json=llm_config_json,
+                    docs_dir=str(docs_path),
+                    date_str=day,
+                )
+                result.update(result_base)
+                result["attempts"] = attempt
+                if retry_errors:
+                    result["retry_errors"] = retry_errors
+                results.append(result)
+                if cleanup_uploads:
+                    item["upload_path"].unlink(missing_ok=True)
+                break
+            except Exception as exc:
+                error = str(exc)
+                retry_errors.append(error)
+                if attempt < safe_max_attempts:
+                    print(
+                        "[WARN] local PDF batch generation failed "
+                        f"({attempt}/{safe_max_attempts}) for "
+                        f"{result_base['filename']} [{result_base['client_id']}]: {error}; retrying.",
+                        flush=True,
+                    )
+                    continue
+                failure = {
+                    **result_base,
+                    "ok": False,
+                    "error": error,
+                    "attempts": attempt,
+                    "retry_errors": retry_errors,
+                }
+                results.append(failure)
+                failures.append(failure)
 
     if cleanup_uploads and not failures:
         manifest_file.unlink(missing_ok=True)
@@ -636,6 +657,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--date", default="", help="Optional YYYYMMDD date folder.")
     parser.add_argument("--cleanup-uploads", action="store_true", help="Remove temporary uploaded PDFs after success.")
     parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=_LOCAL_PDF_BATCH_MAX_ATTEMPTS,
+        help="Max generation attempts per PDF in a batch manifest.",
+    )
+    parser.add_argument(
         "--llm-config-json",
         default="",
         help="Optional temporary LLM JSON. GitHub Actions should prefer DPR_LLM_* secrets instead.",
@@ -648,6 +675,7 @@ def main(argv: list[str] | None = None) -> int:
             docs_dir=args.docs_dir,
             date_str=args.date or None,
             cleanup_uploads=args.cleanup_uploads,
+            max_attempts=args.max_attempts,
         )
     elif args.pdf_path:
         result = generate_local_pdf_deep_doc_from_file(

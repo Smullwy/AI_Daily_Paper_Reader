@@ -1,0 +1,1544 @@
+SemVideo: Reconstructs What You Watch from Brain Activity via Hierarchical
+Semantic Guidance
+Minghan Yang1, Lan Yang1*, Ke Li1, Honggang Zhang1, Kaiyue Pang2, Yi-Zhe Song2
+1Beijing University of Posts and Telecommunications
+2 University of Surrey
+{yangminghan, ylan, like1990, zhhg}@bupt.edu.cn
+hatkpang@gmail.com, y.song@surrey.ac.uk
+Abstract
+Reconstructing dynamic visual experiences from brain ac-
+tivity provides an avenue for exploring the neural mecha-
+nisms of visual perception. While progress in fMRI-based
+image reconstruction has been notable, extending this suc-
+cess to video reconstruction remains a challenge.
+Cur-
+rent fMRI-to-video reconstruction approaches encounter
+two major shortcomings: (i) inconsistent visual represen-
+tations of salient objects across frames, leading to appear-
+ance mismatches; (ii) poor temporal coherence, resulting
+in motion misalignment or abrupt frame transitions. To ad-
+dress these limitations, we introduce SemVideo, a fMRI-to-
+video reconstruction framework guided by hierarchical se-
+mantic information. At the core of SemVideo is SemMiner,
+a hierarchical guidance module that constructs three lev-
+els of semantic cues from the video stimulus: static anchor
+descriptions, motion-oriented narratives, and holistic sum-
+maries. Leveraging this semantic guidance, SemVideo com-
+prises three key components: a Semantic Alignment De-
+coder that aligns fMRI signals with CLIP-style embeddings
+derived from SemMiner, a Motion Adaptation Decoder that
+reconstructs dynamic motion patterns using a novel tripar-
+tite attention fusion architecture, and a Conditional Video
+Render that leverages hierarchical semantic guidance for
+video reconstruction.
+Experiments on the CC2017 and
+HCP datasets demonstrate that SemVideo achieves supe-
+rior performance in semantic alignment and temporal con-
+sistency, setting a new state-of-the-art in fMRI-to-video re-
+construction. The code is publicly available at https:
+//github.com/yang-minghan/SemVideo.
+1. Introduction
+Understanding the information encoded in brain activity
+remains one of the central challenges in cognitive neuro-
+*Corresponding author
+issue: 
+Motion Misalignment
+issue: 
+Appearance Mismatch
+SemVideo
+How to reconstruct 
+video stimuli that align 
+with human perception? 
+Previous Methods
+What does the initial 
+frame depict… 
+…a orange and white kitten…
+Anchor description
+Holistic summary
+What is the overall event…
+…kitten's adventure in exploring…
+Motion narrative
+How do the objects move
+…pause to observe surroundings…
+issue: 
+Motion Misalignment
+issue: 
+Appearance Mismatch
+Figure 1. Top: While a subject watches an original video stimulus,
+their brain activity is recorded via fMRI. Middle: Reconstructed
+results from previous methods, which suffer from two issues: Ap-
+pearance Mismatch and Motion Misalignment. Bottom: Recon-
+structed result from SemVideo, achieves both semantic consis-
+tency (reconstructing the “kitten”) and motion coherence (match-
+ing dynamic actions like “crouching” and “turning”) by leveraging
+hierarchical semantic descriptions as intermediate targets to guide
+the fMRI signal decoding process.
+science. Reconstructing external stimuli from brain signals
+— particularly using non-invasive methods such as func-
+tional Magnetic Resonance Imaging (fMRI) — is an im-
+portant yet highly challenging task. Neural decoding typ-
+ically encompasses three fundamental tasks[19]: classifi-
+cation, identification, and reconstruction. With the rapid
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+13658
+
+
+advancement of deep learning techniques, prior work has
+made remarkable progress in both the classification[29, 77]
+and identification[26, 30] of static visual stimuli from
+fMRI data.
+Notably, the release of the Natural Scenes
+Dataset (NSD)[1]—the largest publicly available fMRI-
+image paired dataset — has catalyzed significant break-
+throughs in image reconstruction[8, 16, 58]. Moreover, the
+emergence of powerful text-to-image diffusion models has
+brought high-quality, high-resolution image reconstruction
+from fMRI signals within reach[9, 28, 40, 45, 50, 69, 70, 73,
+74], transforming what was once considered an unattainable
+goal into a practical possibility.
+However, reconstructing dynamic visual stimuli from
+fMRI signals remains a significant challenge due to the in-
+herent limitations of fMRI, which relies on the slow hemo-
+dynamic response of BOLD signals. These signals integrate
+brain activity over several seconds, making it difficult to
+capture the rapid motion variations present in video stimuli.
+Consequently, fMRI-based video reconstruction becomes
+an even more complex and challenging task. Despite this,
+the development of video generation technology has greatly
+enhanced the feasibility of fMRI-based video reconstruc-
+tion tasks[10, 13, 15, 41, 60]. However, two major issues
+remain unresolved in this task: (i) inconsistent visual rep-
+resentations of salient objects across frames, leading to ap-
+pearance mismatches, and (ii) poor temporal coherence, re-
+sulting in motion misalignment or abrupt frame transitions.
+In this work, inspired by neuroscience research indicat-
+ing that the human brain perceives videos discretely[51, 56]
+due to phenomena such as persistence of vision[6, 7, 12,
+46, 82] and delayed memory[32, 38, 65]. This makes it
+impractical for brain signals to process every video frame
+and every pixel; instead, only keyframes elicit significant
+responses from the brain’s visual system. This suggests that
+focusing on key semantic perceptions, rather than exhaus-
+tive pixel-by-pixel analysis, aligns more closely with the ef-
+ficiency and practicality of the human visual system.
+To this end, we first propose SemMiner, a module built
+upon a multimodal large language model (MLLM [47–
+49, 63]), which decomposes the original video stimuli
+into fine-grained, multi-level textual descriptions including
+holistic summaries, static anchor descriptions, and motion-
+oriented narratives.
+This hierarchical supervision better
+simulates the way humans process and recall visual expe-
+riences, addressing the semantic under-specification prob-
+lem in traditional pipelines.
+Guided by this hierarchical
+supervision, we then present SemVideo, a novel fMRI-to-
+video reconstruction framework guided by hierarchical se-
+mantic supervision and motion-aware latent decoding. Our
+framework is built upon three core components: (i) Se-
+mantic Alignment Decoder. To decode hierarchical se-
+mantic features from fMRI signals and adapt to the vari-
+able signal dimensions across different subjects, we pro-
+pose the Semantic Alignment Decoder (SAD). This cross-
+subject multi-level semantic decoder consists of a subject-
+specific projector, a subject-shared mapper, and a Refine-
+former module, enabling precise semantic feature decod-
+ing from fMRI signals while minimizing noise. (ii) Motion
+Adaptation Decoder. To reconstruct coherent action se-
+quences from brain signals, we designed the Motion Adap-
+tation Decoder (MAD). The core of the MAD is a tripartite
+attention fusion architecture that synergistically integrates
+spatial self-attention, temporal self-attention, and semantic-
+guided cross-attention mechanisms. By explicitly injecting
+semantic priors into the attention computation, this mod-
+ule effectively aligns motion latents with both spatial struc-
+tures and semantic actions, enhancing the fidelity and con-
+tinuity of the reconstructed video dynamics. (iii) Multi-
+Stage Semantic Fusion for Video Reconstruction. We
+propose a multi-level, staged guidance strategy for condi-
+tional video generation. Instead of relying on a single se-
+mantic cue, we progressively condition the generation on
+three sources: static semantics (anchor descriptions), dy-
+namic semantics (motion-oriented narratives), and holistic
+video-level semantics (holistic summaries). This structured
+conditioning ensures that the synthesized video aligns with
+both the static and temporal structure of the original percep-
+tual input, yielding more coherent and realistic outputs.
+Extensive experiments have demonstrated the superior
+performance and robustness of SemVideo on two widely-
+used public datasets, CC2017 [71] and HCP [42]. We evalu-
+ate our method against previous approaches across three di-
+mensions: semantic-level, pixel-level, and spatiotemporal-
+level metrics, achieving SOTA performance on 8 out of 10
+metrics. Additionally, we provide a neuroscience-based in-
+terpretation of the effectiveness of SemVideo using ROI-
+wise visualization techniques, which confirm that our hier-
+archical semantic descriptions activate corresponding brain
+regions and validate the model’s effectiveness.
+2. Related Work
+2.1. Video Caption Generation
+To introduce richer semantic guidance, a recent research [9,
+18, 57, 58, 62, 69, 76] trend has shifted from unimodal vi-
+sual feature alignment to dual-modal vision-text alignment.
+However, the effectiveness of this strategy is constrained by
+a significant bottleneck: the scarcity of high-quality, open-
+source video captioning models. Lacking dedicated video
+captioning tools, current research [13, 15, 41] often resort
+to applying Image Captioning models, such as GIT [68],
+BLIP [36, 37, 75] and SmallCap [53]), to discrete video
+frames. This method generates a series of short, static de-
+scriptions that fail to capture both the video’s temporal dy-
+namics and its fine-grained semantic details. Consequently,
+even when supervised by this textual modality, downstream
+13659
+
+
+reconstruction models are unable to acquire comprehensive
+information about either motion or semantics. This dual de-
+ficiency is a primary cause of persistent issues with motion
+coherence and semantic accuracy in generated videos, rep-
+resenting a core challenge for the field.
+2.2. Diffusion-based video generation
+The feasibility of leveraging the fine-grained semantic guid-
+ance for the reconstruction task is critically dependent on
+the recent advancements in video generation. Building on
+the remarkable progress in image synthesis with diffusion
+models [22, 52, 55], the field has rapidly advanced to text-
+to-video (T2V) diffusion models [4, 25, 59].
+These ap-
+proaches, including 3D diffusion models [24] and methods
+such as AnimateDiff [20], excel at synthesizing temporally
+coherent motion strongly conditioned by textual descrip-
+tions. This ability to translate semantic intent into dynamic
+visual content positions them as the ideal generative back-
+bone for fMRI-to-video decoding tasks.
+2.3. fMRI-based Video Reconstruction
+Early approaches
+[21, 34, 35, 44, 66, 71] to video re-
+construction treated the task as a sequence of independent
+image reconstructions. These methods employed Genera-
+tive Adversarial Networks (GANs [17]) or Autoencoders
+(AEs [33]) to synthesize frames from brain signals, with the
+primary goal of recovering low-level visual features. How-
+ever, reconstructions from these models often lacked dis-
+cernible semantic content. In contrast, recent studies have
+largely shifted toward generative frameworks centered on
+diffusion models [20, 23, 24]. One line of work, including
+Brain Netflix [13] and MinD-Video [10], utilizes masked-
+brain modeling (MBM) to map fMRI signals into a unified
+latent space that drives a video diffusion model. Another
+class of methods [15, 41, 60] focus on aligning fMRI signals
+with the deep features from pretrained models-such as CLIP
+embeddings or VAE encodings of video frames-to guide
+video reconstruction. Despite significant improvements in
+quality, these advanced methods still exhibit two primary
+limitations: insufficient motion coherence and semantic de-
+viation. This gap highlights a pressing need for a more fine-
+grained semantic supervision mechanism to guide the video
+generation process.
+3. Methodology
+In this section, we present SemMiner and SemVideo, two
+key components of our proposed fMRI-to-video reconstruc-
+tion method.
+SemMiner deconstructs a given video into
+fine-grained, multi-level textual descriptions, organizing
+them into three hierarchical semantic perspectives: first-
+frame appearance, motion cues, and overall temporal con-
+sistency. SemVideo is a decoding framework that transforms
+fMRI signals into semantic embeddings and motion latents,
+which are then used as conditional inputs for a text-to-video
+generation model to reconstruct the original video stimuli.
+3.1. SemMiner
+To provide precise and diverse semantic supervision for
+fMRI-to-video reconstruction, we introduce SemMiner, a
+hierarchical guidance module constructs three levels of se-
+mantic cues from the original video stimulus.
+Given a
+video stimulus V , these mined descriptions are structured
+into three complementary semantic perspectives. The an-
+chor description Canchor captures the static visual content
+of the first frame, serving as a semantic anchor to en-
+sure basic alignment between the reconstructed and orig-
+inal videos. The motion-oriented narratives Cmotion fo-
+cus on fine-grained dynamic cues, particularly highlighting
+actions and dynamic transitions within the video. Finally,
+the holistic summaries Choli encapsulate a global seman-
+tic summary of the entire video, integrating both static and
+motion information into a coherent narrative.
+These de-
+scriptions establish a comprehensive framework, providing
+multi-level semantic guidance for the reconstruction.
+SemMiner is implemented as a two-stage semantic de-
+composition module. In the first stage, it generates a simple
+semantic summary Cbasic of V using a MLLM Ψ [2, 79, 80],
+constrained to a maximum of 20 words, formulated as:
+Cbasic = Ψ(Pbasic, V ),
+(1)
+where Pbasic denotes the initial instruction used for synthe-
+sizing the basic description.
+This short summary serves
+as a “rein”, to prevent the subsequent generation of di-
+verse captions from becoming overly unconstrained or
+drifting semantically—analogous to controlling a “runaway
+horse” [27, 31, 39, 81]. The imposed length limit ensures
+that Cbasic captures only the most essential content, thereby
+reducing the risk of introducing strong priors that could
+dominate later stages.
+In the second stage, SemMiner is steered by carefully
+crafted instructions PL corresponding to specific semantic
+targets. Conditioned on the video V and the initial summary
+Cbasic, the framework elicits the target-specific descriptions:
+CL=Ψ(PL, Cbasic, V ),
+L ∈{anchor, motion, holi}, (2)
+where PL denotes the instruction specifically designed for
+each semantic objective. The detailed instructions used in
+SemMiner can be found in Appendix A.1.
+CC2017-SE. To advance the fMRI-to-video reconstruc-
+tion field, we introduce CC2017-SE, a semantic exten-
+sion of the CC2017 dataset.
+Building upon the original
+dataset, we apply SemMiner to generate three t semantic
+descriptions — Canchor, Cmotion, and Choli. We also provide
+quantitative and qualitative analysis of synthesized captions
+in Appendix A.2.
+The extended dataset is available at
+https://huggingface.co/datasets/YanmHa/
+SemVideo.
+13660
+
+
+sub01
+sub02
+sub03
+SemMiner
+MAD
+VAE
+CLIP
+Ẑ𝑪𝒉𝒐𝒍𝒊
+Ẑ𝐂𝒂𝒏𝒄𝒉𝒐𝒓
+Ẑ𝐂𝒎𝒐𝒕𝒊𝒐𝒏
+SAD
+𝐙𝐂𝒉𝒐𝒍𝒊
+𝐙𝐂𝒂𝒏𝒄𝒉𝒐𝒓
+𝐙𝐂𝒎𝒐𝒕𝒊𝒐𝒏
+𝐿𝑀𝐴𝐷
+ 
+𝐿𝑆𝐴𝐷
+ 
+𝐿𝑆𝐴𝐷
+ 
+𝐿𝑆𝐴𝐷
+ 
+𝐂𝒉𝒐𝒍𝒊
+𝐂𝒂𝒏𝒄𝒉𝒐𝒓
+MAD
+𝐇
+fMRI signal
+𝑸
+𝑲
+𝑽
+𝒇𝑴𝑨𝑫
+𝒑𝒓𝒐𝒋
+Motion 
+Embeddder
+   Layer
+Text-
+Guide Attn
+Module
+Temporal
+Attn
+Module
+Spatial
+ Attn          
+Module
+Upsample         
+/Module 
+× L 
+𝑸
+𝑸
+𝑽
+𝑲
+𝑲
+𝑽
+Ẑ𝐂𝒎𝒐𝒕𝒊𝒐𝒏
+SAD
+Ê 𝐗
+Ê 𝐗
+𝐄𝐕
+fMRI signal
+𝒇𝑺𝑨𝑫
+𝜽𝒎
+Ẑ𝑪𝒉𝒐𝒍𝒊
+Ẑ𝐂𝒂𝒏𝒄𝒉𝒐𝒓
+Ẑ𝐂𝒎𝒐𝒕𝒊𝒐𝒏
+Z ′(𝐂𝒉𝒐𝒍𝒊)
+Z ′(𝐂𝒂𝒏𝒄𝒉𝒐𝒓)
+Z ′(𝐂𝒎𝒐𝒕𝒊𝒐𝒏)
+𝒇𝑺𝑨𝑫
+𝑴𝑳𝑷𝒉𝒐𝒍𝒊
+𝒇𝑺𝑨𝑫
+𝑴𝑳𝑷𝒂𝒏𝒄𝒉𝒐𝒓
+𝒇𝑺𝑨𝑫
+𝑴𝑳𝑷𝒎𝒐𝒕𝒊𝒐𝒏
+𝒇𝑺𝑨𝑫
+𝑹𝒆𝒇𝒊𝒏𝒆𝒉𝒐𝒍𝒊
+𝒇𝑺𝑨𝑫
+𝑹𝒆𝒇𝒊𝒏𝒆𝒂𝒏𝒄𝒉𝒐𝒓
+𝒇𝑺𝑨𝑫
+𝑹𝒆𝒇𝒊𝒏𝒆𝒎𝒐𝒕𝒊𝒐𝒏
+𝐙𝐂𝒉𝒐𝒍𝒊
+𝐙𝐂𝒂𝒏𝒄𝒉𝒐𝒓
+𝐙𝐂𝒎𝒐𝒕𝒊𝒐𝒏
+𝑳𝒔𝒐𝒇𝒕𝑪𝑳𝑰𝑷, 𝑳𝑴𝑺𝑬
+ 
+𝑳𝒔𝒐𝒇𝒕𝑪𝑳𝑰𝑷, 𝑳𝑴𝑺𝑬
+ 
+𝑳𝒔𝒐𝒇𝒕𝑪𝑳𝑰𝑷, 𝑳𝑴𝑺𝑬
+ 
+𝑳𝑷𝒓𝒊𝒐𝒓
+ 
+𝑳𝑷𝒓𝒊𝒐𝒓
+ 
+𝑳𝑷𝒓𝒊𝒐𝒓
+ 
+Figure 2. Overview of the SemVideo training pipeline. In the first stage, the Semantic Alignment Decoder is trained to map fMRI signals to
+three levels of semantic targets, denoted as Z(CL). In the second stage, the Motion Adaptation Decoder is trained to utilize the predicted
+motion semantics ˆZ(Cmotion) to refine the latent embedding of each reconstructed frame.
+3.2. SemVideo
+SemVideo operates in three key stages, as illustrated in Fig-
+ure.2 and Figure.3.
+First, the fMRI signals X ∈RDm
+are decoded into semantic feature representations ˆZ(CL) ∈
+R77×768, where Dm denotes the number of activated voxels
+for subject m, and Z(·) represents the target feature space.
+Second, it reconstructs a motion-guided latent representa-
+tion of the video, denoted as ˆE(X), guided by the decoded
+motion semantics ˆZ(Cmotion). Finally, the decoded semantic
+and motion features are fused to generate the reconstructed
+video via Conditional Video Render Φ, formulated as:
+ˆV = Φ( ˆZ(Canchor), ˆZ(Choli), ˆE(X)).
+(3)
+Semantic Alignment Decoder (SAD) The objective of the
+Semantic Alignment Decoder (SAD) is to take the fMRI
+signal X as input and output the predicted semantic fea-
+ture ˆZ(CL). Since the number of activated voxels varies
+across subjects, SAD first applies a subject-specific projec-
+tion layer f θm
+SAD to project X into a unified latent space of
+dimension Dl, yielding X′ = f θm
+SAD(X) ∈RDl. Next,
+a subject-shared encoder fSAD maps the normalized fMRI
+representation X′ to the CLIP text feature space, resulting
+in ˆZ(CL) = fSAD(X′). The encoder fSAD is composed of a
+four-layer multilayer perceptron (f MLP
+SAD ) followed by a Re-
+fineformer (f Refine
+SAD ), a causal transformer designed to maxi-
+mize the extraction of meaningful neural activity while min-
+imizing the influence of noise, thereby enhancing the align-
+ment between fMRI signals and the target semantic space.
+The training of SAD is supervised by a combination of three
+training objectives:
+LMSE =
+Z(CL) −f MLP
+SAD (X′)
+2,
+(4)
+LSoftCLIP = −
+B
+X
+j=1
+"
+exp
+ Z(CL)·Z(Cj
+L)
+τ
+
+PB
+k=1 exp
+ Z(CL)·Z(Ck
+L)
+τ
+
+× log
+
+exp
+ fMLP
+SAD (X′)·Z(Cj
+L)
+τ
+
+PB
+k=1 exp
+ fMLP
+SAD (X′)·Z(Ck
+L)
+τ
+
+#
+,
+(5)
+Lrefine =Et∼[1,T ]
+fRefine
+SAD
+
+Zt
+L, t, fMLP
+SAD (X′)
+
+−Z(CL)
+
+2
+,
+(6)
+LSAD = λrefine Lrefine + λSoftCLIP LSoftCLIP + LMSE,
+(7)
+where B denotes the batch size, j indexes the j-th sam-
+ple in the batch, and τ is a temperature hyperparameter. T
+represents the total number of denoising timesteps, and Zt
+L
+is the perturbed semantic embedding of CL at timestep t.
+λrefine and λSoftCLIP are weighting coefficients that balance
+the contributions of the corresponding loss components.
+Motion Adaptation Decoder (MAD) To improve the fi-
+delity of motion dynamics reconstructed from brain sig-
+nals, we propose a semantically guided motion adapta-
+tion decoding strategy. Let the original video stimulus be
+denoted as V
+= {v1, v2, · · · , vn}, where n is the num-
+ber of frames.
+We extract its motion latent representa-
+tion using a pretrained VAE encoder E, yielding E(V ) =
+{e1, e2, · · · , en}.
+The objective of MAD is to take the fMRI signal X
+as input and generate a sequence of predicted motion la-
+13661
+
+
+sub01
+sub02
+sub03
+Ê 𝐗
+T2V 
+MAD
+Ẑ𝑪𝒉𝒐𝒍𝒊
+Ẑ𝐂𝒂𝒏𝒄𝒉𝒐𝒓
+Ẑ𝐂𝒎𝒐𝒕𝒊𝒐𝒏
+SAD
+VAE
+SD
+Inference Stage
+Figure 3. Overview of the SemVideo inference pipeline. fMRI signals are first decoded into ˆZ(CL) by the SAD. ˆZ(Cmotion) conditions the
+MAD to refine frame embeddings ˆE(x), which are passed through a VAE decoder, generating a blurry video. ˆE(x) and ˆZ(Canchor) guide
+the SD model to generate anchor frame, combined with the blurry video and ˆZ(Choli), is fed into a T2V model, yielding final reconstruction.
+tents corresponding to the reconstructed video frames, de-
+noted as ˆE(X) = {ˆe1, ˆe2, · · · , ˆen}. To achieve this, MAD
+first projects the fMRI signal into the latent space using a
+subject-specific projection network f proj
+MAD, implemented as
+a multilayer perceptron 1. This projection yields a latent
+tensor g = f proj
+MAD(X) ∈Rn×Demb, where Demb denotes the
+embedding dimension. Next, the tensor g is processed by a
+Motion Embedder Layer to produce a sequence of embed-
+dings S = {s1, s2, · · · , sn} ∈Rn×c×h×w, where c×h×w
+is the dimension of the embedding latent space. This em-
+bedding sequence serves as the initial input to the subse-
+quent attention-based decoding module. MAD conducts a
+hierarchical fusion attention mechanism:
+(i) To capture intra-frame structure, we apply spatial atten-
+tion to each si. The latent tensor is reshaped and attended
+via scaled dot-product attention:
+ˆS = Reshape(S) ∈R(n·h·w)×c,
+(8)
+Espat = Softmax
+ 
+QspatK⊤
+spat
+√
+d
+!
+Vspat,
+(9)
+where Qspat = ˆSWQspat, Kspat = ˆSWKspat, Vspat = ˆSWVspat.
+(ii) To model inter-frame dependencies, we apply temporal
+attention across the temporal axis. We first flatten each spa-
+tially attended frame into a temporal sequence:
+˜S = Reshape(Espat) ∈R(c·h·w)×n,
+(10)
+The attention computation follows the same formulation as
+in the spatial attention and is omitted here for brevity.
+(iii) We further incorporate semantic guided cross-attention.
+Let ˆZ(Cmotion) be the predicted motion descriptions from
+the video, as formulated by:
+Ecross = Softmax
+QcrossK⊤
+cross
+√
+d
+
+Vcross,
+(11)
+where Qcross = ˜SWQcross, Kcross = ˆZ(Cmotion)WKcross and
+Vcross = ˆZ(Cmotion)WVcross. Finally, the output of MAD can
+be represented as:
+ˆei = λspat espat
+i
++ λtemp etemp
+i
++ ecross
+i
+,
+(12)
+1The architecture of fproj
+MAD is detailed in Appendix C.1
+where λspat and λtemp are weights for espat and etemp, respec-
+tively. The training objectives of MAD are formulated by:
+LMAD = 1
+n
+n
+X
+i=1
+|ˆei −ei|
+−1
+2n
+n
+X
+j=1
+log
+exp (sim(ˆei, ej)/τ)
+Pn
+k=1 exp (sim(ˆei, ek)/τ)
+−1
+2n
+n
+X
+j=1
+log
+exp (sim(ej, ˆej)/τ)
+Pn
+k=1 exp (sim(ej, ˆek)/τ) (13)
+where sim(·, ·) is cosine similarity.
+Conditional Video Render (CVR) To fully leverage the in-
+formation decoded from fMRI signals, we design CVR — a
+sequential inference framework that reconstructs the video
+by progressively integrating the fMRI-derived cues at each
+stage of the generation process. First, the decoded motion
+latents ˆE(X) = {ˆe1, ˆe2, . . . , ˆen} are passed through the
+pretrained VAE decoder D to produce a sequence of mo-
+tion frames {Imotion
+i
+}n
+i=1. Next, the decoded anchor feature
+ˆZ(Canchor) is combined with the first motion frame Imotion
+1
+and fed into a text-to-image (T2I) model, yielding the ini-
+tial reconstructed frame ˆv1. Finally, a pretrained text-to-
+video (T2V) generator is steered jointly by three sources:
+(i) the holistic semantic guidance ˆZ(Choli), (ii) the anchor
+frame ˆv1, and (iii) the motion-frame sequence {Imotion
+i
+}n
+i=1.
+This combination encourages both temporal smoothness
+and semantic fidelity, enabling CVR to synthesize a coher-
+ent video that closely matches the original visual stimulus
+inferred from the fMRI signals.
+4. Experiments
+Datasets and Pre-processing: We evaluate our method on
+two publicly available fMRI-video datasets: CC2017 [71]
+and a subset of the HCP 7T dataset [42]. CC2017 con-
+tains fMRI recordings from three subjects (3T MRI) while
+watching 23 high-definition natural movie clips (8 min-
+utes each, 30 FPS). To improve signal-to-noise ratio (SNR),
+training clips are repeated twice and test clips ten times; the
+fMRI responses are averaged accordingly. After aligning
+13662
+
+
+Method
+Semantic-Level
+Pixel-Level
+ST-Level
+2-way-I↑
+2-way-V↑
+50-way-I↑
+50-way-V↑
+VIFI-score↑
+SSIM↑
+PSNR↑
+Hue-pcc↑
+CLIP↑
+EPE ↓
+Nishimoto [44](Current Biology’11)
+0.742
+–
+–
+–
+–
+0.119
+8.383
+0.737
+–
+–
+Wen [71](Cerebral Cortex’17)
+0.771
+0.070
+–
+0.166
+–
+0.130
+8.301
+0.637
+–
+–
+Kupershmidt [34](arXiv’22)
+0.769
+0.768
+0.179
+–
+0.591
+0.108
+11.030
+0.583
+0.399
+6.344
+f-CVGAN [66](Cerebral Cortex’22)
+0.777
+0.721
+–
+–
+0.592
+0.108
+11.430
+0.583
+0.399
+6.344
+Mind-video [10](NeurIPS’23)
+0.797
+0.848
+0.174
+0.197
+0.593
+0.177
+8.868
+0.768
+0.409
+6.125
+NeuroClips [15](NeurIPS’25)
+0.806
+0.834
+0.203
+0.220
+0.602
+0.390
+9.211
+0.812
+0.513
+4.833
+Mind-Animator [41](ICLR’25)
+0.805
+0.830
+0.192
+0.186
+0.608
+0.321
+9.220
+0.786
+0.425
+5.422
+NEURONS [67](ICCV’25)
+0.815
+0.853
+0.213
+0.246
+0.597
+0.285
+9.526
+0.830
+0.482
+4.827
+Ours
+0.838
+0.865
+0.225
+0.264
+0.608
+0.321
+9.448
+0.849
+0.526
+4.788
+Table 1. Quantitative comparison of reconstruction results on the CC2017 dataset. All metrics are averaged across all samples and three
+subjects, with the best results highlighted in bold and the second-best results underlined. 100 sample sets were constructed using the
+bootstrap method for hypothesis testing. Colors reflect statistical significance compared to our model. p < 0.0001(blue); p < 0.01(pink);
+p < 0.05(yellow); p > 0.05(green)
+.
+SemVideo
+Mind-
+Animato
+r
+NeuroClips
+MinD-Video
+Neurons
+Visual
+Stimuli
+Figure 4. Qualitative comparison of reconstruction results on the CC2017 dataset between previous methods and our proposed SemVideo.
+Reconstructions generated by SemVideoare highlighted with red boxes.
+Method
+Semantic
+Pixel
+ST-Level
+2-way-I↑
+2-way-V↑
+PSNR↑
+Hue-pcc↑
+CLIP ↑
+EPE ↓
+Nishimoto
+0.658
+–
+11.316
+0.645
+–
+–
+Wen
+0.702
+–
+10.197
+0.727
+–
+–
+Mind-video
+0.779
+0.769
+9.275
+0.793
+0.499
+9.29
+Mind-Animator
+0.786
+0.778
+11.233
+0.829
+0.511
+7.08
+Ours
+0.815
+0.796
+9.336
+0.858
+0.523
+4.05
+Table 2. Quantitative comparison on the HCP dataset.
+video frames with the fMRI temporal resolution (TR = 2s),
+we obtain 8,640 training samples and 1,200 test samples.
+Visually responsive voxels are selected by computing the
+temporal correlation between repeated presentations, apply-
+ing Fisher’s z-transform, and conducting a one-sample t-
+test (Bonferroni corrected, p < 0.05). This yields 13,447;
+14,828; and 9,114 voxels for the three subjects, respectively.
+A 4-second BOLD lag is applied to compensate for the
+hemodynamic response delay. HCP 7T: We use a subset of
+the HCP 7T dataset, selecting three subjects (IDs: 100610,
+102816, 104416) following prior work. The data undergoes
+HCP’s preprocessing pipeline, including motion/distortion
+correction, high-pass filtering, ICA denoising, and MNI
+registration. We extract 5,820 voxels from [14]. We par-
+tition clips into training and test sets with a 9:1 split. A
+4-second hemodynamic lag is similarly applied.
+Evaluation Metrics :
+We follow previous works that
+introduce the evaluation metrics at three complemen-
+tary levels:
+Semantic-Level:
+(i) N-way top-1 retrieval
+in four settings—2-way/50-way, frame-level [11]]/video-
+level [64]. (ii) VIFI [54]: cosine similarity of VIFICLIP
+features between ground-truth and reconstructions. Pixel-
+Level: SSIM, PSNR, and Hue-PCC [61] quantify low-level
+fidelity. Spatiotemporal-Level (ST-Level): (i) CLIP-PCC:
+13663
+
+
+Method
+Semantic-Level
+Pixel-Level
+ST-Level
+2-way-I↑
+2-way-V↑
+50-way-I↑
+50-way-V↑
+VIFI-score↑
+SSIM↑
+PSNR↑
+Hue-pcc↑
+CLIP ↑
+EPE ↓
+Ours (full)
+0.826
+0.860
+0.211
+0.239
+0.590
+0.330
+9.626
+0.841
+0.502
+4.768
+w/o Canchor
+0.786
+0.808
+0.158
+0.147
+0.534
+0.361
+9.454
+0.835
+0.488
+4.796
+w/o Choli
+0.819
+0.849
+0.205
+0.221
+0.584
+0.299
+9.492
+0.834
+0.490
+4.859
+w/o Cmotion
+0.818
+0.846
+0.207
+0.216
+0.583
+0.285
+9.353
+0.741
+0.481
+4.930
+Table 3. Ablation study evaluating the impact of removing different semantic descriptions—Canchor, Choli, and Cmotion—from the
+decoding targets of the Semantic Alignment Decoder (SAD). All results are reported on the CC2017 dataset.
+average cosine similarity of CLIP embeddings of adjacent
+frames; set to 0 when VIFI < 0.6 to avoid spurious infla-
+tion. (ii) EPE [3]: quantifies motion fidelity by calculat-
+ing the average Euclidean distance between predicted and
+ground-truth optical flow vectors at each pixel.
+Implementation: The training strategy of the experiment
+involves pre-training across all subjects, followed by fine-
+tuning on a single subject.
+Consistent with prior re-
+search [15], we adopt AnimateDiff for T2V task. All mod-
+els are trained for 100 epochs with AdamW. Loss weights
+are λSoftCLIP=0.1 and λrefine=0.5. Please refer to Appendix
+C.1 for more implementation details.
+4.1. Main Results
+We report the quantitative performance of our method on
+the CC2017 dataset in Table.1 and qualitative comparisons
+in Figure.4. SemVideo achieves remarkable and comprehen-
+sive performance across all evaluation levels.
+Superior Semantic Accuracy and Fidelity. Our model
+outperforms NeuroClips [15] and Neurons [67], achiev-
+ing a 2-way-V score of 0.865 and a 50-way-V score of
+0.264, demonstrating superior semantic consistency and
+discriminability. On the VIFI-score, which reflects over-
+all semantic-video alignment, SemVideo ties with Mind-
+Animator[41] at 0.608, indicating strong semantic fidelity.
+This quantitative superiority is also reflected visually in
+Figure.4 where the reconstructions of SemVideo are more
+aligned with the ground truth video stimuli, accurately cap-
+turing central objects like “fish” and “cars”.
+Competitive Low-Level Reconstruction Quality.
+For
+pixel-level reconstruction quality, our model achieves the
+highest hue-pcc (0.849) and reaches a competitive SSIM
+of 0.321 and PSNR of 9.448, closely trailing the SoTA
+method. This high fidelity is also evident visually, as it
+effectively recovers key low-level features such as lighting
+and shadow contrasts (e.g., rightmost column in Figure.4).
+Enhanced Spatial-Temporal Coherence.
+Our model
+achieves the highest CLIP similarity (0.526), and the
+lowest EPE (4.788), highlighting better preservation of
+spatial-temporal coherence and alignment with high-level
+perceptual features.
+Most notably, this is demonstrated
+by SemVideo’s ability to excel at modeling temporal dy-
+namics, successfully reconstructing coherent motion pat-
+terns—such as “a person turning their head” (Figure.4, first
+column)—which remain challenging for previous methods.
+These results underscore SemVideo’s strength in preserv-
+ing both spatial detail and temporal consistency in fMRI-
+to-video reconstruction.
+Strong Generalization Ability. To assess generalization,
+we further evaluate on the HCP dataset. As shown in Ta-
+ble.2, SemVideo maintains strong performance, demonstrat-
+ing its robustness across subjects and datasets.
+Figure 5. The figure presents two sets of results from subj01 of
+the CC2017 dataset. On the left, the results of a shuffle test are
+shown; significance was determined using paired t-tests with Bon-
+ferroni correction (P < 0.05). On the right, the results of an
+ablation study are displayed, evaluating the impact of the Cmotion
+and MAD guidance components.
+4.2. Validating the Source of Motion Improvement.
+Following the work of [41], we reconstruct video clips using
+Tune-a-video [72] which lacks motion priors and conduct
+shuffle tests to further validate the contributions of both the
+MAD and the motion-oriented narratives Cmotion to mo-
+tion improvement. Specifically, for each 12-frame recon-
+structed video, we randomly shuffle the order of the frames
+100 times and compute the EPE on both the original and
+shuffled frames. We estimate the P-value using the follow-
+ing formula: P = P100
+i=1 δi/100, where δi = 1 if the ith
+shuffle outperforms the reconstruction result in the original
+order based on the metrics, and δi = 0 otherwise. A lower
+P-value signifies a closer alignment between the sequential
+order of the reconstructed video and the ground truth. It can
+be observed that the P-value for our full model is signifi-
+13664
+
+
+anchor
+motion
+holi
+0
+1
+0
+1
+0
+1
+MT
+M
+T
+MS
+T
+MS
+T
+V1
+V1
+V2
+V3
+V3A
+V3B
+V4
+PPA
+TPOJ
+LIP
+V3
+V2
+V3A
+V3B
+TPOJ
+V4
+PPA
+LIP
+MT
+M
+T
+MS
+T
+MS
+T
+V1
+V1
+V2
+V3
+V3A
+V3B
+V4
+PPA
+TPOJ
+LIP
+V3
+V2
+V3A
+V3B
+TPOJ
+V4
+PPA
+LIP
+MT
+M
+T
+MS
+T
+MS
+T
+V1
+V1
+V2
+V3
+V3A
+V3B
+V4
+PPA
+TPOJ
+LIP
+V3
+V2
+V3A
+V3B
+TPOJ
+V4
+PPA
+LIP
+Figure 6. Importance visualization of different ROIs of subject 1 on CC2017, based on the fitted weights from the first layer of the SAD.
+Weights from each module are averaged and normalized to the [0, 1] range for comparison. Please refer to Appendix D for more subjects’
+importance visualization.
+cantly low, confirming that its predicted inter-frame order
+robustly matches the ground truth, but rises substantially
+when Cmotion is removed and spikes to 0.84 when the en-
+tire MAD is ablated, as illustrated in Figure.5 left. This
+indicates that we have indeed decoded motion information
+from MAD and fMRI-derived Cmotion. This conclusion is
+reinforced by a comparison of the EPE score, as shown in
+Figure.5 right. The EPE increase when removing Cmotion
+and the spike when ablating the MAD confirm the crucial
+role of motion semantic guidance and that the MAD, not
+T2V priors, is the source of decoded motion improvement.
+4.3. Ablation Study
+In this section, we conduct a detailed ablation study to
+evaluate the individual contributions of the Canchor, Choli,
+and Cmotion components to our SemVideo.
+The quanti-
+tative results, presented in Table.3, unequivocally demon-
+strate that the removal of any single component leads to
+a performance degradation across nearly all metrics, af-
+firming their indispensability. Specifically, the exclusion
+of Cmotion causes the most precipitous decline in pixel-
+level and ST-level metrics. The absence of Canchor, in con-
+trast, significantly impairs semantic-level fidelity. The Choli
+proves integral for overall performance, as its removal ad-
+versely affects all metrics, underscoring its global guidance
+under video reconstruction. Crucially, and in contrast to
+prior works employing conventional latent decoders, the re-
+moval of Cmotion also results in a notable drop in semantic
+metrics. This key finding substantiates the efficacy of our
+multi-level semantic guidance mechanism. It demonstrates
+that our motion latent space is not only responsible for en-
+suring pixel-level consistency and temporal smoothness but
+is also endowed with semantic understanding, thereby guar-
+anteeing the coherence of the synthesized actions.
+4.4. Neuroscience Interpretability
+To investigate the neural interpretability of our model, we
+generated voxel-wise importance maps over the cerebral
+cortex. The results, presented in Figure.6, shed light on the
+neural substrates underlying each core component. The an-
+chor component (Figure.6, left) predominantly draws from
+a hierarchy of visual regions, with a notable emphasis on
+higher-level visual cortices, confirming its role in encoding
+abstract scene structure. The motion component (Figure.6,
+middle) aligns well with established motion-processing re-
+gions, including MT, MST, and TPOJ [5]. Interestingly,
+it also shows strong activations in V1, supporting the ex-
+istence of parallel, non-hierarchical pathways—where V1
+may directly convey motion signals to MT [43]—in con-
+trast to the traditional view of a strictly feedforward dorsal
+stream [78]. Lastly, the holistic component (Figure.6, right)
+exhibits a distributed pattern of importance across both vi-
+sual and motion-related areas. This balanced integration
+highlights its function as a global information aggregator,
+responsible for synthesizing perceptual and temporal fea-
+tures to support coherent reconstruction. This hierarchical
+semantic mapping enables SemVideo to generate more per-
+ceptually faithful reconstructions and similar activation dis-
+tributions across subjects demonstrate stable feature capture
+for both static semantics and dynamic behaviors.
+5. Conclusion
+Reconstructing dynamic visual stimuli from brain activ-
+ity remains a challenge in cognitive neuroscience. In this
+work, we propose SemVideo, an innovative fMRI-to-video
+reconstruction framework featuring a novel semantic align-
+ment decoder, a motion adaptation decoder and a condi-
+tional video render.
+By leveraging multi-level semantic
+cues, SemVideo effectively addresses the challenges of both
+semantic sparsity and temporal coherence in video recon-
+struction. Our experimental evaluation demonstrates the su-
+perior performance of SemVideo on two public datasets, sur-
+passing existing methods across multiple metrics, including
+semantic, pixel, and spatiotemporal levels. Furthermore,
+our use of ROI-wise visualization techniques provides valu-
+able neuroscience-driven insights into the effectiveness of
+the proposed method. We believe SemVideo will set a new
+SOTA in fMRI-to-video decoding and lay the foundation
+for future brain-based video reconstruction.
+13665
+
+
+Acknowledgement
+This work was supported in part by the Beijing Natural
+Science Foundation under Grant QY25342; in part by the
+National Natural Science Foundation of China under Grant
+62502045; in part by the Postdoctoral Fellowship Program
+of CPSF under Grant GZC20251088; in part by the Brain
+Science and Brain-like Intelligence Technology-National
+Science and Technology Major Project (2021ZD0200600,
+2021ZD0200601).
+References
+[1] Emily J Allen, Ghislain St-Yves, Yihan Wu, Jesse L
+Breedlove, Jacob S Prince, Logan T Dowdle, Matthias Nau,
+Brad Caron, Franco Pestilli, Ian Charest, et al. A massive
+7t fmri dataset to bridge cognitive neuroscience and artificial
+intelligence. Nature Neuroscience, 25:116–126, 2022. 2
+[2] Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin
+Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun
+Tang, Humen Zhong, Yuanzhi Zhu, Mingkun Yang, Zhao-
+hai Li, Jianqiang Wan, Pengfei Wang, Wei Ding, Zheren
+Fu, Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao Xie, Zesen
+Cheng, Hang Zhang, Zhibo Yang, Haiyang Xu, and Jun-
+yang Lin.
+Qwen2.5-vl technical report.
+arXiv preprint
+arXiv:2502.13923, 2025. 3
+[3] John L. Barron, David J. Fleet, and Steven S. Beauchemin.
+Performance of optical flow techniques. International Jour-
+nal of Computer Vision, 12:43–77, 1994. 7
+[4] Andreas Blattmann, Robin Rombach, Huan Ling, Tim Dock-
+horn, Seung Wook Kim, Sanja Fidler, and Karsten Kreis.
+Align your latents: High-resolution video synthesis with la-
+tent diffusion models. In CVPR, 2023. 3
+[5] Richard T. Born and David C. Bradley. Structure and func-
+tion of visual area mt. Annual Review of Neuroscience, 28:
+157–189, 2005. 8
+[6] Andreas Brøgger and Karen Newman.
+Persistence of vi-
+sion: the interplay of vision. In Vision, Memory and Media,
+page 13. 2010. 2
+[7] Guangyi Chen, Yifan Shen, Zhenhao Chen, Xiangchen
+Song, Yuewen Sun, Weiran Yao, Xiao Liu, and Kun
+Zhang.
+Caring: Learning temporal causal representation
+under non-invertible generation process.
+arXiv preprint
+arXiv:2401.14535, 2024. 2
+[8] Jiaxuan Chen, Yu Qi, Yueming Wang, and Gang Pan. Mind
+artist: Creating artistic snapshots with human thought. In
+CVPR, 2024. 2
+[9] Zijiao Chen, Jiaxin Qing, Tiange Xiang, Wan Lin Yue, and
+Juan Helen Zhou. Seeing beyond the brain: Conditional dif-
+fusion model with sparse masked modeling for vision decod-
+ing. In CVPR, 2023. 2
+[10] Zijiao Chen, Jiaxin Qing, and Juan Helen Zhou. Cinematic
+mindscapes: high-quality video reconstruction from brain
+activity. In NeurIPS, 2023. 2, 3, 6
+[11] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov,
+Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner,
+Mostafa Dehghani, Matthias Minderer, Georg Heigold, Syl-
+vain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is
+worth 16x16 words: Transformers for image recognition at
+scale. In CVPR, 2021. 6
+[12] Ervin S Ferry. Persistence of vision. American Journal of
+Science, 3(261):192–207, 1892. 2
+[13] Camilo Fosco, Benjamin Lahner, Bowen Pan, Alex Ando-
+nian, Emilie Josephs, Alex Lascelles, and Aude Oliva. Brain
+netflix: Scaling data to reconstruct videos from brain signals.
+In ECCV, 2024. 2, 3
+[14] Matthew F Glasser, Timothy S Coalson, Emma C Robinson,
+Carl D Hacker, John Harwell, Essa Yacoub, Kamil Ugurbil,
+Jesper Andersson, Christian F Beckmann, Mark Jenkinson,
+et al. A multi-modal parcellation of human cerebral cortex.
+Nature, 536(7615):171–178, 2016. 6
+[15] Zixuan Gong, Guangyin Bao, Qi Zhang, Zhongwei Wan,
+Duoqian Miao, Shoujin Wang, Lei Zhu, Changwei Wang,
+Rongtao Xu, Liang Hu, et al.
+Neuroclips:
+Towards
+high-fidelity and smooth fmri-to-video reconstruction.
+In
+NeurIPS, 2024. 2, 3, 6, 7
+[16] Zixuan Gong, Qi Zhang, Guangyin Bao, Lei Zhu, Rong-
+tao Xu, Ke Liu, Liang Hu, and Duoqian Miao. Mindtuner:
+Cross-subject visual decoding with visual fingerprint and se-
+mantic correction. In AAAI, 2025. 2
+[17] Ian J. Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing
+Xu, David Warde-Farley, Sherjil Ozair, Aaron Courville, and
+Yoshua Bengio. Generative adversarial nets. In NeurIPS,
+2014. 3
+[18] Zijin Gu, Keith Jamison, Amy Kuceyeski, and Mert
+Sabuncu.
+Decoding natural image stimuli from fmri data
+with a surface-based convolutional network. In MIDL, 2024.
+2
+[19] Weiyu Guo, Guoying Sun, JianXiang He, Tong Shao,
+Shaoguang Wang, Ziyang Chen, Meisheng Hong, Ying Sun,
+and Hui Xiong. A survey of fmri to image reconstruction.
+arXiv preprint arXiv:2502.16861, 2025. 1
+[20] Yuwei Guo, Ceyuan Yang, Anyi Rao, Zhengyang Liang,
+Yaohui Wang, Yu Qiao, Maneesh Agrawala, Dahua Lin, and
+Bo Dai. Animatediff: Animate your personalized text-to-
+image diffusion models without specific tuning. In ICLR,
+2024. 3
+[21] K. Han, H. Wen, J. Shi, K. H. Lu, Y. Zhang, D. Fu, and Z.
+Liu. Variational autoencoder: An unsupervised model for
+encoding and decoding fmri activity in visual cortex. Neu-
+roImage, 198:125–136, 2019. 3
+[22] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffu-
+sion probabilistic models. In NeuIPS, 2020. 3
+[23] Jonathan Ho, William Chan, Chitwan Saharia, Jay Whang,
+Ruiqi Gao, Alexey Gritsenko, Diederik P. Kingma, Ben
+Poole, Mohammad Norouzi, David J. Fleet, and Tim Sali-
+mans. Imagen video: High definition video generation with
+diffusion models. arXiv preprint arXiv:2210.02303, 2022. 3
+[24] Jonathan Ho, Tim Salimans, Alexey Gritsenko, William
+Chan, Mohammad Norouzi, and David J. Fleet. Video diffu-
+sion models. In NeurIPS, 2022. 3
+[25] Wenyi Hong, Ming Ding, Wendi Zheng, Xinghan Liu, and
+Jie Tang. Cogvideo: Large-scale pretraining for text-to-video
+generation via transformers. In ICLR, 2023. 3
+13666
+
+
+[26] Tomoyasu Horikawa and Yukiyasu Kamitani. Generic de-
+coding of seen and imagined objects using hierarchical vi-
+sual features. Nature Communications, 8:15037, 2015. 2
+[27] Lei Huang, Weijiang Yu, Weitao Ma, Weihong Zhong,
+Zhangyin Feng, Haotian Wang, Qianglong Chen, Weihua
+Peng, Xiaocheng Feng, Bing Qin, and Ting Liu. A survey
+on hallucination in large language models: Principles, tax-
+onomy, challenges, and open questions. ACM Transactions
+on Information Systems, 43(2), 2025. 3
+[28] Jingyang Huo, Yikai Wang, Xuelin Qian, Yun Wang, Chong
+Li, Jianfeng Feng, and Yanwei Fu. Neuropictor: Refining
+fmri-to-image reconstruction via multi-individual pretrain-
+ing and multi-level modulation. In ECCV, 2024. 2
+[29] Yukiyasu Kamitani and Frank Tong.
+Decoding the visual
+and subjective contents of the human brain. nature neurosci.
+Nature Neuroscience, 8:679–85, 2005. 2
+[30] Kendrick N Kay, Thomas Naselaris, Ryan J Prenger, and
+Jack L Gallant. Identifying natural images from human brain
+activity. Nature, 452:352–355, 2008. 2
+[31] Tushar Khot, Harsh Trivedi, Matthew Finlayson, Yao Fu,
+Kyle Richardson, Peter Clark, and Ashish Sabharwal. De-
+composed prompting: A modular approach for solving com-
+plex tasks. In ICLR, 2023. 3
+[32] Seong-Gi Kim and Seiji Ogawa. Biophysical and physiolog-
+ical origins of blood oxygenation level-dependent fmri sig-
+nals. Journal of Cerebral Blood Flow & Metabolism, 32(7):
+1188–1206, 2012. 2
+[33] Diederik P Kingma and Max Welling. Auto-encoding varia-
+tional bayes. In ICLR, 2014. 3
+[34] Ganit Kupershmidt, Roman Beliy, Guy Gaziv, and Michal
+Irani. A penny for your (visual) thoughts: Self-supervised
+reconstruction of natural movies from brain activity. arXiv
+preprint arXiv:2206.03544, 2022. 3, 6
+[35] L. Le, L. Ambrogioni, K. Seeliger, Y. G¨uc¸l¨ut¨urk, M. van Ger-
+ven, and U. G¨uc¸l¨u. Brain2pix: Fully convolutional naturalis-
+tic video frame reconstruction from brain activity. Frontiers
+in Neuroscience, 16:940972, 2022. 3
+[36] Junnan Li, Dongxu Li, Caiming Xiong, and Steven Hoi.
+BLIP: Bootstrapping language-image pre-training for uni-
+fied vision-language understanding and generation. In ICML,
+2022. 2
+[37] Junnan Li, Dongxu Li, Silvio Savarese, and Steven Hoi.
+Blip-2:
+bootstrapping language-image pre-training with
+frozen image encoders and large language models. In ICML,
+2023. 2
+[38] Nikos K Logothetis. The neural basis of the blood–oxygen–
+level–dependent functional magnetic resonance imaging sig-
+nal. Philosophical Transactions of the Royal Society of Lon-
+don. Series B: Biological Sciences, 357(1424):1003–1037,
+2002. 2
+[39] Do Xuan Long, Duong Ngoc Yen, Anh Tuan Luu, Kenji
+Kawaguchi, Min-Yen Kan, and Nancy F. Chen.
+Multi-
+expert prompting improves reliability, safety, and usefulness
+of large language models. In EMNLP, 2024. 3
+[40] Bizhuo Lu, Changde Du, Qiongyi Zhou, Dianpeng Wang,
+and Huiguang He. Minddiffuser: Controlled image recon-
+struction from human brain activity with semantic and struc-
+tural diffusion. In ACM MM, 2023. 2
+[41] Yizhuo Lu, Changde Du, Chong Wang, Xuanliu Zhu, Liuyun
+Jiang, and Huiguang He. Animate your thoughts: Decoupled
+reconstruction of dynamic natural vision from slow brain ac-
+tivity. In ICLR, 2025. 2, 3, 6, 7
+[42] Daniel S Marcus, John Harwell, Timothy Olsen, Michael
+Hodge, Matthew F Glasser, Fred Prior, Mark Jenkinson,
+Timothy Laumann, Sandra W Curtiss, and David C Van Es-
+sen. Informatics and data mining tools and strategies for the
+human connectome project. Frontiers in Neuroinformatics,
+5:4, 2011. 2, 5
+[43] Jonathan J. Nassi and Edward M. Callaway. Parallel process-
+ing strategies of the primate visual system. Nature Reviews
+Neuroscience, 10(5):360–372, 2009. 8
+[44] S. Nishimoto, A. T. Vu, T. Naselaris, Y. Benjamini, B. Yu,
+and J. L. Gallant. Reconstructing visual experiences from
+brain activity evoked by natural movies. Current Biology, 21
+(19):1641–1646, 2011. 3, 6
+[45] Furkan Ozcelik and Rufin VanRullen. Brain-diffuser: Nat-
+ural scene reconstruction from fmri signals using generative
+latent diffusion. Scientific Reports, 13, 2023. 2
+[46] Aditya Patel, Ashish Kumar Khandual, Kavya Kumar, and
+Shreya Kumar. Persistence of vision display-a review. IOSR
+Journal of Electrical and Electronics Engineering, 10(4):36–
+40, 2015. 2
+[47] Runqi Qiao, Qiuna Tan, Guanting Dong, Minhui Wu, Chong
+Sun, Xiaoshuai Song, Zhuoma GongQue, Shanglin Lei, Zhe
+Wei, Miaoxuan Zhang, Runfeng Qiao, Yifan Zhang, Xiao
+Zong, Yida Xu, Muxi Diao, Zhimin Bao, Chen Li, and Hong-
+gang Zhang. We-math: Does your large multimodal model
+achieve human-like mathematical reasoning?, 2024. 2
+[48] Runqi Qiao, Qiuna Tan, Minghan Yang, Guanting Dong,
+Peiqing Yang, Shiqiang Lang, Enhui Wan, Xiaowan Wang,
+Yida Xu, Lan Yang, Chong Sun, Chen Li, Jing Lyu, and
+Honggang Zhang. V-thinker: Interactive thinking with im-
+ages, 2025.
+[49] Runqi Qiao, Qiuna Tan, Peiqing Yang, Yanzi Wang, Xi-
+aowan Wang, Enhui Wan, Sitong Zhou, Guanting Dong,
+Yuchen Zeng, Yida Xu, Jie Wang, Chong Sun, Chen Li, and
+Honggang Zhang. We-math 2.0: A versatile mathbook sys-
+tem for incentivizing visual mathematical reasoning, 2025.
+2
+[50] Guijie Quan, Wenguan Wang, Zhibo Tian, Fan Ma, and Yi
+Yang. Psychometry: An omnifit model for image reconstruc-
+tion from human brain activity. In CVPR, 2024. 2
+[51] Eve Rabinoff. Human perception. In Human Perception,
+pages 43–70. Northwestern University Press, 2018. 2
+[52] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey Chu,
+and Mark Chen. Hierarchical text-conditional image gen-
+eration with clip latents. arXiv preprint arXiv:2204.06125,
+2022. 3
+[53] Rita Ramos, Bruno Martins, Desmond Elliott, and Yova Ke-
+mentchedjhieva. Smallcap: Lightweight image captioning
+prompted with retrieval augmentation. In CVPR, 2023. 2
+[54] Hanoona Rasheed, Muhammad Uzair Khattak, Muhammad
+Maaz, Salman Khan, and Fahad Shahbaz Khan. Fine-tuned
+clip models are efficient video learners. In CVPR, 2023. 6
+13667
+
+
+[55] Robin Rombach, Andreas Blattmann, Dominik Lorenz,
+Patrick Esser, and Bj¨orn Ommer. High-resolution image syn-
+thesis with latent diffusion models. In CVPR, 2022. 3
+[56] Simon Scholler, Sebastian Bosse, Matthias Sebastian Treder,
+Benjamin Blankertz, Gabriel Curio, Klaus-Robert Muller,
+and Thomas Wiegand.
+Toward a direct measure of video
+quality perception using eeg. IEEE Transactions on Image
+Processing, 21(5):2619–2629, 2012. 2
+[57] Paul Scotti, Atmadeep Banerjee, Jimmie Goode, Stepan Sha-
+balin, Alex Nguyen, Aidan Dempster, Nathalie Verlinde,
+Elad Yundler, David Weisberg, Kenneth Norman, et al. Re-
+constructing the mind’s eye: fmri-to-image with contrastive
+learning and diffusion priors. In NeurIPS, 2024. 2
+[58] Paul Steven Scotti, Mihir Tripathy, Cesar Torrico, Reese
+Kneeland, Tong Chen, Ashutosh Narang, Charan Santhi-
+rasegaran, Jonathan Xu, Thomas Naselaris, Kenneth A Nor-
+man, et al. Mindeye2: Shared-subject models enable fmri-
+to-image with 1 hour of data. In ICML, 2024. 2
+[59] Uriel Singer, Adam Polyak, Thomas Hayes, Xi Yin, Jie
+An, Songyang Zhang, Qiyuan Hu, Harry Yang, Oron
+Ashual, Oran Gafni, and et al.
+Make-a-video: Text-to-
+video generation without text-video data.
+arXiv preprint
+arXiv:2209.14792, 2022. 3
+[60] Jingyuan Sun, Mingxiao Li, Zijiao Chen, and Marie-
+Francine Moens.
+Neurocine: Decoding vivid video se-
+quences from human brain activties.
+arXiv preprint
+arXiv:2402.01590, 2024. 2, 3
+[61] Michael J. Swain and Dana H. Ballard. Color indexing. In-
+ternational Journal of Computer Vision, 7(1):11–32, 1991.
+6
+[62] Yu Takagi and Shinji Nishimoto. High-resolution image re-
+construction with latent diffusion models from human brain
+activity. In CVPR, 2023. 2
+[63] Qiuna Tan, Runqi Qiao, Guanting Dong, YiFan Zhang, Min-
+hui Wu, Jiapeng Wang, Miaoxuan Zhang, Yida Xu, Chong
+Sun, Chen Li, and Honggang Zhang. Ocr-critic: Aligning
+multimodal large language models’ perception through criti-
+cal feedback. In ACMMM, 2025. 2
+[64] Zhan Tong, Yibing Song, Jue Wang, and Limin Wang.
+Videomae: Masked autoencoders are data-efficient learners
+for self-supervised video pre-training. In NeurIPS, 2022. 6
+[65] Leslie G Ungerleider, Susan M Courtney, and James V
+Haxby. A neural system for human visual working mem-
+ory. Proceedings of the National Academy of Sciences, 95
+(3):883–890, 1998. 2
+[66] C. Wang, H. Yan, W. Huang, J. Li, Y. Wang, Y. S. Fan, W.
+Sheng, T. Liu, R. Li, and H. Chen.
+Reconstructing rapid
+natural vision with fmri-conditional video generative adver-
+sarial network. Cerebral Cortex, 32(20):4502–4511, 2022.
+3, 6
+[67] Haonan Wang, Qixiang Zhang, Lehan Wang, Xuanqi Huang,
+and Xiaomeng Li. Neurons: Emulating the human visual
+cortex improves fidelity and interpretability in fmri-to-video
+reconstruction. In ICCV, 2025. 6, 7
+[68] Jianfeng Wang, Zhengyuan Yang, Xiaowei Hu, Linjie Li,
+Kevin Lin, Zhe Gan, Zicheng Liu, Ce Liu, and Lijuan Wang.
+Git: A generative image-to-text transformer for vision and
+language. arXiv preprint arXiv:2205.14100, 2022. 2
+[69] Shizun Wang, Songhua Liu, Zhenxiong Tan, and Xinchao
+Wang. Mindbridge: A cross-subject brain decoding frame-
+work. In CVPR, 2024. 2
+[70] Zicheng Wang, Zhen Zhao, Luping Zhou, and Parashkev
+Nachev. Unibrain: A unified model for cross-subject brain
+decoding. arXiv preprint arXiv:2412.19487, 2024. 2
+[71] Haiguang Wen, Junxing Shi, Yizhen Zhang, Kun-Han Lu, Ji-
+ayue Cao, and Zhongming Liu. Neural encoding and decod-
+ing with deep learning for dynamic natural vision. Cerebral
+Cortex, 28(12):4136–4160, 2017. 2, 3, 5, 6
+[72] Jay Zhangjie Wu, Yixiao Ge, Xintao Wang, Stan Weixian
+Lei, Yuchao Gu, Yufei Shi, Wynne Hsu, Ying Shan, Xiaohu
+Qie, and Mike Zheng Shou. Tune-a-video: One-shot tuning
+of image diffusion models for text-to-video generation. In
+ICCV, 2023. 7
+[73] Weihao Xia, Raoul de Charette, Cengiz Oztireli, and Jing-
+Hao Xue. Dream: Visual decoding from reversing human
+visual system. In WACV, 2024. 2
+[74] Weihao Xia, Raoul de Charette, Cengiz Oztireli, and Jing-
+Hao Xue. Umbrae: Unified multimodal brain decoding. In
+ECCV, 2024. 2
+[75] Le Xue, Manli Shu, Anas Awadalla, Jun Wang, An Yan,
+Senthil Purushwalkam, Honglu Zhou, Viraj Prabhu, Yutong
+Dai, Michael S Ryoo, Shrikant Kendre, Jieyu Zhang, Can
+Qin, Shu Zhang, Chia-Chih Chen, Ning Yu, Juntao Tan,
+Tulika Manoj Awalgaonkar, Shelby Heinecke, Huan Wang,
+Yejin Choi, Ludwig Schmidt, Zeyuan Chen, Silvio Savarese,
+Juan Carlos Niebles, Caiming Xiong, and Ran Xu. xgen-mm
+(blip-3): A family of open large multimodal models. arXiv
+preprint arXiv:2408.08872, 2024. 2
+[76] Lan Yang, Minghan Yang, Ke Li, Honggang Zhang, Kaiyue
+Pang, and Yi-Zhe Song. Synmind: Reducing semantic hallu-
+cination in fmri-based image reconstruction. arXiv preprint
+arXiv:2601.17857, 2026. 2
+[77] Elahe Yargholi and Gholam-Ali Hossein-Zadeh.
+Brain
+decoding-classification of hand written digits from fmri data
+employing bayesian networks. Frontiers in Human Neuro-
+science, 10, 2016. 2
+[78] Semir Zeki and Stewart Shipp. The functional logic of corti-
+cal connections. Nature, 335(6188):311–317, 1988. 8
+[79] Boqiang Zhang, Kehan Li, Zesen Cheng, Zhiqiang Hu,
+Yuqian Yuan, Guanzheng Chen, Sicong Leng, Yuming Jiang,
+Hang Zhang, Xin Li, Peng Jin, Wenqi Zhang, Fan Wang, Li-
+dong Bing, and Deli Zhao. Videollama 3: Frontier multi-
+modal foundation models for image and video understand-
+ing. arXiv preprint arXiv:2501.13106, 2025. 3
+[80] Yuanhan Zhang, Jinming Wu, Wei Li, Bo Li, Zejun Ma, Zi-
+wei Liu, and Chunyuan Li. Video instruction tuning with
+synthetic data. arXiv preprint arXiv:2410.02713, 2024. 3
+[81] Denny Zhou, Nathanael Sch¨arli, Le Hou, Jason Wei, Nathan
+Scales, Xuezhi Wang, Dale Schuurmans, Claire Cui, Olivier
+Bousquet, Quoc V Le, and Ed H. Chi. Least-to-most prompt-
+ing enables complex reasoning in large language models. In
+ICLR, 2023. 3
+[82] Lin Zhu, Siwei Dong, Jianing Li, Tiejun Huang, and
+Yonghong Tian. Ultra-high temporal resolution visual recon-
+struction from a fovea-like spike camera via spiking neuron
+13668
+
+
+model. IEEE Transactions on Pattern Analysis and Machine
+Intelligence, 45(1):1233–1249, 2022. 2
+13669

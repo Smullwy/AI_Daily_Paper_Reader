@@ -1,0 +1,4355 @@
+Sparse Autoencoders Bridge The Deep Learning
+Model and The Brain
+Ziming Mao*1
+Jia Xu*1
+Zeqi Zheng*2,3
+Haofang Zheng*1
+Dabing Sheng*1
+Mufan Xue*1
+Yaochu Jin†3
+Guoyuan Yang†1
+1Beijing Institute of Technology
+2Zhejiang University
+3Westlake University
+mzimo@bit.edu.cn
+jinyaochu@westlake.edu.cn
+yanggy@bit.edu.cn
+Abstract
+We present SAE-BrainMap, a novel framework that directly aligns deep learning
+visual model representations with voxel-level fMRI responses using sparse autoen-
+coders (SAEs). First, we train layer-wise SAEs on model activations and compute
+the correlations between SAE unit activations and cortical fMRI signals elicited by
+the same natural image stimuli with cosine similarity, revealing strong activation
+correspondence (maximum similarity up to 0.76). Depending on this alignment, we
+construct a voxel dictionary by optimally assigning the most similar SAE feature
+to each voxel, demonstrating that SAE units preserve the functional structure of
+predefined regions of interest (ROIs) and exhibit ROI-consistent selectivity. Fi-
+nally, we establish fine-grained hierarchical mapping between model layers and
+the human ventral visual pathway, also by projecting voxel dictionary activations
+onto individual cortical surfaces, we visualize the dynamic transformation of the
+visual information in deep learning models. It is found that ViT-B/16CLIP tends to
+utilize low-level information to generate high-level semantic information in the
+early layers and reconstructs the low-dimension information later. Our results
+establish a direct, downstream-task-free bridge between deep neural networks and
+human visual cortex, offering new insights into model interpretability.
+1
+Introduction
+Deep neural networks (DNNs) share several fundamental similarities to the brain: both comprise vast
+populations of interconnected units (neurons), are well hierarchically organized, and demonstrate
+remarkable capabilities in solving complex visual tasks [1, 2, 3]. Despite decades of research, we
+understand the brain much better than DNNs, which are often treated as "black-boxes" due to their
+complex internal dynamics [4, 5]. Forging explicit links between these systems and leveraging our
+biological understanding to interpret DNNs holds promise for improving model transparency and
+deepening our insights into the computational principles underlying deep learning [6, 7, 8]. However,
+building such connections remains a major challenge due to the fundamental differences in structural
+and computational procedures between artificial and biological neural systems.
+To bridge this gap, researchers have developed two complementary strategies: (1) Representation-
+based analysis methods compare activation patterns in DNNs and the brain in response to the same
+visual stimuli [7, 8, 9, 10]. A widely used technique, Representational Similarity Analysis (RSA) [11],
+identifies hierarchical correspondences between DNN layers and visual cortex regions. Its extension,
+*Equal contribution
+†Corresponding authors
+Preprint. Under review.
+arXiv:2506.11123v1  [q-bio.NC]  10 Jun 2025
+
+
+Figure 1: Architecture of SAE-BrainMap. First, our framework first trains Sparse Autoencoders
+for each model layer. Second, it computes cosine similarity matrix between SAE units activations
+and cortical fMRI responses. Finally, it interprets deep learning model with brain based on the cosine
+similarity matrix.
+voxel-encoding RSA (veRSA) [7, 9], further improves alignment by linearly reweighting DNN
+features to predict voxel-level responses. (2) Prediction-based modeling approaches aim to predict
+brain activity from DNN features elicited by visual input [12, 13]. FactorTopy [14] introduces
+topological constraints and factorized feature selection to enhance the stability and interpretability of
+brain-model alignment. Conversely, BrainDiVE [15] reverses this mapping, generating images that
+maximize activation in target brain regions, thereby enabling data-driven cortical exploration.
+Despite revealing intriguing correspondences between DNNs and brain activity, both strategies face
+significant limitations. Representation-based analysis methods is constrainted to revealing correla-
+tions at the level of representational geometry and heavily rely on the manually selected ROIs, failing
+to support additional insights and fine-grained variations in the representations [7, 16]. Prediction-
+based modeling approaches, while effective, typically rely on supervised learning paradigms that
+are susceptible to dataset scale, task bias, and neural noise [13, 17]. Critically, prediction-based
+modeling methods construct only indirect mappings and depend heavily on large-scale datasets and
+the performance of the downsteam task. This prompts a fundamental question: can we design a more
+direct and downstream-task-free alignment between model and brain representations?
+To address this, we introduce SAE-BrainMap, a framework that leverages sparse autoencoders
+(SAEs) [18] to directly bridge visual model representations and voxel-wise functional magnetic
+resonance imaging (fMRI) responses based on shared visual stimuli. Our motivation for this idea is:
+SAEs decompose internal model activations into interpretable, disentangled features whose activations
+reflect the model’s functional performance [19], while fMRI measures cortex activities by capturing
+changes in blood oxygenation, reflecting the functional role of voxels in visual processing [20].
+Our findings can be divided into three main components. (1) Notably, we find a strong activation
+similarity between SAE units and cortical voxels (with a maximum cosine similarity of up to 0.76),
+enabling a direct, fine-grained hierarchical alignment between model layers and brain cortex. (2)
+We furthermore construct a voxel dictionary by optimally assigning units exhibiting the highest
+activation pattern similarity to each voxel. We figure out that SAEs units could keep the functional
+structure of brain ROIs, also voxels and units with similar activation patterns exhibit functional
+similarity. (3) By projecting voxel dictionary activations onto the cortical surface, we use the brain
+as a functional template to trace the visual processing dynamics during the model visual procedure.
+Specifically in CLIP ViT-B/16, we observe a semantic information transformation by utilizing low-
+level information to generate high-level abstract representation across the early layers, while the later
+layers simultaneously engage both levels of information, with an increasing emphasis on abstract
+semantics.
+2
+
+
+2
+Relate Work
+Sparse Autoencoders (SAEs)
+Sparse Autoencoders (SAEs) are a mechanistic interpretability
+method that reverse-engineers deep learning models by decomposing their activation vectors into
+linear combinations of interpretable, monosemantic sparse features [5, 18, 21]. Currently, SAEs have
+been widely applied in interpretability studies of both Large Language Models [18, 21, 22, 23] and
+Vision Models [24, 25, 26, 27, 28], mainly because its ability to tackle the superposition phenomenon,
+individual neurons is often polysemantic [29, 30, 31]. It could uncover several model functional
+circuits [18, 19], characterize the representational roles of individual functional vectors within the
+feature space [21, 22, 24], and illuminate shared information across diverse deep learning models [25].
+The sparse vector activations extracted by SAEs accurately capture model’s function, revealing what
+the model does and to what extent [18, 32], whereas fMRI measures blood-oxygen consumption to
+indicate neural activity under different tasks or stimuli, thereby uncovering functional specialization
+across brain areas [17, 14, 20, 33, 34]. Consequently, we aim to leverage SAEs as a bridge to explore
+the alignment between deep learning models and human brain.
+Ventral Visual Pathway
+V1
+V2
+V3
+hV4
+FFA
+EBA
+RSC
+VWFA
+FOOD
+Figure 2: Visualizing S5 selective ROIs
+Ventral Visual Pathway
+Brain processes visual infor-
+mation in a hierarchical manner [1, 35, 36, 37]. Visual
+information starts from the early visual cortex V1, and
+progresses through V2, V3, and hV4. Voxels along this
+pathway exhibit increasingly larger receptive fields [38]
+and transit from encoding low-level visual features such
+as edges and curvature [39, 40] to processing more
+complex attributes, including shape, color, texture, and
+depth [3, 41, 42]. Subsequently, high-level semantic un-
+derstanding is accomplished in the high-level visual cortex.
+Notable examples include the fusiform face area (FFA) for
+face selectivity [43], the retrosplenial cortex (RSC) for scene selectivity [44], the extrastriate body
+area (EBA) for body selectivity [45], the visual word form area (VWFA) for word selectivity [46],
+and a region showing selectivity for food-related stimuli [47]. Our study centers on the nine ROIs
+mentioned above, as illustrated in Figure 2.
+Model-Brain Alignment
+Model-brain alignment aims to investigate the correspondence between
+deep neural networks (DNNs) and the human brain [2, 48]. Current approaches fall into two broad
+families: Representational Similarity Analysis (RSA) [49] and brain-encoder method [14]. Using
+veRSA, it is shown in [9] that lower network layers align best with early visual cortex, whereas
+higher layers align with higher-level visual areas. Xu et al. [8] reported representational divergence
+between high-level visual cortex and the upper layers of CNNs. Brain-encoder method work such as
+FactorTopy [2] maps DNN layers to voxels, effectively “painting” the network onto the cortex at fine
+spatial resolution. The work in [12, 6, 15] reverse the alignment and describe the cortical function
+with the generation model. Each line of work has limitations: RSA depends on predefined ROIs
+and therefore cannot deliver voxel-wise insight, while voxel-wise encoding models provide only
+indirect correspondence because they hinge on a downstream prediction task and are sensitive to its
+performance. Our approach leverages Sparse Autoencoders to achieve direct and training-free voxel-
+wise model-brain alignment, eliminating the dependence on downstream prediction performance like
+[2] and without the need for predefined ROIs as in [7].
+3
+Method
+We aim to establish a voxel-wise directly correspondence between deep learning models and the
+ventral visual pathway using paired natural image stimulis and fMRI signals. First, we introduce
+the background of SAEs. Then we compare the similarity between the activation patterns of SAEs’
+units and the fMRI signals. Finally, we describe how to utilize the similarity matrix to establish a
+model-brain mapping by visualizing each layer’s function in visual process.
+3
+
+
+3.1
+SAEs Background and Training
+Sparse autoencoders aim to reconstruct the model activation through an encoder-decoder architecture.
+Given a dataset of n images I and a DNN model to embed the images f : I →A. Define the image
+embeddings as A ∈Rn×d, where d denotes the embedding dimension, and A refers to the "CLS"
+token in most models, except in the SAM model, where it is computed as the average embedding
+of all patch tokens. SAEs learn a linear encoder Ψθ(·) that maps embeddings A into the activation
+of k sparse features Z ∈Rn×k. The linear decoder Φθ(·), which shares the same linear weight
+W T ∈Rk×d with the encoder, reconstructs the original embeddings ˆA from the sparse features
+activation Z. We setup SAEs as [18]. It can be written as Equation 1,2:
+Z = Ψθ(A) = ReLU(WA + b)
+(1)
+ˆA = Φθ(Z) = W T Z =
+k−1
+X
+i=0
+W T
+i Zi,
+(2)
+where W ∈Rd×k and b ∈Rk are the learned parameters Each units W T
+i is a sparse feature vector
+capturing the core components of the embeddings, which make up the SAEs feature dictionary [18].
+Reconstructed embeddings ˆA is the linear combination of the units with positive activations. The
+training process aims to minimize the loss function L in Equation 3. α is a hyperparameter controlling
+the sparsity of the reconstruction.
+L(A, ˆA, Z) = ∥ˆA −A∥2
+2 + α∥Z∥1
+(3)
+We train SAEs for each layer of a deep learning model. Indicate A(j) is the output after the j-th layer
+process, Ψ(j)
+θ
+is the encoder of the j-th layer and Z(j) is the SAEs activation of the j-th layer. The
+extraction of A(j) is mentioned in the Appendix.
+3.2
+SAE-BrainMap
+SAE-BrainMap aims to interpret model’s visual procedures by establishing a voxel-wise model-
+brain alignment.
+For the given image stimuli I ∈Rn×3×H×W , we can extract the brain
+fMRI z-score values as a v element vector B ∈Rn×v, and the SAEs’ units activation sets
+[Z(0)
+zscore, Z(1)
+zscore, ..., Z(L)
+zscore], where Zj
+zscore is Z-Scored SAE unit activations (without-ReLU),
+matching the z-score preprocessed of fMRI signals [20], v is the number of voxels in our selected
+ROIs, as referred to in Section 2, and L is the all layer number in the deep learning model. We use
+the cosine similarity to measure the correspondence between two activation patterns as Equation 4.
+M (j)
+simi = cos
+ 
+B⊤
+∥B∥2
+,
+Z(j)
+zscore
+∥Z(j)
+zscore∥2
+!
+,
+Z(j)
+zscore = Zscore(WA(j) + b)
+(4)
+C[x] =
+argmax
+j∈{0,1,...,L}
+
+max
+y
+M j
+x,y
+
+.
+(5)
+We performed normalization along the dimension n corresponding to the number of images, and
+get an activation similarity map M (j)
+Simi ∈Rv×n for each layer j, where M (j)
+simi[x, y] indicate the
+activation similarity between the x-th voxel and the y-th SAEs units. To investigate the model’s
+overall information processing trend, we identify the most corresponding layer for each voxel x and
+get a voxel-wise layer alignment matrix C ∈Rv, as described Equation 5.
+By establishing a voxel dictionary D(j) ∈Rv×d for j-th layer, we can map SAEs’ units activation
+onto the template of brain cortex. Specifically, for each voxel x, the model selects the most similar
+SAE unit by identifying the index y that maximizes the similarity Mx,y between voxel x and unit y.
+The corresponding representation W[y] of that unit is then assigned to D(j)[x], effectively associating
+each voxel with its most representative model feature. This mapping allows us to visualize the model
+layer’s corresponding SAEs activation patterns S(j) ∈Rv with human visual cortex, as Equation 6.
+D(j)[x] = W[argmax
+y
+Mx,y],
+x ∈{0, 1, . . . , v}
+(6)
+S(j) = A(j)D(j)
+j ∈{0, 1, . . . , L}.
+(7)
+4
+
+
+Figure 3: Brain-SAEs Activation Similarity on S5. Left: voxel-wise maximum similarity score
+across models. Right: difference in similarity scores between models and the voxel-wise maximum
+Subject
+All Model
+ViT-B/16CLIP
+ImageNet
+MAE
+DiNOv2
+SAM
+ResNet50CLIP
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+S1
+0.762
+0.259
+0.618
+0.249
+0.503
+0.220
+0.605
+0.239
+0.484
+0.231
+0.421
+0.212
+0.644
+0.244
+S2
+0.716
+0.265
+0.573
+0.254
+0.470
+0.228
+0.523
+0.245
+0.517
+0.238
+0.489
+0.215
+0.622
+0.252
+S3
+0.705
+0.236
+0.561
+0.225
+0.519
+0.200
+0.513
+0.218
+0.507
+0.210
+0.444
+0.193
+0.615
+0.227
+S4
+0.666
+0.233
+0.547
+0.224
+0.430
+0.198
+0.509
+0.215
+0.492
+0.206
+0.431
+0.189
+0.542
+0.220
+S5
+0.725
+0.293
+0.591
+0.281
+0.502
+0.250
+0.478
+0.270
+0.470
+0.258
+0.413
+0.235
+0.604
+0.280
+S6
+0.687
+0.238
+0.550
+0.229
+0.484
+0.203
+0.512
+0.220
+0.492
+0.208
+0.440
+0.193
+0.593
+0.226
+S7
+0.657
+0.227
+0.545
+0.217
+0.425
+0.193
+0.506
+0.210
+0.468
+0.202
+0.401
+0.184
+0.544
+0.216
+S8
+0.639
+0.196
+0.533
+0.188
+0.451
+0.169
+0.461
+0.182
+0.456
+0.175
+0.401
+0.166
+0.538
+0.186
+Cos Avg
+0.695
+0.243
+0.565
+0.233
+0.473
+0.207
+0.513
+0.225
+0.486
+0.216
+0.430
+0.198
+0.588
+0.231
+Predict Cos Avg
+0.850
+0.337
+0.846
+0.275
+0.809
+0.259
+0.740
+0.223
+0.838
+0.264
+0.746
+0.242
+0.848
+0.190
+Table 1: Brain-SAEs activation similarity. All models SAEs units shares a similar activation pattern
+with voxels fMRI response. The final row presents the Brain Encoder predict avg cosine similarity
+with the fMRI response. The predict performance likely due to their inner similarity.
+4
+Experiment
+In this section, we first introduce the similarities between the SAE’s units activation and voxels’
+fMRI signal. We then explore the functional alignment between units and ROIs with high activation
+correspondence. Based on the alignment, we paint model layers onto the cortex and visualize image
+information procedure with the help of the brain template.
+4.1
+Setup
+The fMRI dataset we use in the experiment is Nature Scenes Dataset (NSD) [20], which includes
+high-density fMRI data from eight participants. Each of the subject was expected to view 10,000
+natural scene images selected from COCO [50] for three times, while all the subject share the same
+set of 1000 images and an independent set of 9000 images. fMRI beta values were z-scored across
+runs and averaged across up to three repetitions per image, yielding one fMRI response per voxel per
+image. Four of the subjects (S1,S2,S5,S7) finished all the experiment, while another four did not. We
+performed the same preprocessing for subjects who did not finish all the tasks as [17, 20, 34]. The
+cortical visualization results were rendered in each subject’s native space using Pycortex [51].
+We train SAEs for each layer of each model in our analyses. SAEs’ hidden feature dimension
+k = R × d, where d denotes target layer’s activation dimension, and R is a hyperparameter which is
+kept R = 16 for all of the models. The hyperparameter α = 0.00086, as [18]. We train all SAEs
+with the ImageNet-1k (2012) training set [52] for 3 epochs and learning rate set to 5 × 10−5. The
+pretrained vision models used in our experiment are OpenAI CLIP visual backbone ViT-16/B and
+ResNet50 [53, 54], MAE ViT-B/16 [55], DiNOv2 ViT-B/14 [56], SAM ViT-B/14 [57] and ImageNet
+5
+
+
+Figure 4: Representation Similarity Matrix between the brain encoder weights of the last layer of
+ViT-B/16CLIP, the voxel dictionary, and their mutual similarity. The voxel dictionary preserves the
+brain’s functional structure and share a high RSA score with brain encoder weight.
+Model
+S1
+S2
+S3
+S4
+S5
+S6
+S7
+S8
+Avg
+ViT-B/16CLIP
+0.048
+0.134
+0.223
+0.219
+0.252
+0.207
+0.208
+0.214
+0.188
+Imagenet
+0.222
+0.247
+0.214
+0.221
+0.258
+0.204
+0.183
+0.176
+0.216
+MAE
+0.484
+0.523
+0.492
+0.484
+0.509
+0.516
+0.502
+0.498
+0.501
+DiNOv2
+0.210
+0.211
+0.198
+0.198
+0.230
+0.179
+0.185
+0.143
+0.194
+SAM
+0.368
+0.379
+0.388
+0.403
+0.407
+0.358
+0.336
+0.328
+0.371
+ResNet50CLIP
+0.342
+0.413
+0.400
+0.361
+0.376
+0.335
+0.300
+0.331
+0.357
+Table 2: RSA Similarity Score between the brain encoder weights of the last layer and the voxel
+dictionary. This indicates that SAE units maintain a strong structural correspondence with the brain
+encoder weights, which are regarded as the ground truth representation of cortical functional structure.
+trained ViT-16/B [58](the model is named ImageNet in the paper) loaded from pytorch [59]. More
+training information could be checked in Appendix C.
+4.2
+Brain-SAEs Activation Similarity
+We extract the SAE units’ activations on each subject’s independent images and directly compare them
+with the subject’s fMRI responses using cosine similarity as Equation 4. The voxel activations and
+SAE unit activations exhibit high similarity, indicating a shared representational structure between the
+brain and the model. More importantly, this phenomenon widely exists within models with different
+architectures, different training datasets and different training method. We visualize the maximum
+similarity for each voxel across all models and layers, along with the difference between each model’s
+max similarity within their layers and the maximum for subject 5 in Figure 3. We also find that the
+CLIP visual backbone achieves the highest average similarity to brain responses among all visual
+models, while SAM exhibits the lowest similarity. This discovery is in consistent with the recent
+work showing that CLIP perform better on brain activation prediction downstream tasks and voxel
+function analysis [6, 12, 13, 14, 15]. By training a brain encoder for each model [14], we found that
+brain encoder models high predict performance is likely due to their inner correspondences as the
+prediction performance is comparable to their intrinsic similarity. as shown in Table 1.
+4.3
+Brain-Model Function Correspondence
+In this section, we indicate that SAE units not only exhibit high activation similarity with brain voxels
+but also align functionally with the brain’s prior distribution. We first establish a voxel dictionary as
+defined in Equation 6 and organize it according to the ROIs. We also train a brain encoder for each
+layer and regard the encoder weights as the ground truth of brain function, due to their outstanding
+performance in brain functional analysis [6, 12, 15].
+By computing the representation correlation matrix based on pairwise cosine similarities, we find
+that the voxel dictionary preserves functional separability across ROIs and shares a high RSA score
+with the ground truth (highest: 0.516, see Table 2). We visualize the similarity matrix between the
+6
+
+
+Figure 5: Visualization of Unit Selectivity and Functionality. Top: Top-5 activated images for units
+with highest similarity to voxels in each ROI on ViT-B/16CLIP, demonstrating consistent selectivity
+for faces, bodies, scenes, words, and food. Bottom: Cortical visualization of unit-to-voxel similarity
+brain encoder weights and the voxel dictionary for the last layer of ViT-B/16CLIP in Figure 4, which
+indicates that the voxel dictionary retains the ROI prior.
+In addition, we select units that show the highest similarity to voxels within specific ROIs. We find
+that these units’ functions are consistent with the functional priors of those ROIs. Specifically, we
+select SAE units from the last layer of ViT-B/16CLIP that are most similar to the high-level visual
+cortex, FFA, EBA, RSC, VWFA, and FOOD regions. We then estimate the activation of these units
+on the COCO validation dataset [50] and Broden [60], selecting the top-5 activated images. Next, we
+estimate the unit activations on the patches of these selected images, and apply bilinear interpolation
+to produce pixel-wise activation heatmaps, following the methods in [24, 25] (see Figure 4).
+We find that the selected units perform functions corresponding to their associated ROIs—such as
+face, body, space, word, and food selectivity. This demonstrates that SAE units not only show high
+similarity to brain voxel activations but also exhibit similar functional properties. For each unit, we
+obtain a vector Msimi[:, y] ∈Rv representing its similarity to all voxels. By visualizing Msimi[:, y] on
+the cortex, we can describe each unit’s function in terms of brain regions.
+We visualize the selected units’ unit-to-voxel similarity in Figure 4, and observe that the unit most
+similar to the FFA and EBA shares similar pattern due to their selectivity for human faces and bodies.
+Additionally, the unit most similar to the FOOD area also shows strong similarity to the early visual
+cortex, suggesting that the perception of food requires substantial low-level semantic information.
+4.4
+Brain-Model Layer Alignment
+As shown in Figure 6, we establish a brain-model layer alignment by matching each voxel to its most
+similar model layer (Equation. 5), thereby capturing the model’s characteristic information processing
+7
+
+
+Figure 6: Brain-Model Layer Alignment. Top: Layer alignment for S1 based on SAE-BrainMap,
+FactorTopy [2] and Max R2 [14], we visualize five models with attention structure and have 12 layers.
+Bottom: SAE-BrainMap layer alignment on S5.
+ViT-B/16CLIP
+ImageNet
+MAE
+DiNOv2
+SAM
+S1
+S5
+Avg
+S1
+S5
+Avg
+S1
+S5
+Avg
+S1
+S5
+Avg
+S1
+S5
+Avg
+Similarity with [2]
+0.79
+0.54
+0.69
+0.91
+0.84
+0.70
+0.25
+0.20
+0.22
+0.54
+0.55
+0.61
+0.18
+0.25
+0.22
+Similarity with [14]
+0.59
+0.65
+0.73
+0.61
+0.73
+0.68
+0.69
+0.68
+0.70
+0.82
+0.88
+0.84
+0.71
+0.64
+0.73
+slop ↑
+0.93
+0.95
+0.94
+0.91
+0.92
+0.92
+0.89
+0.92
+0.91
+0.92
+0.94
+0.93
+0.84
+0.88
+0.87
+Table 3: Similarity and Slope. The similarity of brain-model layer alignment between SAE-
+BrainMap and FactorTopy [2], as well as with the Max R2 [14]. The slope estimates the hierarchical
+similarity between model and brain, and a higher slope indicates a better alignment.
+tendency [2]. All models exhibit a clear and consistent hierarchical correspondence with the human
+visual cortex: lower layers align with the early visual cortex, while higher layers correspond to the
+high-level visual cortex. This result is well correlated with the previous methods [2, 34].
+Table 2 presents the cosine similarity between our alignment results and two voxel-wise mapping
+methods, Max R2 [14] and FactorTopy [2]. For supervised models, ViT-B/16CLIP and ImageNet-
+trained ViT-B/16 exhibit highly similar alignment trends. Notably, high-level visual cortex show the
+strongest similarity to layers 10 and 11, but not layer 12, probably because the last layer is optimized
+for downstream tasks. In contrast, the SAM model’s final layer aligns with the early visual cortex
+and RSC, suggesting that segmentation tasks rely more heavily on low-level visual features. For
+self-supervised models, MAE’s last layer corresponds to the high-level visual cortex, while DiNOv2
+resembles supervised pretrained models, possibly due to differences in training strategy.
+Table 3 reports the hierarchy slope values, quantifying the alignment between each model’s layer
+hierarchy and the brain’s ventral visual pathway using the method in [2]. To compute this metric,
+we first separate ROIs into a two-level structure 1.[V1, V2, V3, hV4], 2.[FFA, EBA, RSC, VWFA,
+FOOD]. Voxels inside these ROIs are assigned with a rough value lx ∈{0, 1} to represent voxel’s
+prior hierarchical structure l ∈Rv. Next, we compute slope b = ⟨
+f
+∥f∥2 ,
+C
+∥C∥2 ⟩to get the slope
+8
+
+
+Figure 7: Top: Layer wise Voxel Dictionary average activation for ViT-B/16CLIP, S5. This reveals
+the model forms low-level information first, then generates high-level information while several
+low-level information disappeared in the middle layers and was reconstructed in the last layers.
+Bottom: The standard deviation of the Voxel Dictionary activities on test images across subjects. The
+x-axis denotes the model layers (from 1 to 12), while the y-axis represents the standard deviation,
+quantifying how much the activations vary across images.
+score. Higher slope value indicate that model’s layer structure shares more similarities with the brain
+hierarchical structure. We demonstrate that all models have a high slope value, indicate that models
+process information hierarchically and share a high similarities with brain hierarchical.
+4.5
+Visual Information Procedure Analysis
+We constructed a voxel dictionary D(l) for each layer l and calculated the activation pattern S(j) of
+the SAE units using shared images from each subject as in Equation 7. The average pattern Avg(S(j))
+across all images is visualized on the brain template, and the layer-wise standard deviation box plots
+for each subject are illustrate in Figure 7. For ViT-B/16CLIP, the layer activation pattern provides
+insights into the model’s hierarchical information processing mechanism: (i) in the early layers, the
+model primarily processes low-level information; (ii) subsequently, low-level information temporarily
+diminishes and is transformed into high-level abstract representations such as scenes and bodies;
+(iii) in the later stages, the model reconstructs the low-level information simultaneously integrating
+high-level information to generate the image embedding. This procedure illustrates that as image
+representations propagate through the DNNs, different levels of information are represented in an
+intermingled manner. Specifically, low-level information can be transformed into high-level semantic
+information, while high-level information can also be restructured to incorporate low-level features.
+This bidirectional transformation is likely facilitated by the residual stream, which retains information
+from the initial stages of processing and conveys it through to the highest layers.
+The boxplot in Figure 7 illustrates the variance distribution of the model’s activation patterns S(j).
+For all models, the variance of SAEs units’ activities gets higher as with layers. This indicates that
+the information processed in early layers is similar and basic, while in higher layers, models deal
+with more complex and diverse semantic information. A higher variance also suggests that higher
+layers in the model learn and understand the various and distinct information hidden in the images.
+5
+Discussion
+Limitations:
+The training config of SAEs kept the same during all the experiments, we do not
+consider the effect of SAEs’ dimension, training methods, training epochs and training dataset on the
+Brain-Model alignment, which may affect the results.
+9
+
+
+Conclusion:
+We bridge the gap between deep learning visual models and the human ventral visual
+pathway with the help of sparse autoencoders. By comparing the activation of SAEs units and voxel
+fMRI signals, we find that two systems exhibit a high degree of similarity. Furthermore, voxels and
+units with similar activation patterns exhibit functional similarity, and units could retain the ROIs
+prior functional structure. Depending on these similarities, we demonstrate that the models share
+hierarchical alignment with the brain, and reveal the visual information procedure of ViT-B/16CLIP in
+the cortex.
+References
+[1] James J. DiCarlo and David D. Cox. Untangling invariant object recognition. Trends in Cognitive Sciences,
+11(8):333–341, August 2007. ISSN 13646613. doi: 10.1016/j.tics.2007.06.010.
+[2] Huzheng Yang, James Gee, and Jianbo Shi. Brain Decodes Deep Nets, March 2024.
+[3] David D. Coggan, Luke A. Allen, Oliver R. H. Farrar, et al. Differences in selectivity to natural images in
+early visual areas (v1–v3). Scientific Reports, 7:2444, 2017. doi: 10.1038/s41598-017-02569-4.
+[4] Tuomas Oikarinen and Tsui-Wei Weng. CLIP-Dissect: Automatic Description of Neuron Representations
+in Deep Vision Networks, June 2023.
+[5] Andy Zou, Long Phan, Sarah Chen, James Campbell, Phillip Guo, Richard Ren, Alexander Pan, Xuwang
+Yin, Mantas Mazeika, Ann-Kathrin Dombrowski, Shashwat Goel, Nathaniel Li, Michael J. Byun, Zifan
+Wang, Alex Mallen, Steven Basart, Sanmi Koyejo, Dawn Song, Matt Fredrikson, J. Zico Kolter, and Dan
+Hendrycks. Representation Engineering: A Top-Down Approach to AI Transparency, October 2023.
+[6] Diego García Cerdas, Christina Sartzetaki, Magnus Petersen, Gemma Roig, Pascal Mettes, and Iris Groen.
+BrainACTIV: Identifying visuo-semantic properties driving cortical selectivity using diffusion-based image
+manipulation, October 2024.
+[7] Colin Conwell, Jacob S. Prince, Kendrick N. Kay, George A. Alvarez, and Talia Konkle. A large-scale
+examination of inductive biases shaping high-level visual representation in brains and machines. Nature
+Communications, 15(1):9383, October 2024. ISSN 2041-1723. doi: 10.1038/s41467-024-53147-y.
+[8] Yaoda Xu and Maryam Vaziri-Pashkam. Limits to visual representational correspondence between
+convolutional neural networks and the human brain. Nature Communications, 12(1):2065, April 2021.
+ISSN 2041-1723. doi: 10.1038/s41467-021-22244-7.
+[9] Seyed-Mahdi Khaligh-Razavi, Linda Henriksson, Kendrick Kay, and Nikolaus Kriegeskorte. Fixed versus
+mixed RSA: Explaining visual representations by fixed and mixed feature sets from shallow and deep
+computational models. Journal of Mathematical Psychology, 76:184–197, February 2017. ISSN 0022-2496.
+doi: 10.1016/j.jmp.2016.10.007.
+[10] Nikolaus Kriegeskorte and Xue-Xin Wei. Neural tuning and representational geometry. Nature Re-
+views Neuroscience, 22(11):703–718, November 2021. ISSN 1471-003X, 1471-0048. doi: 10.1038/
+s41583-021-00502-3.
+[11] Nikolaus Kriegeskorte, Marieke Mur, and Peter Bandettini. Representational Similarity Analysis – Con-
+necting the Branches of Systems Neuroscience. Frontiers in Systems Neuroscience, 2:4, November 2008.
+ISSN 1662-5137. doi: 10.3389/neuro.06.004.2008.
+[12] Andrew F. Luo, Margaret M. Henderson, Michael J. Tarr, and Leila Wehbe. BrainSCUBA: Fine-Grained
+Natural Language Captions of Visual Cortex Selectivity, May 2024.
+[13] Andrew F. Luo, Jacob Yeung, Rushikesh Zawar, Shaurya Dewan, Margaret M. Henderson, Leila Wehbe,
+and Michael J. Tarr. Brain Mapping with Dense Features: Grounding Cortical Semantic Selectivity in
+Natural Images With Vision Transformers, October 2024.
+[14] Aria Y. Wang, Kendrick Kay, Thomas Naselaris, Michael J. Tarr, and Leila Wehbe. Better models
+of human high-level visual cortex emerge from natural language supervision with a large and diverse
+dataset. Nature Machine Intelligence, 5(12):1415–1426, November 2023. ISSN 2522-5839. doi: 10.1038/
+s42256-023-00753-y.
+[15] Andrew F Luo, Margaret M Henderson, Leila Wehbe, and Michael J Tarr. Brain Diffusion for Visual
+Exploration: Cortical Discovery using Large Scale Generative Models.
+10
+
+
+[16] Maithra Raghu, Thomas Unterthiner, Simon Kornblith, Chiyuan Zhang, and Alexey Dosovitskiy. Do Vision
+Transformers See Like Convolutional Neural Networks? In Advances in Neural Information Processing
+Systems, volume 34, pages 12116–12128. Curran Associates, Inc., 2021.
+[17] Guoyuan Yang, Mufan Xue, Ziming Mao, Haofang Zheng, Jia Xu, Dabin Sheng, Ruotian Sun, Ruoqi Yang,
+and Xuesong Li. CLIP-MSM: A Multi-Semantic Mapping Brain Representation for Human High-Level
+Visual Cortex. Proceedings of the AAAI Conference on Artificial Intelligence, 39(9):9184–9192, April
+2025. ISSN 2374-3468. doi: 10.1609/aaai.v39i9.32994.
+[18] Hoagy Cunningham, Aidan Ewart, Logan Riggs, Robert Huben, and Lee Sharkey. Sparse Autoencoders
+Find Highly Interpretable Features in Language Models, October 2023.
+[19] Samuel Marks, Can Rager, Eric J. Michaud, Yonatan Belinkov, David Bau, and Aaron Mueller. Sparse
+Feature Circuits: Discovering and Editing Interpretable Causal Graphs in Language Models, March 2025.
+[20] Emily J. Allen, Ghislain St-Yves, Yihan Wu, Jesse L. Breedlove, Jacob S. Prince, Logan T. Dowdle,
+Matthias Nau, Brad Caron, Franco Pestilli, Ian Charest, J. Benjamin Hutchinson, Thomas Naselaris,
+and Kendrick Kay.
+A massive 7T fMRI dataset to bridge cognitive neuroscience and artificial in-
+telligence. Nature Neuroscience, 25(1):116–126, January 2022. ISSN 1097-6256, 1546-1726. doi:
+10.1038/s41593-021-00962-x.
+[21] Patrick Leask, Bart Bussmann, Michael Pearce, Joseph Bloom, Curt Tigges, Noura Al Moubayed, Lee
+Sharkey, and Neel Nanda. Sparse Autoencoders Do Not Find Canonical Units of Analysis, February 2025.
+[22] Leo Gao, Tom Dupré la Tour, Henk Tillman, Gabriel Goh, Rajan Troll, Alec Radford, Ilya Sutskever, Jan
+Leike, and Jeffrey Wu. Scaling and evaluating sparse autoencoders, June 2024.
+[23] Senthooran Rajamanoharan, Tom Lieberum, Nicolas Sonnerat, Arthur Conmy, Vikrant Varma, János
+Kramár, and Neel Nanda. Jumping Ahead: Improving Reconstruction Fidelity with JumpReLU Sparse
+Autoencoders, August 2024.
+[24] Thomas Fel, Ekdeep Singh Lubana, Jacob S. Prince, Matthew Kowal, Victor Boutin, Isabel Papadimitriou,
+Binxu Wang, Martin Wattenberg, Demba Ba, and Talia Konkle. Archetypal SAE: Adaptive and Stable
+Dictionary Learning for Concept Extraction in Large Vision Models, February 2025.
+[25] Harrish Thasarathan, Julian Forsyth, Thomas Fel, Matthew Kowal, and Konstantinos Derpanis. Universal
+Sparse Autoencoders: Interpretable Cross-Model Concept Alignment, February 2025.
+[26] Vladimir Zaigrajew, Hubert Baniecki, and Przemyslaw Biecek. Interpreting CLIP with Hierarchical Sparse
+Autoencoders, February 2025.
+[27] Zhihua Tian, Sirun Nan, Ming Xu, Shengfang Zhai, Wenjie Qu, Jian Liu, Kui Ren, Ruoxi Jia, and Jiaheng
+Zhang. Sparse Autoencoder as a Zero-Shot Classifier for Concept Erasing in Text-to-Image Diffusion
+Models, March 2025.
+[28] Liv Gorton. The Missing Curve Detectors of InceptionV1: Applying Sparse Autoencoders to InceptionV1
+Early Vision, September 2024.
+[29] Nelson Elhage, Tristan Hume, Catherine Olsson, Nicholas Schiefer, Tom Henighan, Shauna Kravec, Zac
+Hatfield-Dodds, Robert Lasenby, Dawn Drain, Carol Chen, Roger Grosse, Sam McCandlish, Jared Kaplan,
+Dario Amodei, Martin Wattenberg, and Christopher Olah. Toy Models of Superposition, September 2022.
+[30] Lee Sharkey, Dan Braun, and beren. [Interim research report] Taking features out of superposition with
+sparse autoencoders. December 2022.
+[31] Zeyu Yun, Yubei Chen, Bruno A. Olshausen, and Yann LeCun. Transformer visualization via dictionary
+learning: Contextualized embedding as a linear superposition of transformer factors, April 2023.
+[32] Dong Shu, Xuansheng Wu, Haiyan Zhao, Daking Rai, Ziyu Yao, Ninghao Liu, and Mengnan Du. A Survey
+on Sparse Autoencoders: Interpreting the Internal Mechanisms of Large Language Models, March 2025.
+[33] Meenakshi Khosla, N. Apurva Ratan Murty, and Nancy Kanwisher. A highly selective response to
+food in human visual cortex revealed by hypothesis-free voxel decomposition. Current Biology, 32(19):
+4159–4171.e9, October 2022. ISSN 09609822. doi: 10.1016/j.cub.2022.08.009.
+[34] Mufan Xue, Xinyu Wu, Jinlong Li, Xuesong Li, and Guoyuan Yang. A Convolutional Neural Network
+Interpretable Framework for Human Ventral Visual Pathway Representation. Proceedings of the AAAI
+Conference on Artificial Intelligence, 38(6):6413–6421, March 2024. ISSN 2374-3468. doi: 10.1609/aaai.
+v38i6.28461.
+11
+
+
+[35] Melvyn A. Goodale, John Paul Meenan, Heinrich H. Bülthoff, David A. Nicolle, Kelly J. Murphy, and
+Carolynn I. Racicot. Separate neural pathways for the visual analysis of object shape in perception and
+prehension. Current Biology, 4(7):604–610, July 1994. ISSN 0960-9822. doi: 10.1016/S0960-9822(00)
+00132-9.
+[36] Kalanit Grill-Spector and Kevin S. Weiner. The functional architecture of the ventral temporal cortex and
+its role in categorization. Nature Reviews Neuroscience, 15(8):536–548, August 2014. ISSN 1471-0048.
+doi: 10.1038/nrn3747.
+[37] Akira Murata, Vittorio Gallese, Giuseppe Luppino, Masakazu Kaseda, and Hideo Sakata. Selectivity for
+the shape, size, and orientation of objects for grasping in neurons of monkey parietal area aip. Journal of
+Neurophysiology, 83(5):2580–2601, 2000. doi: 10.1152/jn.2000.83.5.2580.
+[38] Serge O. Dumoulin and Brian A. Wandell. Population receptive field estimates in human visual cortex.
+NeuroImage, 39(2):647–660, January 2008. ISSN 1053-8119. doi: 10.1016/j.neuroimage.2007.09.034.
+[39] D. H. Hubel and T. N. Wiesel. Receptive fields, binocular interaction and functional architecture in the
+cat’s visual cortex. The Journal of Physiology, 160(1):106–154.2, January 1962. ISSN 0022-3751.
+[40] Matteo Carandini, Jonathan B. Demb, Valerio Mante, David J. Tolhurst, Yang Dan, Bruno A. Olshausen,
+Jack L. Gallant, and Nicole C. Rust. Do we know what the early visual system does?
+Journal of
+Neuroscience, 25(46):10577–10597, 2005. ISSN 0270-6474. doi: 10.1523/JNEUROSCI.3726-05.2005.
+[41] Jonathan B. Levitt, David C. Kiper, and J. Anthony Movshon. Receptive fields and functional architecture
+of macaque v2. Journal of Neurophysiology, 71(6):2517–2542, June 1994. doi: 10.1152/jn.1994.71.6.2517.
+[42] Jeremy Freeman, Corey M. Ziemba, David J. Heeger, Eero P. Simoncelli, and J. Anthony Movshon. A
+functional and perceptual signature of the second visual area in primates. Nature Neuroscience, 16(7):
+974–981, July 2013. ISSN 1546-1726. doi: 10.1038/nn.3402.
+[43] Nancy Kanwisher, Josh McDermott, and Marvin M. Chun. The fusiform face area: A module in human
+extrastriate cortex specialized for face perception. Journal of Neuroscience, 17(11):4302–4311, 1997.
+ISSN 0270-6474. doi: 10.1523/JNEUROSCI.17-11-04302.1997.
+[44] R. Epstein and N. Kanwisher. A cortical representation of the local visual environment. Nature, 392:
+598–601, 1998. doi: 10.1038/33402.
+[45] P. E. Downing, Y. Jiang, M. Shuman, and N. Kanwisher. A cortical area selective for visual processing of
+the human body. Science, 293(5539):2470–2473, September 2001. doi: 10.1126/science.1063414.
+[46] Laurent Cohen, Stanislas Dehaene, Lionel Naccache, Stéphane Lehéricy, Ghislaine Dehaene-Lambertz,
+Marie-Anne Hénaff, and Franck Michel. The visual word form area: spatial and temporal characterization
+of an initial stage of reading in normal subjects and posterior split-brain patients. Brain, 123(2):291–307,
+February 2000. doi: 10.1093/brain/123.2.291.
+[47] Meenakshi Khosla, N. Apurva Ratan Murty, and Nancy Kanwisher. A highly selective response to
+food in human visual cortex revealed by hypothesis-free voxel decomposition. Current Biology, 32(19):
+4159–4171.e9, 2022. ISSN 0960-9822. doi: 10.1016/j.cub.2022.08.009.
+[48] Colin Conwell, Jacob S. Prince, Kendrick N. Kay, George A. Alvarez, and Talia Konkle. A large-scale
+examination of inductive biases shaping high-level visual representation in brains and machines. Nature
+Communications, 15(1):9383, October 2024. ISSN 2041-1723. doi: 10.1038/s41467-024-53147-y.
+[49] Nikolaus Kriegeskorte, Marieke Mur, and Peter A. Bandettini. Representational similarity analysis -
+connecting the branches of systems neuroscience. Frontiers in Systems Neuroscience, 2, November 2008.
+ISSN 1662-5137. doi: 10.3389/neuro.06.004.2008.
+[50] Tsung-Yi Lin, Michael Maire, Serge Belongie, Lubomir Bourdev, Ross Girshick, James Hays, Pietro
+Perona, Deva Ramanan, C. Lawrence Zitnick, and Piotr Dollár. Microsoft COCO: Common Objects in
+Context, February 2015.
+[51] James S. Gao, Alexander G. Huth, Mark D. Lescroart, and Jack L. Gallant. Pycortex: An interactive
+surface visualizer for fMRI. Frontiers in Neuroinformatics, 9, September 2015. ISSN 1662-5196. doi:
+10.3389/fninf.2015.00023.
+[52] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. ImageNet: A Large-Scale
+Hierarchical Image Database.
+12
+
+
+[53] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish
+Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning
+Transferable Visual Models From Natural Language Supervision. In Proceedings of the 38th International
+Conference on Machine Learning, pages 8748–8763. PMLR, July 2021.
+[54] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep Residual Learning for Image Recognition,
+December 2015.
+[55] Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, and Ross Girshick. Masked Autoencoders
+Are Scalable Vision Learners, December 2021.
+[56] Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre
+Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Mahmoud Assran, Nicolas Ballas,
+Wojciech Galuba, Russell Howes, Po-Yao Huang, Shang-Wen Li, Ishan Misra, Michael Rabbat, Vasu
+Sharma, Gabriel Synnaeve, Hu Xu, Hervé Jegou, Julien Mairal, Patrick Labatut, Armand Joulin, and Piotr
+Bojanowski. DINOv2: Learning Robust Visual Features without Supervision, February 2024.
+[57] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao,
+Spencer Whitehead, Alexander C. Berg, Wan-Yen Lo, Piotr Dollár, and Ross Girshick. Segment Anything,
+April 2023.
+[58] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas
+Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and
+Neil Houlsby. An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale, June 2021.
+[59] Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor
+Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, Alban Desmaison, Andreas Köpf, Edward Yang,
+Zach DeVito, Martin Raison, Alykhan Tejani, Sasank Chilamkurthy, Benoit Steiner, Lu Fang, Junjie
+Bai, and Soumith Chintala. PyTorch: An Imperative Style, High-Performance Deep Learning Library,
+December 2019.
+[60] David Bau, Bolei Zhou, Aditya Khosla, Aude Oliva, and Antonio Torralba. Network Dissection: Quantify-
+ing Interpretability of Deep Visual Representations, April 2017.
+[61] Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton. Similarity of Neural Network
+Representations Revisited. In Proceedings of the 36th International Conference on Machine Learning,
+pages 3519–3529. PMLR, May 2019.
+13
+
+
+A
+Broader impact
+Our work introduces the similarity between deep learning models and ventral visual pathway. We
+can utilize these alignment both explore the function of deep learning model and understand the
+function of human visual cortex. We can understand deep learning models information procedure
+for any ANN structure, also, we can explore voxel’s selectivity on the image as what [13] have
+down. Also we can utilize the SAEs units to intervene the generation process of Diffusion models to
+explore the voxel’s function as [15]. Moreover, our method could bring more insight into the deep
+learning procedure, and explain the activation pattern discovered by CKA [61, 16], see more detail in
+Appendix B
+B
+CKA result discussion:
+[61] introduces CKA method, a kind of representation analysis method similar to Representa-
+tion Similarities to explore two deep learning models’ activation similarity. For model A and B,
+Let Kij = k(xi, xj),
+Lij = l(yi, yj), where k, l are kernel functions and xi and yi are the i-th
+image activation of model A and model B. Define the centering matrix: Hn = In −1
+n11⊤. The
+CKA calculate method is discribed as follow.
+HSIC(K, L) =
+1
+(n −1)2 tr(KHLH).
+(8)
+CKA(K, L) =
+HSIC(K, L)
+p
+HSIC(K, K) · HSIC(L, L)
+.
+(9)
+Figure 8: The CKA result for ViT-B/16CLIP
+and ResNet50CLIP on top left corner. We com-
+pare two models’ Model-Brain Layer align-
+ment similarity on the top right corner, and
+visualize the Layer 5 of ResNet50CLIP and
+Layer 9 of ViT-B/16CLIP on the bottom.
+We compare the CKA matrix between ViT-B/16CLIP
+and ResNet50CLIP, and calculate the similarity be-
+tween each model each layer’s Brain-Model Layer
+Alignment Result, as illustrate in Figure 8.
+The
+similarity is calculated through a method similar
+to Intersection over Union (IoU). The similarity
+score is calculated through Equation: IoUi,j
+=
+|{v|lViT(v)=i∧lResNet(v)=j}|
+|{v|lViT(v)=i∨lResNet(v)=j}| Here, lViT(v) denotes the in-
+dex of the layer in ViT that best matches voxel v, and
+lResNet(v) denotes the corresponding best-matching
+layer in ResNet. The numerator represents the num-
+ber of voxels for which both models assign the same
+respective layer (i.e., the intersection), while the de-
+nominator represents the number of voxels assigned
+to that layer by at least one of the two models (i.e., the
+union). We found that our layer alignment IoU could
+reveal the activation similarity pattern between two
+models activation similarity, we visualize the voxel
+that similar to layer 9 of ViT-B/16CLIP and layer 5 of
+ResNet50CLIP in Figure 8.
+C
+Training Environment and Details
+Environment: We perform all the experiment on device with 512G RAM, 2 Nvidia L20 GPU with
+48G memory, with CUDA version of 12.4.
+SAEs training details: We train the Sparse Autoencoders as [18]. We discribe several superpa-
+rameters in section 4.1. We use AdamW Optimizer through the SAEs training procedures. The
+image preprocess during training follows [2]. The image is resized to 224 × 224, but for SAM,
+to 1024 × 1024 and is normalized channel-wise using the mean [0.485, 0.456, 0.406] and standard
+deviation [0.229, 0.224, 0.225], which are standard values derived from the ImageNet dataset [54].
+14
+
+
+Brain Encoder training details: We train brain encoders for each layer and each model. For each
+model, we extract j-th layer’s activation A(j) and training a linear layer with equation: A(j)W +b = B,
+B is the voxel activation for a certain image. We use AdamW Optimizer through the training process.
+We use the independent 9000 image for each subject as [15]. We performed image preprocess as [12],
+input images are resized to 224 × 224 pixels and 1024 × 1024 for SAM model. Data augmentation
+includes randomly scaling pixel intensities within the range [0.95, 1.05], followed by normalization
+using the mean and standard deviation of CLIP-preprocessed images. Prior to being fed into the
+network, each image undergoes a random spatial offset of up to 4 pixels along both the horizontal and
+vertical axes, with edge padding used to fill any resulting empty regions. Additionally, independent
+Gaussian noise with mean µ = 0 and variance σ2 = 0.05 is added to each pixel. We measure the
+predict performance with cosine similarity and R2score, illustrating in Table 4.
+Subject
+All Model
+ViT-B/16CLIP
+ImageNet
+MAE
+DiNOv2
+SAM
+ResNet50CLIP
+Cos Similarity
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+Max
+Avg
+S1
+0.868
+0.372
+0.868
+0.306
+0.838
+0.287
+0.751
+0.245
+0.859
+0.289
+0.756
+0.267
+0.865
+0.209
+S2
+0.868
+0.368
+0.868
+0.307
+0.827
+0.289
+0.799
+0.250
+0.862
+0.296
+0.797
+0.270
+0.854
+0.208
+S3
+0.848
+0.323
+0.842
+0.265
+0.798
+0.249
+0.706
+0.214
+0.825
+0.254
+0.748
+0.235
+0.848
+0.185
+S4
+0.856
+0.319
+0.856
+0.258
+0.819
+0.242
+0.721
+0.208
+0.846
+0.248
+0.723
+0.226
+0.856
+0.174
+S5
+0.889
+0.414
+0.889
+0.338
+0.848
+0.318
+0.799
+0.274
+0.880
+0.324
+0.787
+0.296
+0.888
+0.240
+S6
+0.812
+0.324
+0.802
+0.259
+0.778
+0.244
+0.700
+0.209
+0.798
+0.248
+0.715
+0.227
+0.812
+0.175
+S7
+0.870
+0.327
+0.862
+0.264
+0.840
+0.246
+0.759
+0.212
+0.864
+0.253
+0.756
+0.230
+0.870
+0.182
+S8
+0.791
+0.252
+0.783
+0.206
+0.723
+0.196
+0.685
+0.171
+0.769
+0.199
+0.683
+0.184
+0.790
+0.146
+Cos Avg
+0.850
+0.337
+0.846
+0.275
+0.809
+0.259
+0.740
+0.223
+0.838
+0.264
+0.746
+0.242
+0.848
+0.190
+Table 4: Brain Encoder Cos Similarity. The cosine similarity between Brain Encoder Predictions
+and the voxel fMRI response. We select the max voxel’s cosine similarity across all voxels and the
+average cosine similarity across all voxels.
+D
+Similarity Visualize for SAE-Brain Similarity on Subject 1-8
+For each subject (S1-8), we plot the voxel-wise maximum similarity score across models and the
+difference in similarity scores between models and the voxel-wise maximum. We visualize it in
+Figure 9 and Figure 10.
+15
+
+
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.76
+-0.14
+0
+-0.26
+0
+-0.12
+0
+-0.28
+0
+-0.34
+0
+-0.16
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj1
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.72
+-0.14
+0
+-0.25
+0
+-0.09
+0
+-0.20
+0
+-0.23
+0
+-0.19
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj2
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.71
+-0.14
+0
+-0.19
+0
+-0.09
+0
+-0.20
+0
+-0.26
+0
+-0.19
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj3
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.67
+-0.12
+0
+-0.24
+0
+-0.12
+0
+-0.17
+0
+-0.24
+0
+-0.16
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj4
+Figure 9: Brain-SAEs Activation Similarity on S1-4. Left: voxel-wise maximum similarity score
+across models. Right: difference in similarity scores between models and the voxel-wise maximum.
+16
+
+
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.72
+-0.13
+0
+-0.22
+0
+-0.12
+0
+-0.25
+0
+-0.31
+0
+-0.25
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj5
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.69
+-0.14
+0
+-0.20
+0
+-0.09
+0
+-0.19
+0
+-0.25
+0
+-0.17
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj6
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.66
+-0.11
+0
+-0.23
+0
+-0.11
+0
+-0.19
+0
+-0.26
+0
+-0.15
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj7
+ViT-B/16CLIP
+ImageNet
+DiVOv2
+ResNet50CLIP
+SAM
+MAE
+Max Similarity
+0
+0.64
+-0.11
+0
+-0.19
+0
+-0.10
+0
+-0.18
+0
+-0.24
+0
+-0.18
+0
+cos similarity
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Δ simi
+Subj8
+Figure 10: Brain-SAEs Activation Similarity on S5-8. Left: voxel-wise maximum similarity score
+across models. Right: difference in similarity scores between models and the voxel-wise maximum.
+17
+
+
+E
+Brain-Model Layer Alignment
+We plot the layer-wise alignment between the brain and the model for each subject (S1-8). We
+visualize it in Figure 11,12,13,14.
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 1
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 2
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+Figure 11: Brain-Model Layer Alignment. Layer alignment for S1 and S2 based on SAE-BrainMap,
+FactorTopy [2] and Max R2 [14], we visualize five models with attention structure and have 12 layers.
+18
+
+
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 3
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 4
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+Figure 12: Brain-Model Layer Alignment. Layer alignment for S3 and S4 based on SAE-BrainMap,
+FactorTopy [2] and Max R2 [14], we visualize five models with attention structure and have 12 layers.
+19
+
+
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 5
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 6
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+Figure 13: Brain-Model Layer Alignment. Layer alignment for S5 and S6 based on SAE-BrainMap,
+FactorTopy [2] and Max R2 [14], we visualize five models with attention structure and have 12 layers.
+20
+
+
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 7
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+MAE
+ImageNet
+SAM
+DiNOv2
+Subj 8
+Ours
+FactorTopy
+Max !!
+ViT-B/16CLIP
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+1
+12
+layer
+Figure 14: Brain-Model Layer Alignment. Layer alignment for S7 and S8 based on SAE-BrainMap,
+FactorTopy [2] and Max R2 [14], we visualize five models with attention structure and have 12 layers.
+21
+
+
+F
+Similarity Between Voxel Dictionary and Brain Encoder
+We utilize RSA to calculate the similarity between the Brain Encoder Weight and Voxel Dictionary.
+During the process, we consider the brain encoder weight as the representation of the brain voxel, as
+well as the voxel dictionary. We visualize the Subject 5’s Similarity Matrix in Figure 15.
+Representational Similarity Analysis (RSA).
+For brain encoder weight W ∈Rv×d and voxel
+dictionary D ∈Rv×d, where v is the number of voxels and d is the feature dimension, we first
+compute the Representational Dissimilarity Matrix (RDM), denoted as D ∈Rv×v, using pairwise
+correlation distancesDij = 1 −ρ(xi, xj), where ρ(·, ·) denotes the Pearson correlation between
+two row vectors Wi and Dj. Given two RDMs, D1 and D2, we extract their upper triangular parts
+(excluding the diagonal), denoted as d1 and d2, respectively. The RSA score is then defined as the
+Spearman rank correlation between these two vectors,RSA = Spearman(d1, d2). This scalar RSA
+score reflects the degree of correspondence between Brain Encoder Weight and Voxel Dictionary.
+Figure 15: Representation Similarity Matrix between the brain encoder weights of the last layer
+of voxel dictionary, and their mutual similarity on Subject 5. The model from top to bottom is
+ResNet50CLIP, DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+22
+
+
+G
+Selectivity of SAEs Units
+We training the SAEs units with the "CLS" token for all models except SAM. We take the average of
+all patches in SAM’s target layer output as the "CLS", which is the same with [2]. We visualize the
+selectivity of the units that shares the highest average cosine similarity with certain ROIs by visualize
+the top-5 images whose "CLS" token maximize activate the units, we visualize all the models of
+Subject 5 in Figure 16. We found that not all the model’s last layers units have the same selectivity
+with the brain ROIs. MAE and SAM’s last layer miss the information process of EBA, RSC and
+VWFA, replaced by several low level information. It is indicated that for these models, the last layer’s
+functions need more low level information, which is in line with Figure 6. The analysis dataset is the
+mixture of COCO [50] Valid dataset and Broden Dataset [60].
+FFA
+EBA
+RSC
+VWFA
+FOOD
+FFA
+EBA
+RSC
+VWFA
+FOOD
+ViT-B/16CLIP
+ResNet50CLIP
+FFA
+EBA
+RSC
+VWFA
+FOOD
+FFA
+EBA
+RSC
+VWFA
+FOOD
+ImageNet
+DiNOv2
+FFA
+EBA
+RSC
+VWFA
+FOOD
+FFA
+EBA
+RSC
+VWFA
+FOOD
+MAE
+SAM
+Figure 16: Units Selectivity for S5 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+23
+
+
+H
+Subject 1-8 for selectivity of SAEs Units
+Figure 17: Units Selectivity for S1 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+24
+
+
+Figure 18: Units Selectivity for S2 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+25
+
+
+Figure 19: Units Selectivity for S3 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+26
+
+
+Figure 20: Units Selectivity for S4 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+27
+
+
+Figure 21: Units Selectivity for S6 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+28
+
+
+Figure 22: Units Selectivity for S7 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+29
+
+
+Figure 23: Units Selectivity for S8 The top-5 images whose "CLS" token maximize activate the last
+layer’s units that selected by the brain ROIs.
+30
+
+
+I
+Subject 1-8 for Similarity between voxel dictionary and brain encoder
+Figure 24: Representation Similarity Matrix on S1 between the brain encoder weights of the last
+layer of voxel dictionary, and their mutual similarity. The model from top to bottom is ResNet50CLIP,
+DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+31
+
+
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+Similarity Between Brain Encoder Weight 
+& Brain Encoder Weight
+Similarity Between Brain Encoder Weight 
+&Our Brain Dictionary
+Similarity Between Our Dictionary
+& Our Dictionary
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+min
+max
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+V1
+RSC
+V2
+V3
+hV4
+FFA
+EBA
+VWFA
+FOOD
+Figure 25: Representation Similarity Matrix on S2 between the brain encoder weights of the last
+layer of voxel dictionary, and their mutual similarity. The model from top to bottom is ResNet50CLIP,
+DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+32
+
+
+Figure 26: Representation Similarity Matrix on S3 between the brain encoder weights of the last
+layer of voxel dictionary, and their mutual similarity. The model from top to bottom is ResNet50CLIP,
+DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+33
+
+
+Figure 27: Representation Similarity Matrix on S4 between the brain encoder weights of the last
+layer of voxel dictionary, and their mutual similarity. The model from top to bottom is ResNet50CLIP,
+DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+34
+
+
+Figure 28: Representation Similarity Matrix on S6 between the brain encoder weights of the last
+layer of voxel dictionary, and their mutual similarity. The model from top to bottom is ResNet50CLIP,
+DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+35
+
+
+Figure 29: Representation Similarity Matrix on S7 between the brain encoder weights of the last
+layer of voxel dictionary, and their mutual similarity. The model from top to bottom is ResNet50CLIP,
+DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+36
+
+
+Figure 30: Representation Similarity Matrix on S8 between the brain encoder weights of the last
+layer of voxel dictionary, and their mutual similarity. The model from top to bottom is ResNet50CLIP,
+DiNOv2, ImageNet, MAE, SAM and ViT-B/16CLIP
+37
+
+
+J
+Visual Information Procedure Analysis
+We visualize the visual information procedure for all subject (S1-S8) and models that with ViT
+structure and have 12 layers.
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj1
+Figure 31: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S1.
+38
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj2
+Figure 32: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S2.
+39
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj3
+Figure 33: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S3.
+40
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj4
+Figure 34: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S4.
+41
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj5
+Figure 35: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S5.
+42
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj6
+Figure 36: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S6.
+43
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj7
+Figure 37: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S7.
+44
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+ImageNet
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+MAE
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+DiNOv2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+SAM
+Subj8
+Figure 38: Layer wise Voxel Dictionary average activation for ImageNet, DiNOv2, MAE, SAM for
+S8.
+45
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 1
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 2
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 3
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 4
+ViT-B/16CLIP
+Figure 39: Layer wise Voxel Dictionary average activation for ViT-B/16CLIP for S1-4.
+46
+
+
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 5
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 6
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 7
+Layer 2
+Layer 1
+Layer 3
+Layer 4
+Layer 5
+Layer 8
+Layer 7
+Layer 9
+Layer 10
+Layer 11
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+0
+1 & >1
+Activation
+Layer 6
+Layer 12
+Subject 8
+ViT-B/16CLIP
+Figure 40: Layer wise Voxel Dictionary average activation for ViT-B/16CLIP for S5-8.
+47
+
+
+NeurIPS Paper Checklist
+1. Claims
+Question: Do the main claims made in the abstract and introduction accurately reflect the
+paper’s contributions and scope?
+Answer: [Yes]
+Justification: We describe the contributions in the last paragraph of introduction 1.
+Guidelines:
+• The answer NA means that the abstract and introduction do not include the claims
+made in the paper.
+• The abstract and/or introduction should clearly state the claims made, including the
+contributions made in the paper and important assumptions and limitations. A No or
+NA answer to this question will not be perceived well by the reviewers.
+• The claims made should match theoretical and experimental results, and reflect how
+much the results can be expected to generalize to other settings.
+• It is fine to include aspirational goals as motivation as long as it is clear that these goals
+are not attained by the paper.
+2. Limitations
+Question: Does the paper discuss the limitations of the work performed by the authors?
+Answer: [Yes]
+Justification: We discuss the limitations in Section 5.
+Guidelines:
+• The answer NA means that the paper has no limitation while the answer No means that
+the paper has limitations, but those are not discussed in the paper.
+• The authors are encouraged to create a separate "Limitations" section in their paper.
+• The paper should point out any strong assumptions and how robust the results are to
+violations of these assumptions (e.g., independence assumptions, noiseless settings,
+model well-specification, asymptotic approximations only holding locally). The authors
+should reflect on how these assumptions might be violated in practice and what the
+implications would be.
+• The authors should reflect on the scope of the claims made, e.g., if the approach was
+only tested on a few datasets or with a few runs. In general, empirical results often
+depend on implicit assumptions, which should be articulated.
+• The authors should reflect on the factors that influence the performance of the approach.
+For example, a facial recognition algorithm may perform poorly when image resolution
+is low or images are taken in low lighting. Or a speech-to-text system might not be
+used reliably to provide closed captions for online lectures because it fails to handle
+technical jargon.
+• The authors should discuss the computational efficiency of the proposed algorithms
+and how they scale with dataset size.
+• If applicable, the authors should discuss possible limitations of their approach to
+address problems of privacy and fairness.
+• While the authors might fear that complete honesty about limitations might be used by
+reviewers as grounds for rejection, a worse outcome might be that reviewers discover
+limitations that aren’t acknowledged in the paper. The authors should use their best
+judgment and recognize that individual actions in favor of transparency play an impor-
+tant role in developing norms that preserve the integrity of the community. Reviewers
+will be specifically instructed to not penalize honesty concerning limitations.
+3. Theory assumptions and proofs
+Question: For each theoretical result, does the paper provide the full set of assumptions and
+a complete (and correct) proof?
+Answer: [NA]
+48
+
+
+Justification: The article dosen’t include theoretical results.
+Guidelines:
+• The answer NA means that the paper does not include theoretical results.
+• All the theorems, formulas, and proofs in the paper should be numbered and cross-
+referenced.
+• All assumptions should be clearly stated or referenced in the statement of any theorems.
+• The proofs can either appear in the main paper or the supplemental material, but if
+they appear in the supplemental material, the authors are encouraged to provide a short
+proof sketch to provide intuition.
+• Inversely, any informal proof provided in the core of the paper should be complemented
+by formal proofs provided in appendix or supplemental material.
+• Theorems and Lemmas that the proof relies upon should be properly referenced.
+4. Experimental result reproducibility
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-
+perimental results of the paper to the extent that it affects the main claims and/or conclusions
+of the paper (regardless of whether the code and data are provided or not)?
+Answer: [Yes]
+Justification: We discribe the detail in section 4.1 and Appendix B.
+Guidelines:
+• The answer NA means that the paper does not include experiments.
+• If the paper includes experiments, a No answer to this question will not be perceived
+well by the reviewers: Making the paper reproducible is important, regardless of
+whether the code and data are provided or not.
+• If the contribution is a dataset and/or model, the authors should describe the steps taken
+to make their results reproducible or verifiable.
+• Depending on the contribution, reproducibility can be accomplished in various ways.
+For example, if the contribution is a novel architecture, describing the architecture fully
+might suffice, or if the contribution is a specific model and empirical evaluation, it may
+be necessary to either make it possible for others to replicate the model with the same
+dataset, or provide access to the model. In general. releasing code and data is often
+one good way to accomplish this, but reproducibility can also be provided via detailed
+instructions for how to replicate the results, access to a hosted model (e.g., in the case
+of a large language model), releasing of a model checkpoint, or other means that are
+appropriate to the research performed.
+• While NeurIPS does not require releasing code, the conference does require all submis-
+sions to provide some reasonable avenue for reproducibility, which may depend on the
+nature of the contribution. For example
+(a) If the contribution is primarily a new algorithm, the paper should make it clear how
+to reproduce that algorithm.
+(b) If the contribution is primarily a new model architecture, the paper should describe
+the architecture clearly and fully.
+(c) If the contribution is a new model (e.g., a large language model), then there should
+either be a way to access this model for reproducing the results or a way to reproduce
+the model (e.g., with an open-source dataset or instructions for how to construct
+the dataset).
+(d) We recognize that reproducibility may be tricky in some cases, in which case
+authors are welcome to describe the particular way they provide for reproducibility.
+In the case of closed-source models, it may be that access to the model is limited in
+some way (e.g., to registered users), but it should be possible for other researchers
+to have some path to reproducing or verifying the results.
+5. Open access to data and code
+Question: Does the paper provide open access to the data and code, with sufficient instruc-
+tions to faithfully reproduce the main experimental results, as described in supplemental
+material?
+49
+
+
+Answer: [Yes]
+Justification: We provide code in supplemental material and mention all the dataset in
+section 4.1
+Guidelines:
+• The answer NA means that paper does not include experiments requiring code.
+• Please see the NeurIPS code and data submission guidelines (https://nips.cc/
+public/guides/CodeSubmissionPolicy) for more details.
+• While we encourage the release of code and data, we understand that this might not be
+possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not
+including code, unless this is central to the contribution (e.g., for a new open-source
+benchmark).
+• The instructions should contain the exact command and environment needed to run to
+reproduce the results. See the NeurIPS code and data submission guidelines (https:
+//nips.cc/public/guides/CodeSubmissionPolicy) for more details.
+• The authors should provide instructions on data access and preparation, including how
+to access the raw data, preprocessed data, intermediate data, and generated data, etc.
+• The authors should provide scripts to reproduce all experimental results for the new
+proposed method and baselines. If only a subset of experiments are reproducible, they
+should state which ones are omitted from the script and why.
+• At submission time, to preserve anonymity, the authors should release anonymized
+versions (if applicable).
+• Providing as much information as possible in supplemental material (appended to the
+paper) is recommended, but including URLs to data and code is permitted.
+6. Experimental setting/details
+Question: Does the paper specify all the training and test details (e.g., data splits, hyper-
+parameters, how they were chosen, type of optimizer, etc.) necessary to understand the
+results?
+Answer: [Yes]
+Justification: Dataset splits are mentioned in section 4.1 and section 4.3.
+Guidelines:
+• The answer NA means that the paper does not include experiments.
+• The experimental setting should be presented in the core of the paper to a level of detail
+that is necessary to appreciate the results and make sense of them.
+• The full details can be provided either with the code, in appendix, or as supplemental
+material.
+7. Experiment statistical significance
+Question: Does the paper report error bars suitably and correctly defined or other appropriate
+information about the statistical significance of the experiments?
+Answer: [Yes]
+Justification: We illustrate the statistical information in Table 1, Table 2, and Table 3
+Guidelines:
+• The answer NA means that the paper does not include experiments.
+• The authors should answer "Yes" if the results are accompanied by error bars, confi-
+dence intervals, or statistical significance tests, at least for the experiments that support
+the main claims of the paper.
+• The factors of variability that the error bars are capturing should be clearly stated (for
+example, train/test split, initialization, random drawing of some parameter, or overall
+run with given experimental conditions).
+• The method for calculating the error bars should be explained (closed form formula,
+call to a library function, bootstrap, etc.)
+• The assumptions made should be given (e.g., Normally distributed errors).
+50
+
+
+• It should be clear whether the error bar is the standard deviation or the standard error
+of the mean.
+• It is OK to report 1-sigma error bars, but one should state it. The authors should
+preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis
+of Normality of errors is not verified.
+• For asymmetric distributions, the authors should be careful not to show in tables or
+figures symmetric error bars that would yield results that are out of range (e.g. negative
+error rates).
+• If error bars are reported in tables or plots, The authors should explain in the text how
+they were calculated and reference the corresponding figures or tables in the text.
+8. Experiments compute resources
+Question: For each experiment, does the paper provide sufficient information on the com-
+puter resources (type of compute workers, memory, time of execution) needed to reproduce
+the experiments?
+Answer: [Yes]
+Justification: We provide computer resources in Appendix C.
+Guidelines:
+• The answer NA means that the paper does not include experiments.
+• The paper should indicate the type of compute workers CPU or GPU, internal cluster,
+or cloud provider, including relevant memory and storage.
+• The paper should provide the amount of compute required for each of the individual
+experimental runs as well as estimate the total compute.
+• The paper should disclose whether the full research project required more compute
+than the experiments reported in the paper (e.g., preliminary or failed experiments that
+didn’t make it into the paper).
+9. Code of ethics
+Question: Does the research conducted in the paper conform, in every respect, with the
+NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines?
+Answer: [Yes]
+Justification: We follow the NeurIPS Code of Ethics strictly.
+Guidelines:
+• The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics.
+• If the authors answer No, they should explain the special circumstances that require a
+deviation from the Code of Ethics.
+• The authors should make sure to preserve anonymity (e.g., if there is a special consid-
+eration due to laws or regulations in their jurisdiction).
+10. Broader impacts
+Question: Does the paper discuss both potential positive societal impacts and negative
+societal impacts of the work performed?
+Answer: [NA]
+Justification: We describe the alignment between deep learning model and brain, provide an
+insight rather than particular applications.
+Guidelines:
+• The answer NA means that there is no societal impact of the work performed.
+• If the authors answer NA or No, they should explain why their work has no societal
+impact or why the paper does not address societal impact.
+• Examples of negative societal impacts include potential malicious or unintended uses
+(e.g., disinformation, generating fake profiles, surveillance), fairness considerations
+(e.g., deployment of technologies that could make decisions that unfairly impact specific
+groups), privacy considerations, and security considerations.
+51
+
+
+• The conference expects that many papers will be foundational research and not tied
+to particular applications, let alone deployments. However, if there is a direct path to
+any negative applications, the authors should point it out. For example, it is legitimate
+to point out that an improvement in the quality of generative models could be used to
+generate deepfakes for disinformation. On the other hand, it is not needed to point out
+that a generic algorithm for optimizing neural networks could enable people to train
+models that generate Deepfakes faster.
+• The authors should consider possible harms that could arise when the technology is
+being used as intended and functioning correctly, harms that could arise when the
+technology is being used as intended but gives incorrect results, and harms following
+from (intentional or unintentional) misuse of the technology.
+• If there are negative societal impacts, the authors could also discuss possible mitigation
+strategies (e.g., gated release of models, providing defenses in addition to attacks,
+mechanisms for monitoring misuse, mechanisms to monitor how a system learns from
+feedback over time, improving the efficiency and accessibility of ML).
+11. Safeguards
+Question: Does the paper describe safeguards that have been put in place for responsible
+release of data or models that have a high risk for misuse (e.g., pretrained language models,
+image generators, or scraped datasets)?
+Answer: [NA]
+Justification: Our work poses no such risks.
+Guidelines:
+• The answer NA means that the paper poses no such risks.
+• Released models that have a high risk for misuse or dual-use should be released with
+necessary safeguards to allow for controlled use of the model, for example by requiring
+that users adhere to usage guidelines or restrictions to access the model or implementing
+safety filters.
+• Datasets that have been scraped from the Internet could pose safety risks. The authors
+should describe how they avoided releasing unsafe images.
+• We recognize that providing effective safeguards is challenging, and many papers do
+not require this, but we encourage authors to take this into account and make a best
+faith effort.
+12. Licenses for existing assets
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in
+the paper, properly credited and are the license and terms of use explicitly mentioned and
+properly respected?
+Answer: [Yes]
+Justification: We respect the license and mention in Appendix C.
+Guidelines:
+• The answer NA means that the paper does not use existing assets.
+• The authors should cite the original paper that produced the code package or dataset.
+• The authors should state which version of the asset is used and, if possible, include a
+URL.
+• The name of the license (e.g., CC-BY 4.0) should be included for each asset.
+• For scraped data from a particular source (e.g., website), the copyright and terms of
+service of that source should be provided.
+• If assets are released, the license, copyright information, and terms of use in the
+package should be provided. For popular datasets, paperswithcode.com/datasets
+has curated licenses for some datasets. Their licensing guide can help determine the
+license of a dataset.
+• For existing datasets that are re-packaged, both the original license and the license of
+the derived asset (if it has changed) should be provided.
+52
+
+
+• If this information is not available online, the authors are encouraged to reach out to
+the asset’s creators.
+13. New assets
+Question: Are new assets introduced in the paper well documented and is the documentation
+provided alongside the assets?
+Answer: [NA]
+Justification: Our paper does not release new assets.
+Guidelines:
+• The answer NA means that the paper does not release new assets.
+• Researchers should communicate the details of the dataset/code/model as part of their
+submissions via structured templates. This includes details about training, license,
+limitations, etc.
+• The paper should discuss whether and how consent was obtained from people whose
+asset is used.
+• At submission time, remember to anonymize your assets (if applicable). You can either
+create an anonymized URL or include an anonymized zip file.
+14. Crowdsourcing and research with human subjects
+Question: For crowdsourcing experiments and research with human subjects, does the paper
+include the full text of instructions given to participants and screenshots, if applicable, as
+well as details about compensation (if any)?
+Answer: [NA]
+Justification: Our experiment does not involve crowdsourcing nor research with human
+subjects.
+Guidelines:
+• The answer NA means that the paper does not involve crowdsourcing nor research with
+human subjects.
+• Including this information in the supplemental material is fine, but if the main contribu-
+tion of the paper involves human subjects, then as much detail as possible should be
+included in the main paper.
+• According to the NeurIPS Code of Ethics, workers involved in data collection, curation,
+or other labor should be paid at least the minimum wage in the country of the data
+collector.
+15. Institutional review board (IRB) approvals or equivalent for research with human
+subjects
+Question: Does the paper describe potential risks incurred by study participants, whether
+such risks were disclosed to the subjects, and whether Institutional Review Board (IRB)
+approvals (or an equivalent approval/review based on the requirements of your country or
+institution) were obtained?
+Answer: [Yes]
+Justification: The methods were performed in accordance with relevant guidelines and
+regulations and approved by our university’s IRB. All ethical regulations relevant to human
+research participants were followed.
+Guidelines:
+• The answer NA means that the paper does not involve crowdsourcing nor research with
+human subjects.
+• Depending on the country in which research is conducted, IRB approval (or equivalent)
+may be required for any human subjects research. If you obtained IRB approval, you
+should clearly state this in the paper.
+• We recognize that the procedures for this may vary significantly between institutions
+and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the
+guidelines for their institution.
+53
+
+
+• For initial submissions, do not include any information that would break anonymity (if
+applicable), such as the institution conducting the review.
+16. Declaration of LLM usage
+Question: Does the paper describe the usage of LLMs if it is an important, original, or
+non-standard component of the core methods in this research? Note that if the LLM is used
+only for writing, editing, or formatting purposes and does not impact the core methodology,
+scientific rigorousness, or originality of the research, declaration is not required.
+Answer: [NA]
+Justification: The core method in the research does not involve LLMs.
+Guidelines:
+• The answer NA means that the core method development in this research does not
+involve LLMs as any important, original, or non-standard components.
+• Please refer to our LLM policy (https://neurips.cc/Conferences/2025/LLM)
+for what should or should not be described.
+54

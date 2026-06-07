@@ -1,0 +1,1951 @@
+NeuroPictor: Refining fMRI-to-Image
+Reconstruction via Multi-individual Pretraining
+and Multi-level Modulation
+Jingyang Huo⋆, Yikai Wang⋆, Yun Wang⋆, Xuelin Qian, Chong Li,
+Yanwei Fu†, and Jianfeng Feng
+Fudan University, Shanghai, China
+jyhuo22@m.fudan.edu.cn, yanweifu@fudan.edu.cn
+Control Scale
+Semantic
+Fine-Gained
+GT Image
+fMRI-to-Imge 
+Reconstruction
+fMRI Signals
+Fig. 1:
+NeuroPictor achieves precise control over decoding low-level structures from
+fMRI signals while preserving high-level semantics. The decoded images progress from
+reconstructing visual stimulus solely from high-level semantics to both high-level se-
+mantics and low-level structures as the influence increases from left to right.
+Abstract. Recent fMRI-to-image approaches mainly focused on associ-
+ating fMRI signals with specific conditions of pre-trained diffusion mod-
+els. These approaches, while producing high-quality images, capture only
+a limited aspect of the complex information in fMRI signals and offer
+little detailed control over image creation. In contrast, this paper pro-
+poses to directly modulate the generation process of diffusion models
+using fMRI signals. Our approach, NeuroPictor, divides the fMRI-to-
+image process into three steps: i) fMRI calibrated-encoding, to tackle
+multi-individual pre-training for a shared latent space to minimize in-
+dividual difference and enable the subsequent multi-subject training; ii)
+fMRI-to-image multi-subject pre-training, perceptually learning to guide
+diffusion model with high- and low-level conditions across different in-
+dividuals; iii) fMRI-to-image single-subject refining, similar with step
+⋆Equal contributions.
+† Corresponding author.
+arXiv:2403.18211v2  [cs.CV]  18 Jul 2024
+
+
+2
+J. Huo et al.
+ii but focus on adapting to particular individual. NeuroPictor extracts
+high-level semantic features from fMRI signals that characterizing the
+visual stimulus and incrementally fine-tunes the diffusion model with a
+low-level manipulation network to provide precise structural instructions.
+By training with about 67,000 fMRI-image pairs from various individu-
+als, our model enjoys superior fMRI-to-image decoding capacity, partic-
+ularly in the within-subject setting, as evidenced in benchmark datasets.
+Our code and model are available at https://jingyanghuo.github.io/
+neuropictor/.
+Keywords: Neural Decoding · FMRI-to-Image · Diffusion Model
+1
+Introduction
+Decoding visual stimuli perceived by the eyes and recorded by our brains is a
+fascinating task, serving as a bridge between two closely linked yet distinct fields:
+computer vision and visual neuroscience. In neuroscience, we rely on functional
+magnetic resonance imaging (fMRI), a non-invasive neuroimaging technique that
+detects brain activity by measuring changes in blood flow, offering valuable in-
+sights into cognitive processes and brain function [15]. Meanwhile, the generative
+power of the Diffusion model enables the creation of visually appealing images
+from prior conditions or random signals, making it intriguing to decode fMRI-
+based brain activities and reconstruct images, as explored in [40].
+This paper explores the process of decoding fMRI signals into images. We
+outline the experimental pipeline in three stages: "See it. Say it. Sorted". Es-
+sentially, an individual unfamiliar with our task is presented with an image
+("See it"). They then take a moment to reflect on this image ("Say it"), during
+which their brain activity is scanned and recorded using fMRI equipment. Fi-
+nally, our algorithm uses the recorded fMRI signals to reconstruct the original
+image ("Sorted"). Most previous works [7,31], focus on individual-specific fMRI-
+to-image decoders. Unfortunately, due to the potential unique brain activation
+patterns each brain processes information during the "say it" phase, there is no
+direct empirical evidence to show that another individual’s fMRI data would
+assist in decoding for a specific individual.
+Furthermore, in the "sorted" stage, researchers often employ latent codes
+extracted from fMRI signals to guide image generation through the Stable Dif-
+fusion (SD) model. Nevertheless, these codes tend to prioritize high-level seman-
+tics over low-level details, as fMRI voxels are aligned with CLIP text [29] and
+image features [38] to capture semantic information. However, using latent codes
+directly for SD presents challenges due to the fundamental mismatch between
+the separately trained fMRI encoder/decoder for 1D signals and the SD model
+for 2D images. Consequently, imperfections in both the fMRI signal-to-latent
+and latent-to-image projections lead to inevitable information loss and error ac-
+cumulation, resulting in blurry reconstructions with lacking clear structure and
+pose information.
+
+
+NeuroPictor
+3
+High-Level
+Low-Level
+NeuroPictor
+High-Level
+Low-Level
+NeuroPictor
+Fig. 2: NeuroPictor can swap high-level fMRI features to manipulate image semantics
+while maintaining structural consistency.
+To address these challenges, we introduce NeuroPictor1, a novel framework
+designed to refine fMRI-to-image reconstruction through multi-individual pre-
+training and multi-level modulation. Unlike previous approaches [7, 31] focus-
+ing on individual-specific decoders, NeuroPictor significantly improves fMRI-
+to-image decoding for single individuals by leveraging pretraining on multiple-
+individual fMRI-image pairs. Our method establishes a universal fMRI latent
+space to capture diverse neural signal information across subjects. Within this
+framework, we incorporate both low-level manipulation and high-level guiding
+networks as in Fig. 1. The low-level manipulation network precisely adjusts the
+diffusion model’s features, integrating complex brain signal information and elim-
+inating the need for partial representation with intermediate images. Meanwhile,
+the high-level guiding network rectifies semantic gaps between text captions and
+visual images. These components form a unified pipeline, enabling training the
+full model from fMRI signals to visual stimulus directly via the fMRI-to-image
+reconstruction supervision and preventing information degradation and error ac-
+cumulation from isolated processing. Moreover, disentangling high-level meaning
+and low-level structure in fMRI signals opens up intriguing possibilities. For ex-
+ample, we can swap the high-level features of one fMRI signal with another,
+enabling precise semantic manipulation on the reconstructed image while pre-
+serving the structures, as depicted in Fig. 2.
+Formally, our NeuroPictor initially learns a universal fMRI latent space across
+individuals through multi-individual pre-training to capture all original signal
+information and individual differences. We use an fMRI encoder-decoder archi-
+tecture to reconstruct the fMRI signal as 2D brain activation flatmaps. After-
+ward, we utilize the encoder to map the fMRI signal into latent codes. We intro-
+duce a High-Level Guiding Network (HLGN) to extract semantic-related signals
+essential in fMRI representations. The HLGN includes dual encoders aligning
+with text information and providing supplementary data to enhance generative
+model adaptability. Additionally, we incorporate a Low-Level Manipulation Net-
+1 The name combines "Neuro" (representing human neurons) with "Pictor" (an easel
+for painting), symbolizing the depiction of neuron status.
+
+
+4
+J. Huo et al.
+work (LLMN) to collaborate with the diffusion model by directly manipulating
+underlying features. Recent studies [26, 50] have shown advancements through
+feature map adjustments in generative models to control fine-grained visual de-
+tails. Our LLMN combines a feature transformation technique with a U-net En-
+coder to guide image generation by updating feature maps. By decoupling the
+decoding process and separately controlling high-level semantics and low-level
+manipulation, our NeuroPictor achieves precise fMRI-to-image reconstruction.
+We propose to learn fMRI-to-image decoding in three steps. i) The fMRI
+calibrated-encoding step. We pre-train the fMRI signal processing model for
+fMRI reconstruction, calibrating fMRI signals of different individuals to a shared
+latent space. ii) The fMRI-to-image multi-subject pre-training step. We pre-
+train our full model directly for fMRI-to-image decoding, leveraging about 67k
+fMRI-image pairs from different individuals. iii) For particular individual, we
+perform single-subject refining, using the same training strategy of step ii but
+focues on the refinement on the single subject. Our results demonstrate the
+benefits of multi-individual pre-training for within-subject image reconstruction
+and the potential of the foundation fMRI decoding model. Extensive experiments
+validate the efficacy of our NeuroPictor.
+Contribution. Our contributions are listed as follows: (1) We propose pre-
+training on multiple-individual fMRI-image pairs to enhence fMRI-to-image de-
+coding for single individuals; (2) We capture diverse neural signal information
+and divide it into high-level and low-level guidance to supervise the diffusion
+generation process; (3) We integrate all the components as a unified model for
+multi-subject pre-training and single-individual refining, adapting the full model
+directly based on the supervision of fMRI-to-image decoding.
+2
+Related Work
+fMRI-to-image Reconstruction. This task focuses on reconstructing visual
+images from recorded fMRI signals. The classical methods typically transform it
+into semantic content identification [10], image classification [18,46] or retrieval
+tasks [22], or limited to simple images such as handwritten digits [37]. With the
+development of deep networks, Generative Adversarial Networks (GANs) and
+VAE are employed to better reconstruct natural images [17,27,33,41]. Recently,
+diffusion models [34] have spurred studies [8, 12, 13, 29, 38, 49] in natural image
+decoding. Particularly, Chen et al. [8] improve visual quality and semantic consis-
+tency of reconstructed images using masked brain modeling and the Latent Dif-
+fusion Model (LDM). However, the SD text condition utilized in their approach
+cannot properly handle the learning of detailed spatial conditions. To achieve
+consistent reconstructions both semantically and visually, some works [29, 38]
+use CLIP text and image features along with VAE to generate blurry interme-
+diate images, further refined with image-to-image Versatile Diffusion [48]. Other
+recent works employ depth maps [13] and silhouette maps [49] for low-level con-
+sistency, yet potential information gaps remain. In contrast, NeuroPictor, our
+
+
+NeuroPictor
+5
+proposed approach, adapts the diffusion model to directly extract and decode
+fMRI signals without relying on potentially insufficient intermediate information.
+Conditional Diffusion Model. The vanilla stable diffusion [34] generates im-
+ages based on text prompts. Conditional diffusion models incorporate additional
+modalities like category [2], sketch [3], depth [26], normal [21], and semantic
+maps [49] to guide image generation. Efforts have focused on fine-tuning sta-
+ble diffusion for tasks such as image editing [4] and personalization [14, 36].
+T2i-adapter [26] modifies stable diffusion’s feature maps directly for precise con-
+trol, while ControlNet [49] learns a trainable-copy of SD to control generation
+with localized image conditions. Inspired by these methods, we employ a low-
+Level manipulation network, combining feature transformation techniques with
+a U-net Encoder, enabling intricate low-level detail learning from fMRI signals,
+leading to a fMRI-controllable generation model.
+fMRI Representation. Learning a cross-subject representation for the fMRI
+data could enhance the down-stream tasks. In [7,9], the masked brain modeling
+is pretrained on the Brain, Object, Landscape Dataset (BOLD5000) [6] to grasp
+useful context knowledge of fMRI data. However, due to the varied lengths of
+flattened 1-D fMRI voxels across individuals, only a single model can be trained
+per subject for subsequent image decoding. Recently, Qian et al. [31] present a
+large-scale transformer-based fMRI autoencoder using the UK Biobank dataset
+(UKB) [25], transforming individual native-space fMRI signals into unified 2D
+brain activation images for multi-individual brain modeling in a large-scale la-
+tent space. Different from previous works [7, 31] learn an individual-specific
+fMRI-to-image decoder, our NeuroPictor shows that leveraging the pretrain-
+ing on multiple-individual fMRI-image pairs, can actually significantly improve
+the fMRI-to-image decoding of one individual. Concurrent work [39] also aims to
+develop a shared-subject fMRI-to-image model. Different from their approach,
+which uses subject-specific ridge regression to map individuals’ fMRI data into a
+common space, our method directly transforms native-space fMRI signals from
+any individual into unified 2D activation images. This eliminates the need for
+subject-specific encoding modules.
+3
+Method
+Overview.
+The framework of NeuroPictor is illustrated in Fig. 3. NeuroPictor
+is trained by three steps of fMRI calibrated-encoding, multi-subject pre-training
+and single-subject refining for fMRI-to-image decoding.
+i) In the fMRI calibrated-encoding stage, a universal latent fMRI space is learned
+to represent fMRI signals across multi-individuals, addressing the individual dif-
+ferences and data scarcity. This latent space is trained via a transformer-based
+auto-encoder for reconstructing the fMRI brain surface maps (Sec. 3.1).
+ii) In the multi-subject pre-training stage, we learn to extract high-level semantic
+features (Sec. 3.2) and low-level structure features (Sec. 1.5) from the above
+learned fMRI latent, and then use these features as conditions to guide the
+generation process of diffusion model. These components are integrated via a
+
+
+6
+J. Huo et al.
+Stable 
+Diffusion
+0z
+Tz
+FMRI 
+Input
+GT Image
+Reconstruction
+Add Noise
+sem
+F
+Training Only
+FMRI 
+Reconstruction
+fMRI 
+Encoder
+l
+F
+fMRI 
+Decoder
+High-Level 
+Guiding Network 
+Low-Level Manipulation 
+Network
+fMRI Representation 
+MSE
+High-Level 
+Guiding 
+Low-Level 
+Manipulation
+Fig. 3: Our NeuroPictor framework is trained in three steps for fMRI-to-image decod-
+ing. i) the fMRI calibrated-encoding stage, which establishes a universal latent fMRI
+space across multiple individuals; ii) the fMRI-to-image multi-subject pre-training
+stage, which achieves multi-level modulation through perceptual learning. iii) the
+fMRI-to-image single-subject refining stage, using the same strategy in step ii but
+focuses on refinement on particular subject.
+unified model to directly train on fMRI-to-Image decoding task on multi-subject
+fMRI-image pairs.
+iii) For the particular single-subject, we use the same training strategy as in
+step ii but focus on the single subject to refine our NeuroPictor.
+3.1
+fMRI Encoder
+Inspired by the pre-processing of fMRI-PTE [31], we transform individual fMRI
+signals into unified 2D brain activation images, resulting in a 1-channel image S
+of size 256×256. This process unifies the fMRI representation across different in-
+dividuals and thus enables training over multiple individuals to prevent missing
+signals of different individuals. However, fMRI-PTE [31] compresses fMRI signals
+using VQ-GAN, contrary to our goal of learning a universal latent representa-
+tion without compression. Instead, we directly use the masked auto-encoder to
+reconstruct the fMRI surface map. In contrast to the random masking strategy
+of MAE, we mask all the patches in the latent space and introduce an addi-
+tional guide token along with masked tokens to reconstruct the surface map.
+This forces the MAE learns to preserve all the information of fMRI signals in
+the guide token, which is beneficial to learn a compressed and universal fMRI
+latent. We train the autoencoder on the UKB dataset [25] learning a universal
+fMRI latent space capable of encoding information from different individuals.
+After training, we discard the decoder and utilize the encoder E(·) to convert
+the fMRI surface map into latent representation, described by:
+  \ bm {S}^r = \operatorname {E}(S), 
+(1)
+
+
+NeuroPictor
+7
+High-Level Guiding Network
+CLIP Text 
+Feature
+Caption: 
+Landscape 
+of river and 
+mountains
+CLIP 
+Encoder
+fMRI 
+Representation 
+FMRI-to-Text 
+Encoder
+Auxiliary 
+Encoder
+Sem
+txt
+F
+⊕
+au
+F
+sem
+F
+(a) High-Level Guiding Network.
+Low-Level Manipulation Network
+…
+Encoder Block
+Conv
+Encoder Block
+Conv
+…
+Conv1d
+MLP
+⊕
+Tz
+fMRI 
+Representation 
+sem
+F
+l
+F
+(b) Low-Level Manipulation Network.
+Fig. 4: Framework of our High-Level Guiding Network and Low-Level Manipulation
+Network.
+where Sr ∈RLr×dr, Lr and dr represent the number of tokens and feature
+dimensions, respectively. Sr serving as the representation of fMRI data in the
+latent space. This fMRI latent is used to derive subsequent high-level semantic
+and low-level structural features. Please refer to Supplementary for more details.
+3.2
+High-Level Semantic Feature Learning
+The vanilla SD model uses text prompts to generate images aligned with the
+given text. During the text condition stage, it utilizes a fixed CLIP encoder
+to encode the text prompts as F txt ∈RLT ×dT . These prompts then guide the
+cross-attention layers in image generation. To maximize the potential of the high-
+level adapted cross-attention layers, we suggest substituting text conditions with
+high-level semantic fMRI features.
+To fully upscale SD as a fMRI-to-image model, we replace the text encoder
+with a semantic feature learned from fMRI signals. Using the encoded fMRI
+feature Sr ∈RLr×dr, we design a high-level guiding network to connect the
+fMRI latent space and text condition space. Illustrated in Fig. 4, the high-level
+guiding network processes fMRI representations through two parallel branches:
+the fMRI-to-text encoder aligns fMRI signals with CLIP Text features F txt of
+image captions, while the auxiliary encoder provides additional semantic infor-
+mation to compensate for inaccuracies in the fMRI-to-text encoder and capture
+rich semantic details from images not explicitly described in captions.
+In the fMRI-to-text encoder, two 1-D convolution layers are used to down-
+sample the token number Lr of fMRI representation Sr ∈RLr×dr. Subsequently,
+MLP is employed to project it into text condition space:
+ 
+ \bm  {\Tilde {F}}^{txt} = \operatorname {E}_{txt}(\bm {S}^r), 
+(2)
+where ˜
+F txt ∈RLT ×dT is used to estimate the CLIP text feature of the ground
+truth image caption and Etxt is the fMRI-to-text encoder we introduced.
+To further enforce the learned feature ˜
+F txt aligned with text condition, we
+use the caption of the original image to optimize it. Specifically, a frozen CLIP
+
+
+8
+J. Huo et al.
+text encoder is used to exact text feature F txt ∈RLT ×dT as the ground truth
+text condition. And we use mean square error as the semantic loss to optimize
+it, which can be formulated as:
+  \m a
+t
+hc
+al
+ 
+{L}
+_{ sem
+} =  \
+f rac
+ {1 }{
+L_T} \sum _{i=1}^{L_T} \| \bm {F}^{txt}_{(i)} - \bm {\Tilde {F}}^{txt}_{(i)} \|_2^2, 
+(3)
+where F txt
+(i) and ˜
+F txt
+(i) represents the i-th token feature of F txt and ˜
+F txt, respec-
+tively.
+However, directly using the hard-mapped feature ˜
+F txt is not optimal. To
+address inaccurate semantic information learned in the fMRI-to-text branch, we
+introduce an auxiliary encoder to obtain an auxiliary semantic code F au. The
+architecture of the auxiliary encoder resembles that of the fMRI-to-text encoder,
+with the addition of a 1D zero convolutional layer in the final layer to initialize
+F au as a zero tensor. This auxiliary semantic code is then residually added to
+the text code, resulting in the semantic representation F sem.
+  \b m  
+{ F}^ { s em} = \bm {\Tilde {F}}^{txt} + \bm {F}^{au}. 
+(4)
+This adapted semantic feature F sem is then fed into SD to guide the cross-
+attention layers.
+3.3
+Low-Level Manipulation Network
+While learning general semantic information by mapping fMRI signals into a
+textual condition space is feasible, bridging the gap between fMRI and intricate
+images, rich in low-level details, poses challenges. To enhance low-level structure
+guidance, we introduce a Low-Level Manipulation Network (LLMN). This net-
+work injects low-level fMRI conditions by directly manipulating feature maps in
+the SD’s U-net, adapting the generative model to fMRI signals.
+Our LLMN consists of two components: a feature transformation module to
+convert fMRI representation to SD latent space, and a manipulator to incremen-
+tally trained to manipulate the SD latent.
+Feature Transformation. Given an image of size H × W × 3, Stable Diffusion
+apply an Autoencoder similar to VQGAN [11] to convert the pixel-space image
+into latent space as z0 ∈Rc×h×w. Then, a U-net [35] is used to progressively
+denoise images in the latent space.
+To directly manipulate feature maps in SD’s U-net, we introduce a fea-
+ture transformation technique that simultaneously performs channel-wise and
+dimensional-wise feature learning on fMRI embeddings 2. This connects fMRI
+representation learning with feature map learning, facilitating the subsequent
+manipulation process. Specifically, we employ two layers of 1D convolution to
+handle channel-wise correlations of fMRI embeddings and the MLP to conduct
+2 We use the terms "channel" and "dimension" to refer to the second and third di-
+mensions of the fMRI latent tensor.
+
+
+NeuroPictor
+9
+dimensional-wise feature learning. Finally, we use a reshape operation to form a
+feature map F l
+0 ∈Rc×h×w.
+  
+\ b m {F}^{l}_0= \operatorname {E}_{ft}(\bm {S}^r). 
+(5)
+The feature map F l
+0 is then fed into the subsequent U-net encoder blocks, acting
+as condition controlling the generation process.
+Low-Level Manipulation. To regulate the generation results with fine-grained
+low-level details, inspired by [50], we incrementally fine-tune the SD to improve
+the coherence between fMRI signals and visual stimulus. Utilizing a residual
+connection network, we effectively bridge the gap between fMRI representations
+and real natural images. Specifically, we incrementally manipulate the blocks of
+SD U-Net by adding low-level fMRI conditions within the proposed manipulation
+network. As depicted in Fig. 3, our manipulation network additionally take as
+inputs the feature map F l
+0 converted from the fMRI signal. Then, to manipulate
+the SD latent in a fine-grained manner. We utilize a series of transformer layers
+to manipulate different blocks of SD. Denoted as EU, this series of feature maps
+are produced by:
+  \ bm { F
+}^{l}=\operatorname {E_{U}}(\bm {F}^{l}_0), 
+(6)
+where F l = {F l
+(i)|i = 1, · · · , 13} and F l
+(i) is the i-th feature map produced by
+i-th encoder block.
+These feature maps are passed into zero convolution layers and residually
+added with the outputs of the middle block and decoder blocks of locked SD
+branch as,
+ 
+ \ l abe l  {eq n:control} \tilde {\bm {F}^{l}}=\bm {F}_{sd} + \alpha \mathcal {Z}(\bm {F}^{l}), 
+(7)
+where Z represent the zero convolution layer, Fsd represent the latent codes in
+SD U-net, α is a hyperparameters that balance the high-level semantic guidance
+with low-level detail manipulation. In this way, the feature maps in SD U-net
+is updated. We pass the feature map ˜
+F l into the subsequent layers of locked
+SD model to control the generation process. As a result, with the aid of the SD
+decoder, we obtain the final reconstructed image corresponding to specific fMRI
+signals. This incremental fine-tuning strategy is more efficient and stable than
+fully fine-tuning the SD.
+3.4
+Training and Inference
+Training Objectives. During the training process, our NeuroPictor takes fMRI-
+image pairs as inputs. The input natural image X of size 512×512 is firstly com-
+pressed into latent space as z0 ∈R64×64×4. Then, the diffusion process produces
+a noisy version zt of z0 by progressively adding noise for t time steps to the ini-
+tial feature z0. In the denoising stage, we use a frozen U-Net in Stable Diffusion
+and a trainable LLMN to jointly predict a denoised variant of the noisy input
+zt, conditioning on time step t, semantic condition F sem, and a low-level feature
+map F l converted from the fMRI representaion Sr. The learning objective of
+the latent denoising stage can be formulated as:
+  \m a thcal {L}_{dif} =
+ 
+\m a thbb { E} _{\ b m {z}_0
+,
+ 
+\bm {t}, \bm {S}^r, \epsilon \sim \mathcal {N}(0, 1) }\Big [ \Vert \epsilon - \epsilon _\theta (\bm {z}_{t}, \bm {t}, \bm {S}^r, \bm {F}^{sem})) \Vert _{2}^{2}\Big ], \label {eq:difloss} 
+(8)
+
+
+10
+J. Huo et al.
+where ϵθ represent the the LLMN. For simplify, we do not include the parameters
+of fMRI encoder E and semantic mapper ET in Eq. (8). But these models are
+all trainable, and the parameters will be optimized with backpropagation of the
+gradients of Sr and F sem.
+We combine diffusion loss with semantic loss (Sec. 3.2) to guide the training
+process. The final objective function is:
+  \lab e l {eq:overloss} \mathcal {L}=\mathcal {L}_{dif} + \lambda \mathcal {L}_{sem}, 
+(9)
+where λ denotes the loss weight to balance both terms.
+Training Strategy. Benefiting from the unified fMRI representation in Sec. 3.1,
+NeuroPictor can be trained using fMRI-image pairs from different individuals.
+Thus, we split the training into three stages: i) fMRI calibrated-encoding: We pre-
+train the calibrated-encoder to enable the cross-subject fMRI latent space; ii)
+Multi-subject pre-training: During pretraining, the Stable Diffusion branch and
+LLMN are initialized with Stable Diffusion v2.1 trained on a large-scale dataset.
+We jointly train the full model, excluding the auxiliary encoder, using about
+67,000 fMRI-image pairs from 8 subjects in the Natural Scenes Dataset [1] for
+pretraining, conducting 100k iterations to obtain a generalized fMRI-to-image
+generation model for these 8 subjects. iii) single-individual refining: for better
+modeling individually independent perception patterns, we fine-tune the network
+for an additional 60k iterations.
+Inference. To maintain visual consistency, we balance high-level semantic guid-
+ance and low-level detail manipulation using a control scale instead of integrating
+them too faithfully. Essentally, focusing too much on high-level aspects can result
+in lost image detail, while prioritizing low-level features may impact the seman-
+tic processing abilities of the SD model, causing generated images to prioritize
+structural accuracy over semantic consistency. Thus in the inference stage, we
+can adjust control scale α to weight the SD output and LLMN output in Eq. (7).
+We show how control scale influence the generation process in Fig. 1. As the con-
+trol scale enlarges from left to right, the decoded images gradually achieve the
+reconstruction of visual stimuli, progressing from high-level semantics only to
+high-level semantics and low-level structures consistently.
+4
+Experiments
+4.1
+Experimental setup
+Dataset. We use Natural Scenes Dataset (NSD) [1] for both training and eval-
+uation. NSD contains visual image stimulus and corresponding fMRI recordings
+of 8 subjects, with each subject viewing 8,000-9,000 images. The original images
+are collected from MS-COCO dataset [24], which are consisted of complex nat-
+ural images. Following [28], we use the corresponding captions of the images in
+COCO dataset for training. For both training and evaluation, we average three
+trials of fMRI signal of the same images. Previous works only use the data of
+subjects 1, 2, 5 or 7 to train a model for each subject. Because these subjects
+
+
+NeuroPictor
+11
+Ours
+GT
+Mindeye
+Brain-Diff
+Ours
+GT
+Mindeye
+Brain-Diff
+Fig. 5: Qualitative comparision of our NeuroPictor and previous state-of-the-art meth-
+ods. Compared with other methods, our NeuroPictor achieves both high-level semantics
+and low-level structures consistency.
+complete all scanning sessions, sharing the same 982 images as testing data. As
+our unified fMRI representations enable training across different person, we use
+all training data of 8 subjects to conduct a pretraining for modeling shared ac-
+tivity of all subjects. This scales up our training data to about 67k pairs. Then,
+following the setup of previous work, we finetune our NeuroPictor using the
+train split of subject 1, 2, 5 and 7, respectively, and evaluate our model using
+the shared test split.
+Evaluation Metrics. We follow the metrics of Mindeye [38] to evaluate both
+high-level and low-level consistency. On the low-level aspect, we use pixelwise
+correlation, Structural Similarity Index Metric (SSIM) [47], AlexNet(2), and
+AlexNet(5). High-level metrics are calculated by extracting features using spe-
+cific networks, including EffNet-B [45], SwAV [5], Inception [43], and CLIP [32].
+Please refer to Supplementary for more details.
+Implementation Details. The pretraining experiments are conducted using
+6 NVIDIA RTX A6000 GPUs, with a batch size set to 96. During this stage,
+we exclude the auxiliary encoder and semantic loss to learn a base model. The
+entire network is trained for 100,000 iterations to achieve convergence. In the
+finetuning stage, 2 NVIDIA RTX A6000 GPUs are employed to finetune the
+
+
+12
+J. Huo et al.
+Table 1: Quantitative comparison of within-subject brain decoding of our NeuroPictor
+and the previous state-of-the-art mothods on Natural Scenes Dataset.
+Method
+Low-Level
+High-Level
+PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+Lin et al. [23]
+−
+−
+−
+−
+78.2%
+−
+−
+−
+Takagi... [44]
+−
+−
+83.0%
+83.0%
+76.0%
+77.0%
+−
+−
+Gu et al. [16]
+.150
+.325
+−
+−
+−
+−
+.862
+.465
+Brain-Cap [13]
+.353
+.327
+89.0%
+97.0%
+84.0%
+90.0%
+−
+−
+Brain-Diff [28]
+.254
+.356
+94.2%
+96.2%
+87.2%
+91.5%
+.775
+.423
+MindEye [38]
+.309
+.323
+94.7%
+97.8%
+93.8%
+94.1%
+.645
+.367
+NeuroPictor (w/o ft)
+.141
+.349
+91.4%
+95.7%
+88.3%
+88.9%
+.722
+.417
+NeuroPictor
+.229
+.375
+96.5%
+98.4%
+94.5%
+93.3%
+.639
+.350
+Table 2: Ablation study on Subject-1. "Random init" means the fMRI Encoder starts
+without pre-trained weights from Sec. 3.1. Instead, it’s trained from scratch using a
+standard Xavier uniform initialization. "Frozen" means the fMRI Encoder remains
+unchanged during fMRI-to-image training. "Full" initializes the fMRI Encoder with
+pre-trained weights, making it trainable during fMRI-to-image training. "Multi Pret."
+indicates whether fMRI-to-image multi-subject pre-training (subjects 1-8) is done. If
+not, the entire network is trained directly on Subject-1 data.
+Method
+Low-Level
+High-Level
+Model
+fMRI Enc. Multi Pret. PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+NeuroPictor
+random init
+.128
+.323
+91.2%
+95.1%
+84.9%
+86.0%
+.769
+.448
+NeuroPictor
+[CLS]
+.139
+.313
+90.8%
+94.2%
+87.9%
+87.6%
+.736
+.437
+NeuroPictor
+frozen
+.220
+.342
+97.5%
+98.8%
+93.8%
+92.8%
+.657
+.360
+NeuroPictor
+full
+.265
+.368
+98.2%
+99.1%
+94.7%
+93.4%
+.641
+.342
+W/o Finetune
+full
+✓
+.167
+.350
+95.1%
+97.7%
+89.1%
+90.7%
+.698
+.399
+W/o LLMN
+full
+✓
+.111
+.307
+75.4%
+88.4%
+89.4%
+89.9%
+.746
+.460
+W/o Au. Enc.
+full
+✓
+.221
+.276
+91.1%
+97.5%
+94.5%
+91.0%
+.668
+.387
+W/o Lsem
+full
+✓
+.255
+.373
+98.0%
+98.9%
+94.3%
+93.0%
+.647
+.350
+NeuroPictor
+full
+✓
+.277
+.385
+98.8%
+99.3%
+96.2%
+94.5%
+.619
+.334
+model for each subject, spanning 60,000 iterations. The batch size for finetuning
+is set to 32. In Eq. (9), the parameter λ is set to 0.1. Additionally, we enables
+NeuroPictor to adapt to Classifier-Free Guidance [20] by randomly replacing 5%
+of the semantic features with unconditional CLIP embeddings corresponding to
+empty characters in the end of each stage. During evaluation, the unconditional
+guidance scale is set to 5.0.
+4.2
+Main Results
+In this section, we comprehensively evaluate NeuroPictor against existing meth-
+ods, using both quantitative and qualitative comparisons.
+Competitors. We use the same test set as [38] and follow the values reported
+in [38]. Additionally, we include a new method [13] for comparision, which is also
+trained and tested on NSD.
+Quantitative results. The results of quantitative comparison of our NeuroP-
+ictor and previous state-of-the-art methods are displayed in Tab. 1. We generate
+
+
+NeuroPictor
+13
+one sample for each subject and calculate the low-level and high-level metrics
+following the official code of [38]. We average the metrics across 4 subjects (i.e.
+Subject-1, 2, 5 and 7) and report both the pre-trained (i.e. “w/o ft” in line 7 of
+Tab. 1) and fine-tuned results. The results show that our NeuroPictor outper-
+forms other methods in six out of eight metrics, demonstrating that our recon-
+struction results can maintain semantic consistency while preserving low-level
+details present in the original images. We find that our method falls behind in
+pixel correlation metrics compared to three other models. This could potentially
+be attributed to the fact that other methods employ an image-to-image diffu-
+sion model and use a blurred image produced by VAE as an initialization. As
+reported in [13,33], such a blurred image inherently exhibits higher pixel corre-
+lation than finely reconstructed results. Furthermore, our non-finetuned model
+achieves results comparable to other models, except for Mindeye. This validates
+that our training on multi-individual data effectively captures shared perceptual
+features across different individuals.
+Qualitative results. We conduct qualitative comparisons with previous state-
+of-the-art works, namely Mindeye and Brain-diffuser, through visualization. We
+utilize the official codes to generate images for comparison. As shown in Fig. 5,
+our reconstruction results exhibit high visual consistency with the ground truth
+images, particularly in capturing some of the underlying details such as object
+structures, positions, and human poses. For instance, the appearance and poses
+of black motorcycles and trains, the positions of animals, as well as the gesture
+of people holding skateboards or engaged in throwing actions. We successfully
+reconstruct many challenging cases, such as a red "STOP" sign (row 1), ani-
+mals like zebras and giraffes showing only their heads (row 3), and cats peeking
+out from under blankets or through door gaps (row 4). Additionally, our Neu-
+roPictor successfully decodes the white borders (row 6) in visual stimuli, while
+other methods fails, highlighting the effectiveness of our direct low-level ma-
+nipulation. Our reconstruction results maintain certain local matches with the
+original images, attributed to our end-to-end training fashion and pretraining
+on fMRI-image pairs.
+4.3
+Ablation Study
+In this section, we perform ablation studies to evaluate the effects of our Neu-
+roPictor framework techniques, focusing on Subject-1 for efficiency. Results are
+shown in Tab. 2, with additional discussion on failure cases in the Supplementary.
+Ablation of fMRI Encoder. We investigate the fMRI encoder’s pretrain-
+ing and feature selection impacts. Compared with training from scratch us-
+ing a Xavier uniform initialization, pretraining an autoencoder on the UKB
+dataset before starting fMRI-to-image reconstruction significantly enhances per-
+formance, as shown in Tab. 2. Furthermore, fine-tuning the pretrained fMRI
+encoder, instead of freezing it during the fMRI-to-image stage, leads to im-
+provements in all metrics. Switching the fMRI encoder’s output from a high-
+dimensional feature to a [CLS] token results in reduced reconstruction quality.
+
+
+14
+J. Huo et al.
+GT Image
+fMRI-to-Imge Reconstruction
+Semantic
+Fine-Gained
+Fig. 6: Interpolating the control scale between 0 and 1 transitions the reconstructed
+image from semantic consistency to fine-grained control.
+Ablation of Multi-Subject Pre-training. We validate the impact of both our
+pretraining and finetuning in fMRI-to-image reconstruction stage by removing
+one at a time. The results indicate that pretraining on 8 subjects and finetuning
+on a single subject simultaneously improve the model’s performance in both
+high-level and low-level aspects.
+Ablation of High-Level Guiding Network and Low-Level Manipulation
+Network. Testing the High-Level Guiding Network without semantic loss shows
+its importance for achieving high-level consistency in reconstructions. Removing
+the auxiliary encoder and relying solely on the fMRI-to-Text Encoder for align-
+ment with CLIP text features significantly degrades performance, highlighting
+the challenge of bridging semantic gaps between text captions and visual stimuli.
+Additionally, the presence or absence of the Low-Level Manipulation Network
+(LLMN) indicates its primary function in refining details, while also secondarily
+aiding in the preservation of high-level semantic coherence. As shown in Fig. 6,
+we also visualize generated results with a control scale varying between 0 and 1
+to confirm the efficacy of both low-level and high-level pipelines in NeuroPictor.
+5
+Conclusions
+In conclusion, this paper introduces NeuroPictor, a novel framework that tackle
+fMRI-to-image task by directly modulating the generation process of diffusion
+models using fMRI signals. Unlike previous approaches that focus on associat-
+ing fMRI signals with pre-trained diffusion model conditions, NeuroPictor offers
+detailed control over image creation by dividing the fMRI-to-image process into
+three key steps: fMRI calibrated-encoding, fMRI-to-image single-subject refining
+and fMRI-to-image single-subject refining. NeuroPictor learns to exact high-level
+
+
+NeuroPictor
+15
+semantic features from fMRI signals and incrementally fine-tunes the diffusion
+model with a low-level manipulation network, providing precise structural in-
+structions. Through training on over 60,000 fMRI-image pairs from diverse indi-
+viduals, our model demonstrates superior fMRI-to-image decoding capabilities,
+particularly in within-subject scenarios.
+Acknowledgements
+Jingyang Huo, Yun Wang and Jianfeng Feng are with Institute of Science and
+Technology for Brain-inspired Intelligence, Fudan University. Chong Li is with
+School of Computer Science, Fudan University. Yikai Wang, Xuelin Qian and
+Yanwei Fu are with School of Data Science, Fudan University. Xuelin Qian is now
+with Northwestern Polytechnical University. The computations in this research
+were performed using the CFFF platform of Fudan University.
+References
+1. Allen, E.J., St-Yves, G., Wu, Y., Breedlove, J.L., Prince, J.S., Dowdle, L.T., Nau,
+M., Caron, B., Pestilli, F., Charest, I., et al.: A massive 7t fmri dataset to bridge
+cognitive neuroscience and artificial intelligence. Nature neuroscience 25(1), 116–
+126 (2022)
+2. Bar-Tal, O., Yariv, L., Lipman, Y., Dekel, T.: Multidiffusion: Fusing diffusion paths
+for controlled image generation (2023)
+3. Bashkirova, D., Lezama, J., Sohn, K., Saenko, K., Essa, I.: Masksketch: Unpaired
+structure-guided masked image generation. In: Proceedings of the IEEE/CVF Con-
+ference on Computer Vision and Pattern Recognition. pp. 1879–1889 (2023)
+4. Brooks, T., Holynski, A., Efros, A.A.: Instructpix2pix: Learning to follow image
+editing instructions. In: Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition. pp. 18392–18402 (2023)
+5. Caron, M., Misra, I., Mairal, J., Goyal, P., Bojanowski, P., Joulin, A.: Unsupervised
+learning of visual features by contrasting cluster assignments. Advances in neural
+information processing systems 33, 9912–9924 (2020)
+6. Chang, N., Pyles, J.A., Marcus, A., Gupta, A., Tarr, M.J., Aminoff, E.M.:
+Bold5000, a public fmri dataset while viewing 5000 visual images. Scientific data
+6(1), 49 (2019)
+7. Chen, Z., Qing, J., Xiang, T., Yue, W.L., Zhou, J.H.: Seeing beyond the brain: Con-
+ditional diffusion model with sparse masked modeling for vision decoding. arXiv
+preprint arXiv:2211.06956 (2022)
+8. Chen, Z., Qing, J., Xiang, T., Yue, W.L., Zhou, J.H.: Seeing beyond the brain:
+Conditional diffusion model with sparse masked modeling for vision decoding. In:
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recog-
+nition. pp. 22710–22720 (2023)
+9. Chen, Z., Qing, J., Zhou, J.H.: Cinematic mindscapes: High-quality video recon-
+struction from brain activity. arXiv preprint arXiv:2305.11675 (2023)
+10. Cox, D.D., Savoy, R.L.: Functional magnetic resonance imaging (fmri)“brain read-
+ing”: detecting and classifying distributed patterns of fmri activity in human visual
+cortex. Neuroimage 19(2), 261–270 (2003)
+
+
+16
+J. Huo et al.
+11. Esser, P., Rombach, R., Ommer, B.: Taming transformers for high-resolution im-
+age synthesis. In: IEEE Conference on Computer Vision and Pattern Recognition,
+CVPR 2021, virtual, June 19-25, 2021. pp. 12873–12883. Computer Vision Foun-
+dation / IEEE (2021)
+12. Fang, T., Zheng, Q., Pan, G.: Alleviating the semantic gap for generalized fmri-
+to-image reconstruction. Advances in Neural Information Processing Systems 36
+(2024)
+13. Ferrante, M., Ozcelik, F., Boccato, T., VanRullen, R., Toschi, N.: Brain cap-
+tioning: Decoding human brain activity into images and text. arXiv preprint
+arXiv:2305.11560 (2023)
+14. Gal, R., Alaluf, Y., Atzmon, Y., Patashnik, O., Bermano, A.H., Chechik, G.,
+Cohen-Or, D.: An image is worth one word: Personalizing text-to-image gener-
+ation using textual inversion. arXiv preprint arXiv:2208.01618 (2022)
+15. Glover, G.H.: Overview of functional magnetic resonance imaging. Neurosurgery
+Clinics 22(2), 133–139 (2011)
+16. Gu, Z., Jamison, K., Kuceyeski, A., Sabuncu, M.: Decoding natural image stim-
+uli from fmri data with a surface-based convolutional network. arXiv preprint
+arXiv:2212.02409 (2022)
+17. Gu, Z., Jamison, K.W., Khosla, M., Allen, E.J., Wu, Y., St-Yves, G., Naselaris,
+T., Kay, K., Sabuncu, M.R., Kuceyeski, A.: Neurogen: activation optimized image
+synthesis for discovery neuroscience. NeuroImage 247, 118812 (2022)
+18. Haxby, J.V., Gobbini, M.I., Furey, M.L., Ishai, A., Schouten, J.L., Pietrini, P.: Dis-
+tributed and overlapping representations of faces and objects in ventral temporal
+cortex. Science 293(5539), 2425–2430 (2001)
+19. He, K., Chen, X., Xie, S., Li, Y., Dollár, P., Girshick, R.: Masked autoencoders are
+scalable vision learners. In: Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition. pp. 16000–16009 (2022)
+20. Ho,
+J.,
+Salimans,
+T.:
+Classifier-free
+diffusion
+guidance.
+arXiv
+preprint
+arXiv:2207.12598 (2022)
+21. Huang, L., Chen, D., Liu, Y., Shen, Y., Zhao, D., Zhou, J.: Composer: Cre-
+ative and controllable image synthesis with composable conditions. arXiv preprint
+arXiv:2302.09778 (2023)
+22. Kay, K.N., Naselaris, T., Prenger, R.J., Gallant, J.L.: Identifying natural images
+from human brain activity. Nature 452(7185), 352–355 (2008)
+23. Lin, S., Sprague, T., Singh, A.K.: Mind reader: Reconstructing complex images
+from brain activities. Advances in Neural Information Processing Systems 35,
+29624–29636 (2022)
+24. Lin, T.Y., Maire, M., Belongie, S., Hays, J., Perona, P., Ramanan, D., Dollár, P.,
+Zitnick, C.L.: Microsoft coco: Common objects in context. In: Computer Vision–
+ECCV 2014: 13th European Conference, Zurich, Switzerland, September 6-12,
+2014, Proceedings, Part V 13. pp. 740–755. Springer (2014)
+25. Miller, K.L., Alfaro-Almagro, F., Bangerter, N.K., Thomas, D.L., Yacoub, E., Xu,
+J., Bartsch, A.J., Jbabdi, S., Sotiropoulos, S.N., Andersson, J.L., et al.: Multimodal
+population brain imaging in the uk biobank prospective epidemiological study.
+Nature neuroscience 19(11), 1523–1536 (2016)
+26. Mou, C., Wang, X., Xie, L., Zhang, J., Qi, Z., Shan, Y., Qie, X.: T2i-adapter:
+Learning adapters to dig out more controllable ability for text-to-image diffusion
+models. arXiv preprint arXiv:2302.08453 (2023)
+27. Mozafari, M., Reddy, L., VanRullen, R.: Reconstructing natural scenes from fmri
+patterns using bigbigan. In: 2020 International Joint Conference on Neural Net-
+
+
+NeuroPictor
+17
+works, IJCNN 2020, Glasgow, United Kingdom, July 19-24, 2020. pp. 1–8. IEEE
+(2020)
+28. Ozcelik, F., VanRullen, R.: Brain-diffuser: Natural scene reconstruction from fmri
+signals using generative latent diffusion. arXiv preprint arXiv:2303.05334 (2023)
+29. Ozcelik, F., VanRullen, R.: Natural scene reconstruction from fmri signals using
+generative latent diffusion. Scientific Reports 13(1), 15666 (2023)
+30. Qian, X., Wang, Y., Fu, Y., Sun, X., Feng, J., Xue, X.: Joint fmri decoding and
+encoding with latent embedding alignment. arXiv preprint arXiv:2303.14730 (2023)
+31. Qian, X., Wang, Y., Huo, J., Feng, J., Fu, Y.: fmri-pte: A large-scale fmri pretrained
+transformer encoder for multi-subject brain activity decoding. arXiv preprint
+arXiv:2311.00342 (2023)
+32. Radford, A., Kim, J.W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G.,
+Askell, A., Mishkin, P., Clark, J., et al.: Learning transferable visual models from
+natural language supervision. In: International conference on machine learning. pp.
+8748–8763. PMLR (2021)
+33. Ren, Z., Li, J., Xue, X., Li, X., Yang, F., Jiao, Z., Gao, X.: Reconstructing seen im-
+age from brain activity by visually-guided cognitive representation and adversarial
+learning. NeuroImage 228, 117602 (2021)
+34. Rombach, R., Blattmann, A., Lorenz, D., Esser, P., Ommer, B.: High-resolution
+image synthesis with latent diffusion models. In: Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition. pp. 10684–10695 (2022)
+35. Ronneberger, O., Fischer, P., Brox, T.: U-net: Convolutional networks for biomed-
+ical image segmentation. In: Medical Image Computing and Computer-Assisted
+Intervention–MICCAI 2015: 18th International Conference, Munich, Germany, Oc-
+tober 5-9, 2015, Proceedings, Part III 18. pp. 234–241. Springer (2015)
+36. Ruiz, N., Li, Y., Jampani, V., Pritch, Y., Rubinstein, M., Aberman, K.: Dream-
+booth: Fine tuning text-to-image diffusion models for subject-driven generation.
+In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition. pp. 22500–22510 (2023)
+37. Schoenmakers, S., Barth, M., Heskes, T., Van Gerven, M.: Linear reconstruction
+of perceived images from human brain activity. NeuroImage 83, 951–961 (2013)
+38. Scotti, P.S., Banerjee, A., Goode, J., Shabalin, S., Nguyen, A., Cohen, E., Demp-
+ster, A.J., Verlinde, N., Yundler, E., Weisberg, D., et al.: Reconstructing the mind’s
+eye: fmri-to-image with contrastive learning and diffusion priors. arXiv preprint
+arXiv:2305.18274 (2023)
+39. Scotti, P.S., Tripathy, M., Villanueva, C.K.T., Kneeland, R., Chen, T., Narang,
+A., Santhirasegaran, C., Xu, J., Naselaris, T., Norman, K.A., et al.: Mindeye2:
+Shared-subject models enable fmri-to-image with 1 hour of data. arXiv preprint
+arXiv:2403.11207 (2024)
+40. Seung, H.S., Lee, D.D.: The manifold ways of perception. science 290(5500), 2268–
+2269 (2000)
+41. Shen, G., Horikawa, T., Majima, K., Kamitani, Y.: Deep image reconstruction
+from human brain activity. PLoS computational biology 15(1), e1006633 (2019)
+42. Song, J., Meng, C., Ermon, S.: Denoising diffusion implicit models. arXiv preprint
+arXiv:2010.02502 (2020)
+43. Szegedy, C., Vanhoucke, V., Ioffe, S., Shlens, J., Wojna, Z.: Rethinking the incep-
+tion architecture for computer vision. In: Proceedings of the IEEE conference on
+computer vision and pattern recognition. pp. 2818–2826 (2016)
+44. Takagi, Y., Nishimoto, S.: High-resolution image reconstruction with latent diffu-
+sion models from human brain activity. In: Proceedings of the IEEE/CVF Confer-
+ence on Computer Vision and Pattern Recognition. pp. 14453–14463 (2023)
+
+
+18
+J. Huo et al.
+45. Tan, M., Le, Q.: Efficientnet: Rethinking model scaling for convolutional neural
+networks. In: International conference on machine learning. pp. 6105–6114. PMLR
+(2019)
+46. Thirion, B., Duchesnay, E., Hubbard, E., Dubois, J., Poline, J.B., Lebihan, D.,
+Dehaene, S.: Inverse retinotopy: inferring the visual content of images from brain
+activation patterns. Neuroimage 33(4), 1104–1116 (2006)
+47. Wang, Z., Bovik, A.C., Sheikh, H.R., Simoncelli, E.P.: Image quality assessment:
+from error visibility to structural similarity. IEEE transactions on image processing
+13(4), 600–612 (2004)
+48. Xu, X., Wang, Z., Zhang, G., Wang, K., Shi, H.: Versatile diffusion: Text, im-
+ages and variations all in one diffusion model. In: Proceedings of the IEEE/CVF
+International Conference on Computer Vision. pp. 7754–7765 (2023)
+49. Zeng, B., Li, S., Liu, X., Gao, S., Jiang, X., Tang, X., Hu, Y., Liu, J., Zhang, B.:
+Controllable mind visual diffusion model. arXiv preprint arXiv:2305.10135 (2023)
+50. Zhang, L., Rao, A., Agrawala, M.: Adding conditional control to text-to-image
+diffusion models. In: Proceedings of the IEEE/CVF International Conference on
+Computer Vision. pp. 3836–3847 (2023)
+
+
+NeuroPictor
+19
+Supplementary Material
+1
+Implementation Details
+1.1
+Cortex used for fMRI decoding
+We use the same cortex as fMRI-PTE [31]. Specifically, early and higher VC
+RoIs selected from the HCP-MMP atlas in fsLR32K surface space are shown
+in Fig. 7, including “V1, V2, V3, V3A, V3B, V3CD, V4, LO1, LO2, LO3, PIT,
+V4t, V6, V6A, V7, V8, PH, FFC, IP0, MT, MST, FST, VVC, VMV1, VMV2,
+VMV3, PHA1, PHA2, PHA3”.
+1.2
+More Training Details
+For both pretraining and finetuning, we initially use the AdamW optimizer with
+a learning rate of 10−4 and a weight decay of 0.01. Additionally, to enable Neu-
+roPictor to adapt to Classifier-Free Guidance [20], we randomly replace 5% of the
+semantic features with unconditional CLIP embeddings corresponding to empty
+characters at the end of each stage. During the stage where we replace 5% of
+the semantic features, the learning rate is set to 10−5, with 12,000 iterations
+for multi-subject pretraining and 5,000 iterations for single-subject finetuning.
+Stable Diffusion v2.1 serves as the initialization for the SD branch.
+1.3
+Metric Details
+On the low level aspect, four metrics are introduced, including pixelwise correla-
+tion, Structural Similarity Index Metric (SSIM) [47], AlexNet(2) and AlexNet(5).
+Pixelwise correlation and SSIM are calculated by average the correlation distance
+of every paired grond truth image and reconstruction, while AlexNet(2) and
+AlexNet(5) represent the accuracy of two-way classification using the feature of
+the corresponding layers of AlexNet. High level metrics are calculated by extract-
+ing the feature using specific networks. Similarly, EffNet-B and SwAV is obtained
+by calculating the average distance of the features exacted by EfficientNet-B1 [45]
+and SwAV-ResNet50 [5]. The metric for Inception [43] and CLIP [32] represent
+the accuracy of two-way classification based on corresponding feature.
+1.4
+Details on fMRI Encoder
+In this section, we will provide a detailed explanation of the specific architecture
+and training strategy used to obtain the autoencoder for the fMRI encoder.
+Model Architectures. We employ an autoencoder structure [30], similar to
+MAE [19], for the reconstruction of fMRI surface maps S. Specifically, we process
+the original 256 × 256 fMRI surface map using a patch size of 16. Each patch is
+tokenized into a 1024-dimensional embedding. This embedding is then combined
+with positional encoding and passed through subsequent transformer blocks. For
+
+
+20
+J. Huo et al.
+V1
+V1
+V2
+V2
+V3
+V3
+V4
+V4
+V3
+A
+V3
+A
+V6
+V6
+V6A
+V6A
+IP0
+V7
+IP0
+VMV2
+V8
+PIT
+LO2
+LO1
+V3CD V3B
+PHA1
+PHA2
+PHA3
+VVC
+FFC
+PH
+FST
+MST
+MT
+LO3
+V4t
+PHA1
+PHA2
+PHA3
+VVC
+VMV1
+VMV3
+VMV1
+VMV3
+VMV2
+PIT
+PH
+FST
+MST
+MT
+LO3
+FFC
+V8
+V7
+V3B
+V3CD LO1
+LO2
+V4t
+Fig. 7: Visualization of VC RoIs.
+the transformer, we set the depth to 24 and the number of heads to 16. After layer
+normalization, the output features, denoted as Sr ∈R257×1024, are obtained as
+the fMRI representation used in our study.
+Next, we introduce the architecture of the decoder. We take the [CLS] token
+from Sr and pass it through a fully connected layer, replacing other patch tokens
+with a learnable guide token. Then, these features are passed into the transformer
+blocks of the decoder, which possess a structure symmetric to that of the encoder,
+with a depth of 24 and 16 heads. Finally, a fully connected layer followed by an
+“unpatchify" operation is utilized to map the latent features to the pixel space of
+the original fMRI surface map. We denote the reconstructed fMRI surface map
+as ˜S.
+Training. The training objective of this autoencoder is to reconstruct the orig-
+inal fMRI surface map. We use mean squared error (MSE) as the measure for
+the reconstruction loss, formulated as:
+  \l a be l  {eq
+:rec} \mathcal {L}_{\text {rec}} = | S - \tilde {S} |_2^{2}, 
+(10)
+where S and ˜S represent the ground truth and predicted fMRI surface map.
+In fMRI calibrated-encoding stage, we train the autoencoder on the UKB
+dataset [25] for 120K iterations with 8 NVIDIA A100 GPUs. Following [31],
+we use rest-fMRI of 40k subjects of UKB dataset to tackle multi-individual pre-
+training task. The batch size is set to 384, and the AdamW optimizer is used with
+a linear learning rate schedule. The learning rate is initialized to 0.0005. With
+this training on a large-scale dataset, we learn a universal fMRI latent space
+capable of encoding information from different individuals. Then we remove the
+decoder part and use the encoder to map the original fMRI signal into latent
+representations for downstream fMRI-to-image reconstruction.
+1.5
+Details on Low-Level Manipulation Network
+We design a Low-Level Manipulation Network (LLMN) to manipulate the SD
+latent. This network comprises a feature transformation module and a manipu-
+lator.
+
+
+NeuroPictor
+21
+To start, the fMRI representation obtained in Sec. 1.4 serves as input for
+the LLMN. Initially, we introduce a feature transformation technique that links
+fMRI representation learning with feature map learning. This involves employing
+two layers of 1D convolution to address the channel-wise correlation of fMRI em-
+beddings and using an MLP for dimensional-wise feature learning. Subsequently,
+a reshape operation is applied to create a feature map F l
+0 ∈R320×64×64. Next, we
+set up a trainable copy of the U-Net encoder in SD as a manipulator. This manip-
+ulator mirrors the architecture of the SD U-Net encoder, comprising 12 encoder
+blocks and 1 middle block that includes ResBlock, DownSample, and Spatial-
+Transformer. The manipulator primarily takes the feature map F l
+0 derived from
+the fMRI signal as input. Additionally, we utilize the semantic representation
+F sem as input for the SpatialTransformer to execute a cross-attention operation
+with the feature map. The feature map F l
+0 is added residually with the noisy
+latent zT and then inputted into the subsequent 13 encoder blocks to generate
+a series of feature maps F l = {F l
+(i)|i = 1, · · · , 13}. Finally, these feature maps
+are subsequently fed into zero convolution layers and added residually with the
+outputs of the middle block and decoder blocks of the locked SD branch. This
+process updates the feature maps in the SD U-Net, facilitating direct low-level
+manipulation in the generation process using fMRI signals.
+Different from [50], which process specific images as condition and utilize
+conv2d operations to handle spatial information, we simultaneously conduct
+channel-wise and dimensional-wise feature learning on fMRI representations.
+This approach bridges the gap between fMRI representation learning and feature
+map learning, capturing rich information embedded in fMRI representations.
+Furthermore, we finetune the full model by jointly training high-level guiding
+networks and low-level manipulation networks without detaching the gradient
+between them, enhancing the ability of semantic features to guide both SD and
+LLMN effectively.
+2
+Supplementary Quantitative Results
+In this section, we will provide the quantitative results for each participant and
+include additional ablation experiments to validate the effectiveness of compo-
+nents in the model and the training process.
+2.1
+Subject-Specific Results
+We present the quantitative results of the fMRI-to-image single-subject refining
+stage for subjects 1, 2, 5, and 7 in Tab. 3. The metrics for Subject-7 are slightly
+inferior to those of other participants, consistent with previous findings [38].
+This difference could be attributed to individual variations in brain activity or
+subjective factors during data collection.
+Additionally, we report the quantitative results of all subjects in fMRI-to-
+image cross-subject pre-training stage in Tab. 4 and Tab. 5, including the the
+average metrics of subjects 1, 2, 5, and 7 and the average metrics of subjects
+1-8.
+
+
+22
+J. Huo et al.
+Table 3: Results for Subject-1, 2, 5 and 7 in fMRI-to-image single-subject refining
+stage.
+Subject Method
+Low-Level
+High-Level
+PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+Sub-1 Mingeye
+0.390
+0.337
+97.4%
+98.7%
+94.5%
+94.6%
+0.630
+0.358
+OURS
+0.277
+0.385
+98.8%
+99.3%
+96.2%
+94.5%
+0.619
+0.334
+Sub-2 Mingeye
+0.318
+0.327
+95.8%
+98.1%
+93.2%
+93.7%
+0.656
+0.368
+OURS
+0.245
+0.383
+98.7%
+99.0%
+94.4%
+93.2%
+0.638
+0.348
+Sub-5 Mingeye
+0.265
+0.311
+93.2%
+97.8%
+94.9%
+94.9%
+0.628
+0.353
+OURS
+0.197
+0.366
+94.2%
+98.2%
+94.9%
+94.3%
+0.627
+0.343
+Sub-7 Mingeye
+0.261
+0.316
+92.3%
+96.6%
+92.4%
+93.0%
+0.666
+0.387
+OURS
+0.198
+0.366
+94.5%
+97.0%
+92.5%
+91.4%
+0.671
+0.375
+Table 4: Results for all subjects in the fMRI-to-image cross-subject pre-training stage,
+trained by replacing 5% of the semantic features with unconditional CLIP embeddings
+corresponding to empty tokens.
+Subject
+Low-Level
+High-Level
+PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+Sub-1
+0.167
+0.350
+95.1%
+97.7%
+89.1%
+90.7%
+0.698
+0.399
+Sub-2
+0.154
+0.350
+94.1%
+96.8%
+88.8%
+88.2%
+0.721
+0.412
+Sub-3
+0.115
+0.342
+88.3%
+93.7%
+85.6%
+86.2%
+0.760
+0.447
+Sub-4
+0.105
+0.346
+86.3%
+92.8%
+84.5%
+86.1%
+0.758
+0.448
+Sub-5
+0.124
+0.346
+87.8%
+95.2%
+89.9%
+90.5%
+0.713
+0.414
+Sub-6
+0.108
+0.343
+86.1%
+92.4%
+86.0%
+88.0%
+0.751
+0.439
+Sub-7
+0.117
+0.350
+88.6%
+93.1%
+85.4%
+86.2%
+0.757
+0.443
+Sub-8
+0.096
+0.345
+84.6%
+90.4%
+80.3%
+82.1%
+0.798
+0.479
+Avg (Sub 1,2,5 & 7)
+0.141
+0.349
+91.4%
+95.7%
+88.3%
+88.9%
+0.722
+0.417
+Avg (Sub 1-8)
+0.123
+0.347
+88.9%
+94.0%
+86.2%
+87.3%
+0.744
+0.435
+2.2
+Ablation Study
+To assess the efficacy of both the hyperparameter λ and the different variants of
+the Low-Level Manipulation Network in our model, we shows the findings from
+our ablation studies in Tab. 6 and Tab. 7.
+Impact of hyperparameter λ. We vary λ to assess its impact on the results.
+For efficiency, we train for 30,000 iterations during single-person fine-tuning with-
+out full convergence. Tab. 6 shows that λ = 0.1 yields the best results across
+nearly all metrics. Values of λ within 0.05 to 0.15 demonstrate robustness. How-
+ever, excessively high values of λ (0.5) notably degrade the low-level performance
+of the generated results, as an overly weighted semantic loss compromises the
+low-level manipulation network’s performance.
+Low-Level Manipulation Network. As shown in Tab. 7, we evaluate the ef-
+fectiveness of the Low-Level Manipulation Network from two aspects. On the one
+
+
+NeuroPictor
+23
+Table 5: Results for all subjects in the fMRI-to-image cross-subject pre-training stage
+without using unconditional CLIP embeddings to replace the semantic features.
+Subject
+Low-Level
+High-Level
+PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+Sub-1
+0.168
+0.346
+94.5%
+96.8%
+87.7%
+89.0%
+0.726
+0.419
+Sub-2
+0.138
+0.340
+93.9%
+96.4%
+85.8%
+87.0%
+0.752
+0.438
+Sub-3
+0.103
+0.327
+86.6%
+92.1%
+83.7%
+84.9%
+0.776
+0.461
+Sub-4
+0.088
+0.325
+85.0%
+91.2%
+81.8%
+84.2%
+0.782
+0.470
+Sub-5
+0.111
+0.329
+87.0%
+94.2%
+87.3%
+88.4%
+0.735
+0.431
+Sub-6
+0.094
+0.322
+84.9%
+90.8%
+84.2%
+85.3%
+0.768
+0.458
+Sub-7
+0.110
+0.331
+85.8%
+91.9%
+82.8%
+84.3%
+0.771
+0.457
+Sub-8
+0.087
+0.326
+83.0%
+88.8%
+77.2%
+79.7%
+0.818
+0.494
+Avg (Sub 1,2,5 & 7)
+0.132
+0.337
+90.3%
+94.8%
+85.9%
+87.2%
+0.746
+0.436
+Avg (Sub 1-8)
+0.112
+0.331
+87.6%
+92.8%
+83.8%
+85.4%
+0.766
+0.453
+Table 6: Ablation study on the impact of hyperparameter λ (30,000 iterations).
+Method
+Low-Level
+High-Level
+Model
+λ
+PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+NeuroPictor 0.05
+0.230
+0.375
+98.7%
+99.1%
+95.5%
+94.3%
+0.634
+0.348
+NeuroPictor 0.10
+0.238
+0.383
+98.5%
+99.3%
+95.5%
+94.5%
+0.624
+0.342
+NeuroPictor 0.15
+0.227
+0.373
+98.3%
+99.1%
+95.1%
+94.4%
+0.625
+0.344
+NeuroPictor 0.25
+0.219
+0.369
+98.2%
+99.1%
+94.9%
+93.6%
+0.631
+0.348
+NeuroPictor 0.50
+0.204
+0.369
+97.6%
+98.9%
+94.4%
+93.8%
+0.634
+0.352
+hand, we initialize the UNet in the LLMN without using weights from Stable Dif-
+fusion (SD), resulting in significantly poorer trained results. On the other hand,
+we remove the cross-attention layer from the UNet in the LLMN (i.e., semantic
+features no longer guide the LLMN), and simultaneously remove the noise latent
+zT , resulting in a variant of the LLMN. The results indicate a significant decline
+in performance in terms of high-level features for this variant.
+2.3
+Influence of Dataset prior
+To quantify the influence of data prior, we visualize the similarity (maximum
+similarity of DINO v2 features) of the testing image to the training set and its
+reconstruction performance in Fig. 8. Many of the metrics are robust against
+the similarity, especially for the similarity is larger than 50%. Indeed, more
+similar testing examples enjoy better performance. By correlation coefficients,
+data similarity affects high-level features (0.24) more than low-level features
+(0.09).
+
+
+24
+J. Huo et al.
+Table 7: Ablation study on the variants of the Low-Level Manipulation Network.
+All results are obtained without fMRI-to-image cross-subject pre-training; instead, we
+directly conduct fMRI-to-image single-subject refining.
+Method
+Low-Level
+High-Level
+Model
+LLMN
+PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+NeuroPictor
+w/o init
+0.024
+0.324
+50.8%
+50.4%
+49.3%
+51.2%
+0.979
+0.638
+NeuroPictor w/o cross att
+0.179
+0.398
+96.2%
+97.0%
+91.3%
+90.7%
+0.722
+0.426
+NeuroPictor
+full
+0.265
+0.368
+98.2%
+99.1%
+94.7%
+93.4%
+0.641
+0.342
+Fig. 8: Averaged Metric Value within Similarity Threshold Intervals. The x-axis repre-
+sents the similarity between test images and training images. The y-axis indicates the
+performance of the fMRI reconstruction results corresponding to these test images.
+2.4
+Training corpus retrieval V.S. fMRI reconstruction.
+We retrieve the most similar images from the training dataset, and subsequently
+compare our actual reconstruction from the fMRI signals with the retrieval of im-
+ages from the training corpus. DINO-V2 and fMRI features are used to retrieval
+from the training corpus. For each test image, we calculate its similarity with
+the training corpus based on either its DINO-V2 features or the encoded fMRI
+features. The most similar training image is chosen as the retrieval outcome.
+The results in Tab. 8 show that retrieved results performs better on high-level
+metrics but worse in low-level metrics. This verifies that our method performs
+fMRI reconstruction as low-level information are unseen during training.
+Table 8: Comparison between training corpus retrieval and fMRI reconstruction
+Method
+Retrieval Set PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+DINO V2
+Sub-1 (9k)
+0.133
+0.311
+0.782
+0.914
+0.982
+0.983
+0.544
+0.342
+Sub-all (67k)
+0.167
+0.322
+0.834
+0.941
+0.991
+0.991
+0.488
+0.302
+FMRI Feature
+Sub-1 (9k)
+0.121
+0.323
+0.785
+0.885
+0.881
+0.896
+0.717
+0.437
+Reconstruction
+-
+0.277
+0.385
+0.988
+0.993
+0.962
+0.945
+0.619
+0.334
+
+
+NeuroPictor
+25
+2.5
+Perturbing cortex across individuals.
+We replaced fMRI signals from specific regions of subject-1 with those from
+other subjects. We chose three sets of regions, as in the Tab. 9, with each set
+having a similar number of pixels in the 2-D map. Replacing higher-level visual
+cortex regions had a greater impact. This may suggests that lower-level visual
+cortex regions are more consistent across individuals, while higher-level regions
+are more unique.
+Table 9: Perturbing cortex across individuals by replacing fMRI signals from specific
+regions of subject-1 with those from subject-2.
+Region
+RoIs PixCorr ↑SSIM ↑AlexNet(2) ↑AlexNet(5) ↑Inception ↑CLIP ↑EffNet-B ↓SwAV ↓
+Primary Visual
+V1
+0.176
+0.357
+0.962
+0.985
+0.944
+0.930
+0.647
+0.358
+Early Visual
+V2-V4
+0.223
+0.371
+0.971
+0.983
+0.921
+0.918
+0.683
+0.380
+Some Higher Visual Others
+0.219
+0.371
+0.968
+0.972
+0.845
+0.825
+0.794
+0.451
+None
+-
+0.277
+0.385
+0.988
+0.993
+0.962
+0.945
+0.619
+0.334
+3
+Supplementary Visualizations
+In this section, we will present additional visual results for each subject and
+use visual examples to illustrate the impact of the components and training
+strategies in our method.
+3.1
+Visualization of mismatched high-level and low-level features
+We utilize two distinct fMRI sources, with one providing high-level features and
+the other providing low-level features. As illustrated in Fig. 9, this approach
+results in the generation results where the visual structures, object positions,
+and human poses align with the low-level source visual stimuli, while maintaining
+semantic consistency with the high-level source. This disentanglement of high-
+level meaning and low-level structure in fMRI signals indeed opens up intriguing
+possibilities, suggesting the potential for fMRI-driven image editing.
+3.2
+Subject-Specific Visualizations
+We provide additional visual results for fMRI-to-image reconstruction, including
+visualizations for the four participants (Subjects 1, 2, 5, and 7) used for evalua-
+tion. The results for these four subjects (Subjects 1, 2, 5, and 7) are visualized
+separately in Fig. 10, Fig. 11, Fig. 12 and Fig. 13. All results are selected from
+the test set, with each participant having the same ground truth images.
+
+
+26
+J. Huo et al.
+3.3
+Visualizations for Ablation Study
+We provide visual examples to validate the effectiveness of the Low-Level Ma-
+nipulation Network branch, pretraining strategy, and finetuning strategy. The
+visualizations are depicted in Fig. 14. "SD only" denotes results obtained using
+only Stable Diffusion without incorporating the Low-Level Manipulation Net-
+work. "Full" represents the complete model. "W/o Pretrain" indicates training
+the fMRI-to-image model directly on Subject-1 without pretraining. "W/o Fine-
+tune" denotes results of training the fMRI-to-image model on all participants
+without additional finetuning on Subject-1. As observed, compared to the full
+model, using only Stable Diffusion results in reconstructions that roughly match
+in terms of semantics. The quality of images generated solely through finetuning
+is poor. When only pretraining is performed, there are instances of semantic er-
+rors, and the reconstructed images may not sufficiently match the original images
+in low-level details.
+3.4
+Failure Cases
+Examples of genetation failures of our NeuroPictor are shown in Fig. 15. Despite
+the advancements, our method still exhibits limitations, occasionally confusing
+semantically similar concepts such as cats and dogs, or males and females. Ad-
+ditionally, for some complex scenes, our generated results may occasionally omit
+certain elements, such as generating only dogs without including cars or mirrors,
+or generating polar bears without incorporating the presence of water surfaces.
+4
+Computational Cost
+We compare the parameters, inference time, and memory usage of our NeuroP-
+ictor with those of Mindeye [38]. We perform inference using an NVIDIA RTX
+A6000 GPU, where the inference time denotes the average time taken to gener-
+ate a single image. For fair comparison, both models are configured with float32
+precision and execute 50 DDIM [42] sampling timesteps. In the original Mindeye
+approach, 16 samples are generated for each fMRI input, from which the best
+one is selected. We omit this step when measuring inference time for fairness. As
+shown in Tab. 10, we achieve state-of-the-art results with lower inference-stage
+computational costs compared to Mindeye.
+Table 10: Comparison of the computation cost.
+Model
+Params (B) Memory (GB) Infer Time (s)
+Mindeye
+2.9
+33.4
+10.19
+Ours
+2.0
+13.6
+7.26
+
+
+NeuroPictor
+27
+5
+Limitations and Future work
+Although our NeuroPictor has shown improvements in fMRI-to-image decoding
+for individual subjects by leveraging pretraining on multiple-individual fMRI-
+image pairs, there are still several limitations: (1) The single-subject fine-tuning
+strategy we adopted requires fine-tuning the entire model, which incurs substan-
+tial computational costs. Therefore, it is worthwhile to explore more efficient
+strategies for single-subject fine-tuning. This could involve learning additional
+special embeddings for different individuals or fine-tuning only lightweight mod-
+ules, rather than the entire model. (2) Currently, there are some challenges in
+generalizing directly to unseen subjects (i.e., cross-subject) or new experimental
+setups (e.g., cross-device). In this regard, future work could focus on developing
+methods to rapidly fine-tune a multi-individual pretrained model for unseen in-
+dividuals. (3) The high-level and low-level branches of NeuroPictor are trained in
+a coupled manner. Although the SD model priors and the fMRI-to-text branch
+help to decouple semantic information and low-level details, this is not optimal.
+There are some semantic errors as shown in Fig. 15. New strategies could be con-
+sidered to better decode multi-level information. (4) We only use specific visual
+cortices for decoding. Incorporating other brain regions is also worth considering,
+as it may provide new insights.
+
+
+28
+J. Huo et al.
+High-Level
+Low-Level
+NeuroPictor
+High-Level
+Low-Level
+NeuroPictor
+Fig. 9: Visualization of mismatched high-level and low-level features.
+
+
+NeuroPictor
+29
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+Fig. 10: Visualizations of fMRI-to-image reconstruction for Subject-1.
+
+
+30
+J. Huo et al.
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+Fig. 11: Visualizations of fMRI-to-image reconstruction for Subject-2.
+
+
+NeuroPictor
+31
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+Fig. 12: Visualizations of fMRI-to-image reconstruction for Subject-5.
+
+
+32
+J. Huo et al.
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+Fig. 13: Visualizations of fMRI-to-image reconstruction for Subject-7.
+
+
+NeuroPictor
+33
+Full
+GT
+SD only
+W/o Pretain
+Full
+GT
+W/o Finetune
+SD only
+W/o Pretain W/o Finetune
+Fig. 14: Visualizations for ablation study. “ SD only" signifies the results obtained
+by using only Stable Diffusion without adding Low-Level Manipulation Network. “
+Full" denotes the complete model. “ W/o Pretrain" indicates training the fMRI-to-
+image model directly on Subject-1 without pretraining. “ W/o Finetune" represents
+the results of training the fMRI-to-image model on all participants without further
+finetuning on Subject-1.
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Ours
+GT
+Fig. 15: Visualizations for failure cases.

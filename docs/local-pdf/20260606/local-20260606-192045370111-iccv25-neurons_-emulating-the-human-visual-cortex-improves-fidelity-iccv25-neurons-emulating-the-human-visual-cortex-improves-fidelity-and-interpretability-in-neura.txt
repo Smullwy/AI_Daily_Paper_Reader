@@ -1,0 +1,1241 @@
+NEURONS: Emulating the Human Visual Cortex Improves Fidelity and
+Interpretability in fMRI-to-Video Reconstruction
+Haonan Wang*, Qixiang Zhang*, Lehan Wang, Xuanqi Huang, Xiaomeng Li†
+The Hong Kong University of Science and Technology
+{hwanggr, qzhangcq, lwangdk, xhuangdp}@connect.ust.hk, eexmli@ust.hk
+Abstract
+Decoding visual stimuli from neural activity is essential
+for understanding the human brain.
+While fMRI meth-
+ods have successfully reconstructed static images, fMRI-to-
+video reconstruction faces challenges due to the need for
+capturing spatiotemporal dynamics like motion and scene
+transitions.
+Recent approaches have improved semantic
+and perceptual alignment but struggle to integrate coarse
+fMRI data with detailed visual features. Inspired by the
+hierarchical organization of the visual system, we propose
+NEURONS, a novel framework that decouples learning into
+four correlated sub-tasks: key object segmentation, con-
+cept recognition, scene description, and blurry video re-
+construction. This approach simulates the visual cortex’s
+functional specialization, allowing the model to capture di-
+verse video content. In the inference stage, NEURONS gen-
+erates robust conditioning signals for a pre-trained text-
+to-video diffusion model to reconstruct the videos.
+Ex-
+tensive experiments demonstrate that NEURONS outper-
+forms state-of-the-art baselines, achieving solid improve-
+ments in video consistency (26.6%) and semantic-level ac-
+curacy (19.1%). Notably, NEURONS shows a strong func-
+tional correlation with the visual cortex, highlighting its
+potential for brain-computer interfaces and clinical ap-
+plications.
+Code and model weights are available at:
+https://github.com/xmed-lab/NEURONS.
+1. Introduction
+Decoding visual stimuli from neural activity offers a critical
+pathway to unraveling the intricate mechanisms of the hu-
+man brain. Current approaches have demonstrated remark-
+able success in leveraging non-invasive functional magnetic
+resonance imaging (fMRI) data to reconstruct static images
+(fMRI-to-image)
+[8, 26, 33, 34] by capitalizing on ad-
+vanced deep learning architectures such as CLIP [28] and
+* Equal contribution.
+† Corresponding author: eexmli@ust.hk.
+man? woman? bed? 
+window? tree? 
+sky?
+A woman sitting on 
+a bed looking out a 
+window at palm 
+trees
+Key Object 
+Segmentation
+Concepts 
+Recognition
+Scene
+Description
+Blurry Video 
+Reconstruction
+Neurons
+Visual Stimuli
+(Videos)
+Human Visual Cortex
+V1
+V2
+SPL
+V3
+V5
+OPA
+PPA
+ITC
+V4
+edges •
+shapes •
+contours •
+object recognition •
+face recognition •
+… •
+scenes •
+environments •
+… •
+motion information •
+dynamic visual •
+information
+spatial perception •
+… •
+CLIP Text 
+Features
+CLIP Vision 
+Features
+Previous Methods
+Brain Model
+align
+align
+Implicit
+- Explicit tasks
+Figure 1. Previous methods [4, 10] implicitly align the brain model
+with the highly coupled CLIP vision and text hidden features. Re-
+search has demonstrated that distinct regions of the human visual
+cortex are responsible for processing different types of visual in-
+formation.
+Drawing inspiration from the human visual cortex,
+where distinct regions specialize in processing different aspects of
+visual information, we decouple the fMRI-to-video reconstruction
+task into four corresponding sub-tasks, thereby capturing the full
+spectrum of visual information in video stimuli.
+Stable Diffusion [32].
+These frameworks bridge neuro-
+science and artiﬁcial intelligence, enabling data-driven ex-
+ploration of the cerebral cortex’s functions.
+However, extending these advances to fMRI-to-video re-
+construction remains a formidable challenge. Unlike static
+images, video decoding requires capturing the spatiotem-
+poral dynamics of continuous visual streams—including
+object motions, scene transitions, and temporal coher-
+ence—which existing models struggle to represent holis-
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+18367
+
+
+tically. Early studies [19, 26, 42, 45] faced challenges in
+achieving satisfactory reconstruction performance as they
+struggled to extract precise semantics from pre-trained dif-
+fusion models.
+MinD-Video [4] addresses semantic is-
+sues by conditioning the diffusion model on visual fMRI
+features, but it lacks low-level visual detailing, diverging
+from the brain’s visual system and limiting perception of
+continuous details. NeuroClips [10] advances the ﬁeld by
+introducing a semantics reconstructor for accurate video
+keyframe reconstruction and a perception reconstructor for
+blurry video reconstruction. However, the main reconstruc-
+tion process relies on aligning the brain model with CLIP
+features implicitly, i.e., aligning in the hidden feature space,
+which is not robust. The reason is that the CLIP hidden
+feature space is highly semantic but the fMRI voxels are
+encoded with multi-granularity information (Fig. 1).
+Emulating the functional architecture of the visual cor-
+tex offers a promising strategy to improve the decoding of
+brain activity.
+Prior research has demonstrated that dis-
+tinct regions within the visual cortex are specialized for
+processing different levels of visual information granular-
+ity [16, 21, 25, 44] (see Fig. 1). Inspired by the hierar-
+chical organization of the human visual system, we de-
+sign the learning framework as a composition of multiple
+sub-tasks, each reﬂecting speciﬁc perceptual roles. For ex-
+ample, early visual areas such as V1 and V2 are involved
+in encoding low-level visual features—such as edges and
+shapes—which parallels the function of segmentation mod-
+ules in computer vision. However, segmenting every ob-
+ject in a video is impractical due to the inherent limitations
+of human memory in retaining detailed video information.
+Since individuals predominantly focus on key objects and
+salient features within scenes rather than processing all ﬁner
+details [17], we introduce the key object segmentation task,
+which trains the brain model to initially learn the shapes and
+contours of key objects. Subsequently, we progressively
+incorporate more complex semantic concepts and motion
+information through the concept recognition task, which
+mimics the object and face recognition processes in areas
+V4 and ITC, compensating for the semantic loss incurred
+by focusing solely on key objects. Then, the scene descrip-
+tion task enables the brain model to identify correlations
+between concepts and generate coherent scene descriptions.
+Finally, the blurry video reconstruction task integrates mo-
+tion and color distribution information. These four tasks are
+learned using a progressive strategy that mirrors the hierar-
+chical structure of the visual cortex.
+To construct these tasks, we leverage off-the-shelf
+vision-language foundation models to generate key object
+segmentation masks, class labels, and scene descriptions.
+Building on this, we propose a novel framework named
+NEURONS, which simulates the functional behaviors of
+neurons in the human visual cortex. NEURONS addresses
+the decoupled tasks through multiple specialized projec-
+tions, each designed to model speciﬁc aspects of visual in-
+formation processing. For Key Object Segmentation, we
+train a text-driven video decoder to generate masks for the
+key object in a video, guided by the key object class name.
+For Concept Recognition, we train the brain model to rec-
+ognize semantic concepts in the video through a multi-label
+classiﬁcation task.
+For Scene Description, we teach the
+brain model to describe the video by decoding text embed-
+dings into captions. Finally, for Blurry Video Reconstruc-
+tion, the brain model is guided to align with the latent space
+of the Stable Diffusion’s VAE [32], using the same video
+decoder as in segmentation but replacing the segmentation
+head with a reconstruction head. During inference, the de-
+coupled task outputs of NEURONS serve as robust condi-
+tioning signals for a pre-trained text-to-video (T2V) diffu-
+sion model, enabling high-ﬁdelity video reconstruction with
+improved temporal smoothness and semantic consistency.
+Extensive experiments show that NEURONS outperforms
+state-of-the-art baselines, especially on video-based met-
+rics.
+It improves spatiotemporal consistency by 0.196
+(26.6%) and semantic metrics by 0.042 (19.1%) on average.
+The proposed sub-tasks enhance shape, location, and se-
+mantic extraction, and their decoupling boosts brain activ-
+ity decoding. Mapping sub-task projections onto the brain’s
+visual regions reveals functional alignment with the human
+visual cortex.
+2. Related Works
+2.1. fMRI-to-Video Reconstruction
+Recently, the decoding of original visual stimuli (e.g., im-
+ages and videos) from brain functional magnetic resonance
+imaging (fMRI) has garnered signiﬁcant attention.
+This
+interest stems from its crucial role in uncovering the in-
+tricate mechanisms of the human brain [37], as well as
+its remarkable potential to facilitate novel clinical assess-
+ment methods and advance brain-computer interface appli-
+cations [45]. Early exploration on this topic mainly focuses
+on how to decode fMRI signals into concepts [15], and in re-
+cent years, the reconstruction of static images [1, 9, 24, 37]
+and dynamic videos [10, 20] have also witnessed some pro-
+gresses. The typical paradigm consists of two crucial steps:
+1) Align the representations of fMRI and visual stimuli
+and map them both to the CLIP [28] embedding space; 2)
+utilize generative models (e.g., diffusion model [31], gen-
+erative adversarial network [11]) to reconstruct the visual
+stimuli. More recently, some researchers started to explore
+the more challenging reconstruction task from fMRI to dy-
+namic video stimuli. For example, MinD-Video [4] suc-
+cessfully reconstructs videos from fMRI at a relatively low
+FPS. NeuroClips [10] attempted to improve the semantic
+accuracy and video smoothness with a stronger semantic
+18368
+
+
+alignment paradigm and a more detailed perception captur-
+ing. The main reconstruction process of these methods re-
+lies on aligning the brain model with CLIP features implic-
+itly, i.e., aligning in the hidden feature space, which is not
+robust. The reason is that the CLIP hidden feature space
+is highly semantic, but the fMRI voxels are encoded with
+multi-granularity information.
+2.2. Diffusion Models for Video Synthesis
+Recently, the diffusion model has garnered signiﬁcant at-
+tention in the generative artiﬁcial intelligence communi-
+ties.
+The breakthrough came with Ho et al. [14], who
+introduced the Denoising Diffusion Probabilistic Model
+(DDPM), demonstrating high-quality image synthesis com-
+parable to GANs.
+In the static image generation realm,
+after DDPM, DALLE-2 [29] incorporate CLIP to improve
+the performance of text-to-image synthesis. Stable Diffu-
+sion [32] improved generation efﬁciency by performing the
+diffusion process in the latent space of VQVAE [39]. In the
+more difﬁcult realm, i.e., dynamic video synthesis, the typi-
+cal pipeline is to incorporate an additional temporal module
+to improve the smoothness of the generated videos. For ex-
+ample, Blattmann et al. [2] introduced a Temporal Autoen-
+coder Finetuning paradigm, which achieved high-resolution
+and high-fps video generation. More recently, AnimateD-
+iff [12] introduced an innovative temporal motion module
+that seamlessly extends existing diffusion models for static
+image generation into dynamic video generation.
+3. Methodology
+The overall framework of NEURONS is illustrated in Fig. 3.
+NEURONS simulates the functional behaviors of neurons in
+the human visual cortex by learning four decoupled tasks,
+the construction of which is detailed in §3.1. The technical
+core of NEURONS consists of three main components: (1)
+a Brain Model that maps fMRI representations to motion
+embeddings (§3.2), (2) a Decoupler that disentangles the
+training of motion embeddings into progressive and explicit
+sub-tasks (§3.3), and (3) an aggregated video reconstruction
+pipeline that integrates the outputs of all sub-tasks to guide
+high-quality video reconstruction (§3.4).
+3.1. Decoupled Tasks Construction
+We respectively carry out four task-setting build-up pro-
+cesses: scene description generation, concept name genera-
+tion, concept segmentation mask generation, and rule-based
+key object discovery, as illustrated in Fig. 2.
+Scene Description Generation.
+To build the task set-
+ting for the scene description task, we need to gener-
+ate a descriptive caption for each frame.
+The key tool
+we utilize is the Qwen2.5-VL-72B-Instruct [43]. Firstly,
+we input the frame image into Qwen, and instruct it
+to provide a detailed one-phrase caption for the image,
+Prompt: …You need to generate a descriptive caption
+for the given image, keep the caption in one phrase…
+Qwen: A woman sitting on a bed looking out a
+window at palm trees
+Scene Description Generation
+Prompt: …You need to identify key objects in the
+image, and list their formal names in WordNet…
+Qwen: [Woman, Tree, Bed, Window]
+Concept Name Generation
+Prompt: Segment the [Woman, Tree, Bed, Window]
+in the given image.
+Concept Segmentation Mask Generation
+Grounded 
+SAM
+Woman
+Tree
+Bed
+…
+Woman
+Tree
+Bed
+Window
+Rule-based Key Object Discovery
+Figure 2. Decoupled Tasks Construction.
+such as “a woman sitting on a bed looking
+out a window at palm trees”. The detailed in-
+struction prompts for scene description generation are illus-
+trated in Supplementary § A.
+Concept Name Generation. To build the task setting for
+the concept recognition, we need to generate the concept
+names of the key objects in each frame. Similarly, we ﬁrst
+input the frame into Qwen. Then, we instruct the Qwen
+to recognize the primary objects (e.g., ['woman', 'bed',
+'tree', ...]) in Fig. 2) in the frame. The primary objects will
+then be categorized into 51 concepts (['animal', 'human',
+'plant', 'furniture', ...]), which are summarized from
+the WordNet [5]. The output format is a concept name list
+(e.g., ['human', 'furniture', 'plant'] for Fig. 2) that
+covers all primary objects in the frame. The detailed in-
+struction prompts for concept name generation and the 51-
+concept list are in Supplementary § A.
+Concept Segmentation Mask Generation. Now, we uti-
+lize the object list for each frame to generate segmentation
+masks for the primary objects in each frame. We input each
+frame along with its object list into Grounded-SAM [30]
+and instruct it to generate a binary mask for each object us-
+ing the object names from the list as textual prompts.
+Rule-based Key Object Discovery. We propose a multi-
+criteria approach to identify key objects in video sequences
+by integrating motion dynamics, object size, and semantic
+importance. Background categories (e.g., sky, ocean) are
+18369
+
+
+A woman sitting on a 
+bed looking out a 
+window at palm trees
+fMRI  ℱ
+ℬ(#)
+!!"#(#)
+MRI Video Embedding
+…
+MRI Text Feature
+Video Embedding
+…
+Text Feature
+Video Alignment
+Text Alignment
+CLIP Text
+Qwen
+fMRI
+Voxels
+ℬ(#)
+Video Stimulation
+!!"#(#)
+!$%$(#)
+!&#(#)
+Concepts
+Scenario
+Obj. 
+Low-level
+ℒ!"#
+ℒ$%$
+ℒ#&'
+!&'(#)
+woman
+man? woman? bed? 
+window? tree? sky?
+woman, bed, 
+window, tree
+A woman sitting on a 
+bed looking out a 
+window at palm trees
+ℒ(&!
+VAE
+Mot. & Color
+Diffusion 
+Prior
+MLP
+ℳ(#)
+…
+MRI text Embedding
+MRI Video Embedding
+!!"#(#)
+!$%$(#)
+Cross Attention
+Query
+Key
+Value
+man? woman? 
+bed? window? 
+tree? sky?
+A woman sitting on a 
+bed looking out a 
+window at palm trees
+VAE Decoder 
+!&#(#)
+!&'(#)
+NEURONS - Decoupler
+Decoupled 
+Tasks 
+Construction
+(Fig. 2)
+CLIP Vision
+NEURONS - Decoupler
+NEURONS
+NEURONS - Brain Model
+NEURONS - Brain Model
+Progressive learning
+!$(#)
+Video 
+Embedding
+ ℱ
+Vision
+Embedding
+Figure 3. The overall framework of NEURONS comprises two primary components: the Brain Model (§3.2) and the Decoupler (§3.3). The
+Brain Model is responsible for mapping fMRI representations to motion embeddings, while the Decoupler decouples these embeddings
+into distinct explicit sub-tasks, including key object segmentation, concept recognition, scene description, and blurry video reconstruction.
+These four tasks are progressively learned by dynamically adjusting the loss weights. The outputs generated from these sub-tasks are
+subsequently utilized to reconstruct the ﬁnal videos during the inference stage, as illustrated in Fig. 4.
+excluded using predeﬁned labels. For remaining objects,
+inter-frame displacement is calculated, with higher weights
+for priority categories like humans and animals (e.g., per-
+son, dog, cat) to reﬂect semantic importance. Objects are
+ranked by weighted displacement, and excessively large
+ones (i.e., >50% of the image area) are ﬁltered out. Priority
+categories are selected ﬁrst; otherwise, top-ranked objects
+by motion dynamics are chosen. If all objects are back-
+ground, the largest one is selected as a fallback to ensure at
+least one key object is identiﬁed.
+3.2. NEURONS - Brain Model
+The brain model aims to encode fMRI voxels into video
+embeddings. Its training serves as a pre-training stage to
+produce suitable video embeddings, preparing for subse-
+quent decoupled tasks.
+After preprocessing, a video is
+split into several clips at two-second intervals (i.e., fMRI
+time resolution), each video clip yc has six frames yc →
+RB→F →C→H→W where F the number of frames and F = 6.
+xc is the corresponding fMRI signal of video clip c. We
+use the same pre-trained MindEyeV2 [34] (details are il-
+lustrated in Supplementary §B.1).
+Previous approaches
+like NeuroClips directly align the image embeddings from
+the backbone, overlooking temporal relationships between
+consecutive frames. Instead, we use a motion projection
+Pvid(·) to map the image embeddings ei →RB→N→C to
+spatial-temporal space ev →RB→F →N→C. We use the same
+bidirectional contrastive loss as in [10, 34] called BiM-
+ixCo, denoted as LCLIPv, which combines MixCo and con-
+trastive loss, to align ev with the target video embeddings
+of CLIP vision encoder, detailed in Supplementary §B.1.
+Then, we embed ev to obtain the text embedding et. A con-
+trastive learning loss between CLIP text embedding and et
+is adopted to train the additional text modality. The con-
+trastive loss serves as the training loss LCLIPt of this pro-
+cess, similar to LCLIPv, omitted here. This pre-alignment
+provides feasible vision and text features which are then fed
+into the Decoupler for decoupled task learning.
+18370
+
+
+ControlNet
+Pretrained 
+T2V Diffusion
+as latent
+unCLIP
+!!"!(#)
+!#$(#)
+!#%(#)
+Motion Embedding (6 frames)
+mean
+A woman sitting on a 
+bed looking out a 
+window at palm trees
+condition
+condition
+3D flow
+1D/2D flow
+!&'$(#)
+Top-1
+Figure 4. Inference pipeline of NEURONS. We use the gener-
+ated key object masks as condition to control image generation
+and blurry video generation, and the generated scene description
+as text prompt to T2V Diffusion.
+3.3. NEURONS - Decoupler: Decoupled Explicit
+Tasks Learning
+Starting from a key object segmentation task that requires
+minimum semantic information, we progressively teach
+NEURONS to learn more complex semantics through con-
+cept recognition task (to recognize semantic concepts),
+scene description task (to describe the video by decod-
+ing text embeddings into captions), and blurry video re-
+construction task (to learn motion information and color
+distribution).
+During inference, the decoupled task out-
+puts of NEURONS serve as robust conditioning signals for
+a pre-trained text-to-video (T2V) diffusion model, enabling
+high-ﬁdelity video reconstruction with improved temporal
+smoothness and semantic consistency.
+Key Object Segmentation. The capacity of humans to re-
+tain detailed memories of videos is inherently limited. Re-
+search has shown that individuals tend to focus on key ob-
+jects and salient features within a scene, often overlooking
+ﬁner details [17]. This selective attention mechanism pro-
+vides a foundational strategy to reduce the complexity of the
+learning process. By initially focusing on key objects, we
+can progressively introduce more complex semantic con-
+cepts and motion information. To complete this task, we
+design a text-driven video decoder that is based on the VAE
+video decoder [40]. The decoder takes video embeddings
+ev and text embeddings et as inputs. For this task, the text
+embeddings are obtained by encoding the category name of
+the key object with the CLIP text encoder. Then, a cross-
+attention module is used to activate certain patches of ev
+(as query Q) corresponding to et (as key K and value V ):
+eseg = softmax( QK→
+↑
+d ) · V , the activated eseg is upsam-
+pled to a higher resolution for pixel-level recognition. Fi-
+nally, we use a simple segmentation head Dvs(·) to gener-
+ate binary segmentation masks yseg for the key object in the
+video. The objective function of this task is a binary cross-
+entropy loss Lseg, detailed in Supplementary §B.2.
+Concept Recognition. Despite the detailed visual infor-
+mation we learn from the above segmentation and scene
+description tasks, it is equally important to understand and
+recognize the semantic concept in the frame image to pre-
+vent semantic shifts. To this end, we incorporate a con-
+cept recognition task by additionally involving a multi-label
+classiﬁer Dcls(·) to recognize the key concepts inside the
+frame image using the vision embedding of MRI. Speciﬁ-
+cally, we impose the cross-entropy loss between the predic-
+tion and the GT concept list (Sec. 3.1):
+Lcls = Lce(Dcls( ¯ev), C),
+(1)
+where ¯ev represents the mean of ev computed along the
+frame axis and C denotes the GT concept list.
+Scene Description. Next, with the ability to identify key
+objects and complementary concepts, the brain model is
+taught to comprehensively describe the overall visual scene.
+To achieve that, we incorporate a scene description task,
+which aims to generate a descriptive caption for each frame
+of the video. Speciﬁcally, we incorporate and ﬁnetune a
+pre-trained text decoder Dtxt(·), which takes the text em-
+beddings of the fMRI as input to generate the caption text.
+Herein, we utilize the GPT-2 [27] as our text decoder. We
+train the text decoder through preﬁx language modeling.
+Speciﬁcally, given a ground-truth (GT) caption token se-
+quence S = s0, s1, ..., s|S| and the corresponding text em-
+bedding of the MRI et, our text decoder Dtxt(·) learns to
+reconstruct S regarding et as the preﬁx. The objective func-
+tion Ltxt can be described as follows:
+Ltxt = ↑1
+|S|
+|S|
+!
+i=1
+log Dtxt(si|s<i, et),
+(2)
+where si denotes the ith token in GT token sequence S.
+Blurry Video Reconstruction. Finally, the blurry video re-
+construction task enables the model to learn the color distri-
+bution and capture motion information. We adopt the same
+VAE decoder used in the key object segmentation task while
+replacing the segmentation head Dvs(·) with a reconstruc-
+tion head Dvr(·) Take the video embeddings et as inputs,
+the text-driven video decoder with Dvr(·) generates blurry
+video yrec
+c
+→RB→F →C→H
+8 →W
+8 . Then we map yc to the
+latent space of Stable Diffusion’s VAE to obtain the latent
+embeddings y↓
+c. We adopt mean absolute error (MAE) loss
+to train this sub-task, the overall loss can be described as:
+Lrec = 1
+F
+F
+!
+i=1
+|yrec
+c,i ↑y↓
+c,i|.
+(3)
+18371
+
+
+Progressive Learning Strategy and Overall Training
+Loss. To dynamically adjust the weights of different loss
+functions during training, we propose a logarithmic weight
+scheduling strategy. This strategy ensures that the weight of
+each loss function follows a smooth curve, starting from 1,
+increasing to 10, and then decreasing back to 1 over a prede-
+ﬁned period. The weight scheduling is applied to four loss
+functions, each with a staggered period to ensure balanced
+training. For epoch E, batch B, and batches per epoch NB,
+the total batches in a period P is T = P · NB. The cur-
+rent batch’s position within the period starting at epoch S
+is C = (E ↑S) · NB + B. The weight w is computed
+as w = 1 + 9 ·
+""sin
+# C
+T · ω
+$"". If E is outside the period
+[S, S + P), w = 1. At each batch step, the weights for
+all four loss functions are computed using the above for-
+mula, with their periods staggered, which ensures smooth
+transitions, as shown in Supplementary Fig. b. The overall
+training loss can be deﬁned as:
+Ltotal = w1Lseg + w2Lcls + w3Ltxt + w4Lrec.
+(4)
+3.4. Inference: Aggregated Video Reconstruction
+Following NeuroClips [10], we use a pre-trained T2V dif-
+fusion model [12] for inference, guided by a control im-
+age, blurry video, and text description.
+As shown in
+Fig. 4, we prepare these inputs using outputs from decou-
+pled tasks: the control image is generated from a frame via
+unCLIP [29], while concepts and text descriptions are de-
+rived from Dcls and Dtxt. The top-1 concept and text em-
+beddings guide video mask generation via Dvs and blurry
+video creation via Dvs, respectively. To emphasize the key
+object, we rescale its binary masks to [0.5, 1] and multiply
+them to condition both the control image and blurry video,
+ensuring its prominence.
+4. Experiments
+4.1. Experimental Setup
+In this study, we performed fMRI-to-video reconstruc-
+tion experiments using the open-source fMRI-video dataset
+(cc2017 dataset 1 ) [45]. For each subject, the training and
+test video clips were presented 2 and 10 times, respectively,
+and the test set was averaged across trials. The dataset con-
+sists of a training set containing 18 8-minute video clips
+and a test set containing 5 8-minute video clips. The MRI
+(T1 and T2-weighted) and fMRI data (with 2s temporal
+resolution) were collected using a 3-T MRI system. Thus
+there are 8640 training samples and 1200 testing samples of
+fMRI-video pairs. The data pre-processing follows Neuro-
+Clips [10], which is detailed in Supplementary §C. Imple-
+mentation details are provided in Supplementary §D.
+1 https://purr.purdue.edu/publications/2809/1
+Table 1. Quantitative comparison of NEURONS reconstruction per-
+formance against other methods (Video-based). Bold font signiﬁes
+the best performance, while underlined text indicates the second-
+best performance. MinD-Video and NeuroClips are both results
+averaged across all three subjects, and the other methods are re-
+sults from subject 1. Results of baselines are quoted from [10, 23].
+Method
+Semantic-level
+ST-level
+2-way↓
+50-way↓
+CLIP-pcc↓
+Wen [45]
+-
+0.166±0.02
+-
+Wang [42]
+0.773±0.03
+-
+0.402±0.41
+Kupershmidt [19]
+0.771±0.03
+-
+0.386±0.47
+MinD-Video [4]
+0.839±0.03
+0.197±0.02
+0.408±0.46
+MindAnimator [23]
+0.830±0.03
+-
+0.428±0.03
+NeuroClips [10]
+0.834±0.03
+0.220±0.01
+0.738±0.17
+NEURONS
+0.863±0.03
+0.262±0.01
+0.934±0.17
+subject 1
+0.862±0.02
+0.254±0.02
+0.932±0.04
+subject 2
+0.860±0.03
+0.252±0.02
+0.933±0.04
+subject 3
+0.868±0.02
+0.278±0.02
+0.937±0.02
+Evaluation Metrics. We conduct the quantitative assess-
+ments primarily focusing on video-based metrics. We eval-
+uate videos at the semantic level and spatiotemporal(ST)-
+level.
+For semantic-level metrics, a similar classiﬁca-
+tion test (total 400 video classes from the Kinetics-400
+dataset [18]) is used above, with a video classiﬁer based
+on VideoMAE [38]. For spatiotemporal-level metrics that
+measure video consistency, we compute CLIP image em-
+beddings on each frame of the predicted videos and report
+the average cosine similarity between all pairs of adjacent
+video frames, which is the common metric CLIP-pcc in
+video editing [46]. Additionally, we assess frames at both
+pixel and semantic levels. For pixel-level evaluation, we
+use SSIM and PSNR. For semantic-level evaluation, we em-
+ploy an N-way top-K accuracy classiﬁcation test (1,000 Im-
+ageNet classes). The test compares ground truth (GT) clas-
+siﬁcation results with predicted frame (PF) results using an
+ImageNet classiﬁer. A trial is successful if the GT class
+is among the top-K probabilities (we used top-1) in the PF
+results, selected from N random classes, including the GT.
+The success rate is based on 100 repeated tests.
+4.2. Comparison with State-of-the-Art Methods
+In this section, we compare NEURONS with previous video
+reconstruction methods on the cc2017 dataset both quanti-
+tatively and qualitatively. In quantitative metrics, our pro-
+posed method demonstrates superior performance across
+all video-based metrics compared to existing methods, as
+shown in Table 1. Semantic-level 2-way accuracy achieves
+0.863, surpassing the previous best result (0.839 by MinD-
+Video) by a relative margin of 2.9%. Notably, our method
+signiﬁcantly outperforms state-of-the-art methods in ST-
+level CLIP-pcc, attaining 0.934, which represents a 26.6%
+18372
+
+
+GT
+Neurons
+NeuroClips
+GT
+Neurons
+NeuroClips
+Figure 5. Qualitative comparison between NEURONS and previous
+SOTA method, NeuroClips [10].
+improvement over NeuroClips (0.738). Furthermore, our
+method achieves the highest 0.262 in the 50-way accuracy,
+outperforming NeuroClips (0.220) by 19.1%.
+The con-
+sistent superiority across all metrics, coupled with lower
+standard deviations, underscores the robustness of our ap-
+proach. These results validate that our method effectively
+bridges semantic and spatiotemporal feature learning, set-
+ting a new benchmark for video understanding tasks. More-
+over, we also provided a frame-based comparison, which is
+detailed in Supplementary §E.1 and Table a. For qualitative
+comparison, as can be seen in Fig. 5, compared to Neuro-
+Clips, our NEURONS generates videos with higher quality,
+more precise semantics (e.g., people, turtles, and airplanes),
+and smoother movements. Furthermore, thanks to the de-
+coupled tasks, NEURONS has a better capability of recon-
+structing more complex scenes, such as a crowd of people.
+More visualizations can be found in Supplementary §E.2.
+4.3. Ablation Studies
+In this section, we evaluate the key components of NEU-
+RONS, including the four decoupled sub-tasks, the progres-
+sive learning strategy, and the aggregated video reconstruc-
+tion. The quantitative results are in Table 2, where all the re-
+sults of the ablation experiments are from subject 1. Due to
+the hierarchical function of the proposed methods, we grad-
+ually add components starting from the brain model with
+Lrec, which is the minimum input requirement of the Neu-
+roClips inference pipeline. The results indicate that the in-
+clusion of Lseg and Lcls signiﬁcantly improves the model’s
+performance, as evidenced by the increase in 2-way and
+Table 2. Ablations on the key components of NEURONS on video-
+based metrics, and all results are from subject 1. ‘PL’ denotes
+the progressive learning strategy and ‘AVR’ stands for aggregated
+video reconstruction.
+Brain
+Key Components
+Semantic-level
+ST-level
+Model
+Lseg
+Lcls
+Ltxt
+Lrec
+PL
+AVR
+2-way↓
+50-way↓
+CLIP-pcc↓
+✁
+✁
+0.814
+0.164
+0.894
+✁
+✁
+✁
+0.834
+0.225
+0.926
+✁
+✁
+✁
+✁
+0.836
+0.234
+0.911
+✁
+✁
+✁
+✁
+✁
+0.847
+0.213
+0.923
+✁
+✁
+✁
+✁
+✁
+✁
+0.856
+0.235
+0.937
+✁
+✁
+✁
+✁
+✁
+✁
+✁
+0.862
+0.254
+0.932
+50-way metrics. The addition of Ltxt further enhances the
+semantic-level understanding, leading to a notable improve-
+ment in the CLIP-pcc score. The progressive learning strat-
+egy and aggregated video reconstruction, when combined
+with all other components, yield the highest performance
+across all metrics, achieving the best 2-way and 50-way
+scores of 0.862 and 0.254, respectively. Qualitative anal-
+ysis is detailed in Supplementary §E.3.
+5. Explicit Evaluation of Decoupled Tasks
+Each decoupled task provides certain improvements to the
+ﬁnal reconstruction results. In this section, we explicitly
+evaluate the outputs of decoupled tasks, i.e., the accuracy of
+segmentation, classiﬁcation, and description generation.
+Key Object Segmentation. We conducted a comprehen-
+sive evaluation of the predicted key object masks. Although
+the overall Dice score is relatively low (35.63%), the local-
+ization of key objects is often accurate in many cases. The
+lower Dice score can be attributed to the presence of nu-
+merous out-of-distribution categories in the test set, as high-
+lighted in Table b. In Fig. 7, we present several successful
+examples where the model achieves precise localization of
+the key object. These results demonstrate the model’s abil-
+ity to effectively reﬁne the shape and position of objects in
+blurry video frames.
+Concept Recognition. We evaluated multi-class classiﬁca-
+tion accuracy to assess the concept recognition task, ensur-
+ing precise and meaningful semantic representations from
+the visual cortex. As shown in Table 3, NEURONS achieves
+satisfactory accuracy on common categories (0.735 on hu-
+man), which indicates the ability of NEURONS to preserve
+semantic integrity and prevent conceptual deviations.
+Scene Description. NeuroClips [10] generates text prompts
+for the T2V diffusion model by captioning the generated
+keyframes using BLIP. However, this approach lacks ro-
+bustness due to inaccuracies in the generated keyframes,
+which often hinder the precise identiﬁcation of semantic
+content, as demonstrated in Table 3. We conduct a compre-
+hensive comparison between the descriptions generated by
+NeuroClips and our method. The results reveal that NEU-
+18373
+
+
+!!"#
+!$%!
+!&'&
+!("$
+0
+1
+0
+1
+0
+1
+0
+1
+EBA
+LOC
+V1
+V2
+PPA
+PPA
+Figure 6. Mapping decoupled embeddings to the brain map [47] shows consistency with the design ethos in Fig. 1: object segmentation
+captures low-level features (V1, V2), concept recognition identiﬁes body parts (EBA), and objects (LOC), scene description processes
+scenes (PPA) and higher-level representations, and blurry video reconstruction integrates global but less low-level information.
+Figure 7. From left to right, the videos are as follows: the GT
+(ground truth) video, the blurry video before and after applying
+the segmentation mask condition, the segmentation GT, and the
+predicted segmentation masks. Best viewed with Acrobat Reader.
+Click the images to play the animation clips.
+Table 3. (Top) Evaluation results for concept recognition. Only
+the top-5 classes are displayed here, Fullr results in Supplemen-
+tary §E.4. (Bottom) Evaluation of scene description at both the
+sentence level and verb level.
+Concept Recognition Evaluation
+Rank
+1
+2
+3
+4
+5
+Class Name
+human
+food
+animal
+water body
+ﬁsh
+Accuracy
+0.735
+0.600
+0.450
+0.310
+0.292
+Scene Description Evaluation
+Metric
+Sentence-level
+Verb Acc
+Bleu 1
+Bleu 2
+Bleu 3
+Bleu 4
+CIDEr
+NeuroClips
+0.227
+0.096
+0.042
+0.022
+0.156
+0.1158
+NEURONS
+0.238
+0.105
+0.056
+0.036
+0.239
+0.2425
+RONS produces more accurate scene descriptions at the sen-
+tence level, particularly in capturing verbs that reﬂect better
+motion information. Further details in Supplementary §E.5.
+6. Interpretation Results
+Inspired by the human visual cortex, we designed our NEU-
+RONS with four different decoupled tasks. In order to val-
+idate our initial inspiration, we map the projected embed-
+dings of each decoupled task to a brain map with [47], a
+visualization tool that uncovers functional correlations be-
+tween NEURONS’s tasks and distinct regions of the visual
+cortex. As shown in Figure 6, the embeddings align with
+speciﬁc regions: eseg with V1, V2, and MT (due to video-
+based segmentation), ecls with V4, EBA and LOC, etxt with
+PPA and FFA. Notably, erec highlights V3 areas while also
+encoding richer semantic information. This alignment with
+various visual cortex regions validates our design principles
+and underscores the biological plausibility of our approach.
+More details are in Supplementary §F.
+7. Conclusion
+We present NEURONS, a novel framework inspired by the
+hierarchical organization of the human visual cortex, de-
+signed to enhance the ﬁdelity and interpretability of fMRI-
+to-video reconstruction. By decomposing the learning pro-
+cess into four specialized tasks, we effectively emulate the
+functional specialization of the human visual system. This
+hierarchical approach enables the framework to capture a
+broad spectrum of video content, ranging from low-level
+visual features to high-level semantic concepts. Our com-
+prehensive experimental results demonstrate that NEURONS
+surpasses previous methods across both video-based and
+frame-based evaluation metrics. The framework achieves
+marked improvements in spatiotemporal consistency, se-
+mantic accuracy, and pixel-level reconstruction quality. The
+decoupled task structure not only enhances reconstruction
+performance but also provides interpretable insights into the
+functional alignment between the model and the human vi-
+sual cortex. By mapping the outputs of each task to corre-
+sponding brain regions, we observed a strong correlation
+with the hierarchical processing of visual information in
+the human brain, which further highlights its potential for
+brain-computer interfaces and clinical applications.
+18374
+
+
+Acknowledgements
+This work was supported by a research grant from
+the Joint Research Scheme (JRS) under the National
+Natural Science Foundation of China (NSFC) and the
+Research Grants Council (RGC) of Hong Kong (Project
+No.
+N HKUST654/24), as well as a grant from the
+Research Grants Council of the Hong Kong Special
+Administrative Region, China (Project No.
+R6005-24).
+References
+[1] Guangyin Bao, Zixuan Gong, Qi Zhang, Jialei Zhou, Wei
+Fan, Kun Yi, Usman Naseem, Liang Hu, and Duoqian Miao.
+Wills aligner: A robust multi-subject brain representation
+learner. arXiv preprint arXiv:2404.13282, 2024. 2
+[2] Andreas Blattmann, Robin Rombach, Huan Ling, Tim Dock-
+horn, Seung Wook Kim, Sanja Fidler, and Karsten Kreis.
+Align your latents: High-resolution video synthesis with la-
+tent diffusion models. In Proceedings of the IEEE/CVF Con-
+ference on Computer Vision and Pattern Recognition, pages
+22563–22575, 2023. 3
+[3] Xinlei Chen, Hao Fang, Tsung-Yi Lin, Ramakrishna Vedan-
+tam, Saurabh Gupta, Piotr Doll´ar, and C Lawrence Zitnick.
+Microsoft coco captions:
+Data collection and evaluation
+server. arXiv preprint arXiv:1504.00325, 2015. 3
+[4] Zijiao Chen, Jiaxin Qing, and Juan Helen Zhou. Cinematic
+mindscapes: High-quality video reconstruction from brain
+activity.
+Advances in Neural Information Processing Sys-
+tems, 36, 2024. 1, 2, 6
+[5] Christiane Fellbaum. Wordnet. In Theory and applications of
+ontology: computer applications, pages 231–243. Springer,
+2010. 3
+[6] Matthew F Glasser, Stamatios N Sotiropoulos, J Anthony
+Wilson, Timothy S Coalson, Bruce Fischl, Jesper L Anders-
+son, Junqian Xu, Saad Jbabdi, Matthew Webster, Jonathan R
+Polimeni, et al. The minimal preprocessing pipelines for the
+human connectome project. Neuroimage, 80:105–124, 2013.
+1
+[7] Matthew F Glasser, Timothy S Coalson, Emma C Robinson,
+Carl D Hacker, John Harwell, Essa Yacoub, Kamil Ugurbil,
+Jesper Andersson, Christian F Beckmann, Mark Jenkinson,
+et al. A multi-modal parcellation of human cerebral cortex.
+Nature, 536(7615):171–178, 2016. 1
+[8] Zixuan Gong, Qi Zhang, Guangyin Bao, Lei Zhu, Ke Liu,
+Liang Hu, and Duoqian Miao. Mindtuner: Cross-subject vi-
+sual decoding with visual ﬁngerprint and semantic correc-
+tion. arXiv preprint arXiv:2404.12630, 2024. 1
+[9] Zixuan Gong, Qi Zhang, Guangyin Bao, Lei Zhu, Yu Zhang,
+KE LIU, Liang Hu, and Duoqian Miao. Lite-mind: Towards
+efﬁcient and robust brain representation learning. In ACM
+Multimedia 2024, 2024. 2
+[10] Zixuan Gong, Guangyin Bao, Qi Zhang, Zhongwei Wan,
+Duoqian Miao, Shoujin Wang, Lei Zhu, Changwei Wang,
+Rongtao Xu, Liang Hu, et al. Neuroclips: Towards high-
+ﬁdelity and smooth fmri-to-video reconstruction. Advances
+in Neural Information Processing Systems, 37:51655–51683,
+2025. 1, 2, 4, 6, 7, 3
+[11] Ian Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing
+Xu, David Warde-Farley, Sherjil Ozair, Aaron Courville, and
+Yoshua Bengio. Generative adversarial networks. Commu-
+nications of the ACM, 63(11):139–144, 2020. 2
+[12] Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu
+Qiao, Dahua Lin, and Bo Dai. Animatediff: Animate your
+personalized text-to-image diffusion models without speciﬁc
+tuning. arXiv preprint arXiv:2307.04725, 2023. 3, 6, 2
+[13] Kuan Han, Haiguang Wen, Junxing Shi, Kun-Han Lu,
+Yizhen Zhang, Di Fu, and Zhongming Liu. Variational au-
+toencoder: An unsupervised model for encoding and decod-
+ing fmri activity in visual cortex. NeuroImage, 198:125–136,
+2019. 2
+[14] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising dif-
+fusion probabilistic models. Advances in neural information
+processing systems, 33:6840–6851, 2020. 3
+[15] Tomoyasu Horikawa and Yukiyasu Kamitani. Generic de-
+coding of seen and imagined objects using hierarchical vi-
+sual features. Nature communications, 8(1):15037, 2017. 2
+[16] Trevor Huff, Navid Mahabadi, and Prasanna Tadi.
+Neu-
+roanatomy, visual cortex. StatPearls [Internet]. Treasure Is-
+land (FL): StatPearls Publishing, 2018. 2
+[17] Tilke Judd, Krista Ehinger, Fr´edo Durand, and Antonio Tor-
+ralba. Learning to predict where humans look. In 2009 IEEE
+12th international conference on computer vision, pages
+2106–2113. IEEE, 2009. 2, 5
+[18] Will Kay, Joao Carreira, Karen Simonyan, Brian Zhang,
+Chloe Hillier, Sudheendra Vijayanarasimhan, Fabio Viola,
+Tim Green, Trevor Back, Paul Natsev, et al. The kinetics hu-
+man action video dataset. arXiv preprint arXiv:1705.06950,
+2017. 6
+[19] Ganit Kupershmidt, Roman Beliy, Guy Gaziv, and Michal
+Irani. A penny for your (visual) thoughts: Self-supervised
+reconstruction of natural movies from brain activity. arXiv
+preprint arXiv:2206.03544, 2022. 2, 6
+[20] Chong Li, Xuelin Qian, Yun Wang, Jingyang Huo, Xi-
+angyang Xue, Yanwei Fu, and Jianfeng Feng. Enhancing
+cross-subject fmri-to-video decoding with global-local func-
+tional alignment. In European Conference on Computer Vi-
+sion, pages 353–369. Springer, 2024. 2
+[21] Yanmei Liu, Jiahe Zhang, Zhishan Jiang, Meiling Qin, Min
+Xu, Siyu Zhang, and Guofen Ma. Organization of cortico-
+cortical and thalamocortical top-down inputs in the primary
+visual cortex. Nature Communications, 15(1):4495, 2024. 2
+[22] Ilya Loshchilov and Frank Hutter. Decoupled weight decay
+regularization. arXiv preprint arXiv:1711.05101, 2017. 2
+[23] Yizhuo Lu, Changde Du, Chong Wang, Xuanliu Zhu, Liuyun
+Jiang, and Huiguang He. Animate your thoughts: Decoupled
+reconstruction of dynamic natural vision from slow brain ac-
+tivity. arXiv preprint arXiv:2405.03280, 2024. 6
+[24] Weijian Mai and Zhijun Zhang.
+Unibrain: Unify image
+reconstruction and captioning all in one diffusion model
+from human brain activity. arXiv preprint arXiv:2308.07428,
+2023. 2
+[25] A David Milner. How do the two visual streams interact with
+each other? Experimental brain research, 235:1297–1308,
+2017. 2
+18375
+
+
+[26] Shinji Nishimoto, An T Vu, Thomas Naselaris, Yuval Ben-
+jamini, Bin Yu, and Jack L Gallant. Reconstructing visual
+experiences from brain activity evoked by natural movies.
+Current biology, 21(19):1641–1646, 2011. 1, 2
+[27] Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario
+Amodei, Ilya Sutskever, et al. Language models are unsu-
+pervised multitask learners. OpenAI blog, 1(8):9, 2019. 5
+[28] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya
+Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,
+Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning
+transferable visual models from natural language supervi-
+sion. In International conference on machine learning, pages
+8748–8763. PMLR, 2021. 1, 2
+[29] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey Chu,
+and Mark Chen. Hierarchical text-conditional image gener-
+ation with clip latents. arXiv preprint arXiv:2204.06125, 1
+(2):3, 2022. 3, 6
+[30] Tianhe Ren, Shilong Liu, Ailing Zeng, Jing Lin, Kunchang
+Li, He Cao, Jiayu Chen, Xinyu Huang, Yukang Chen, Feng
+Yan, et al. Grounded sam: Assembling open-world models
+for diverse visual tasks. arXiv preprint arXiv:2401.14159,
+2024. 3
+[31] Robin Rombach, Andreas Blattmann, Dominik Lorenz,
+Patrick Esser, and Bj¨orn Ommer.
+High-resolution image
+synthesis with latent diffusion models.
+In Proceedings of
+the IEEE/CVF conference on computer vision and pattern
+recognition, pages 10684–10695, 2022. 2
+[32] Robin Rombach, Andreas Blattmann, Dominik Lorenz,
+Patrick Esser, and Bj¨orn Ommer.
+High-resolution image
+synthesis with latent diffusion models.
+In Proceedings of
+the IEEE/CVF conference on computer vision and pattern
+recognition, pages 10684–10695, 2022. 1, 2, 3
+[33] Paul Scotti, Atmadeep Banerjee, Jimmie Goode, Stepan Sha-
+balin, Alex Nguyen, Aidan Dempster, Nathalie Verlinde,
+Elad Yundler, David Weisberg, Kenneth Norman, et al. Re-
+constructing the mind’s eye: fmri-to-image with contrastive
+learning and diffusion priors. Advances in Neural Informa-
+tion Processing Systems, 36, 2024. 1
+[34] Paul S Scotti, Mihir Tripathy, Cesar Kadir Torrico Vil-
+lanueva, Reese Kneeland, Tong Chen, Ashutosh Narang,
+Charan Santhirasegaran, Jonathan Xu, Thomas Naselaris,
+Kenneth A Norman, et al. Mindeye2: Shared-subject mod-
+els enable fmri-to-image with 1 hour of data. arXiv preprint
+arXiv:2403.11207, 2024. 1, 4
+[35] Leslie N Smith and Nicholay Topin.
+Super-convergence:
+Very fast training of neural networks using large learn-
+ing rates.
+In Artiﬁcial intelligence and machine learning
+for multi-domain operations applications, pages 369–386.
+SPIE, 2019. 2
+[36] Jiaming
+Song,
+Chenlin
+Meng,
+and
+Stefano
+Ermon.
+Denoising diffusion implicit models.
+arXiv preprint
+arXiv:2010.02502, 2020. 2
+[37] Yu Takagi and Shinji Nishimoto. High-resolution image re-
+construction with latent diffusion models from human brain
+activity.
+In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 14453–
+14463, 2023. 2
+[38] Zhan Tong, Yibing Song, Jue Wang, and Limin Wang.
+Videomae: Masked autoencoders are data-efﬁcient learners
+for self-supervised video pre-training. Advances in neural
+information processing systems, 35:10078–10093, 2022. 6
+[39] Aaron Van Den Oord, Oriol Vinyals, et al. Neural discrete
+representation learning. Advances in neural information pro-
+cessing systems, 30, 2017. 3
+[40] Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro
+Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj,
+Dhruv Nair, Sayak Paul, William Berman, Yiyi Xu, Steven
+Liu, and Thomas Wolf.
+Diffusers: State-of-the-art diffu-
+sion models. https://github.com/huggingface/
+diffusers, 2022. 5
+[41] Chong Wang, Hongmei Yan, Wei Huang, Jiyi Li, Yuting
+Wang, Yun-Shuang Fan, Wei Sheng, Tao Liu, Rong Li, and
+Huafu Chen. Reconstructing rapid natural vision with fmri-
+conditional video generative adversarial network. Cerebral
+Cortex, 32(20):4502–4511, 2022. 2
+[42] Chong Wang, Hongmei Yan, Wei Huang, Jiyi Li, Yuting
+Wang, Yun-Shuang Fan, Wei Sheng, Tao Liu, Rong Li, and
+Huafu Chen. Reconstructing rapid natural vision with fmri-
+conditional video generative adversarial network. Cerebral
+Cortex, 32(20):4502–4511, 2022. 2, 6
+[43] Peng Wang, Shuai Bai, Sinan Tan, Shijie Wang, Zhihao Fan,
+Jinze Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin
+Ge, et al. Qwen2-vl: Enhancing vision-language model’s
+perception of the world at any resolution.
+arXiv preprint
+arXiv:2409.12191, 2024. 3
+[44] Tianye Wang, Tai Sing Lee, Haoxuan Yao, Jiayi Hong, Yang
+Li, Hongfei Jiang, Ian Max Andolina, and Shiming Tang.
+Large-scale calcium imaging reveals a systematic v4 map
+for encoding natural scenes. Nature Communications, 15(1):
+6401, 2024. 2
+[45] Haiguang Wen, Junxing Shi, Yizhen Zhang, Kun-Han Lu, Ji-
+ayue Cao, and Zhongming Liu. Neural encoding and decod-
+ing with deep learning for dynamic natural vision. Cerebral
+cortex, 28(12):4136–4160, 2018. 2, 6, 1
+[46] Jay Zhangjie Wu, Xiuyu Li, Difei Gao, Zhen Dong, Jin-
+bin Bai, Aishani Singh, Xiaoyu Xiang, Youzeng Li, Zuwei
+Huang, Yuanxi Sun, et al. Cvpr 2023 text guided video edit-
+ing competition. arXiv preprint arXiv:2310.16003, 2023. 6
+[47] Huzheng Yang, James Gee, and Jianbo Shi. Brain decodes
+deep nets.
+In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pages 23030–
+23040, 2024. 8, 4
+18376

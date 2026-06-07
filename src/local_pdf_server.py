@@ -7,7 +7,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from local_pdf_backend import generate_local_pdf_deep_doc
+from local_pdf_backend import _LOCAL_PDF_BATCH_MAX_ATTEMPTS, generate_local_pdf_deep_doc
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -119,19 +119,44 @@ class LocalPdfHandler(SimpleHTTPRequestHandler):
                     "client_id": str(meta.get("client_id") or ""),
                     "filename": pdf_item.filename or str(meta.get("original_filename") or "local-paper.pdf"),
                 }
-                try:
-                    result = generate_local_pdf_deep_doc(
-                        pdf_bytes=pdf_item.file.read(),
-                        filename=base["filename"],
-                        title_override=str(meta.get("title_override") or ""),
-                        llm_config_json=llm_config,
-                        docs_dir=str(ROOT_DIR / "docs"),
-                    )
-                    result.update(base)
-                    results.append(result)
-                except Exception as exc:
-                    failures += 1
-                    results.append({**base, "ok": False, "error": str(exc)})
+                pdf_bytes = pdf_item.file.read()
+                retry_errors: list[str] = []
+                for attempt in range(1, _LOCAL_PDF_BATCH_MAX_ATTEMPTS + 1):
+                    try:
+                        result = generate_local_pdf_deep_doc(
+                            pdf_bytes=pdf_bytes,
+                            filename=base["filename"],
+                            title_override=str(meta.get("title_override") or ""),
+                            llm_config_json=llm_config,
+                            docs_dir=str(ROOT_DIR / "docs"),
+                        )
+                        result.update(base)
+                        result["attempts"] = attempt
+                        if retry_errors:
+                            result["retry_errors"] = retry_errors
+                        results.append(result)
+                        break
+                    except Exception as exc:
+                        error = str(exc)
+                        retry_errors.append(error)
+                        if attempt < _LOCAL_PDF_BATCH_MAX_ATTEMPTS:
+                            print(
+                                "[WARN] local PDF server batch generation failed "
+                                f"({attempt}/{_LOCAL_PDF_BATCH_MAX_ATTEMPTS}) for "
+                                f"{base['filename']} [{base['client_id']}]: {error}; retrying.",
+                                flush=True,
+                            )
+                            continue
+                        failures += 1
+                        results.append(
+                            {
+                                **base,
+                                "ok": False,
+                                "error": error,
+                                "attempts": attempt,
+                                "retry_errors": retry_errors,
+                            }
+                        )
             self._send_json(
                 200,
                 {

@@ -1,0 +1,1332 @@
+Duala: Dual-Level Alignment of Subjects and Stimuli
+for Cross-Subject fMRI Decoding
+Shumeng Li1,2
+Jintao Guo1,2
+Jian Zhang1,2
+Yulin Zhou1,2
+Luyang Cao1,2
+Yinghuan Shi1,2*
+1 State Key Laboratory of Novel Software Technology, Nanjing University
+2 Institute of Brain-Machine Interface, Nanjing University
+Abstract
+Cross-subject visual decoding aims to reconstruct visual ex-
+periences from brain activity across individuals, enabling
+more scalable and practical brain-computer interfaces.
+However, existing methods often suffer from degraded per-
+formance when adapting to new subjects with limited data,
+as they struggle to preserve both the semantic consistency
+of stimuli and the alignment of brain responses. To address
+these challenges, we propose Duala, a dual-level alignment
+framework designed to achieve stimulus-level consistency
+and subject-level alignment in fMRI-based cross-subject vi-
+sual decoding. (1) At the stimulus level, Duala introduces a
+semantic alignment and relational consistency strategy that
+preserves intra-class similarity and inter-class separability,
+maintaining clear semantic boundaries during adaptation.
+(2) At the subject level, a distribution-based feature pertur-
+bation mechanism is developed to capture both global and
+subject-specific variations, enabling adaptation to individ-
+ual neural representations without overfitting. Experiments
+on the Natural Scenes Dataset (NSD) demonstrate that Du-
+ala effectively improves alignment across subjects. Remark-
+ably, even when fine-tuned with only about one hour of fMRI
+data, Duala achieves over 81.1% image-to-brain retrieval
+accuracy and consistently outperforms existing fine-tuning
+strategies in both retrieval and reconstruction. Our code is
+available at https://github.com/ShumengLI/Duala.
+1. Introduction
+Human visual perception is a remarkable process that re-
+flects both the external world and the brain’s internal rep-
+resentations [4, 9]. Understanding how the brain encodes
+and reconstructs visual experiences offers insights into per-
+*Corresponding author: Yinghuan Shi (syh@nju.edu.cn). This work
+was supported by NSFC Project (62506162, 62506005), Jiangsu Science
+and Technology Project (BK20251241), the Fundamental Research Funds
+for the Central Universities (KG202508), and the Fundamental and Inter-
+disciplinary Disciplines Breakthrough Plan of the Ministry of Education of
+China (No. JYB2025XDXM118).
+Figure 1. Effectiveness of fine-tuning on retrieval performance
+and t-SNE visualization. The pre-trained model achieves a high
+retrieval performance, indicating strong generalization to unseen
+stimuli. However, after fine-tuning on data from a new subject, the
+retrieval performance drops significantly. Additionally, the t-SNE
+visualization of the pre-trained model shows clear class boundaries
+for the subject’s stimuli, while the t-SNE of the fine-tuned model
+on the new subject reveals blurry class boundaries, indicating that
+the fine-tuning process does not preserve the semantic structure as
+effectively for the new subject.
+ceptual mechanisms and paves the way for brain-inspired
+computational models and brain-computer interface appli-
+cations [44].
+Among the available neural measurement
+techniques, functional magnetic resonance imaging (fMRI)
+stands out for its noninvasive nature and high spatial resolu-
+tion [11], allowing detailed observation of the cortical activ-
+ity patterns that underlie visual processing. Consequently,
+fMRI-based visual decoding [7, 18, 25] has emerged as a vi-
+tal research direction for uncovering how the human brain
+interprets and reconstructs visual stimuli.
+With the progress of cross-modal foundation models like
+CLIP [28] and Stable Diffusion [30], recent studies have
+achieved remarkable results in reconstructing visual stimuli
+from brain activity [6, 21, 24, 26, 33, 34, 37, 45]. Never-
+theless, most of these advances have focused on the single-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+42722
+
+
+Figure 2. Different subjects are presented with different visual
+stimuli, even when the stimuli belong to the same category. For
+example, the subjects are shown an image of a cat, but the actual
+photos they see differ.
+subject paradigm, where a dedicated decoder is trained for
+each subject. Due to substantial inter-individual differences
+in cortical anatomy and cognitive patterns [27, 43], models
+trained on one subject often fail to generalize to others, lim-
+iting their applicability in cross-subject brain decoding [24].
+Meanwhile, acquiring extensive fMRI data for each new
+subject remains costly and time-consuming. For instance,
+in the Natural Scenes Dataset (NSD) [1], acquiring high-
+quality fMRI data for a single subject requires 40 hours of
+scanning, making large-scale data collection extremely de-
+manding. Therefore, how to leverage pre-trained decoding
+models for effective adaptation to limited data from a new
+subject becomes a critical problem.
+Cross-subject visual decoding has emerged as a promis-
+ing direction to alleviate the limitations of single-subject
+models. Existing approaches [13, 17, 24, 32] typically align
+a new subject’s fMRI representations with those of previ-
+ously trained subjects by projecting them into a shared rep-
+resentational space. However, we observed that while these
+methods work well during pre-training, they face challenges
+when applied to new subjects. For instance, in Figure 1, al-
+though the pre-trained model achieves strong retrieval per-
+formance on MindEye2 [32], fine-tuning on new subjects
+results in a 41% decrease in image-to-brain retrieval per-
+formance. This decline indicates, a critical yet easily ig-
+nored phenomenon that the model struggles to identify the
+corresponding brain responses from their image embed-
+dings, suggesting that the learned robust correspondence
+between brain activity and visual representations at the pre-
+training stage has been destroyed during the fine-tuning
+stage. This degradation in performance suggests two key
+challenges. (1) Stimulus-level inconsistency. As shown in
+Figure 1, we observe that for the pre-trained subject, the
+class boundaries between stimuli are clearly distinguish-
+able, while the t-SNE visualization of the fine-tuned sub-
+ject reveals blurred category boundaries. This indicates that
+the finetuned model cannot effectively represent the differ-
+ent stimuli of the new subject. (2) Subject-level misalign-
+ment. As illustrated in Figure 2, we further observe that an
+individual image is primarily aligned with only one sub-
+ject’s fMRI signals, rather than being shared across sub-
+jects. In Natural Scenes Dataset (NSD) [1], more than 90%
+of the visual stimuli differ across subjects [12], meaning
+that direct one-to-one alignment is rarely feasible. Conse-
+quently, the model struggles to establish consistent inter-
+subject correspondence, limiting its ability to generalize de-
+coding knowledge to unseen individuals.
+To address these challenges, we propose an innova-
+tive Dual-level Alignment cross-subject decoding frame-
+work, Duala, that operates on both stimulus-level consis-
+tency and subject-level alignment. At the stimulus level,
+our design of Stimulus-level Semantic Preservation main-
+tains the semantic structure of visual representations. We
+use a semantic alignment loss to encourage intra-subject
+discriminability and a relational consistency loss to pre-
+serve inter-subject class relationships. At the subject level,
+we introduce Subject-level Distribution Perturbation, a fea-
+ture perturbation strategy designed to capture both global
+and subject-specific variations.
+During fine-tuning, the
+covariance-driven perturbations are applied to the new sub-
+ject’s representations, helping the model adapt to individ-
+ual differences while maintaining alignment with the pre-
+trained feature distributions. By combining stimulus-level
+consistency with subject-level alignment, Duala preserves
+semantic structure while adapting to individual differences,
+leading to robust and generalizable cross-subject decoding.
+In summary, our contributions are as follows:
+• We propose a novel fine-tuning approach that simulta-
+neously addresses stimulus-level and subject-level align-
+ment to improve cross-subject decoding with limited data.
+• We introduce a semantic preservation strategy at the
+stimulus-level to preserve relational consistency among
+different semantic class.
+• We develop a distribution perturbation mechanism at the
+subject-level that adapts the model to the unique brain re-
+sponses of each new subject.
+We conduct comprehensive experiments to demonstrate the
+potential of our Duala, which outperforms state-of-the-art
+methods for visual decoding on NSD dataset, achieving
+over 81.1% retrieval accuracy in image-to-brain matching.
+2. Related Work
+2.1. fMRI-Based Visual Decoding
+fMRI-based visual decoding aims to reconstruct or inter-
+pret perceived visual stimuli from neural activity, offering
+insights into how visual information is represented in the
+brain [18, 25]. Early studies established voxel-wise encod-
+ing–decoding frameworks linking neural responses with vi-
+sual features, which later evolved into deep neural network
+(DNN)-based approaches that leverage hierarchical feature
+42723
+
+
+Figure 3. Overview of our Duala framework. Stimulus-level Semantic Preservation maintains the semantic structure of visual representa-
+tions, and Subject-level Distribution Perturbation enhances cross-subject adaptability.
+representations corresponding to cortical organization [15].
+Recent advances have shifted the decoding paradigm from
+discriminative to generative modeling, where neural sig-
+nals are projected into latent spaces of large pre-trained
+models such as VAEs, GANs, or latent diffusion mod-
+els (LDMs) [6, 21, 24, 26, 33, 34, 37, 40, 45].
+These
+latent-space mappings exploit strong priors on semantics
+and structure, leading to reconstructions that are perceptu-
+ally coherent and consistent with natural image manifolds.
+However, due to substantial inter-subject variability in brain
+anatomy and neural responses, most existing methods are
+trained as subject-specific decoders, each tailored to one
+subject, which limits their generalizability across subjects.
+2.2. Cross-Subject Functional Alignment
+Individual differences in brain structure and functional or-
+ganization hinder the generalization of decoding models
+across subjects.
+To overcome this, previous alignment
+methods rely on paired responses to identical visual stim-
+uli, learning mappings through regression or optimal trans-
+port objectives [3, 12, 39].
+These approaches achieve
+fine-grained alignment but require strictly shared stimuli,
+which limits their scalability to large datasets such as
+NSD [1], where subjects view distinct image sets. Recently,
+representation-based alignment methods project individual
+brain responses into a shared latent space [2, 8, 14, 31, 32,
+41]. MindBridge [41] synthesizes pseudo-shared stimuli to
+bridge inter-subject gaps. MindEye2 [32] employs ridge
+regression to project subject-specific signals into a unified
+latent space for shared decoding, and MindTuner [13] mod-
+els nonlinear inter-subject relationships. While latent-space
+alignment facilitates cross-subject decoding without shared
+stimuli, it often neglects stimulus-level distinctions and can
+distort class structures for new subjects. In contrast, our
+approach incorporates both stimulus-level consistency and
+subject-level alignment, helping to preserve semantic orga-
+nization while still accommodating individual differences.
+3. Method
+In this work, we propose Duala, a cross-subject decoding
+framework that integrates stimulus-level consistency and
+subject-level alignment into a unified learning paradigm.
+The overall framework is illustrated in Figure 3. Specif-
+ically, we leverage Stimulus-level Semantic Preservation
+(SSP Module, in Section 3.2) to retain intra- and inter-
+subject semantic consistency. We further present Subject-
+level Distribution Perturbation (SDP Module, in Sec-
+tion 3.3) to enhance adaptability by aligning new-subject
+representations with pre-trained feature distributions.
+3.1. Preliminary
+Problem Definition. In cross-subject visual decoding, the
+goal is to transfer a pre-trained decoding model from ex-
+isting subjects to a new subject with limited fMRI data, en-
+abling the reconstruction of visual stimuli from the new sub-
+ject’s brain activity. Unlike conventional single-subject set-
+tings, this problem emphasizes the generalization of learned
+neural–visual mappings across individuals who exhibit dis-
+42724
+
+
+Figure 4. Semantic Alignment Constraint. We sample an anchor
+and a positive fMRI response elicited by images from the same
+category (Dog), and a negative from a different category (Giraffe).
+It encourages fMRI representations of the same stimulus class to
+be more similar than those of different classes within a subject,
+preserving intra-class discriminability.
+tinct anatomical and functional characteristics.
+Formally,
+let
+Ds
+=
+{(V s
+i , Ii)}Ms
+i=1
+denote
+the
+fMRI–image pairs collected from subject s, where V s
+i
+∈
+Rds represents voxel responses within selected ROIs and
+Ii ∈R3×H×W is the corresponding visual stimulus. A
+decoding model Fθ is first pre-trained on multiple source
+subjects {s1, s2, . . . , sK} to learn a generalizable mapping
+between brain activity and visual representations. When
+adapting to a new subject sN, only a small amount of fMRI
+data, DsN , is available, typically from a single scanning ses-
+sion (about 1 hour of data, 2.5% of the full dataset). The ob-
+jective is to adapt the pre-trained model Fθ to obtain Fθ′ that
+performs reliable decoding for sN: Fθ′(V sN ) ≈I. This
+formulation defines the data-limited cross-subject adapta-
+tion problem that our method aims to address.
+Cross-subject Brain Decoding Baseline. As a baseline
+for cross-subject visual decoding, we adopt a pre-trained
+model from MindEye2 [32].
+To alleviate inter-subject
+variability, voxel responses from multiple source subjects
+{s1, . . . , sK} are first mapped into a shared latent space
+using ridge regression. Specifically, subject-specific fMRI
+voxels V s (13, 000 to 18, 000 voxels depending on the sub-
+ject) are linearly projected into a common embedding space
+to a 4096-dimensional latent vector.
+These shared-subject latents are then processed by an
+MLP backbone consisting of four residual blocks, which
+transforms them into the OpenCLIP ViT-bigG/14 image to-
+ken space (256 × 1664 dimensions). The resulting back-
+bone embeddings are simultaneously passed into a diffusion
+prior [29] that aligns them with CLIP’s image latent distri-
+bution [10, 20], as well as two lightweight MLP submodules
+for low-level reconstruction and image retrieval.
+The training of the decoding model optimizes a combi-
+nation of the diffusion prior loss Lprior, the low-level re-
+construction loss Llowlevel, and a bidirectional contrastive re-
+trieval loss LBiMixCo. Formally, the overall objective is
+Ldec = Lprior + α1LBiMixCo + α2Llowlevel,
+(1)
+where α1 and α2 balance the contributions of the auxiliary
+losses.
+3.2. Stimulus-level Semantic Preservation
+In SSP module, we leverage Semantic Alignment and Re-
+lational Consistency constraints to preserve semantic infor-
+mation at the stimulus level.
+Semantic Alignment Loss. Given the new subject sN,
+the goal of stimulus-driven alignment is to preserve the se-
+mantic structure of stimuli within the subject’s embedding
+space. For each fMRI sample V sN
+i
+, we first obtain the em-
+beddings zsN
+i
+in the shared latent space after the ridge re-
+gression. As illustrated in Figure 4, Stimulus-driven align-
+ment encourages embeddings of the same-category stimuli
+within the new subject to be closer than embeddings of dif-
+ferent categories. Specifically, for any anchor embedding
+zsN
+a , we identify a positive sample zsN
+p
+from the same cate-
+gory (ya = yp) and a negative sample zsN
+n
+from a different
+category (yn ̸= ya). The alignment objective enforces that
+embeddings of the same category are closer than those of
+different categories:
+d(zsN
+a , zsN
+p ) < d(zsN
+a , zsN
+n ).
+(2)
+We replace the distance metric with cosine similarity,
+leading to the following modified constraint:
+s(zsN
+a , zsN
+p ) > s(zsN
+a , zsN
+n ),
+(3)
+where s(·, ·) denotes cosine similarity measure. To enforce
+this similarity constraint, we define the stimulus-driven
+alignment loss using a triplet loss formulation.
+Lsa =
+X
+a
+max
+
+0, m−s(zsN
+a , zsN
+p )+s(zsN
+a , zsN
+n )
+
+, (4)
+where m > 0 is a margin hyperparameter that maintains
+a minimum separation between categories.
+By optimiz-
+ing Lsa, the model learns to organize the subject-specific
+embeddings into a semantically aligned space, encourag-
+ing consistent structure across categories while remaining
+within-subject.
+Relational Consistency Loss. To ensure that the learned
+brain representations preserve a semantically meaningful
+structure, our goal is to align the semantic geometry of a
+new subject with the semantic similarity structure learned
+during pre-training. To achieve this, we introduce a rela-
+tional consistency loss objective on the MLP-adapted rep-
+resentations, as shown in Figure 5.
+42725
+
+
+Figure 5. Relational Consistency across subjects. Although sub-
+jects view different images even within the same category (e.g.,
+different birds / buses / clocks), the similarity structure among cat-
+egories should remain consistent across subjects.
+For each subject s, we compute the class-level prototype
+ps
+c by averaging all normalized embeddings belonging to
+class c. The pairwise cosine similarity between prototypes
+forms a class-similarity matrix Ss ∈RC×C, where each
+element is defined as:
+Ss
+c1,c2 = s(ps
+c1, ps
+c2),
+(5)
+where s(·, ·) denotes cosine similarity. From the pre-trained
+source subjects {s1, s2, . . . , sK}, we aggregate these matri-
+ces into a reference semantic similarity matrix Sref. Dur-
+ing adaptation to a new subject sN, we construct its class-
+similarity matrix SsN in the same way and minimize the
+discrepancy between SsN and Sref over valid class pairs:
+Lrc = 1
+|Ω|
+X
+(c1,c2)∈Ω
+ SsN
+c1,c2 −Sref
+c1,c2
+2,
+(6)
+where Ωdenotes the set of class pairs for which a reference
+similarity is available. This encourages the adapted model
+to preserve inter-class similarity patterns inherited from the
+pre-trained subjects, thereby maintaining semantic consis-
+tency in the brain-side feature space.
+3.3. Subject-level Distribution Perturbation
+To enable effective cross-subject transfer, we decompose
+the fMRI representation into a stimulus-driven factor that
+reflects shared semantic responses, and a subject-specific
+factor that captures idiosyncratic anatomical and functional
+variations.
+To further improve adaptation to a new subject sN, we
+introduce a distribution-based feature perturbation strategy
+grounded in this decomposition.
+We leverage the pre-
+trained source subjects {s1, . . . , sK} to model the category-
+wise distribution of embeddings. For each category c, we
+compute the category-level mean µc across all source sub-
+jects and the subject-specific deviations σs
+c:
+µc = 1
+K
+K
+X
+s=1
+¯zs
+c,
+σs
+c =
+p
+Var(¯zsc),
+(7)
+where ¯zs
+c denotes the average embedding of all samples
+from category c for subject s. Here, µc serves as a rough
+approximation of the shared stimulus factor fstimulus, while
+σs
+c captures the subject-specific variability.
+During adaptation to a new subject sN, we first center
+each embedding by the category mean: zsN
+i
+−µc, isolat-
+ing the subject-specific factor. We then apply Gaussian per-
+turbations using the source subject deviations {σs
+c}K
+s=1 to
+augment the subject-specific factor, effectively simulating
+plausible variations observed across individuals:
+˜zsN
+i
+= µc + 1
+K
+K
+X
+s=1
+σs
+c ⊙(zsN
+i
+−µc),
+(8)
+where ⊙denotes element-wise scaling.
+This distribution-based augmentation preserves the se-
+mantic structure provided by the stimulus factor while en-
+couraging the model to be robust to individual-specific vari-
+ations, facilitating smoother adaptation to the new subject.
+Leveraging this decomposition, we further design two
+complementary constraints to guide model adaptation for a
+new subject. The first constraint operates on the stimulus-
+driven factor, encouraging embeddings of the same stim-
+ulus category within the same subject to cluster closely
+while pushing apart embeddings from different categories.
+The second constraint focuses on the subject-specific factor,
+preserving intra-subject consistency and maintaining inter-
+subject differentiation, thereby preventing the new sub-
+ject’s unique characteristics from being washed out by naive
+alignment. For a new subject sN and its fMRI embeddings
+zN, we optimize two objectives, stimulus-driven alignment
+and subject-specific preservation.
+3.4. Training Objective
+The overall training objective combines the stimulus-driven
+alignment loss Lsa and the subject-specific preservation loss
+Lrc to adapt the pre-trained decoding model Fθ to a new
+subject sN. The combined loss is defined as:
+Lft = Ldec + λ1Lsa + λ2Lrc,
+(9)
+where λ1 and λ2 are hyperparameters that balance the con-
+tributions of these objectives. Optimizing Lft encourages
+the model to organize the new subject’s embeddings into a
+semantically structured space that preserves category-level
+relationships while maintaining subject-specific character-
+istics. This allows the pre-trained decoder to generalize ef-
+fectively under the data-limited setting, using only a single
+scanning session from the new subject.
+42726
+
+
+Table 1. Quantitative comparison of fMRI-to-image models. Results averaged across subjects 1, 2, 5, and 7 from the Natural Scenes
+Dataset with 1 hour of data. Bold indicates the best performance.
+Method
+Venue
+Subject
+Low-Level
+High-Level
+Retrieval
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+MindEye2 [32]
+ICML’24
+Avg
+0.195
+0.419
+84.2%
+90.6%
+81.2%
+79.2%
+0.810
+0.468
+79.0%
+57.4%
+MindAligner [8]
+ICML’25
+Avg
+0.206
+0.414
+85.6%
+91.6%
+81.1%
+82.0%
+0.802
+0.463
+79.0%
+75.3%
+MindTuner [13]
+AAAI’25
+Avg
+0.224
+0.420
+87.8%
+93.6%
+84.8%
+83.5%
+0.780
+0.440
+83.1%
+76.0%
+Duala (Ours)
+-
+Avg
+0.230
+0.416
+87.9%
+93.5%
+85.4%
+83.5%
+0.781
+0.445
+84.5%
+81.1%
+MindEye2 [32]
+ICML’24
+Subj1
+0.235
+0.428
+88.02%
+93.33%
+83.56%
+81.76%
+0.798
+0.459
+93.96%
+77.63%
+MindAligner [8]
+ICML’25
+Subj1
+0.226
+0.415
+88.19%
+93.26%
+83.48%
+81.76%
+0.800
+0.459
+90.90%
+86.88%
+MindTuner [13]
+AAAI’25
+Subj1
+0.262
+0.422
+90.60%
+94.90%
+85.80%
+84.60%
+0.774
+0.433
+94.20%
+87.40%
+Duala (Ours)
+-
+Subj1
+0.253
+0.418
+90.81%
+95.29%
+86.62%
+85.11%
+0.768
+0.433
+94.77%
+91.22%
+MindEye2 [32]
+ICML’24
+Subj2
+0.200
+0.433
+85.00%
+92.13%
+81.86%
+79.89%
+0.807
+0.454
+90.53%
+67.18%
+MindAligner [8]
+ICML’25
+Subj2
+0.218
+0.426
+88.08%
+93.33%
+82.47%
+81.62%
+0.791
+0.452
+90.04%
+85.61%
+MindTuner [13]
+AAAI’25
+Subj2
+0.225
+0.425
+89.10%
+95.10%
+84.80%
+83.70%
+0.781
+0.440
+93.70%
+82.80%
+Duala (Ours)
+-
+Subj2
+0.236
+0.428
+89.21%
+94.35%
+85.35%
+83.74%
+0.778
+0.443
+94.64%
+91.47%
+MindEye2 [32]
+ICML’24
+Subj5
+0.175
+0.405
+83.11%
+90.83%
+82.32%
+78.53%
+0.781
+0.444
+66.94%
+46.96%
+MindAligner
+ICML’25
+Subj5
+0.197
+0.409
+84.69%
+91.61%
+82.63%
+80.12%
+0.784
+0.454
+70.62%
+65.95%
+MindTuner [13]
+AAAI’25
+Subj5
+0.208
+0.415
+86.80%
+93.70%
+87.70%
+85.90%
+0.750
+0.422
+72.20%
+68.10%
+Duala (Ours)
+-
+Subj5
+0.214
+0.413
+86.50%
+93.07%
+86.36%
+84.46%
+0.772
+0.439
+76.59%
+71.20%
+MindEye2 [32]
+ICML’24
+Subj7
+0.170
+0.408
+80.70%
+85.90%
+74.90%
+79.84%
+0.834
+0.504
+64.44%
+37.77%
+MindAligner [8]
+ICML’25
+Subj7
+0.183
+0.407
+81.45%
+88.31%
+79.92%
+80.83%
+0.834
+0.487
+64.18%
+62.58%
+MindTuner [13]
+AAAI’25
+Subj7
+0.202
+0.417
+84.50%
+90.80%
+80.70%
+79.60%
+0.817
+0.465
+71.90%
+65.50%
+Duala (Ours)
+-
+Subj7
+0.215
+0.405
+85.17%
+91.16%
+83.34%
+80.72%
+0.805
+0.463
+71.94%
+70.53%
+4. Experiments
+4.1. Dataset
+We conduct our experiments on the Natural Scenes Dataset
+(NSD) [1], one of the largest publicly available fMRI
+datasets for visual decoding. The dataset contains neural
+responses from multiple subjects viewing complex natural
+images sampled from the MSCOCO-2017 collection [22].
+Each participant completed multiple sessions using a 7-T
+fMRI scanner, with each session comprising 750 trials and
+lasting approximately one hour. Following the data-limited
+setup of prior works [32], we use only a single session
+per subject for fine-tuning, enabling evaluation under con-
+strained data conditions.
+4.2. Implementation Details
+Our framework is implemented in PyTorch and trained on a
+single NVIDIA A800 GPU. We adopt the same pre-trained
+backbone as MindEye2 [32] and keep the diffusion prior
+and MLP modules frozen. Following the strategy of Mind-
+Tuner [13], we introduce LoRA [16] adapters with rank 8
+in the MLP backbone for efficient fine-tuning on new sub-
+jects.
+For each new subject, we use a single session of
+fMRI data (approximately 1 hour) and apply a batch size
+of 10 as previous work [13]. Optimization is performed us-
+ing AdamW [23] with a learning rate of 3e-4 and OneCycle
+learning rate schedule [35]. Training is conducted for 150
+epochs. Additionally, BiMixCo is replaced with the Soft-
+CLIP [31] loss for one-third of the training iterations. For
+Table 2. Comparison of training parameters during fine-tuning.
+Ridge regression parameters correspond to Subject 1.
+Method
+Model Parts
+Total
+Ridge
+MLP
+Prior
+MindEye2 [32]
+64.41M
+1903M
+260M
+2.2G
+MindAligner [8]
+139.23M
+0M
+0M
+139.23M
+MindTuner [13]
+64.41M
+12.3M
+0M
+76.71M
+Duala (Ours)
+64.41M
+4.68M
+0M
+69.09M
+the Stimulus-level Semantic Preservation, we apply the se-
+mantic alignment loss and relational consistency Loss, with
+weighting factors λ1 = 1.0 and λ2 = 0.1, respectively.
+Metrics. To quantitatively evaluate fMRI-to-image re-
+construction, we consider both low-level and high-level as-
+pects of the generated images.
+Low-level metrics cap-
+ture basic visual properties such as pixel intensity and
+edge alignment, while high-level metrics reflect seman-
+tic content. Following prior works [8, 13, 32], we adopt
+PixCorr, SSIM [42], AlexNet(2), and AlexNet(5) [19] to
+evaluate low-level fidelity, and Inception [36], CLIP [28],
+EfficientNet-B [38], and SwAV [5] to assess high-level se-
+mantic consistency.
+4.3. Experimental Results
+Image and Brain Retrieval. Table 1 reports the quantita-
+tive comparison of Duala with recent state-of-the-art cross-
+subject decoding frameworks, including MindEye2 [32],
+MindAligner [8], and MindTuner [13]. Across both im-
+age retrieval and brain retrieval, Duala achieves consis-
+42727
+
+
+Figure 6. Visualization of reconstruction results with only 1 hour of data.
+tent improvements under the 1-hour training condition.
+On average, Duala attains 84.5% image retrieval accuracy
+and 81.1% brain retrieval accuracy, outperforming Mind-
+Tuner [13] by 1.4% and 5.1%, respectively. This improve-
+ment highlights the benefit of jointly performing stimulus-
+level relational consistency and subject-level feature pertur-
+bation, which together preserve semantic structure while
+enhancing generalization to new subjects. Notably, these
+gains are consistent across all four NSD subjects (1, 2, 5,
+and 7), and both forward (brain-to-image) and backward
+(image-to-brain) retrieval improve for each subject. This
+indicates that Duala generalizes reliably across individu-
+als and yields stable retrieval. In addition, we provide a
+t-SNE comparison of the feature representations for Sub-
+ject 1 (Figure 7). While MindEye2 [32] shows consider-
+able overlap between classes after fine-tuning, Duala main-
+tains clearer separations among stimulus classes, confirm-
+ing the effectiveness of the stimulus-level semantic preser-
+vation module in preserving intra-class coherence.
+Image Reconstruction. In terms of image reconstruc-
+tion, Duala achieves the highest or second-highest scores
+across most perceptual and pixel-level metrics. Averaged
+across subjects, Duala obtains the best results in Pixel Cor-
+relation (0.230), AlexNet(2) (87.9%), Inception (85.4%),
+and CLIP (83.5%), indicating superior preservation of low-
+level details and high-level semantic fidelity.
+Compared
+with MindTuner [13], Duala improves Inception similarity
+by 0.6% and maintains comparable SSIM and AlexNet(5)
+scores, demonstrating that the proposed dual-level con-
+straints enhance representational quality without sacrificing
+structural coherence. Figure 6 presents examples of images
+reconstructed from fMRI signals across multiple subjects.
+Compared with previous methods [8, 32], our approach pro-
+duces images that better reflect the correct semantic cate-
+gory of the stimulus, with fewer misclassifications or cross-
+Figure 7. Comparison on t-SNE of MindEye2 and Duala fine-
+tuned on subject 1. Duala shows clearer class boundaries, indicat-
+ing improved stimulus-level semantic preservation.
+category confusions. This demonstrates that our method
+helps maintain clear distinctions between classes leading to
+more faithful and coherent reconstructions.
+4.4. Ablation Studies
+Effectiveness of Key Components. We conducted ablation
+experiments to evaluate the contribution of each component
+in Duala, as summarized in Table 3. The first row serves as
+our baseline, which adopts the same LoRA [16] and Skip-
+LoRA fine-tuning strategy as MindTuner [13] without any
+of Duala’s alignment components. Adding the SDP mod-
+ule alone yields consistent gains in retrieval and reconstruc-
+tion. Introducing Lsa of SSP module markedly strengthens
+semantic separability and pushes brain retrieval to 92.38%,
+but slightly reduces image retrieval, suggesting that it tight-
+ens class cohesion yet can bias forward matching when used
+alone. Combining SDP and Lsa recovers forward match-
+ing while maintaining high brain retrieval. Finally, the full
+model (SDP+Lsa+Lrc) achieves the best overall trade-off,
+with state-of-the-art high-level semantics, the lowest dis-
+42728
+
+
+Table 3. Ablation studies on Duala. Results of subject 1 from NSD Dataset with 1 hour of data. Bold indicates the best performance.
+Key Components
+Low-Level
+High-Level
+Retrieval
+SDP Module
+SSP Lsa
+SSP Lrc
+PixCorr↑
+SSIM↑
+Alex(2)↑
+Alex(5)↑
+Incep↑
+CLIP↑
+Eff.↓
+SwAV↓
+Image↑
+Brain↑
+✘
+✘
+✘
+0.243
+0.418
+89.33%
+94.28%
+84.24%
+83.35%
+0.791
+0.446
+93.31%
+89.92%
+✔
+✘
+✘
+0.244
+0.414
+89.70%
+94.34%
+84.45%
+83.68%
+0.779
+0.441
+93.84%
+90.59%
+✘
+✔
+✘
+0.252
+0.413
+90.80%
+95.47%
+86.16%
+84.00%
+0.772
+0.435
+91.89%
+92.38%
+✔
+✔
+✘
+0.249
+0.416
+90.19%
+94.90%
+85.33%
+83.92%
+0.783
+0.445
+93.86%
+91.43%
+✔
+✔
+✔
+0.253
+0.418
+90.81%
+95.29%
+86.62%
+85.11%
+0.768
+0.433
+94.77%
+91.22%
+Table 4. Sensitivity of Duala performance to loss weights. Results
+of subject 1 from the Natural Scenes Dataset with 1 hour of data.
+λ1
+λ2
+PixCorr↑
+SSIM↑
+Incep↑
+CLIP↑
+Image↑
+Brain↑
+0.5
+0.05
+0.250
+0.417
+85.87%
+84.40%
+93.93%
+90.94%
+1.0
+0.05
+0.251
+0.418
+85.21%
+83.74%
+93.88%
+91.14%
+1.0
+0.1
+0.253
+0.418
+86.62%
+85.11%
+94.77%
+91.22%
+1.0
+0.5
+0.253
+0.417
+85.77%
+84.86%
+94.52%
+90.87%
+similarities (Eff.
+0.768, SwAV 0.433), and the highest
+image retrieval, while keeping brain retrieval competitive.
+These results validate that Duala effectively integrates both
+stimulus-level and subject-level regularization, producing
+superior decoding performance.
+Sensitivity to Loss Weights. Table 4 evaluates the in-
+fluence of the weights of semantic alignment loss (λ1) and
+the relational consistency loss (λ2) on Duala’s performance.
+It shows that Duala is robust to the semantic alignment
+weight λ1 increasing from 0.5 to 1.0, producing only minor
+changes. In contrast, performance is more sensitive to the
+relational consistency weight λ2. A light–to–moderate 0.1
+performs best. Setting too high 0.5 reduces both retrieval
+metrics, suggesting over-regularization toward source re-
+lational geometry that hampers new-subject adaptation.
+Low-level fidelity (PixCorr and SSIM) remains largely un-
+changed across settings, indicating that λ2 primarily shapes
+semantic geometry rather than pixel structure.
+4.5. Further Analysis
+Efficiency Analysis. Table 2 compares the number of train-
+able parameters during fine-tuning. The parameters of the
+ridge regression layer vary across subjects, and the num-
+bers reported correspond to Subject 1. Duala introduces
+only 4.68M trainable parameters for its MLP module while
+keeping the alignment network frozen, resulting in a total
+of 69.09M parameters, significantly fewer than MindEye2
+(2.2G) and MindTuner (76.7M). Despite this lightweight
+design, Duala achieves the highest decoding performance
+across all evaluation metrics, demonstrating superior pa-
+rameter efficiency and fine-tuning stability.
+Functional Alignment Analysis. To further investigate
+cross-subject functional alignment, we visualize brain re-
+gions associated with stimulus representations using the
+Figure 8. Visualization of transfer quantity in brain heatmaps.
+It shows that our method produces TQ maps with clear region-
+specific hotspots that match the 40-hour (full dataset) model.
+Transfer Quantity (TQ) metric. Specifically, we compute
+TQ values from ridge regression. The resulting heatmaps
+highlight regions with stronger or weaker cross-subject cor-
+respondence, providing an intuitive view of inter-individual
+variability. In the full-dataset model, high TQ values are
+concentrated in canonical visual regions (e.g., EarlyVis,
+OPA, EBA, PPA), reflecting fine-grained functional spe-
+cialization.
+By contrast, MindEye2 [32] spreads high
+TQ values more evenly across the cortex, suggesting that
+its subject-specific mapping fails to preserve this regional
+structure. In addition, our method produces TQ maps with
+clear region-specific hotspots that match the 40-hour model.
+5. Conclusion
+In this work, we presented Duala, a fine-tuning framework
+for cross-subject fMRI-to-image decoding that considers
+both stimulus-level and subject-level alignment. By intro-
+ducing Stimulus-level Semantic Preservation to maintain
+relational structure across visual classes and Subject-level
+Distribution Perturbation to adapt to individual brain re-
+sponse variability, Duala effectively leverages limited data
+from new subjects. Extensive experiments on NSD dataset
+demonstrate that our approach consistently improves both
+reconstruction and retrieval performance compared to other
+methods, highlighting its ability to preserve semantic in-
+tegrity while accommodating subject-specific differences.
+42729
+
+
+References
+[1] Emily J Allen, Ghislain St-Yves, Yihan Wu, Jesse L
+Breedlove, Jacob S Prince, Logan T Dowdle, Matthias Nau,
+Brad Caron, Franco Pestilli, Ian Charest, et al. A massive
+7t fmri dataset to bridge cognitive neuroscience and artificial
+intelligence. Nature Neuroscience, 25(1):116–126, 2022. 2,
+3, 6
+[2] Guangyin Bao, Qi Zhang, Zixuan Gong, Jialei Zhou, Wei
+Fan, Kun Yi, Usman Naseem, Liang Hu, and Duoqian Miao.
+Wills aligner: Multi-subject collaborative brain visual de-
+coding. In Proceedings of the AAAI Conference on Artificial
+Intelligence, pages 14194–14202, 2025. 3
+[3] Thomas Bazeille,
+Hugo Richard,
+Hicham Janati,
+and
+Bertrand Thirion.
+Local optimal transport for functional
+brain template estimation. In International Conference on
+Information Processing in Medical Imaging, pages 237–248.
+Springer, 2019. 3
+[4] Ed Bullmore and Olaf Sporns.
+Complex brain networks:
+graph theoretical analysis of structural and functional sys-
+tems. Nature Reviews Neuroscience, 10(3):186–198, 2009.
+1
+[5] Mathilde Caron, Ishan Misra, Julien Mairal, Priya Goyal, Pi-
+otr Bojanowski, and Armand Joulin. Unsupervised learning
+of visual features by contrasting cluster assignments. Ad-
+vances in Neural Information Processing Systems, 33:9912–
+9924, 2020. 6
+[6] Zijiao Chen, Jiaxin Qing, Tiange Xiang, Wan Lin Yue, and
+Juan Helen Zhou. Seeing beyond the brain: Conditional dif-
+fusion model with sparse masked modeling for vision decod-
+ing. In Proceedings of the IEEE/CVF Conference on Com-
+puter Vision and Pattern Recognition, pages 22710–22720,
+2023. 1, 3
+[7] David D Cox and Robert L Savoy. Functional magnetic res-
+onance imaging (fmri)“brain reading”: detecting and clas-
+sifying distributed patterns of fmri activity in human visual
+cortex. Neuroimage, 19(2):261–270, 2003. 1
+[8] Yuqin Dai, Zhouheng Yao, Chunfeng Song, Qihao Zheng,
+Weijian Mai, Kunyu Peng, Shuai Lu, Wanli Ouyang, Jian
+Yang, and Jiamin Wu.
+Mindaligner: Explicit brain func-
+tional alignment for cross-subject visual decoding from lim-
+ited fmri data.
+In International Conference on Machine
+Learning, 2025. 3, 6, 7
+[9] James J DiCarlo, Davide Zoccolan, and Nicole C Rust. How
+does the brain solve visual object recognition? Neuron, 73
+(3):415–434, 2012. 1
+[10] Zhan Fa, Yue Duan, Jian Zhang, Lei Qi, Wanqi Yang, and
+Yinghuan Shi. Decomposing and composing: Towards ef-
+ficient vision-language continual learning via rank-1 expert
+pool in a single lora. arXiv preprint arXiv:2601.22828, 2026.
+4
+[11] Daiming Fan, Tao Jiang, Wenbin Ma, Chuanlu Jiang, Yong-
+ping You, Ying Mao, Xiaoguang Qiu, Chunsheng Kang,
+Gang Li, Qing Mao, et al. Caca guidelines for holistic in-
+tegrative management of glioma. Holistic Integrative Oncol-
+ogy, 1(1):22, 2022. 1
+[12] Matteo Ferrante, Tommaso Boccato, Furkan Ozcelik, Rufin
+VanRullen, and Nicola Toschi. Through their eyes: multi-
+subject brain decoding with simple alignment techniques.
+Imaging Neuroscience, 2:1–21, 2024. 2, 3
+[13] Zixuan Gong, Qi Zhang, Guangyin Bao, Lei Zhu, Rong-
+tao Xu, Ke Liu, Liang Hu, and Duoqian Miao. Mindtuner:
+Cross-subject visual decoding with visual fingerprint and se-
+mantic correction. In Proceedings of the AAAI Conference
+on Artificial Intelligence, pages 14247–14255, 2025. 2, 3, 6,
+7
+[14] Inhwa Han, Jaayeon Lee, and Jong Chul Ye. Mindformer:
+Semantic alignment of multi-subject fmri for brain decoding.
+arXiv preprint arXiv:2405.17720, 2024. 3
+[15] Tomoyasu Horikawa and Yukiyasu Kamitani. Generic de-
+coding of seen and imagined objects using hierarchical vi-
+sual features. Nature Communications, 8(1):15037, 2017. 3
+[16] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-
+Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen, et al.
+Lora: Low-rank adaptation of large language models. In-
+ternational Conference on Learning Representations, 1(2):
+3, 2022. 6, 7
+[17] Sungyoon Jung, Donghyun Lee, and Won Hwa Kim.
+Mindlink:
+Subject-agnostic cross-subject brain decoding
+framework. In International Conference on Medical Image
+Computing and Computer-Assisted Intervention, pages 469–
+479. Springer, 2025. 2
+[18] Kendrick N Kay, Thomas Naselaris, Ryan J Prenger, and
+Jack L Gallant. Identifying natural images from human brain
+activity. Nature, 452(7185):352–355, 2008. 1, 2
+[19] Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton.
+Imagenet classification with deep convolutional neural net-
+works. Advances in Neural Information Processing Systems,
+25, 2012. 6
+[20] Yayuan Li, Jintao Guo, Lei Qi, Wenbin Li, and Yinghuan
+Shi.
+Text and image are mutually beneficial: Enhancing
+training-free few-shot classification with clip. In Proceed-
+ings of the AAAI Conference on Artificial Intelligence, pages
+5039–5047, 2025. 4
+[21] Sikun Lin, Thomas Sprague, and Ambuj K Singh.
+Mind
+reader: Reconstructing complex images from brain activi-
+ties. Advances in Neural Information Processing Systems,
+35:29624–29636, 2022. 1, 3
+[22] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+Pietro Perona, Deva Ramanan, Piotr Doll´ar, and C Lawrence
+Zitnick. Microsoft coco: Common objects in context. In
+European Conference on Computer Vision, pages 740–755.
+Springer, 2014. 6
+[23] Ilya Loshchilov and Frank Hutter. Decoupled weight decay
+regularization. arXiv preprint arXiv:1711.05101, 2017. 6
+[24] Weijian Mai and Zhijun Zhang.
+Unibrain: Unify image
+reconstruction and captioning all in one diffusion model
+from human brain activity. arXiv preprint arXiv:2308.07428,
+2023. 1, 2, 3
+[25] Thomas Naselaris, Kendrick N Kay, Shinji Nishimoto, and
+Jack L Gallant. Encoding and decoding in fmri. Neuroimage,
+56(2):400–410, 2011. 1, 2
+[26] Furkan Ozcelik and Rufin VanRullen. Natural scene recon-
+struction from fmri signals using generative latent diffusion.
+Scientific Reports, 13(1):15666, 2023. 1, 3
+42730
+
+
+[27] Ruijie Quan, Wenguan Wang, Zhibo Tian, Fan Ma, and
+Yi Yang.
+Psychometry: An omnifit model for image re-
+construction from human brain activity. In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 233–243, 2024. 2
+[28] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya
+Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,
+Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learn-
+ing transferable visual models from natural language super-
+vision. In International Conference on Machine Learning,
+pages 8748–8763. PmLR, 2021. 1, 6
+[29] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey Chu,
+and Mark Chen. Hierarchical text-conditional image gener-
+ation with clip latents. arXiv preprint arXiv:2204.06125, 1
+(2):3, 2022. 4
+[30] Robin Rombach, Andreas Blattmann, Dominik Lorenz,
+Patrick Esser, and Bj¨orn Ommer.
+High-resolution image
+synthesis with latent diffusion models.
+In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 10684–10695, 2022. 1
+[31] Paul Scotti, Atmadeep Banerjee, Jimmie Goode, Stepan Sha-
+balin, Alex Nguyen, Aidan Dempster, Nathalie Verlinde,
+Elad Yundler, David Weisberg, Kenneth Norman, et al. Re-
+constructing the mind’s eye: fmri-to-image with contrastive
+learning and diffusion priors. Advances in Neural Informa-
+tion Processing Systems, 36:24705–24728, 2023. 3, 6
+[32] Paul S Scotti, Mihir Tripathy, Cesar Kadir Torrico Vil-
+lanueva, Reese Kneeland, Tong Chen, Ashutosh Narang,
+Charan Santhirasegaran, Jonathan Xu, Thomas Naselaris,
+Kenneth A Norman, et al. Mindeye2: Shared-subject mod-
+els enable fmri-to-image with 1 hour of data. In International
+Conference on Machine Learning, 2024. 2, 3, 4, 6, 7, 8
+[33] Katja Seeliger, Umut G¨uc¸l¨u, Luca Ambrogioni, Yagmur
+G¨uc¸l¨ut¨urk, and Marcel AJ Van Gerven. Generative adver-
+sarial networks for reconstructing natural images from brain
+activity. NeuroImage, 181:775–785, 2018. 1, 3
+[34] Guohua Shen, Tomoyasu Horikawa, Kei Majima, and
+Yukiyasu Kamitani.
+Deep image reconstruction from hu-
+man brain activity.
+PLoS Computational Biology, 15(1):
+e1006633, 2019. 1, 3
+[35] Leslie N Smith and Nicholay Topin.
+Super-convergence:
+Very fast training of neural networks using large learn-
+ing rates.
+In Artificial intelligence and machine learning
+for multi-domain operations applications, pages 369–386.
+SPIE, 2019. 6
+[36] Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jon
+Shlens, and Zbigniew Wojna. Rethinking the inception archi-
+tecture for computer vision. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition,
+pages 2818–2826, 2016. 6
+[37] Yu Takagi and Shinji Nishimoto. High-resolution image re-
+construction with latent diffusion models from human brain
+activity.
+In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 14453–
+14463, 2023. 1, 3
+[38] Mingxing Tan and Quoc Le. Efficientnet: Rethinking model
+scaling for convolutional neural networks. In International
+Conference on Machine Learning, pages 6105–6114. PMLR,
+2019. 6
+[39] Alexis Thual, Yohann Benchetrit, Felix Geilert, J´er´emy
+Rapin, Iurii Makarov, Hubert Banville, and Jean-R´emi King.
+Aligning brain functions boosts the decoding of visual se-
+mantics in novel subjects. arXiv preprint arXiv:2312.06467,
+2023. 3
+[40] Zhibo Tian, Ruijie Quan, Fan Ma, Kun Zhan, and Yi Yang.
+Brainguard: Privacy-preserving multisubject image recon-
+structions from brain activities. In Proceedings of the AAAI
+Conference on Artificial Intelligence, pages 14414–14422,
+2025. 3
+[41] Shizun Wang, Songhua Liu, Zhenxiong Tan, and Xinchao
+Wang. Mindbridge: A cross-subject brain decoding frame-
+work. In Proceedings of the IEEE/CVF Conference on Com-
+puter Vision and Pattern Recognition, pages 11333–11342,
+2024. 3
+[42] Zhou Wang, Alan C Bovik, Hamid R Sheikh, and Eero P Si-
+moncelli. Image quality assessment: from error visibility to
+structural similarity. IEEE Transactions on Image Process-
+ing, 13(4):600–612, 2004. 6
+[43] Zixuan Wang, Yuki Murai, and David Whitney. Idiosyncratic
+perception: a link between acuity, perceived position and ap-
+parent size. Proceedings of the Royal Society B, 287(1930):
+20200825, 2020. 2
+[44] Daniel LK Yamins and James J DiCarlo. Using goal-driven
+deep learning models to understand sensory cortex. Nature
+Neuroscience, 19(3):356–365, 2016. 1
+[45] Bohan Zeng, Shanglin Li, Xuhui Liu, Sicheng Gao, Xiao-
+long Jiang, Xu Tang, Yao Hu, Jianzhuang Liu, and Baochang
+Zhang. Controllable mind visual diffusion model. In Pro-
+ceedings of the AAAI Conference on Artificial Intelligence,
+pages 6935–6943, 2024. 1, 3
+42731
