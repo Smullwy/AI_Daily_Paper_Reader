@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-08</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-08 04:56 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,8 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读6篇论文，聚焦前额叶的单神经元编码规则和EEG-fMRI视觉活动的层流特性。</p>
-<p>最值得细看的是《Single-neuron selectivity rules…》揭示的前额叶群体表征如何由单个神经元选择规则驱动，以及《Frequency and Laminar Profile…》用同步脑电解锁视觉特征的时空密码。</p>
-<p>推荐大家沿着“从单细胞规则到宏观脑成像”这条线索，关注工作记忆的低维表征如何衔接这两极发现。</p>
+      <p>今日精读6篇神经科学论文，揭示前额叶皮层如何用单神经元规则编织群体表征。最值得关注两篇9分研究：单神经元选择性规则解密了前额叶群体编码的内在逻辑，同步EEG-fMRI则首次展现视觉特征活动在皮层层次与频段上的时空织网。若想把握记忆与决策的神经机制，从这两项互补的微观-宏观突破入手最省力。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/08/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -114,3 +111,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
