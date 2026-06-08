@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-09</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-09 05:29 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读2篇前沿论文，速览3篇交叉研究，聚焦大脑网络映射与多模态语音识别等方向。</p>
-<p>脑连接组主成分可驱动症状-病灶网络映射的跨数据集复制与临床预测，揭示稳健的神经环路基础；跨域编码模型则发现语言与数学共享特定神经表征。</p>
-<p>建议关注神经影像可重复性突破与视听多模态自监督学习的落地进展，可深入阅读相关论文获取方法细节。</p>
+      <p>今日精读16篇论文，重点聚焦高分脑网络连接组主成分与多模态视听语音识别研究。</p>
+<p>最值得跟进的方向是：连接组主成分能跨数据集复现并预测临床症状，以及多视角自监督实现鲁棒视听语音识别。</p>
+<p>建议关注脑疾病网络定位与多模态AI的工程化结合，从今日精读切入。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/09/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
