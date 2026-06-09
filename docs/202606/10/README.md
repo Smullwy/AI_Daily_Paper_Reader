@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-10</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-10 06:00 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读2篇顶会论文，揭示大脑视觉功能区的组织原理与视网膜多时间尺度预测编码规律。</p>
-<p>最值得关注：AI模型正反向解码大脑——从脑区功能映射到情绪动态识别，视觉系统的高效计算机制正被快速解析。</p>
-<p>建议读者关注&quot;功能性脑区发现&quot;与&quot;视网膜灵活编码&quot;这两项突破，它们将深刻影响下一代类脑视觉芯片的设计思路。</p>
+      <p>今日精读揭示大脑功能区域的地形组织与视网膜跨时间预测编码，同时速递视觉语言模型的“视而不见”诊断及情绪解码新框架。</p>
+<p>最值得关注的是深度多模态模型如何发现选择性脑区，以及视网膜灵活编码对预测的启发。</p>
+<p>建议读者从人脑与AI的对齐入手，思考对比度敏感性与自然情绪建模的实际应用。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/10/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -141,3 +140,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
