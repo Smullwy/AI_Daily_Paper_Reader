@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-11</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-11 06:14 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦多视角特征融合与一致性生成，精读两篇顶会高分论文，速读十篇前沿工作。</p>
-<p>最值得看：多源特征融合显著提升特征匹配鲁棒性，多视角约束统一则让视频生成身份更稳定。</p>
-<p>建议关注跨模态对齐新框架，下周可深入对比不同对齐策略在情感分析中的表现。</p>
+      <p>今日聚焦多视角学习与表征对齐：精读两篇高分论文，速读十篇前沿工作，解锁“看清全局、生成一致”的新路径。</p>
+<p>最值得关注的方向：一是多源特征融合让两视图匹配更精准可靠，二是协调多视图约束可实现人物身份高度一致的视频生成。</p>
+<p>动手建议：若你正做多模态理解或内容生成，不妨借跨视图对齐的思路，从特征融合与一致性约束入手优化模型表现。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/11/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -132,3 +131,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

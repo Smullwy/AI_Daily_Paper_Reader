@@ -1,0 +1,1790 @@
+Title: A Unifying Framework for Concept-Based Representational Similarity
+
+URL Source: https://arxiv.org/pdf/2606.09653v1
+
+Published Time: Tue, 09 Jun 2026 02:32:16 GMT
+
+Number of Pages: 32
+
+Markdown Content:
+# A Unifying Framework for Concept-Based Representational Similarity 
+
+Gr´ egoire Dhimo¨ ıla a,b ∗ Victor Boutin c Agustin Picard d Thomas Fel e Thomas Serre aaBrown University bENS Paris Saclay cCNRS dDEEL - IRT Saint Exup´ ery eGoodfire 
+
+# Abstract 
+
+Learned representations across models and modalities often exhibit striking struc-tural similarities, suggesting shared underlying concept decompositions. However, concept alignment remains poorly defined: existing approaches optimize different objectives under the same terminology, obscuring what is actually aligned. We propose a unifying framework that decomposes alignment along two axes: 
+
+what is aligned (representations vs. concepts) and at what level (instance-wise vs. distributional). This induces four corresponding properties—instance-wise and distributional variants of translation and concept consistency—and reveals precisely which of these guarantees existing methods provide. We further introduce 
+
+InterVenchA , an intervention-based benchmark that separately measures extrac-tion quality, translation quality, and concept consistency. Through theory and experiments, we show that commonly assumed equivalences between alignment objectives fail in practice: optimizing one property does not reliably recover the others, and purely unsupervised objectives fail to recover meaningful instance-level alignment. We then propose the Coupled Sparse Autoencoder (CoSAE), which jointly enforces complementary alignment objectives. Strong alignment emerges only in this regime. Surprisingly, as little as 0.1% paired data is sufficient to recover instance-level alignment when anchoring distributional objectives. Overall, our results show that concept alignment is fundamentally multi-objective: it must be defined, measured, and optimized as such. 
+
+# 1 Introduction 
+
+A recurring finding in modern deep learning is that internal representations learned by different models are often far less arbitrary than their parameterizations suggest. Across architectures, random initializations, and training objectives, independently trained networks frequently exhibit substantial geometric similarity [ 1, 2]. This phenomenon extends across modalities: models such as CLIP [ 3 ], LiT [ 4], and SigLIP [ 5 ] learn representations that align modalities strongly enough to support zero-shot transfer. Together, these results suggest that learned representations share non-trivial structure across systems, including across modalities. If learned representations do share non-trivial structure, the key question is how to characterize it. Representational similarity metrics (e.g., CCA [ 6], CKA [ 1], and variants [ 7 , 8, 9]) provide a coarse geometric view of representational overlap. They do not, however, identify which features are shared across systems, nor whether those features admit a common interpretable decomposition. Sparse autoencoders (SAEs) [ 10 , 11 , 12 ] provide one such decomposition by expressing neural activations in terms of sparse, interpretable features— concepts —and recent work has begun extending this approach across models and modalities [ 13 , 14 , 15 ]. This line of work naturally raises the question of concept alignment , which we use informally to mean that different systems capture the same underlying structure in their representations. In practice, however, this notion splits along two distinct      
+
+> ∗Correspondence to: gregoire.dhimoila@ens-paris-saclay.fr
+> Source code: https://github.com/Parabrele/CoSAE
+> Preprint.
+> arXiv:2606.09653v1 [cs.LG] 8 Jun 2026 :::Generating Process
+> Shared
+> Space
+> Concept
+> Space
+> Observation
+> Space
+> Latent
+> Space
+> :
+> SAE
+> Transcoder
+> Crosscoder
+> USAE
+> SAE-A
+> pair-free
+> training inference
+> CoSAE
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+> -
+
+Figure 1: Summary of the proposed framework. Left : Illustration of a generative process where observations stem from a shared space through modality-specific generators gi. Feature extractors (ϕi) learn to invert this generative process up to some transform ψi. Top right : Different properties of ψi that achieve different types of alignment. Bottom right : summary of previous SAE-based methods for concept extraction, along with which property they are trained to satisfy. Pair-free 
+
+indicates whether instance-wise pairs of inputs are required for the alignment during training and inference of each SAE. axes. On the one hand, latent alignment asks whether two system’s latent spaces can be characterized by a shared concept dictionary—i.e., whether one’s representations can be mapped into another’s by swapping the decoder’s dictionaries. On the other hand, concept consistency asks whether both systems recover different compressed views of a shared underlying concept space. Different methods optimize different objectives under the same terminology (see [ 16 ] for a survey), leaving it unclear which properties are enforced, and when apparent alignment reflects genuinely shared structure. In this paper, we argue that these distinctions define a complete framework for concept alignment. Any alignment objective must specify both what is being aligned—representations or concepts—and 
+
+at what level alignment is required—for individual instances or in distribution. This yields four fundamental alignment properties. When alignment is defined over representations, the relevant property is the ability to map one representation to another, which we call translation ; when alignment is defined over concepts, the relevant property is the recovery of shared features across systems, which we call concept consistency . Each property can, in turn, be required either instance-wise or distributionally. Existing methods instantiate different parts of this space. Our framework makes these choices explicit, providing a rigorous language for comparing existing methods—from standard SAEs [ 10 ] and transcoders [ 17 ] to crosscoders [ 13 ], Universal SAEs (USAEs) [ 14 ], and SAE-Aligned (SAE-A) [ 15 ]. This decomposition provides a precise language for comparing existing methods, analyzing how the corresponding alignment properties relate to one another, and clarifying the assumptions they implicitly make (Figure 1). Building on this framework, we make the following contributions: • A unifying framework for concept alignment. We formalize concept alignment with four distinct properties—translation, concept consistency, instance-wise and distributional alignment— and use this decomposition to contextualize existing methods in a common design space. • A diagnostic benchmark for concept alignment. We introduce InterVenchA , which naturally extends SAEBench [ 18 ] evaluation to independently measure extraction quality, translation quality, and concept consistency. • An empirical audit of alignment objectives. On both synthetic and real embeddings, we show that several commonly assumed relationships between alignment properties do not hold in practice: translation does not reliably yield concept consistency, cycle consistency is not a faithful proxy for alignment, and distributional matching does not guarantee instance-level alignment. • A practical recipe under scarce supervision. We introduce the Coupled SAE (CoSAE), a modular sparse autoencoder framework that combines complementary regularizers, and show that anchoring distributional objectives with as little as 0.1% paired data is sufficient to recover strong instance-level alignment. • State-of-the-art performance for concept alignment. We show that CoSAE outperforms prior state-of-the-art alignment methods, including crosscoders [ 13 ], Universal SAEs (USAEs) [ 14 ], and SAE-Aligned (SAE-A) [15], across our alignment metrics. 2Taken together, these findings are consistent with a parsimonious explanatory framework: concept alignment is a multi-dimensional problem; common surrogate objectives only capture part of it; and the strongest practical performance arises from combining complementary regularizers with minimal anchoring supervision. Beyond the specific SAE instantiation studied here, we hope this framework provides a clearer basis for defining, evaluating, and optimizing concept alignment. 
+
+# 2 Related Work 
+
+Representation Alignment. A large body of work has studied representation similarity, aiming to characterize whether two neural representations encode similar information. Early approaches rely on statistical or geometric comparisons between representation spaces, such as Canonical Correlation Analysis (CCA) [ 6 , 8 ], Centered Kernel Alignment (CKA) [ 1], and related methods [ 19 ,7, 9 ]. These methods provide a coarse-grained view of similarity by identifying shared linear subspaces or measuring invariance under orthogonal transformations. While these approaches have been instrumental in establishing that independently trained models often converge to similar representations [ 9, 20 , 21 ], they remain limited in their interpretability [ 9 , 22 ]. In particular, they characterize the degree to which representations are similar, but not how or why . These limitations have motivated a shift from coarse, single-score metrics toward finer-grained analyses that operate at the level of individual features or concepts [13]. 
+
+Interpretability: Towards Concept-based Analysis. The interpretability field aims at understand-ing the internal workings of neural networks. Many tools have been developed to dissect learned representations [ 23 , 24 , 25 ]. The overall effort is currently shifting from feature visualization [ 24 , 26 ]and attribution methods [ 27 , 28 , 29 ] to concept-based explanations [ 30 , 31 , 32 , 12 ]. This shift exemplifies the trend of moving from input-based explanations to internal explanations. Concept superposition and extraction originated in sparse coding [ 33 , 34 , 35 , 36 , 37 ], and are grounded in compressed sensing and random projection theory [ 38 , 39 ]. It is therefore typically framed as a dictionary learning problem [ 40 , 41 , 42 , 43 ]: Sparse autoencoders (SAEs) have now become the default approach for concept extraction [ 44 , 45 , 46 , 47 , 48 ] following their empirical success in interpretability for both vision [49, 47, 50] and language modeling [10, 11, 51]. 
+
+Concept-based Representation Alignment. Recent work moved from global geometric similarity to concept-level similarity. Instead of comparing representations as monolithic objects, these ap-proaches aim to decompose them into interpretable features and study how these features align across models or modalities. SAEs have emerged as a central tool in this setting, enabling the extraction of structured, often interpretable feature dictionaries. Crosscoders [ 13 ] enforce a shared coding space across representations through architectural constraints, while Universal SAEs (USAEs) [ 14 ](resp. Aligned SAEs [ 15 ]) rely on regularization through translation (resp. concept consistency) objectives to align feature spaces across models. Despite sharing a common goal, these methods differ significantly in the properties they enforce and in the assumptions they implicitly rely on. More details on how these methods fit into our framework are provided in Appendix A. 
+
+# 3 Framework Formulation (Concept Space)             
+
+> (a) Ptr : ( ψ−1
+> j◦ψi)( xi) = xj(Concept Space) (b) Pcont :ψi(xi) = ψj(xj)
+
+Figure 2: Element-wise alignment. 
+
+Concept Alignment. Let I be an in-dex set whose elements correspond to representation instances. Each i ∈ I
+
+may, for example, index the same modality embedded in different mod-els, different layers of a single model, checkpoints of a single model at differ-ent training steps, modality-specific instantiations of an abstract idea, etc. Let X be a set of data points equipped with a measure μ, and ϕi : X → Rd
+
+be a representation function for each i ∈ I. Denote by Xi := ϕi(X) the set of representations of X
+
+under ϕi, and by μi := ϕi#μ the pushforward measure on Xi induced by ϕi. Let ψi : Xi → RK be 3concept extraction functions with corresponding decoders ψ−1 
+
+> i
+
+: RK → Xi abusively denoted with the inverse notation for readability. Under this setting, and with xi = ϕi(x) and xj = ϕj (x), we can define the following alignment properties of translation and concept consistency at the instance level (Figure 2)                
+
+> (a) Pdist tr : ( ψ−1
+> j◦ψi)# μi=μj(b) Pdist cont :ψi#μi=ψj#μj
+
+Figure 3: Distributional alignment. If the Xi are such that instance-wise correspondences are not avail-able, i.e., we do not have access to the underlying X, we can translate these into distributional alignment proper-ties as follows. Let (ψ−1 
+
+> j
+
+◦ ψi)# μi
+
+define a measure on Xj , and ψi#μi
+
+define a measure on the concept space 
+
+RK . We define the distributional alignment properties corresponding to translation and concept consistency in Figure 3.             
+
+> (a) Pdcy : ( ψ−1
+> i◦ψi)( xi) = xi(b) Pcy : ( ψ−1
+> i◦ψj◦ψ−1
+> j◦ψi)( xi) = xi
+
+Figure 4: Self reconstruction: demi and full cycle. In addition to these align-ment properties, we can also define standard au-toencoding properties, ef-fectively stating that ψ−1
+
+> i
+
+is indeed the inverse of ψi
+
+on the support of μi. The 
+
+demi-cycle property Pdcy is the standard reconstruction objective of autoencoders, while the full cycle Pcy is an alternative way to couple autoencoders without requiring instance-wise correspondences through reconstruction only. These properties are defined in Figure 4. 
+
+Alignment Dualities. Proposition 1 (see also [ 52 ]) shows that, under reconstruction and injectivity assumptions on the decoder over the shared concept support, translation and concept consistency are equivalent : Ptr ⇔ Pcont (1) In Section 4.2.1, we show that this equivalence breaks down empirically, even in controlled synthetic settings. A second asymmetry arises between instance-wise and distributional alignment: the instance-wise properties imply their distributional counterparts (Proposition 2), but the converse generally fails without strong assumptions on the distributions and function class. In Section 4.3, we show that a few anchor pairs can partially restore this bridge in practice. Finally, while cycle consistency has been used as a surrogate in pair-free translation settings [ 53 , 54 ], we show in Section 4.2.2 that it is not a reliable proxy for alignment in our setting. Recent works on joint concept recovery focus only on subsets of these properties, with little to no discussion of the others and their interactions [ 13 , 14 , 15 ]. This motivates the need for a unifying framework to understand the properties and assumptions underlying the different methods used in the literature, and to design new methods that better enforce these properties for future concept alignment studies. 
+
+3.1 Operationalizing the framework Regularization. Each of the properties defined above can be operationalized as regularization terms in the training loss : 
+
+LSAE = αdcy Ldcy + αcy Lcy + αtr Ltr + αdist tr Ldist tr + αcont Lcont + αdist cont Ldist cont (2) 
+
+Linear Models. In the linear regime, where both the encoders and decoders are linear maps, the different objectives and their combinations collapse to a few analytical solutions. (A) Without coupling, i.e., with only reconstruction, we recover PCA solutions for each domain independently (Lem. 1). (B) Introducing coupling through concept consistency (Lems. 3 and 4) or translation 4(Lems. 5 and 6) both lead to the same solution of the CCA for the encoders, while decoders are some variation of optimal linear readouts of the CCA projections. This perfectly illustrates the duality between Ptr and Pcont in the linear case. (C) Distributional alignment fails to introduce any meaningful coupling, and only enforces covariance matching Appendix D.2.3. (D) Finally, although cycle consistency appears to introduce coupling, it actually fails to do so in the linear case, and only enforces PCA solutions for each domain independently Appendix D.2.4. 
+
+SAE. As discussed in Section 2, over the recent years, the SAE framework for sparse coding has become the default concept extraction in the community. We adopt the batchtopk architecture throughout this work, with details in Appendix G.2. 
+
+Reconstruction. As is standard practice [ 44 ], the demi-cycle consistency property Pdcy can simply be operationalized as an ℓ2 reconstruction loss (Equation (3)). The translation Ptr and cycle properties 
+
+Pcy can also be operationalized as an ℓ2 loss on the translated representations (Equations (4) and (5)). 
+
+Ldcy := Exi∼μi ∥(ψ−1 
+
+> i
+
+◦ ψi)( xi) − xi∥2 (3) 
+
+Ltr := Ex∼μ∥(ψ−1 
+
+> j
+
+◦ ψi)( xi) − xj ∥2 (4) 
+
+Lcy := Exi∼μi ∥(ψ−1 
+
+> i
+
+◦ ψj ◦ ψ−1 
+
+> j
+
+◦ ψi)( xi) − xi∥2 (5) 
+
+Concept Consistency. Crosscoders [ 13 ] enforce Pcont not through regularization of disjoint en-coders, but through summation of all encoders’ outputs to create a common code: ψ′
+
+> i
+
+(xi) = P 
+
+> j∈I
+
+ψj (xj ). This is a very strong constraint, since interpretability is imposed only on the ag-gregated code rather than on the individual encoder outputs. The duality between Ptr and Pcont is here afforded for free by the fact that the code of xi already contains all information about xj . We show in Section 4.4 that the standalone ψi are not able to perform translation in general, and do not even satisfy Pcont . To resolve this tension, we replace the summation in ψ′ 
+
+> i
+
+with a regularization term for Pcont . We simply use an ℓ2 loss on the difference between the codes (Equation (6)). 
+
+Lcont := Ex∼μ ∥ψi(xi) − ψj (xj )∥2 (6) 
+
+Distributional alignment. When instance-wise correspondences are unavailable, enforcing P dist tr 
+
+or P dist cont requires matching distributions rather than individual samples. A natural approach is to minimize a discrepancy between pushforward measures, for instance, using optimal transport. However, distributional distances like the Wasserstein are both computationally expensive and poorly behaved in high dimensions and mini-batch settings [ 55 , 56 ], making them ill-suited for large-scale SAE training. A practical alternative is provided by the Cramer-Wold theorem, which states that two distributions are equal if and only if their one-dimensional projections along all directions are equal. We take inspiration from Balestriero and LeCun [57] and use empirical characteristic function (ECF) based tests for our distributional losses, as defined in Appendix F. These losses are equivalent to sliced Maximum Mean Discrepancies (MMDs): 
+
+Ldist tr := MMD  (ψ−1 
+
+> j
+
+◦ ψi)# μi, μ j
+
+ Ldist cont = MMD ( ψi#μi, ψ j #μj ) (7) 
+
+# 4 Framework Validation 
+
+4.1 Experimental Protocol 4.1.1 Metrics 
+
+InterVench for Concept Extraction. For SAE quality in real embeddings, we do not have access to ground truth concepts. Therefore, we rely on standard metrics, derived from SAEBench [ 18 ], as a proxy for concept extraction quality. SAEBench is a battery of tests designed to evaluate the quality of concepts extracted by SAEs in the context of language models. We adapt the relevant metrics to our setting and use them to evaluate the quality of the concepts extracted by our CoSAE under different regularization regimes. Specifically, we focus on reconstruction and intervention-based metrics from SAEBench, which we further extend and factorize into the following classes. First, InterVench-Latent metrics evaluate the quality of the dictionary to characterize latent geometry. For example, probes are parameterized as 5sparse combinations of dictionary atoms. An overall high score on these metrics means that the dictionary is both a good descriptor of latent geometry and an actionable tool for downstream task uses. Second, InterVench-Concept metrics evaluate the quality of the concept space as its own representation space. We report a single aggregate extraction score Mextract . More details in Appendix B. 
+
+InterVenchA for Concept Alignment. We extend InterVench from concept extraction to concept alignment by turning self-reconstruction metrics into transfer metrics. Concretely, we replace self-reconstruction with cross-domain translation, and reinterpret intervention-based metrics as tests of whether concepts learned in one domain transfer meaningfully to another. This yields two complementary views of alignment: InterVench-Latent measures translation quality independently of concept consistency (with an aggregate score Mtr ), while InterVench-Concept measures concept consistency independently of translation (through the aggregate score Mcont ). The mean of Mtr and 
+
+Mcont is denoted by the alignment score Malign . More details can be found in Appendix C. 
+
+Uncertainty. For readability, all tabulated values are rounded to 10 −3. The corresponding uncer-tainties are consistently below this precision, so no significant information is lost. Uncertainties are obtained by repeating all experiments 10 times and computing the standard deviation across runs. 
+
+4.1.2 Datasets and Models Synthetic DGP. We design a synthetic data-generating process (DGP) that follows precisely a generative formulation of the platonic representation hypothesis (Hypotheses 1 and 2). More details can be found in Appendix G.1. This allows us to have full control over the underlying data structure and to evaluate the ability of different methods to recover this structure under different regularization settings. 
+
+Vision Encoders. We conduct a battery of cross-model alignment experiments on vision models. We select a ViT ( google/vit-base-patch16-224 ), [ 58 ], DinoV2 ( facebook/dinov2-base ) [ 59 ], and SigLIP ( google/siglip-base-patch16-224 ) [ 5 ] from Hugging Face [ 60 ]. The choice of these models was primarily to ensure a clean comparison with Thasarathan et al. [14] . These models are used to extract embeddings for the ImageNet training and validation splits. SAEs are trained on these embeddings (details in Appendix G.2). For evaluation of both concept extraction and alignment quality, we rely on our InterVenchA .
+
+Multimodal Encoders. Finally, we also conduct cross-modal alignment experiments on mul-timodal encoders. We select CLIP ( openai/clip-vit-base-patch32 ) [ 3] and OpenCLIP-L (laion/CLIP-ViT-L-14-laion2B-s32B-b82K ) [61]. These models are used to extract embeddings for the COCO dataset [ 62 ], for both images and captions. Here, we focus on SAEs coupled to the vision and text towers of the same model, as the scope of this setting is cross-modal rather than cross-model alignment. Only the vision encoder’s settings results are reported in the main body of this paper. See Appendix I for the other settings. 
+
+4.2 Alignment Duality in Practice 4.2.1 Translation vs Concept Consistency Question. Does the duality between translation and concept consistency hold under approximate satisfaction of the properties and assumptions in practice? In other words, is regularization for one sufficient to get the other for free, or do we need to explicitly regularize both? 
+
+Setup. In both synthetic and real embedding settings, we train SAEs with instance-wise losses. We then validate the consistency of the quality of concept extraction before studying that of concept alignment. 
+
+Results. (i) We first notice that the Lcont regularization alone seems to significantly decrease the quality of concept extraction, while Ltr alone leaves it mostly unchanged. ( ii ) In the synthetic DGP setting, regularizing with Lcont leads to both satisfaction of Pcont and Ptr , while regularizing with 
+
+Ltr only leads to satisfaction of Ptr . It would thus appear that even in controlled settings, USAE-style regularization is not sufficient to guarantee alignment, with only the Pcont ⇒ Ptr side of the duality being satisfied. ( iii ) In real embeddings, neither direction of the duality holds in practice: optimizing translation improves translation, and optimizing concept consistency improves concept consistency, but neither reliably recovers the other (see Table 1a and Appendix I). The practical implication is clear: both properties must be explicitly regularized. 6Regularization Mextract (↑) Mtr (↑) Mcont (↑)
+
+Ldcy 0.913 0.018 0.000 
+
+Ldcy + Ltr 0.902 0.728 0.217 
+
+Ldcy + Lcont 0.576 0.055 0.602 
+
+Ldcy + Lcy 0.918 0.072 0.000  
+
+> (a) In practice, neither translation nor concept consistency is sufficient . Cycle consistency alone is useless.
+
+Malign (↑) R2cy (↑)0.009 0.561 
+
+0.473 0.121 0.329 0.564 
+
+0.036 0.390    
+
+> (b) There is no empirical link between cy-cle consistency and alignment quality.
+
+Table 1: SAE quality on vision embeddings under different regularization regimes. 
+
+4.2.2 On the effect of cycle consistency 
+
+The second duality we investigate is that of alignment and cycle consistency. As mentioned above, Zhu et al. [53] , Artetxe et al. [54] use cycle consistency as a surrogate for translation in NLP, enabling pair-free training. 
+
+Question. Is cycle consistency a faithful surrogate for alignment in our framework? 
+
+Setup. Again, we train SAEs on both synthetic and real embedding settings with different regular-ization regimes. Specifically, we focus here on Ltr only, Lcont only, and Lcy only. We then evaluate the quality of concept extraction and alignment as before, with the additional measure of the R2
+
+associated with the cycle consistency property (Appendix B), denoted by R2cy .
+
+Results. (i) Unsurprisingly, no regularization at all is enough to get decent R2cy . Indeed, Ldcy 
+
+already regularizes for SAEs to learn the identity function in one direction. Though the other direction is not explicitly regularized for, it appears to come for free. ( ii ) By adding the translation regularization term Ltr , the R2cy drops significantly to below average levels. ( iii ) In both synthetic and real embedding settings, we find that regularizing with Lcy alone does not yield any sort of alignment. This suggests that cycle consistency is not a faithful surrogate for alignment, and that the assumptions underlying the duality are not satisfied in practice. The takeaway is blunt: in our setting, cycle consistency is not a faithful surrogate for alignment. It can be high even when alignment is poor—and low despite strong alignment. Therefore, cycle consistency should not be used as a surrogate for alignment in our framework. Results in Table 1b and Appendix I. 
+
+4.2.3 Instance-wise vs Distributional Alignment Question. Do distributional objectives behave as faithful surrogates for instance-wise alignment? 
+
+Setup. We take the exact same experiment as in Section 4.2.1. We additionally consider SAEs reg-ularized with Ldist tr only and Ldist cont only, and focus on comparing the instance-wise and distributional alignment objectives with no regard to the duality between Ptr and Pcont .
+
+Results. (i) In all settings, we find that, unsurprisingly, instance-wise regularization leads to both instance-wise (Table 2a) and distributional alignment (Appendix I). ( ii ) Perhaps more surprisingly, we find that the converse is true in the synthetic DGP setting: distributional regularization also leads to both instance-wise and distributional alignment (Appendix I). This, however, is likely due to the synthetic DGP’s oversimplification, which can collapse the unidentifiability of the transport problem. (iii ) In real embeddings, distributional objectives do not recover instance-wise alignment. This is exactly the failure mode expected from the unidentifiability of the transport problem, and it explains why purely distributional alignment is insufficient in practice. Results in Table 2a and Appendix I. 
+
+4.3 Anchoring Alignment with Scarce Supervision 
+
+Results from the previous experiments suggest that both translation and concept consistency properties need to be explicitly regularized for, and that distributional objectives are not faithful surrogates for instance-wise alignment. This motivates the need for a combination of regularization terms to achieve maximal alignment quality in the wild. Indeed, a common issue with instance-wise regularization in multimodal settings is the scarcity of high-quality matching pairs. Therefore, it is desirable to rely on distributional regularization for the bulk of the training. As shown in Section 4.2.3, these regularizations alone are not sufficient, possibly due to the uniden-tifiability of the transport problem. However, anchoring them using a few high-quality pairs could be enough to resolve the unidentifiability. In this experiment, we study the behavior of such mixed 7Regularization Mextract Mtr Mcont 
+
+Ldcy 0.913 0.018 0.000 
+
+Ldcy + Ltr 0.902 0.728 0.217 
+
+Ldcy + Ldist tr 0.831 0.025 0.000 
+
+Ldcy + Lcont 0.576 0.055 0.602 
+
+Ldcy + Ldist cont 0.905 0.052 0.000    
+
+> (a) Distributional objectives alone are not faithful surrogates for instance-wise alignment
+
+Regularization Mextract Mtr Mcont 
+
+Ldcy 0.913 0.018 0.000 
+
+Ldcy +Ltr +Lcont 0.836 0.733 0.619 
+
+Ldcy +Ldist tr +Ldist cont 0.893 0.012 0.000 mixed (1 in 1000) 0.893 0.738 0.795  
+
+> (b) A few pairs are enough to anchor distributional reg-ularization for instance-wise alignment.
+
+Table 2: SAE quality on vision embeddings under different regularization regimes. regimes. Specifically, we compute Ltr and Lcont only on a small subset of held-out matching pairs—here, 1 in 1000 , or to one per batch on average. Refer to Appendix G.3 for more details. 
+
+Question. Can a few high-quality pairs anchor the transport functions such that distributional regularization is enough to recover instance-wise alignment? 
+
+Setup. We compare three regimes. In the first one, all pairs are matched, and SAEs are trained with instance-wise regularization, using both Ltr and Lcont . In the second one, all pairs are unmatched, and SAEs are trained with distributional regularization, using both Ldist tr and Ldist cont . Finally, in the third one, only 1 in 1000 pairs are matched, and SAEs are trained with both ( i) instance-wise regularization on the matched pairs and ( ii ) distributional regularization on all pairs. We then evaluate the quality of concept extraction and alignment as before. 
+
+Results. A tiny amount of pairing is enough to resolve the ambiguity of purely distributional objectives. With as few as 1 in 1000 matched pairs, we recover strong instance-wise alignment— matching or even exceeding full instance-wise supervision—while preserving concept extraction. See Table 2b and Appendix I. 
+
+4.4 The Alignment Recipe                          
+
+> Method Eval Mextract (↑)Mtr (↑)Mcont (↑)Crosscoder shared z0.887 0.596 0.794 Crosscoder standalone z0.860 0.319 0.000 USAE –0.895 0.731 0.435 CoSAE –0.893 0.738 0.795
+
+Table 3: Our method outperforms both crosscoders and USAE. We conduct a battery of ablation studies to understand the contribution of each regularization term to the overall performance of the CoSAE on both concept extraction and alignment. We train SAEs with all combinations of regularization terms, and evaluate them on our InterVenchA for both concept extraction and alignment quality. See Appendix I for the full table of results. We also include a comparison with the original USAE and crosscoder methods. For the crosscoder, we distinguish two evaluation settings. In the first one, we consider the unmodified crosscoder, i.e., where the codes are the sum of all encoders’ standalone codes. In the second evaluation setting, the codes are no longer aggregated, and each encoder is evaluated for its capacity to produce standalone codes. 
+
+Ablation on Regularization. Our first finding is that, unsurprisingly, regularizing with Ltr and 
+
+Ldist tr (resp. Lcont and Ldist cont ) is necessary to get good translation (resp. consistency ) scores . Moreover, it seems like overall, including the Lcy term, always decreases performance. Finally, the best practice seems to be to include all terms except Lcy . Crucially, a decreasing proportion of matched pairs has only a marginal effect on performance, down to 1 in 1000 matched pairs. This is consistent with Section 4.3 and suggests that SAEs can still be coupled with only a few anchor points available. 
+
+Comparison with Existing Methods. Our CoSAE outperforms both the USAE and the cross-coder on their respective target metrics ( Mtr and Mcont , respectively). CoSAE achieves the best performance on both, despite crosscoder enforcing perfect Pcont by design through code aggregation. 8Moreover, when evaluated with standalone codes, the crosscoder’s performance drops sharply, includ-ing a collapse in Mcont . This indicates that code aggregation can mask weak standalone encoders, and that alignment observed during aggregated evaluation does not necessarily transfer to the individual encoders. 
+
+4.5 Cross-Modal Transfer with Scarce Supervision e ciency 
+
+> Zero-shot accuracy
+> Number of training pairs
+
+Figure 5: Concept alignment in our CoSAE is strong enough to support competitive downstream behavior .ImageNet zero-shot accuracy of our CoSAE trained on unimodal backbones. As a final validation, we evaluate whether the alignment learned by our CoSAE translates into competitive cross-modal transfer. We consider a setting analogous to CLIP training, replacing the vision–vision alignment of Section 4.1.2 with a vision–text setting (DINOv2 and all-roberta-large), while keeping the same training procedure. We extract CLS tokens on the subset of LAION provided by Ma-niparambil et al. [63] . In this regime, the translation from vision to text representa-tions effectively acts as a learned projector, comparable to the MLP heads used by Ma-niparambil et al. [63] . We therefore com-pare these settings. We evaluate zero-shot ImageNet accuracy obtained from the aligned representations (see Figure 5). Although CoSAE is not op-timized for contrastive cross-modal train-ing, it matches the reported zero-shot accuracy of Maniparambil et al. [63] . This suggests that the alignment learned by CoSAE is strong enough to support competitive downstream transfer, despite relying on sparse autoencoders rather than a dense projector. 
+
+# 5 Discussion 
+
+We revisit representational similarity through a concept-based lens and argue that alignment should not be treated as a single objective. Instead, it is a structured combination of properties— translation and concept consistency, each at both instance- and distribution-levels —and progress depends on keeping these distinctions explicit. Empirically, widely assumed equivalences break down: translation does not imply concept consistency, cycle consistency is not a reliable surrogate, and distributional objectives alone fail to recover instance-wise alignment. Alignment is therefore inherently multi-dimensional and cannot be captured by any single objective. CoSAE is the constructive consequence of this view: rather than betting on a single surrogate, it jointly enforces complementary objectives. Strong alignment emerges only in this regime, with distributional regularization becoming effective once anchored by a few paired examples. In this setting, CoSAE outperforms prior SAE-based approaches while requiring only minimal supervision. Our work also has several limitations. First, the framework focuses on shared structure and does not explicitly model idiosyncratic or domain-specific features beyond self-reconstruction. Second, our evaluation in real embeddings necessarily relies on proxy metrics rather than ground-truth concepts, so semantic alignment and functional transfer may not always coincide. This is inherent to unsupervised dictionary learning. Third, the proposed objective combines multiple regularization terms, introducing hyperparameter sensitivity that deserves further study. Finally, our empirical validation, while broad, still covers only a limited set of architectures and datasets. Extending these findings to larger-scale and more heterogeneous settings remains an important direction for future work. Overall, concept alignment is best understood not as a single objective, but as a coupled family of objectives. Meaningful alignment emerges not from optimizing one surrogate well, but from respecting this structure in both evaluation and method design. We hope this perspective clarifies the assumptions underlying existing methods and lays a foundation for more robust, interpretable alignment techniques in the future. 9References 
+
+[1] Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton. Similarity of neural network representations revisited. In International conference on machine learning , pages 3519–3529. PMlR, 2019. [2] Yamini Bansal, Preetum Nakkiran, and Boaz Barak. Revisiting model stitching to compare neural representations. Advances in neural information processing systems , 34:225–236, 2021. [3] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from natural language supervision. In International conference on machine learning ,pages 8748–8763. PmLR, 2021. [4] Xiaohua Zhai, Xiao Wang, Basil Mustafa, Andreas Steiner, Daniel Keysers, Alexander Kolesnikov, and Lucas Beyer. Lit: Zero-shot transfer with locked-image text tuning. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2022. [5] Xiaohua Zhai, Basil Mustafa, Alexander Kolesnikov, and Lucas Beyer. Sigmoid loss for language image pre-training. Proceedings of the IEEE International Conference on Computer Vision (ICCV) , pages 11975–11986, 2023. [6] Harold Hotelling. Relations between two sets of variates. Biometrika , 28(3/4):321–377, 1936. ISSN 00063444. URL http://www.jstor.org/stable/2333955 .[7] Arthur Gretton, Kenji Fukumizu, Choon Teo, Le Song, Bernhard Sch ¨olkopf, and Alex Smola. A kernel statistical test of independence. Advances in neural information processing systems ,20, 2007. [8] Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Sohl-Dickstein. Svcca: Singular vector canonical correlation analysis for deep learning dynamics and interpretability. Advances in neural information processing systems , 30, 2017. [9] Frances Ding, Jean-Stanislas Denain, and Jacob Steinhardt. Grounding representation similarity through statistical testing. Advances in Neural Information Processing Systems , 34:1556–1568, 2021. [10] Hoagy Cunningham, Aidan Ewart, Logan Riggs, Robert Huben, and Lee Sharkey. Sparse autoencoders find highly interpretable features in language models. ArXiv e-print , 2023. [11] Trenton Bricken, Adly Templeton, Joshua Batson, Brian Chen, Adam Jermyn, Tom Con-erly, Nick Turner, Cem Anil, Carson Denison, Amanda Askell, Robert Lasenby, Yifan Wu, Shauna Kravec, Nicholas Schiefer, Tim Maxwell, Nicholas Joseph, Zac Hatfield-Dodds, Alex Tamkin, Karina Nguyen, Brayden McLean, Josiah E Burke, Tristan Hume, Shan Carter, Tom Henighan, and Christopher Olah. Towards monosemanticity: Decomposing language models with dictionary learning. Transformer Circuits Thread , 2023. [12] Thomas Fel, Victor Boutin, Mazda Moayeri, Remi Cadene, Louis Bethune, Mathieu Chalvidal, and Thomas Serre. A holistic approach to unifying automatic concept extraction and concept importance estimation. Advances in Neural Information Processing Systems (NeurIPS) , 36: 54805–54818, 2023. [13] Jack Lindsey, Adly Templeton, Jonathan Marcus, Thomas Conerly, Joshua Batson, and Christo-pher Olah. Sparse crosscoders for cross-layer features and model diffing. Transformer Circuits Thread , 2024. [14] Harrish Thasarathan, Julian Forsyth, Thomas Fel, Matthew Kowal, and Konstantinos Derpanis. Universal sparse autoencoders: Interpretable cross-model concept alignment. ArXiv e-print ,2025. [15] Gr ´egoire Dhimo ¨ıla, Thomas Fel, Victor Boutin, and Agustin Martin Picard. Cross-modal redundancy and the geometry of vision–language embeddings. In The Fourteenth International Conference on Learning Representations , 2026. 10 [16] Max Klabunde, Tobias Schumacher, Alexander H ¨agele, Markus Bernstein, Patrick van der Smagt, and Marcus M ¨artens. Similarity of neural networks: A survey of functional and representational measures. Journal of Machine Learning Research , 25(87):1–77, 2024. [17] Jacob Dunefsky, Philippe Chlenski, and Neel Nanda. Transcoders find interpretable llm feature circuits. Advances in Neural Information Processing Systems , 37:24375–24410, 2024. [18] Adam Karvonen, Can Rager, Johnny Lin, Curt Tigges, Joseph Bloom, David Chanin, Yeu-Tong Lau, Eoin Farrell, Callum McDougall, Kola Ayonrinde, et al. Saebench: A comprehen-sive benchmark for sparse autoencoders in language model interpretability. arXiv preprint arXiv:2503.09532 , 2025. [19] Nikolaus Kriegeskorte, Marieke Mur, and Peter A Bandettini. Representational similarity analysis-connecting the branches of systems neuroscience. Frontiers in systems neuroscience ,2:249, 2008. [20] Minyoung Huh, Brian Cheung, Tongzhou Wang, and Phillip Isola. The platonic representation hypothesis. arXiv preprint arXiv:2405.07987 , 2024. [21] A Koepke, Daniil Zverev, Shiry Ginosar, and Alexei A Efros. Back into plato’s cave: Examining cross-modal representational convergence at scale. arXiv preprint arXiv:2604.18572 , 2026. [22] Fabian Gr ¨oger, Shuo Wen, and Maria Brbi ´c. Revisiting the platonic representation hypothesis: An aristotelian view, 2026. URL https://arxiv.org/abs/2602.14486 .[23] David Bau, Bolei Zhou, Aditya Khosla, Aude Oliva, and Antonio Torralba. Network dissection: Quantifying interpretability of deep visual representations. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 6541–6549, 2017. [24] Chris Olah, Alexander Mordvintsev, and Ludwig Schubert. Feature visualization. Distill , 2017. [25] Leilani H. Gilpin, David Bau, Ben Z Yuan, Ayesha Bajwa, Michael Specter, and Lalana Kagal. Explaining explanations: An overview of interpretability of machine learning. Proceedings of the IEEE International Conference on data science and advanced analytics (DSAA) , pages 80–89, 2018. [26] Thomas Fel, Thibaut Boissin, Victor Boutin, Agustin Picard, Paul Novello, Julien Colin, Drew Linsley, Tom Rousseau, R ´emi Cad `ene, Laurent Gardes, and Thomas Serre. Unlocking feature visualization for deeper networks with magnitude constrained optimization. Advances in Neural Information Processing Systems (NeurIPS) , 2023. [27] Matthew D Zeiler and Rob Fergus. Visualizing and understanding convolutional networks. 
+
+Proceedings of the IEEE European Conference on Computer Vision (ECCV) , pages 818–833, 2014. [28] Vitali Petsiuk, Abir Das, and Kate Saenko. Rise: Randomized input sampling for explanation of black-box models. Proceedings of the British Machine Vision Conference (BMVC) , page 151, 2018. [29] Mukund Sundararajan, Ankur Taly, and Qiqi Yan. Axiomatic attribution for deep networks. 
+
+Proceedings of the International Conference on Machine Learning (ICML) , pages 3319–3328, 2017. [30] Amirata Ghorbani, James Wexler, James Y Zou, and Been Kim. Towards automatic concept-based explanations. Advances in Neural Information Processing Systems (NeurIPS) , 32, 2019. [31] Ruihan Zhang, Prashan Madumal, Tim Miller, Krista A Ehinger, and Benjamin IP Rubinstein. Invertible concept-based explanations for cnn models with non-negative concept activation vectors. Proceedings of the AAAI Conference on Artificial Intelligence (AAAI) , 35(13):11682– 11690, 2021. [32] Nelson Elhage, Tristan Hume, Catherine Olsson, Nicholas Schiefer, Tom Henighan, Shauna Kravec, Zac Hatfield-Dodds, Robert Lasenby, Dawn Drain, Carol Chen, Roger Grosse, Sam McCandlish, Jared Kaplan, Dario Amodei, Martin Wattenberg, and Christopher Olah. Toy models of superposition. Transformer Circuits Thread , 2022. 11 [33] Bruno A Olshausen and David J Field. Emergence of simple-cell receptive field properties by learning a sparse code for natural images. Nature , 381(6583):607–609, 1996. [34] Bruno A Olshausen and David J Field. Sparse coding with an overcomplete basis set: A strategy employed by v1? Vision research , 37(23):3311–3325, 1997. [35] Bruno A Olshausen and David J Field. Sparse coding of sensory inputs. Current Opin-ion in Neurobiology , 14(4):481–487, 2004. ISSN 0959-4388. doi: https://doi.org/10. 1016/j.conb.2004.07.007. URL https://www.sciencedirect.com/science/article/pii/ S0959438804001035 .[36] Honglak Lee, Alexis Battle, Rajat Raina, and Andrew Ng. Efficient sparse coding algorithms. 
+
+Advances in Neural Information Processing Systems (NeurIPS) , 19, 2006. [37] Ilias Rentzeperis, Luca Calatroni, Laurent U Perrinet, and Dario Prandi. Beyond l1 sparse coding in v1. PLoS Computational Biology , 19(9):e1011459, 2023. [38] William B Johnson, Joram Lindenstrauss, et al. Extensions of lipschitz mappings into a hilbert space. Contemporary mathematics , 26(189-206):1, 1984. [39] Kasper Green Larsen and Jelani Nelson. Optimality of the johnson-lindenstrauss lemma. In 
+
+2017 IEEE 58th annual symposium on foundations of computer science (FOCS) , pages 633–638. IEEE, 2017. [40] Ron Rubinstein, Alfred M Bruckstein, and Michael Elad. Dictionaries for sparse representation modeling. Proceedings of the IEEE , 98(6):1045–1057, 2010. [41] Michael Elad. Sparse and redundant representations: from theory to applications in signal and image processing . Springer International Publishing, 2010. [42] Ivana To ˇsi ´c and Pascal Frossard. Dictionary learning. IEEE Signal Processing Magazine , 28(2): 27–38, 2011. [43] Bogdan Dumitrescu and Paul Irofti. Dictionary learning algorithms and applications . Springer, 2018. [44] Leo Gao, Tom Dupre la Tour, Henk Tillman, Gabriel Goh, Rajan Troll, Alec Radford, Ilya Sutskever, Jan Leike, and Jeffrey Wu. Scaling and evaluating sparse autoencoders. Proceedings of the International Conference on Learning Representations (ICLR) , 2025. [45] Senthooran Rajamanoharan, Tom Lieberum, Nicolas Sonnerat, Arthur Conmy, Vikrant Varma, Janos Kramar, and Neel Nanda. Jumping ahead: Improving reconstruction fidelity with jumprelu sparse autoencoders. ArXiv e-print , 2024. [46] Bart Bussmann, Patrick Leask, and Neel Nanda. Batchtopk sparse autoencoders. ArXiv e-print ,2024. [47] Thomas Fel, Ekdeep Singh Lubana, Jacob S Prince, Matthew Kowal, Victor Boutin, Isabel Papadimitriou, Binxu Wang, Martin Wattenberg, Demba Ba, and Talia Konkle. Archetypal sae: Adaptive and stable dictionary learning for concept extraction in large vision models. 
+
+Proceedings of the International Conference on Machine Learning (ICML) , 2025. [48] Val ´erie Costa, Thomas Fel, Ekdeep Singh Lubana, Bahareh Tolooshams, and Demba Ba. From flat to hierarchical: Extracting sparse representations with matching pursuit. arXiv preprint arXiv:2506.03093 , 2025. [49] Liv Gorton. The missing curve detectors of inceptionv1: Applying sparse autoencoders to inceptionv1 early vision. ArXiv e-print , 2024. [50] Thomas Fel, Binxu Wang, Michael A Lepori, Matthew Kowal, Andrew Lee, Randall Balestriero, Sonia Joseph, Ekdeep S Lubana, Talia Konkle, Demba Ba, et al. Into the rabbit hull: From task-relevant concepts in dino to minkowski geometry. Proceedings of the International Conference on Learning Representations (ICLR) , 2026. 12 [51] Viacheslav Surkov, Chris Wendler, Mikhail Terekhov, Justin Deschenaux, Robert West, and Caglar Gulcehre. Unpacking sdxl turbo: Interpreting text-to-image models with sparse au-toencoders. In Mechanistic Interpretability for Vision at CVPR 2025 (Non-proceedings Track) ,2025. [52] Benjamin Devillers, L ´eopold Mayti ´e, and Rufin VanRullen. Semi-supervised multimodal representation learning through a global workspace. IEEE Transactions on Neural Networks and Learning Systems , 36(5):7843–7857, 2024. [53] Jun-Yan Zhu, Taesung Park, Phillip Isola, and Alexei A Efros. Unpaired image-to-image translation using cycle-consistent adversarial networks. In Proceedings of the IEEE international conference on computer vision , pages 2223–2232, 2017. [54] Mikel Artetxe, Gorka Labaka, Eneko Agirre, and Kyunghyun Cho. Unsupervised neural machine translation. arXiv preprint arXiv:1710.11041 , 2017. [55] Nicolas Fournier and Arnaud Guillin. On the rate of convergence in wasserstein distance of the empirical measure. Probability theory and related fields , 162(3):707–738, 2015. [56] Gabriel Peyr ´e and Marco Cuturi. Computational optimal transport. Foundations and Trends in Machine Learning , 2018. [57] Randall Balestriero and Yann LeCun. Lejepa: Provable and scalable self-supervised learning without the heuristics. arXiv preprint arXiv:2511.08544 , 2025. [58] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghan, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Representations , 2021. [59] Maxime Oquab, Timoth ´ee Darcet, Th ´eo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. Dinov2: Learning robust visual features without supervision. ArXiv e-print , 2023. [60] Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Clement Delangue, Anthony Moi, Pierric Cistac, Tim Rault, R ´emi Louf, Morgan Funtowicz, et al. Huggingface’s transform-ers: State-of-the-art natural language processing. arXiv preprint arXiv:1910.03771 , 2019. [61] Mehdi Cherti, Romain Beaumont, Ross Wightman, Mitchell Wortsman, Gabriel Ilharco, Cade Gordon, Christoph Schuhmann, Ludwig Schmidt, and Jenia Jitsev. Reproducible scaling laws for contrastive language-image learning. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 2818–2829, 2023. [62] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva Ramanan, Piotr Doll´ ar, and C Lawrence Zitnick. Microsoft coco: Common objects in context. Proceedings of the IEEE European Conference on Computer Vision (ECCV) , pages 740–755, 2014. [63] Mayug Maniparambil, Raiymbek Akshulakov, Yasser Abdelaziz Dahou Djilali, Sanath Narayan, Ankit Singh, and Noel E O’Connor. Harnessing frozen unimodal encoders for flexible multi-modal alignment. In Proceedings of the Computer Vision and Pattern Recognition Conference ,pages 29847–29857, 2025. [64] Julian Minder, Cl ´ement Dumas, Caden Juang, Bilal Chughtai, and Neel Nanda. Overcoming sparsity artifacts in crosscoders to interpret chat-tuning. In The Thirty-ninth Annual Conference on Neural Information Processing Systems , 2025. URL https://openreview.net/forum? id=yFdNygEryH .[65] Ziwei Liu, Ping Luo, Xiaogang Wang, and Xiaoou Tang. Deep learning face attributes in the wild. In Proceedings of the IEEE international conference on computer vision , pages 3730–3738, 2015. [66] Shiori Sagawa*, Pang Wei Koh*, Tatsunori B. Hashimoto, and Percy Liang. Distributionally robust neural networks. In International Conference on Learning Representations , 2020. URL 
+
+https://openreview.net/forum?id=ryxGuJrFvS .13 [67] Martin Arjovsky, L ´eon Bottou, Ishaan Gulrajani, and David Lopez-Paz. Invariant risk mini-mization. ArXiv e-print , 2019. [68] Arthur Gretton, Karsten M Borgwardt, Malte J Rasch, Bernhard Sch ¨olkopf, and Alexander Smola. A kernel two-sample test. The journal of machine learning research , 13(1):723–773, 2012. [69] Mingsheng Long, Yue Cao, Jianmin Wang, and Michael Jordan. Learning transferable features with deep adaptation networks. In International conference on machine learning , pages 97–105. PMLR, 2015. [70] Yujia Li, Kevin Swersky, and Rich Zemel. Generative moment matching networks. In Interna-tional conference on machine learning , pages 1718–1727. PMLR, 2015. [71] Mikołaj Bi ´nkowski, Danica J Sutherland, Michael Arbel, and Arthur Gretton. Demystifying mmd gans. arXiv preprint arXiv:1801.01401 , 2018. [72] Luke Marks, Alasdair Paren, David Krueger, and Fazl Barez. Enhancing neural network interpretability with feature-aligned sparse autoencoders, 2024. URL https://arxiv.org/ abs/2411.01220 .[73] Sai Sumedh R Hindupur, Ekdeep Singh Lubana, Thomas Fel, and Demba Ba. Projecting assumptions: The duality between sparse autoencoders and concept geometry. ArXiv e-print ,2025. [74] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical image database. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 248–255, 2009. [75] Christoph Schuhmann, Richard Vencu, Romain Beaumont, Robert Kaczmarczyk, Clayton Mullis, Aarush Katta, Theo Coombes, Jenia Jitsev, and Aran Komatsuzaki. Laion-400m: Open dataset of clip-filtered 400 million image-text pairs. ArXiv e-print , 2021. 14 A Extended Related Work 
+
+A.1 Unifying existing methods 
+
+Figure 1 summarizes the different methods for concept extraction, with which combination of properties they are designed to satisfy, as well as whether they require instance-wise correspondences for training and inference. We discuss these methods in more detail below. Our framework can be used to regularize for any combination of properties. 
+
+SAE. The vanilla SAE framework only considers isolated representation instances and therefore only enforces the demi-cycle consistency property Pdcy through the reconstruction loss Ldcy . This is the most basic concept extraction method, and does not enforce any particular alignment between the concepts extracted from different representation instances. 
+
+Transcoders. [ 17 ] only enforce the translation property Ptr through the translation loss Ltr . This method was designed to learn a sparse alternative to a dense MLP, not to compare the conceptual alignment between two representations. 
+
+Crosscoders. As discussed above, crosscoders [ 13 ] were designed for concept alignment. As a result, they enforce Pcont architecturally and regularize for Pdcy (and equivalently Ptr ). Given their strong architectural constraint for a perfect satisfaction of Pcont , they trivially satisfy the alignment duality of Equation (1). Indeed, they introduce ψ′ 
+
+> i
+
+= P 
+
+> j∈I
+
+ψj . Minder et al. [64] finds that in selective encoders such as top-k or batchtopk, enforcing selection on ψ′ 
+
+> i
+
+creates a strong pressure for the ψi to satisfy Pcont in the form of an ” L0 budget”. Splitting is therefore strongly disfavored. However, it is not impossible, for example, in the case where feature activation energies span several orders of magnitude and noise on high energy features outweighs the signal on low energy ones. In such a scenario, high-energy features benefit from splitting in order to perfectly reconstruct their instance-specific noises at the expense of some L0 budget that is therefore not spent on low-energy features. On top of these hypothetical failure modes, we show in Section 4.4 that the architectural trick of introducing ψ′ 
+
+> i
+
+renders ψi incapable of acting as an isolated encoder, failing to satisfy all properties of reconstruction Pdcy , translation Ptr , and concept consistency Pcont .
+
+USAE. The Universal SAE (USAE) [ 14 ] was introduced as an alternative to crosscoders in the context of vision models, with the same motivation of learning a shared dictionary. In their case, they studied cross-model alignment. Their method discarded the architectural trick of crosscoders and replaced it with Ltr to regularize for translation. However, as shown by Devillers et al. [52] , this is not sufficient to guarantee the concept consistency property Pcont unless the decoders ψ−1 
+
+> i
+
+are injective. In the case of SAEs, decoders are linear maps from a K-dimensional concept space to a 
+
+d-dimensional latent space, with K > d , and are therefore not injective on the full space. However, what matters is injectivity on the support of the shared concept space S 
+
+> i∈I
+
+supp( ψi#μi). In practice, due to the sparsity constraints of the encoders coupled with translation constraints, failing to align codes would require the decoders to have split features and each encoder to use an arbitrary subset of these split features. A sufficient condition to fall in such a case is for the SAE to be locked in a local minimum. As an illustrative example, take the case where a shared high-energy feature f was independently discovered by both SAEs at indices ki and kj respectively, as part of the reconstruction objective. Then, with high probability, ψi at index kj corresponds to a low-energy feature. In such a case, the translation loss dominates the reconstruction one for this feature, such that ψi learns to not encode meaningful information there, and the decoder ψ−1 
+
+> i
+
+learns to copy f at index kj . This locks the SAEs in a local minimum where, in order to preserve the constraints of sparsity, reconstruction, and translation, this feature needs to stay split. Note that there is no equivalent of the L0 budget pressure of crosscoders that would prevent such a failure mode, since here, the encoders’ sparsity is enforced separately for all i ∈ I. Adding a regularization term for Pcont is therefore necessary to guarantee alignment in concept space. 
+
+SAE-A. The Aligned SAE (SAE-A) [ 15 ] was introduced in the context of multimodal encoders explicitly tasked to learn a shared representation across modalities. As a result, they share the weight of image and text SAEs : ψimg = ψtxt and enforce both Pdcy for regular concept extraction and 
+
+Pcont for alignment. They formulate their DGP and assumptions under the distributional case of 
+
+P dist cont for generality. However, due to the existence of matching pairs between the two modalities 15 in CLIP-like encoders [ 3], they operationalize it as a regularization term on the codes of matching pairs. They further show that a very small weight on this regularization term is sufficient to get the necessary inductive bias and align codes. 
+
+A.2 The CoSAE 
+
+Given the unifying framework described above, it is now immediately possible to design new methods with arbitrary combinations of regularizations based on which properties are relevant under a specific experimental setting. One can even consider a mixture of instance-wise and distributional regularization terms, e.g., based on the availability and quality of matching pairs of data points. This framework also allows for possible curriculum learning schemes for maximal sample efficiency. 
+
+# B InterVench 
+
+The InterVench is a battery of tests designed to evaluate the quality of concepts extracted by SAEs. It is based on SAEBench [ 18 ], a similar benchmark for evaluating disentanglement and interpretability of learned representations in the context of large language models. We adapt the relevant metrics to our setting and use them to evaluate the quality of the concepts extracted by our CoSAE under different regularization regimes. Specifically, we consider the following metrics, which target latent geometry and concept space quality, respectively. All of our metrics are intervention-based. 
+
+R2 reconstruction. We measure the R2 of the reconstruction of the latent representations from the codes, estimated as R2 = 1 − ∥x−bx∥2  
+
+> ∥x−¯x∥2
+
+, where x is the original latent representation, bx is the reconstructed representation from the codes, and ¯x is the mean of the original representations. This metric’s evaluation is in latent space .
+
+Faithfulness. Quantifies how much of the information encoded in the latent representations is captured by the codes. Measured as the drop in model’s loss when replacing the original latent representations with the reconstructed ones from the codes: bL−L 0 
+
+> L−L 0
+
+, where L is the original model’s loss, bL is the loss of the model composed with the SAE, and L0 is the same as bL but the codes are patched with zeros. This metric’s evaluation is in latent space .In the vision setting, we consider the training loss for SigLIP, and the loss of a linear probe on ImageNet for ViT (its original loss), as well as for DinoV2 (as we do not have access to its original loss). 
+
+Sparse Probing. Measures the extent to which codes capture downstream task-relevant information in a sparse manner. We split this metric into two, one acting in latent space and the other in concept space . For the former, we parameterize a standard probe xT θ as a sparse linear combination of dictionary atoms θ := PK−1 
+
+> i=0
+
+αidi ∈ Rd - supp(( αi)) ≪ d—instead of as a dense combination of canonical basis vectors θ := Pd−1 
+
+> i=0
+
+αiei. For the latter, the probe becomes zT θ instead of xT θ,where z = E(x) is the code of x. θ is now equal to (αi), still with supp(( αi)) ≪ d. In SAEBench, only the latter is considered. The score we report is the raw accuracy of the probe. In the vision setting, we report the sparse probing score on ImageNet. All subsequent metrics are probe-based and can therefore be adapted in the same way to both latent space and concept space, with the same distinction as above. They all go beyond sparse probing by measuring not only the amount of downstream task-relevant information captured by dictionary atoms, but also how disentangled this information is across atoms. Due to the necessity for the following metrics to indicate that sparse probing is successful, we force them to zero when the sparse probing score is below a certain threshold. 
+
+Unlearning. Measures whether the SAE grants the ability to selectively unlearn specific information (on a forget task , specific) without affecting other information (measured on a utility task , general). We measure both ( i) u = acc utility unlearned −acc utility 0
+
+> acc utility original −acc utility 0
+
+the utility score, where acc 0 denotes the accuracy of a probe trained on representations where codes zs are patched with zeros, acc original the accuracy of a probe trained on original representations, and acc unlearned the accuracy of a probe trained on representations where codes labeled as relevant for the forget task are patched with zeros. We 16 also measure ( ii ) f = 1 − acc forget unlearned −acc forget 0
+
+> acc forget original −acc forget 0
+
+the forget score. The final unlearning score is then computed as u · f .Other combinations of utility and forget scores are possible, such as u + f , where losing one point of utility is worth gaining one point of forget. We do not consider this combination, as it doesn’t penalize mediocre tradeoffs where both utility and forget scores are around 0.5. More generally, the score can be the distance to the Pareto optimal (1 , 1) : −∥ (u, f ) − (1 , 1) ∥p for some p ∈ [1 , +∞],with easy geometric interpretations. In the vision setting, we take ImageNet multiclass classification as the utility task, and CelebA [ 65 ]multilabel classification as the forget task. 
+
+Spurious Correlation Removal (SCR). Measures whether the SAE disentangles spurious correla-tions in the data. We report SCR = acc decorr −acc original  
+
+> acc oracle −acc original
+
+, where acc original is the accuracy of a probe trained on the dataset where the spurious correlation is present (dataset A), acc oracle the accuracy of a probe trained on a fully de-correlated dataset (dataset B). For acc decorr , we take the sparse probe trained on dataset A and evaluate the contribution of each atom to the spurious correlation. We zero out the atoms whose contribution is above a certain threshold, and retrain a probe on the resulting support. In the vision setting, we select the waterbirds dataset [ 66 ], where the spurious correlation is that between the background (water vs land) and the class (waterbird vs land-bird). Dataset A is the training set, while dataset B is a balanced test set where the correlation is removed. For some reason, the models we used, i.e., DinoV2, ViT, and SigLIP, do not seem to catch the spurious correlation in the first place, rendering this metric noisy and uninformative. For this reason, we do not use it in our final evaluation. Future work should explore other known or synthetic spurious correlations in vision, such as color MNIST [67]. 
+
+Targeted Probe Perturbation (TPP). Measures whether the SAE disentangles the features relevant to distinct classes across non-overlapping sets of atoms, in a multiclass classification task. Similar to unlearning, we report u · f . In this case, we select c a class of interest, or a set of classes, and c its complement. We then consider c as the forget task, and c as the utility task. In the vision setting, we take ImageNet multiclass classification and report the TPP score averaged across subsets c of 10 classes, selected at random. 
+
+Mextract . As stated before, we remove the SCR metric from our final evaluation in the vision setting. We additionally zero out the unlearning and TPP scores when the corresponding sparse probing score is below a certain threshold, typically around 0.1 in the ImageNet multiclass clas-sification setting. We further split the metrics as follows. InterVench-Latent contains metrics that measure the ability of the dictionary atoms to characterize the latent space. These metrics are R2
+
+reconstruction and faithfulness, as well as the latent space version of sparse probing, unlearning, and TPP. InterVench-Concept contains metrics that evaluate the quality of the concept space as its own representation space. These metrics are the concept space version of sparse probing, unlearning, and TPP. Mextract is then computed as the average of all metrics in InterVench .
+
+Cycle Consistency. Separately from the aggregate of the above score, we also report the R2
+
+associated with the cycle consistency. The only difference with the R2 of the reconstruction is that bx
+
+is replaced by bx := ψ−1 
+
+> i
+
+◦ ψj ◦ ψ−1 
+
+> j
+
+◦ ψi(x).
+
+# C InterVenchA 
+
+The InterVenchA benchmark is a natural extension of the InterVench to the evaluation of concept alignment quality. It is based on the same metrics as the InterVench , but adapted to evaluate the quality of the alignment between two SAEs trained on different domains. In order to measure this, we do not rely on the ability of SAEs to capture capabilities, but to transfer them. Specifically, the adaptation of InterVench-Latent metrics measures the quality of translation properties, while the adaptation of InterVench-Concept metrics measures the quality of concept consistency properties. 17 Reconstruction. The natural extension of R2 reconstruction and faithfulness metrics for alignment is to consider the following. Let i and j index two domains. Let xi and xj be joint samples from domains i and j respectively. Let Ei and Di be the encoder and decoder of the SAE trained on domain i, similarly for Ej and Dj . We now consider the reconstruction bxj = Dj (Ei(xi)) instead of 
+
+bxj = Dj (Ej (xj )) .
+
+Sparse Probing. Given domains i and j, we train a sparse probe exactly as before on domain i.This results in a sparse vector of parameters α ∈ RK , where K is the number of dictionary atoms and supp( α) ≪ d. In the latent setting, this corresponds to θi := αT Di, where Di is the dictionary of domain i. We therefore evaluate the transfer capabilities of jointly trained SAEs by measuring the resulting accuracy of the probe θj := αT Dj on domain j. This measures alignment as the ability of dictionary atoms to jointly characterize each of their domain’s geometry. In the concept setting, we have θi := α, evaluated on domain i through the accuracy of the classifier Ei(xi)T θi. We then evaluate the accuracy of θj := θi on domain j. This measures concept consistency as the ability of the same set of concepts to capture the same task-relevant information across domains. 
+
+Unlearning, SCR and TPP ’s extensions naturally follow from the above. We design interventions on domain i and transfer them to domain j to evaluate the quality of the alignment. 
+
+Malign . All post-processing of the metrics is the same as for Mextract . All metrics now give a matrix of scores. The diagonal, i.e., when i = j, corresponds to the original InterVench metrics on each domain separately. The off-diagonal elements correspond to the transfer capabilities of the SAEs across domains. Mextract is the average across metrics of the average of the diagonal, while Malign is averaged across the off-diagonal elements. Mtr specifically targets translation properties, averaging the R2 and faithfulness metrics as well as the latent space version of sparse probing, unlearning and TPP. Mcont on the other hand specifically targets concept consistency properties, averaging the 
+
+concept space version of sparse probing, unlearning, and TPP. 
+
+Note. In the special setting of multimodal encoders, we select the following metrics. The R2 is unchanged. For the faithfulness, we need to adapt it to the case of two-tower multimodal encoders. We report bLij −L 0 
+
+> L−L 0
+
+, where L is the original contrastive loss of the two towers, bLij is the same loss but where the original representations of domain i are translated as bxj = Dj (Ei(xi)) , and L0 is the same as bLij but where the codes are patched with zeros. This gives a 2 × 2 matrix of scores. Mextract and 
+
+Mtr are computed using these scores as described above. To get Mcont , we derive the faithfulness as follows. We replace bLij with bL, the contrastive loss of the model composed with the encoders only. This corresponds to using the concept space as a surrogate for the latent space for contrastive learning. This gives a single score, which we use as the faithfulness metric for Mcont . Additionally, we include ImageNet zero-shot classification accuracy as a downstream task for all Mextract , Mtr 
+
+and Mcont respective cases. 
+
+# D Linear case: analytical solutions 
+
+In this section, we study the analytical solutions of the proposed framework in the linear setting. By restricting all encoders and decoders to be linear maps, we can explicitly characterize the effect of each objective and identify which components of the model (encoders, decoders, or their compositions) are recovered. This analysis highlights how different combinations of losses induce different notions of coupling across and within domains. 
+
+Notation. Let X ∈ Rn×dx and Y ∈ Rn×dy be centered data matrices corresponding to two representation instances. We denote their empirical covariance matrices by 
+
+Σxx = 1 
+
+> n
+
+X⊤X, Σyy = 1 
+
+> n
+
+Y ⊤Y , Σxy = 1 
+
+> n
+
+X⊤Y . (8) We consider linear encoders and decoders of the form 
+
+Zx = XW x, Zy = Y W y , cX = ZxVx, bY = Zy Vy , (9) 18 where W ∈ Rdx×K are encoder matrices, and the corresponding decoders are given by V ∈ RK×dx .Translation between the two domains is defined as 
+
+bY = XW xVx, cX = Y W y Vy . (10) When needed, we impose whitening constraints of the form 
+
+1
+
+n Z⊤ 
+
+> x
+
+Zx = IK , 1
+
+n Z⊤ 
+
+> y
+
+Zy = IK . (11) All expectations in the losses are understood empirically over the dataset. Objectives are given by the losses defined in Section 3.1. We analyze these objectives and their combinations in the linear setting, and characterize the corresponding solutions. In particular, we identify which components (encoders, decoders, or their compositions) are uniquely determined, and how different losses induce coupling across and within domains. 
+
+D.1 Reconstruction 
+
+We begin with the case where no coupling is introduced between X and Y , i.e., when only self-reconstruction objectives are considered. In this setting, the two domains decouple, and each reduces to a standard approximation problem. 
+
+Lemma 1 (PCA) . Consider the self-reconstruction objectives 
+
+Ldcy x = 1
+
+n ∥X − XW xVx∥2 
+
+> F
+
+, Ldcy y = 1
+
+n ∥Y − Y W y Vy ∥2 
+
+> F
+
+. (12) 
+
+Then, for each domain independently, any minimizer satisfies: 
+
+• The encoder Wx (resp. Wy ) spans the top-K principal subspace of Σxx (resp. Σyy ). 
+
+• The optimal decoder is given by Vx = W ⊤ 
+
+> x
+
+(resp. Vy = W ⊤ 
+
+> y
+
+) up to a change of basis. Proof. See Appendix H.3.1. 
+
+Discussion. Self-reconstruction identifies both encoders and decoders within each modality, but introduces no coupling between X and Y . In particular, the solutions are invariant under invertible transformations of the latent space, i.e., for any invertible matrix R ∈ RK×K , the transformation 
+
+Wx → WxR, Vx → R−1Vx (13) leaves the objective unchanged. As a result, the latent representations are only identifiable up to a change of basis. Imposing whitening constraints selects an orthonormal basis of this subspace, corresponding to the principal directions (i.e., the right singular vectors of X). 
+
+D.2 Linear Coupling 
+
+We now turn to objectives that introduce coupling between the two domains. Unlike self-reconstruction, which operates independently on each modality, these objectives enforce interactions either at the level of representations (concept consistency) or through predictive mappings (transla-tion). We study how these different forms of coupling affect identifiability and the structure of the learned representations. 
+
+D.2.1 Concept consistency 
+
+We first consider coupling at the level of latent representations, through the concept consistency objective. 
+
+Objective. The concept consistency loss is defined as 
+
+Lcont = 1
+
+n ∥Zx − Zy ∥2 
+
+> F
+
+= 1
+
+n ∥XW x − Y W y ∥2 
+
+> F
+
+. (14) 19 CCA. We begin by showing that the concept consistency objective alone recovers the canonical correlation analysis (CCA) for the encoders. 
+
+Lemma 2 (Degeneracy of concept consistency) . In the absence of additional constraints, mini-mizing Lcont is ill-posed: for any pair (Wx, Wy ), and any orthogonal matrix R ∈ RK×K , the transformation 
+
+Wx → WxR, Wy → Wy R (15) 
+
+leaves the objective unchanged. Moreover, the objective admits degenerate solutions (e.g., collapse to zero). Proof. See Appendix H.3.2. 
+
+Lemma 3 (CCA from concept consistency with whitening) . Consider minimizing Lcont under the whitening constraints 1
+
+n Z⊤ 
+
+> x
+
+Zx = IK , 1
+
+n Z⊤ 
+
+> y
+
+Zy = IK . (16) 
+
+Then the optimal encoders (Wx, Wy ) are given by the top-K canonical directions between X and 
+
+Y , i.e., they solve the canonical correlation analysis (CCA) problem. Proof. See Appendix H.3.2. 
+
+Discussion. Concept consistency introduces coupling across modalities by enforcing alignment of latent representations. However, without additional constraints, the problem is ill-posed due to scaling and collapse. Whitening resolves these ambiguities and yields CCA, which identifies shared directions maximizing cross-correlation between X and Y .Notably, this objective only identifies encoders: decoders remain unconstrained, and no reconstruction structure is imposed within each modality. 
+
+Identifying the Decoders. The CCA alone discards the decoders. To identify them, we now add self-reconstruction and consider the combined objective 
+
+Lcont + Ldcy x + Ldcy y . (17) 
+
+Lemma 4 (Trade-off between CCA and PCA) . Minimizing Lcont +λLdcy yields encoders (Wx, Wy )
+
+that solve a generalized eigenvalue problem interpolating between principal components and canoni-cal directions. After accounting for degeneracies, 
+
+• (i) the solution does not depend on λ,
+
+• (ii ) only the pure CCA remains, 
+
+• (iii ) the effect of the reconstruction term is to identify the decoders as optimal linear readouts Proof. See Appendix H.3.2. 
+
+Discussion. While the combined objective highlights a fundamental trade-off between shared and idiosyncratic information, this trade-off disappears after solving for degenerate identification of the shared subspace. Only shared information remains, and the effect of self-reconstruction is merely to provide solutions to the decoders, as the raw CCA only considers encoders. 
+
+D.2.2 Translation 
+
+We now consider coupling through translation, which enforces predictive mappings between the two domains. Unlike concept consistency, which aligns latent representations, translation constrains the composition of encoders and decoders across modalities, and therefore couples representations through their ability to reconstruct one domain from the other. In contrast with concept consistency, which leaves decoders entirely unconstrained and requires self-reconstruction to identify them, translation introduces a different form of degeneracy: it constrains only cross-modal compositions (e.g., WxVy ), but does not couple encoders and decoders within 20 each modality. As a result, the individual components remain underdetermined. As before, adding self-reconstruction restores this intra-modality coupling and leads to well-identified solutions. 
+
+RRR. First, consider the translation objective alone. This corresponds to the reduced-rank regres-sion (RRR) and only identifies the composition of encoders from one domain to decoders of the other domain. Encoders and decoders within one domain are decoupled, and all operators are defined up to some transforms. 
+
+Lemma 5 (Translation and reduced-rank regression) . Consider the (one-directional) translation objective 
+
+Ltr x→y (Wx, Vy ) = 1
+
+n ∥Y − XW xVy ∥2 
+
+> F
+
+. (18) 
+
+Then minimizing Ltr x→y over (Wx, Vy ) is equivalent to RRR of Y onto X with rank constraint K.The factorization (Wx, Vy ) is not identifiable: only the product WxVy is. One such factorization recovers the CCA. Proof. See Appendix H.3.3. 
+
+Adding self-reconstruction. We now add self-reconstruction objectives, which introduce coupling within each modality: 
+
+Ltr + λ(Ldcy x + Ldcy y ). (19) While translation alone only constrains the cross-modal compositions, self-reconstruction couples encoders and decoders within each domain. This restores intra-modality structure and yields well-defined decoders given the encoders, but does not fully resolve the non-identifiability of the encoders. Further whitening is still required, as in the concept consistency case. 
+
+Lemma 6 (Translation with reconstruction) . Under this combined objective, the optimal encoders are again given by the CCA, while the decoders are given by an interpolation between the solutions of Lem. 5 and Lem. 4. Proof. See Appendix H.3.3. 
+
+D.2.3 Distributional alignment 
+
+Distributional alignment enforces matching of pushforward measures rather than individual sam-ples. Intuitively, it aligns global statistics (e.g., projections or moments) of the representations across domains. However, this does not introduce any structural coupling between X and Y : many unrelated mappings can induce identical distributions. As a result, the correlation structure may align in aggregate, but the underlying representations remain uncoupled, and no meaningful joint factorization is recovered. This is true for both translation and concept consistency. 
+
+D.2.4 Cycle consistency 
+
+Cycle consistency enforces that X ≃ XAB and Y ≃ Y BA with A = WX VY and B =
+
+WY VX , introducing an apparent coupling between the two domains. Without coupling, the optimal solution reduces to independent PCA decompositions, say Px and Py . With cycle consistency, one recovers the same PCA solution up to an arbitrary invertible transform: A = PxRP ⊤ 
+
+> y
+
+and 
+
+B = Py R−1P ⊤ 
+
+> x
+
+(Lem. 7). The factorization remains ambiguous up to an invertible transform, and the optimal solution is still equivalent to PCA, meaning the apparent coupling vanishes upon solving the problem. 
+
+# E Platonic and Linear Representation Hypothesis 
+
+Platonic Representation Hypothesis (PRH). The PRH is a universal statement that any repre-sentation learning method will converge to the same shared representation, up to some transform [20 ]. This can be formalized in various ways. We chose to write this hypothesis under a generative framework as it allows for a formulation that is ready to be plugged into our above framework. The generative view of the PRH assumes the existence of a platonic latent space X such that all real world observations, whatever their domain X i, stem from this platonic latent space through a generator 21 gi : X → X i. Then, all feature extractors ϕi : X i → Xi invert this generative process up to a transform ψi. In the context laid out above, adding this extra generative step allows for intermediate observation spaces (X i)i∈I between the platonic latent space X and the feature extractors ϕi. This is especially relevant when the gis are allowed to introduce distribution shifts or even modality shifts. For simplicity, we can further add the restriction that X = RK .
+
+Hypothesis 1 (Platonic Generative Process) . ∃K ∈ N, ∃X ⊆ RK s.t. ∀i ∈ I
+
+∃gi : X → X i (20) 
+
+∀ϕi : X i → Xi, ∃ψi : Xi → X, s.t. ψi ◦ ϕi ◦ gi = id X (21) 
+
+Linear Representation Hypothesis (LRH). In practice, most of the recent representation alignment and concept extraction methods implicitly assume the existence of such a generative process. In other words, they assume that representation learning inverts the generative process. In the case of representation alignment, the class of ψi under consideration is further constrained, allowing invariance up to translation, scaling, orthogonal transformations, etc. Dictionary learning-based methods fall under a different assumption, more realistic, and grounded in neurosciences: that platonic representations are sparse (Hypothesis 2), imposing different constraints on ψi. This sparse coding framework often comes with additional linear or close to linear constraints. The reason is ( i)that it allows for GPU-friendly implementations through the extremely popular Sparse Autoencoder (SAE) framework, ( ii ) that representation learning is explicitly designed to produce latent spaces with meaningful Euclidean—or at least linear—geometry, with downstream operations reading linearly from Xi before optionally applying some nonlinearities. 
+
+Hypothesis 2 (Sparse Generative Process) . x ∈ X ∼ μ = QKk=1 pk with |supp( x)| ≪ K.
+
+Essentially, this generative formulation of the PRH coupled with the SAE operationalization of the LRH grounds our concept alignment framework. It does so by assuming the existence of X
+
+and of the ϕi, now decomposed into an additional generative step gi and an inversion step ϕi, and finally, by assuming that the class of autoencoders under consideration provides the final inversion step, aligning all representations back in a shared concept space through the ψi. Our framework additionally provides for a natural distributional version of the PRH. We call the element-wise version the strong PRH, and the distributional version the weak PRH. 
+
+# F Distributional losses. 
+
+When instance-wise correspondences are unavailable, enforcing P dist tr or P dist cont requires matching distributions rather than individual samples. A natural approach is to minimize a discrepancy between pushforward measures, for instance, using optimal transport. However, distributional distances like the Wasserstein distance are both computationally expensive and poorly behaved in high dimensions and mini-batch settings, making them ill-suited for large-scale SAE training. A practical alternative is provided by the Cramer-Wold theorem, which states that two distributions are equal if and only if their one-dimensional projections along all directions are equal. This motivates the use of sliced distributional objectives, which compare 1D projections of the distributions along randomly sampled directions. We take inspiration from Balestriero and LeCun [57] , who use the Epps-Pulley test on random 1D slices to regularize for Gaussianity of their embedding space : 
+
+EP( μi) = b
+
+Z ∞−∞ 
+
+| bφμi (t) − φ(t)|2 w(t) d t (22) where bφμi = 1 
+
+> b
+
+Ex∼μi eit ⟨x,u⟩ = Pbk=1 eit ⟨xi,k ,u⟩ is the empirical characteristic function (ECF) of 
+
+μi where a batch of b samples are projected onto a random direction u ∈ S d−1; φ = e−t2/2 is the characteristic function of the normal distribution, and w is a weighting function—typically a gaussian. In the case of P dist tr , the target is not the normal distribution but another of our μj , and the source 22 becomes ψ−1 ◦ ψi#μi. We can therefore define the sliced translation loss as follows : 
+
+Ldist tr := Eu∼S d−1 b
+
+Z ∞−∞ 
+
+bφ(ψ−1  
+
+> j◦ψi)# μi
+
+(t) − bφμj (t) 2
+
+w(t) d t (23) 
+
+≃ 1
+
+|U| 
+
+X
+
+> u∈U
+
+b
+
+Z ∞−∞ 
+
+bφ(ψ−1  
+
+> j◦ψi)# μi
+
+(t) − bφμj (t) 2
+
+w(t) d t (24) where U ∈ (Sd−1)m is a finite set of random directions, resampled at each training step. While any single slice provides only a weak constraint, aggregating over many random projections yields a consistent approximation of the target distributional alignment. Considering that U is resampled at each training step, the effective number of slices seen over training becomes even larger. Crucially, Balestriero and LeCun [57] show that a small coverage of Sd−1 per step is sufficient to achieve good performance, with theoretical error bounds when the target distribution is gaussian. These theoretical bounds do not apply in our case since we do not control the target distribution. However, this approach is equivalent to regularizing with a sliced Maximum Mean Discrepancy (MMD) (Proposition 3), which is widely used in practice for distributional alignment [ 68 , 69 ], especially as an alternative to adversarial training [70, 71]. In the concept space RK , this perspective admits a particularly simple interpretation. In arbitrary latent spaces, canonical directions are meaningless, only the overall Euclidean geometry matters, which motivates arbitrary random slices for full coverage of the space. In contrast, in the concept space, canonical directions correspond to dictionary atoms, which are assumed to be meaningful, atomic units of information. Therefore, in concept space, we do not consider arbitrary random slices 
+
+u ∈ S K−1, but rather canonical slices along the coordinate axes. This yields the following loss for distributional alignment of concepts : 
+
+Ldist cont := 1
+
+|U ∗|
+
+X
+
+> u∈U ∗
+
+b
+
+Z ∞−∞ 
+
+bφψi#μi (t) − bφψj #μj (t) 2 w(t) d t (25) where U∗ = {e1, . . . , eK } is the set of canonical basis vectors in RK . In practice, due to the sparsity of activations in concept space, we instead take U∗ to be the set of active atoms across the batch. This formulation of Ldist cont is further motivated by Dhimo¨ ıla et al. [15]’s IsoEnergy assumption. 
+
+# G Additional Experimental Details 
+
+G.1 Synthetic Data Generating Process 
+
+We design a synthetic data-generating process (DGP) that follows precisely our model. First, we sample N i.i.d. samples of normally distributed latent variables x′ ∈ RK . Then, for each sample, we select its top k latent variables, set them to 1 and the rest to 0, to get the points x ∈ X. Then, for each domain i, we construct ϕi as the composition of the following. First, we apply some dropout to x. Then, we apply a random white noise on the active latent variables, with standard deviation 
+
+σ = 0 .1 clipped between −1 + σ. Finally, we apply a succession of random linear transformations interleaved with ReLU nonlinearities, with a target dimensionality of d < K and a bottleneck layer of dimension dbottleneck < d .To measure SAE quality, we monitor the explained variance ( R2) in latent space, as well as the distance of both the dictionary and codes to ground truth using a standard matching algorithm to control for permutation invariance of the codes [ 72 , 73 , 15 ]. To measure alignment quality, we use the R2 of the translation and concept consistency properties, as well as the distance between the pushforward measures in both concept space and latent space using our losses. See Appendix G.2 for details on the SAE architecture and training procedure. 
+
+G.2 Hyperparameters and Training Details SAE architecture. All variants of the SAE framework rely on specific hidden assumptions on the underlying data-generating process, on the shape of receptive fields [ 73 ], and on the type of atoms to be discovered [ 47 , 15 ]. The purpose of this work is not to show which of these particular methods and assumptions best fit empirical latent spaces, but rather to focus on concept alignment properties. Thus, throughout this work, we adopt the batchtopk architecture [ 46 ] as implemented by overcomplete [ 47 ]23 for all SAEs across all experiments, with a dictionary size of K = 8 d and a sparsity level of k = d 
+
+> 20
+
+.These constant also hold for the synthetic setting, where we take d = 384 , K = 3072 and k = 19 .
+
+Training. In the vision setting, we train all SAEs on N = 1 .2 × 10 6 unique samples from ImageNet [74 ], with a batch size of b = 1024 and a total number of tokens seen during training of T = 5 × 10 7.This corresponds to approximately E = 40 epochs. During hyperparameter tuning, we limit the number of epochs to E = 4 . The learning rate ( ∼ 10 −3) is calibrated such that the Ldcy only run converges to 1.1 times its final value in E = 4 epochs. We keep the same learning rate for all other runs, which all converge well within E = 40 epochs. We do not observe significant variance across runs with different seeds. In the multimodal setting, we sub-sample LAION-400M [ 75 ] to get N ∼ 10 6 unique image-text pairs, and keep the same other parameters as for ImageNet. In the synthetic setting, we train all SAEs on N = 10 6 unique samples, with a batch size of b = 10 3 and a total number of tokens seen during training of T = 10 7, which corresponds to E = 10 epochs. 
+
+G.3 Mixed Training Regime 
+
+In the mixed training regime, we split the dataset into two subsets. Let p ∈ [0 , 1] be the proportion of matched pairs. We randomly select p · N pairs to be in the matched subset XiA, and the rest to be in the unmatched subset XiB . The token datasets are then the concatenated Xi = XiA ∪ XiB . At this point, in all settings, all domains are perfectly aligned. We then shuffle the unmatched subsets XiB
+
+independently to break alignment. We keep track of matched and unmatched pairs using binary labels 
+
+l ∈ { 0, 1}N , where ln = 1 if the n-th pair is matched and 0 otherwise. During training, batches are randomly sampled from the whole dataset. The distributional regularization terms Ldist tr and Ldist cont are computed on the whole batch. The instance-wise regularization terms Ltr and Lcont are computed only on the matched pairs, i.e. those for which ln = 1 .
+
+G.4 Compute 
+
+All final experiment runs were run on a single H100 GPU. It takes about 40 min to train a CoSAE on 50 M precomputed tokens. All experiments were run on an RTX3060 for early testing, where training a similar CoSAE on 5M precomputed tokens takes a few minutes. 
+
+# H Proofs 
+
+H.1 Alignment Dualities 
+
+Our first proof is that of the duality between latent and concept alignment, or translation and concept consistency, under the assumption that decoders are injective. 
+
+Proposition 1. Suppose injectivity of the decoders, and suppose Pdcy . Then 
+
+Ptr ⇔ Pcont 
+
+Proof. Ptr ⇐ Pcont : This direction does not require the injectivity assumption. Let x ∈ X and 
+
+i, j ∈ I. Suppose Pcont . Then: 
+
+Pcont : ψi(xi) = ψj (xj ) ⇒ ψ−1 
+
+> j
+
+(ψi(xi)) = ψ−1 
+
+> j
+
+(ψj (xj )) 
+
+⇒ ψ−1 
+
+> j
+
+(ψi(xi)) = xj : Ptr by Pdcy 
+
+Ptr ⇒ Pcont : Let x ∈ X and i, j ∈ I. Suppose Ptr . Then : 
+
+Ptr : ( ψ−1 
+
+> j
+
+◦ ψi)( xi) = xj ⇒ ψ−1 
+
+> j
+
+(ψi(xi)) = ψ−1 
+
+> j
+
+(ψj (xj )) by Pdcy 
+
+⇒ ψi(xi) = ψj (xj ) : Pcont by injectivity of ψ−1
+
+> j
+
+Then, we prove in Proposition 2 the trivial result that pair-wise alignment implies distributional alignment. 24 Proposition 2. Ptr ⇒ P dist tr ∧ Pcont ⇒ P dist cont 
+
+Proof. Ptr ⇒ P dist tr : Assume Ptr , i.e. for all sample x ∈ X and domains i, j ∈ I,
+
+(ψ−1 
+
+> j
+
+◦ ψi)( xi) = xj , where xi = ϕi(x), xj = ϕj (x).
+
+Let A ⊆ Xj be measurable. Then, by definition of the pushforward measure, 
+
+ (ψ−1 
+
+> j
+
+◦ ψi)# μi
+
+(A) = μi
+
+ (ψ−1 
+
+> j
+
+◦ ψi)−1(A)
+
+= μ ϕ−1 
+
+> i
+
+(( ψ−1 
+
+> j
+
+◦ ψi)−1(A)) .
+
+For x ∈ X, using Ptr ,
+
+x ∈ ϕ−1 
+
+> i
+
+(( ψ−1 
+
+> j
+
+◦ ψi)−1(A)) ⇔ (ψ−1 
+
+> j
+
+◦ ψi)( ϕi(x)) ∈ A ⇔ ϕj (x) ∈ A. 
+
+Hence 
+
+ϕ−1 
+
+> i
+
+(( ψ−1 
+
+> j
+
+◦ ψi)−1(A)) = ϕ−1 
+
+> j
+
+(A),
+
+and therefore  (ψ−1 
+
+> j
+
+◦ ψi)# μi
+
+(A) = μ(ϕ−1 
+
+> j
+
+(A)) = μj (A).
+
+Thus (ψ−1 
+
+> j
+
+◦ ψi)# μi = μj .
+
+Pcont ⇒ P dist cont : Assume Pcont , i.e. for all sample x ∈ X and domains i, j ∈ I,
+
+ψi(xi) = ψj (xj ), where xi = ϕi(x), xj = ϕj (x).
+
+Let B ⊆ RK be measurable. Then 
+
+(ψi#μi)( B) = μi(ψ−1 
+
+> i
+
+(B)) = μ(ϕ−1 
+
+> i
+
+(ψ−1 
+
+> i
+
+(B))) .
+
+For x ∈ X, using Pcont ,
+
+x ∈ ϕ−1 
+
+> i
+
+(ψ−1 
+
+> i
+
+(B)) ⇔ ψi(ϕi(x)) ∈ B ⇔ ψj (ϕj (x)) ∈ B ⇔ x ∈ ϕ−1 
+
+> j
+
+(ψ−1 
+
+> j
+
+(B)) .
+
+Thus 
+
+ϕ−1 
+
+> i
+
+(ψ−1 
+
+> i
+
+(B)) = ϕ−1 
+
+> j
+
+(ψ−1 
+
+> j
+
+(B)) ,
+
+and therefore 
+
+(ψi#μi)( B) = μ(ϕ−1 
+
+> j
+
+(ψ−1 
+
+> j
+
+(B))) = μj (ψ−1 
+
+> j
+
+(B)) = ( ψj #μj )( B).
+
+Hence ψi#μi = ψj #μj .
+
+H.2 Our distribution losses are MMDs Proposition 3. Let μ, ν be probability measures on Rd, and let w : R → R+ be an integrable weighting function. For u ∈ S d−1, define 
+
+EP u(μ, ν ) := 
+
+Z ∞−∞ 
+
+|φμ, u(t) − φν, u(t)|2 w(t) dt, 
+
+where φμ, u(t) := Ex∼μeit ⟨x,u⟩ is the characteristic function of the one-dimensional projection of μ
+
+along u. Then EP u(μ, ν ) is a Maximum Mean Discrepancy: 
+
+EP u(μ, ν ) = MMD 2 
+
+> ku
+
+(μ, ν ),
+
+25 with respect to the positive definite kernel 
+
+ku(x, y ) := 
+
+Z ∞−∞ 
+
+eit ⟨x−y,u⟩w(t) dt. 
+
+Proof. We expand the squared difference: 
+
+EP u(μ, ν ) = 
+
+Z
+
+|φμ, u(t) − φν, u(t)|2 w(t) dt 
+
+=
+
+Z 
+
+φμ, u(t)φμ, u(t) + φν, u(t)φν, u(t) − 2ℜ φμ, u(t)φν, u(t)
+
+w(t) dt. 
+
+Using independence of samples and Fubini’s theorem, 
+
+Z
+
+φμ, u(t)φμ, u(t)w(t) dt = Ex,x′∼μ
+
+Z
+
+eit ⟨x−x′,u⟩w(t) dt 
+
+= Ex,x′∼μku(x, x′).
+
+Similarly, Z
+
+φν, u(t)φν, u(t)w(t) dt = Ey,y′∼ν ku(y, y′),
+
+and Z
+
+φμ, u(t)φν, u(t)w(t) dt = Ex∼μ, y∼ν ku(x, y).
+
+Therefore, 
+
+EP u(μ, ν ) = Ex,x′∼μku(x, x′) + Ey,y′∼ν ku(y, y′) − 2Ex∼μ, y∼ν ku(x, y),
+
+which is exactly MMD 2 
+
+> ku
+
+(μ, ν ).Finally, since ku is the Fourier transform of the nonnegative function w, it is positive definite by Bochner’s theorem. 
+
+H.3 Linear Alignment 
+
+This section contains the analytical solutions in the linear regression case, along with the correspond-ing proofs. 
+
+H.3.1 Reconstruction 
+
+Recall Lem. 1 : 
+
+Lemma. Consider the self-reconstruction objectives 
+
+Ldcy x = 1
+
+n ∥X − XW xVx∥2 
+
+> F
+
+, Ldcy y = 1
+
+n ∥Y − Y W y Vy ∥2 
+
+> F
+
+. (26) 
+
+Then, for each domain independently, any minimizer satisfies: 
+
+• The encoder Wx (resp. Wy ) spans the top-K principal subspace of Σxx (resp. Σyy ). 
+
+• The optimal decoder is given by Vx = W ⊤ 
+
+> x
+
+(resp. Vy = W ⊤ 
+
+> y
+
+) up to a change of basis. Proof. We treat the X domain. The Y domain is identical. We omit the x sub- and superscripts for ease of notation, and rewrite the objective 
+
+min  
+
+> W,V
+
+1
+
+n ∥X − XW V ∥2
+
+> F
+
+as 
+
+min   
+
+> rg( M)≤K
+
+∥X − M ∥2 
+
+> F
+
+,
+
+26 where rg( M ) denotes the rank of M . Let X = U ΣV ⊤ be the singular value decomposition of X,where U ∈ Rn×n and V ∈ Rdx×dx are orthogonal, and Σ ∈ Rn×dx is diagonal with nonnegative entries. Then, by the Eckart-Young theorem, the optimal solution is given by the truncated SVD of 
+
+X:
+
+M = UK ΣK V ⊤ 
+
+> K
+
+,
+
+where UK ∈ Rn×K and VK ∈ Rdx×K are the matrices of the top-K left and right singular vectors, and ΣK ∈ RK×K is the diagonal matrix of the top-K singular values. Therefore, any optimal factorization verifies 
+
+XW V = UK ΣK V ⊤ 
+
+> K
+
+.
+
+The general solution is given by W = VK R and V = R−1U ⊤ 
+
+> K
+
+for any invertible matrix R ∈
+
+RK×K .
+
+H.3.2 Concept Consistency Lemma (Degeneracy of concept consistency) . In the absence of additional constraints, minimizing 
+
+Lcont is ill-posed: for any pair (Wx, Wy ), and any orthogonal matrix R ∈ RK×K , the transforma-tion 
+
+Wx → WxR, Wy → Wy R (27) 
+
+leaves the objective unchanged. Moreover, the objective admits degenerate solutions (e.g., collapse to zero). Proof. Invariance under change of basis. Let R ∈ RK×K be orthogonal, and define 
+
+fWx = WxR, fWy = Wy R.
+
+Then the corresponding latent representations satisfy 
+
+eZx = X fWx = ZxR, eZy = Y fWy = Zy R.
+
+Therefore, 
+
+∥ eZx − eZy ∥2 
+
+> F
+
+= ∥(Zx − Zy )R∥2
+
+> F
+
+= Tr  R⊤(Zx − Zy )⊤(Zx − Zy )R
+
+= Tr  (Zx − Zy )⊤(Zx − Zy )
+
+= ∥Zx − Zy ∥2 
+
+> F
+
+.
+
+(28) 
+
+Degeneracy. Consider Wx = 0 and Wy = 0 . Then Zx = Zy = 0 , and 
+
+Lcont = 0 , (29) which is the global minimum. More generally, any pair (Wx, Wy ) such that XW x = Y W y
+
+achieves zero loss, regardless of the structure or rank of the representations. 
+
+Conclusion. The objective admits infinitely many minimizers due to invariance under invertible transformations, and includes degenerate solutions such as collapse to zero. Therefore, it is ill-posed without additional constraints. 
+
+Lemma (CCA from concept consistency with whitening) . Consider minimizing Lcont under the whitening constraints 1
+
+n Z⊤ 
+
+> x
+
+Zx = IK , 1
+
+n Z⊤ 
+
+> y
+
+Zy = IK . (30) 
+
+Then the optimal encoders (Wx, Wy ) are given by the top-K canonical directions between X and 
+
+Y , i.e., they solve the canonical correlation analysis (CCA) problem. Proof. Recall that 
+
+Lcont = 1
+
+n ∥XW x − Y W y ∥2 
+
+> F
+
+. (31) 27 Expanding the Frobenius norm yields 
+
+Lcont = Tr( W ⊤ 
+
+> x
+
+Σxx Wx) + Tr( W ⊤ 
+
+> y
+
+Σyy Wy ) − 2 Tr( W ⊤ 
+
+> x
+
+Σxy Wy ). (32) Under the whitening constraints 
+
+W ⊤ 
+
+> x
+
+Σxx Wx = IK , W ⊤ 
+
+> y
+
+Σyy Wy = IK , (33) the first two terms are constant and equal to K. Therefore, minimizing Lcont is equivalent to maximizing 
+
+Tr( W ⊤ 
+
+> x
+
+Σxy Wy ). (34) subject to the whitening constraints. This is exactly the CCA problem, whose solution is given by the top-K canonical directions between X and Y .
+
+Closed-form solution. Let fWx = Σ 12
+
+> xx
+
+Wx and fWy = Σ 12 
+
+> yy
+
+Wy . Then the whitening constraints become fW ⊤ 
+
+> x
+
+fWx = IK and fW ⊤ 
+
+> y
+
+fWy = IK , and the objective becomes 
+
+Tr( fW ⊤ 
+
+> x
+
+M fWy ), (35) where M = Σ− 12 
+
+> xx
+
+Σxy Σ− 12 
+
+> yy
+
+. Let M = U ΣV ⊤ be the singular value decomposition of M . Then the optimal solution is given by fWx = UK and fWy = VK , where UK and VK are the matrices of the top-K left and right singular vectors of M . Therefore, the optimal encoders are given by 
+
+Wx = Σ− 12 
+
+> xx
+
+UK and Wy = Σ− 12 
+
+> yy
+
+VK up to an arbitrary orthogonal transform R ∈ RK×K .
+
+Lemma (Concept consistency with reconstruction) . Consider the objective 
+
+L(Wx, Wy , Vx, Vy ) = Lcont + λ (Ldcy x + Ldcy y ) . (36) 
+
+(i) General case. After optimizing over (Vx, Vy ), the objective depends only on the subspaces spanned by (Wx, Wy ) and combines: 
+
+• a consistency term favoring alignment between XW x and Y W y ,
+
+• reconstruction terms favoring principal subspaces of Σxx and Σyy .However, the problem is ill-posed due to scaling degeneracies in the consistency term. 
+
+(ii) Whitening. If we impose the whitening constraints 
+
+W ⊤ 
+
+> x
+
+Σxx Wx = IK , W ⊤ 
+
+> y
+
+Σyy Wy = IK , (37) 
+
+then: 
+
+• the reconstruction terms become constant and do not influence the encoders, 
+
+• the objective reduces to max Tr( W ⊤ 
+
+> x
+
+Σxy Wy ), whose solution is given by the top-K
+
+canonical directions (CCA), 
+
+• the optimal decoders are uniquely determined (up to invariances) as the corresponding least-squares readouts. In particular, under whitening, the solution is independent of λ.Proof. We eliminate the decoders and derive the reduced objective. 
+
+Step 1: Optimal decoders. For fixed encoders, the reconstruction terms are independent least squares problems. As in the PCA case, the optimal decoders are 
+
+V ∗ 
+
+> x
+
+= ( W ⊤ 
+
+> x
+
+Σxx Wx)−1W ⊤ 
+
+> x
+
+Σxx , V ∗ 
+
+> y
+
+= ( W ⊤ 
+
+> y
+
+Σyy Wy )−1W ⊤ 
+
+> y
+
+Σyy , (38) assuming invertibility. 28 Plugging back, the reconstructions correspond to projections onto the column spaces of XW x and 
+
+Y W y , and the losses reduce to 
+
+1
+
+n ∥X − cX∥2 
+
+> F
+
+= Tr( Σxx ) − Tr( PxΣxx ), 1
+
+n ∥Y − bY ∥2 
+
+> F
+
+= Tr( Σyy ) − Tr( Py Σyy ), (39) where 
+
+Px = Wx(W ⊤ 
+
+> x
+
+Σxx Wx)−1W ⊤ 
+
+> x
+
+Σxx , Py = Wy (W ⊤ 
+
+> y
+
+Σyy Wy )−1W ⊤ 
+
+> y
+
+Σyy . (40) 
+
+Step 2: Reduced objective. Up to constants independent of (Wx, Wy ), the objective becomes 
+
+Lred (Wx, Wy ) = 1
+
+n ∥XW x − Y W y ∥2 
+
+> F
+
+− λ (Tr( PxΣxx ) + Tr( Py Σyy )) . (41) Expanding the first term, 
+
+1
+
+n ∥XW x − Y W y ∥2 
+
+> F
+
+= Tr( W ⊤ 
+
+> x
+
+Σxx Wx) + Tr( W ⊤ 
+
+> y
+
+Σyy Wy ) − 2 Tr( W ⊤ 
+
+> x
+
+Σxy Wy ). (42) 
+
+Step 3: Variational characterization. We characterize the optimal subspaces without differentiat-ing the reduced objective. First, observe that the reconstruction terms depend only on the projection matrices Px and Py , and therefore only on the column spaces of Wx and Wy . As in the PCA case, maximizing 
+
+Tr( PxΣxx )
+
+selects the top-K eigenspace of Σxx , and similarly for Σyy .On the other hand, similarly to the pure CCA case, the consistency term ∥XW x − Y W y ∥2 
+
+> F
+
+is ill-posed without additional constraints: it is invariant to joint rescaling of (Wx, Wy ) and admits degenerate solutions (e.g., Wx = Wy = 0 ). To remove this degeneracy, we impose whitening constraints 
+
+W ⊤ 
+
+> x
+
+Σxx Wx = IK , W ⊤ 
+
+> y
+
+Σyy Wy = IK .
+
+Under these constraints, minimizing the consistency term is equivalent to maximizing 
+
+Tr( W ⊤ 
+
+> x
+
+Σxy Wy ),
+
+which yields the canonical directions, as in CCA. Importantly, under whitening, the reconstruction terms become constant: 
+
+Tr( PxΣxx ) = Tr( W ⊤ 
+
+> x
+
+Σxx Wx) = K, 
+
+and similarly for Y . Therefore, the reconstruction objective no longer influences the solution, regardless of the value of λ. Its only effect is to identify the decoders. As a result, the combined objective reduces exactly to CCA, and the optimal encoders are given by the top-K canonical directions between X and Y .
+
+H.3.3 Translation Lemma (Translation and reduced-rank regression) . Consider the (one-directional) translation objec-tive 
+
+Ltr x→y (Wx, Vy ) = 1
+
+n ∥Y − XW xVy ∥2 
+
+> F
+
+. (43) 
+
+Then minimizing Ltr x→y over (Wx, Vy ) is equivalent to RRR of Y onto X with rank constraint K.The factorization (Wx, Vy ) is not identifiable: only the product WxVy is. One such factorization recovers the CCA. 
+
+29 Proof. Let B = WxVy . Then the problem reduces to 
+
+min 
+
+> rg( B)≤K
+
+1
+
+n ∥Y − XB ∥2 
+
+> F
+
+, (44) which is exactly RRR of Y onto X with rank constraint K. The optimal unconstrained B is given by BOLS = Σ−1 
+
+> xx
+
+Σxy .We rewrite the problem as 
+
+min  
+
+> rg( B)≤K
+
+∥Y − XB OLS ∥2 
+
+> F
+
++ ∥X(B − BOLS )∥2 
+
+> F
+
+, (45) where we used the Pythagorean theorem for least squares problems. The first term is constant. Using the definition of Σxx , we have 
+
+∥X(B − BOLS )∥2 
+
+> F
+
+= n∥Σ 12
+
+> xx
+
+(B − BOLS )∥2
+
+> F
+
+= n∥C − Σ− 12 
+
+> xx
+
+Σxy ∥2 
+
+> F
+
+.
+
+with C := Σ 12
+
+> xx
+
+B. We want to make the CCA appear. The only thing missing is the Σ− 12 
+
+> yy
+
+term. We introduce a whitening step: Σ− 12 
+
+> xx
+
+Σxy = M Σ 12 
+
+> yy
+
+, where M = Σ− 12 
+
+> xx
+
+Σxy Σ− 12 
+
+> yy
+
+, and C = DΣ 12 
+
+> yy
+
+.Then, the objective becomes 
+
+min  
+
+> rg( D)≤K
+
+∥D − M ∥2 
+
+> F, Σyy
+
+(46) Conveniently, M is exactly the same as in CCA. We can express the solution in terms of the truncated SVD UK ΣK V ⊤ 
+
+> K
+
++ ϵ of M :
+
+B = Σ− 12 
+
+> xx
+
+UK ΣK V ⊤ 
+
+> K
+
+Σ 12 
+
+> yy
+
+(47) With this decomposition, we can identify a particular factorization Wx = Σ− 12 
+
+> xx
+
+UK and Vy =
+
+ΣK V ⊤ 
+
+> K
+
+Σ 12 
+
+> yy
+
+. This factorization recovers the CCA solution for the encoders and the corresponding least-squares decoder. This factorization is not unique. 
+
+Lemma (Translation with reconstruction) . Under the combined objective, the optimal encoders are again given by the CCA, while the decoders are given by an interpolation between the solutions of Lem. 5 and Lem. 4. Proof. As before, we start by eliminating the decoders given Wx and Wy . Due to the combined effect of self-reconstruction and translation, we get, assuming invertibility, 
+
+V ∗ 
+
+> x
+
+= ( W ⊤ 
+
+> y
+
+Σyy Wy + λW ⊤ 
+
+> x
+
+Σxx Wx)−1(W ⊤ 
+
+> y
+
+Σ⊤ 
+
+> xy
+
++ λW ⊤ 
+
+> x
+
+Σxx ) (48) and similarly for V ∗ 
+
+> y
+
+.The next step is to assume whitening. We get 
+
+V ∗ 
+
+> x
+
+= 1
+
+n(1 + λ)
+
+ W ⊤ 
+
+> y
+
+Σ⊤ 
+
+> xy
+
++ λW ⊤ 
+
+> x
+
+Σxx 
+
+ , (49) and similarly for V ∗ 
+
+> y
+
+. Plugging back, and thanks to whitening, the objective reduces to 
+
+max 
+
+> Wx,Wy
+
+Tr( W ⊤ 
+
+> x
+
+Σxy Wy ) + λ  Tr( W ⊤ 
+
+> x
+
+Σxx Wx) + Tr( W ⊤ 
+
+> y
+
+Σyy Wy ) , (50) The term in λ becomes constant again. We add a whitening step to the W to make the CCA appear. Let fWx = Σ 12
+
+> xx
+
+Wx and fWy = Σ 12 
+
+> yy
+
+Wy , and define M = Σ− 12 
+
+> xx
+
+Σxy Σ− 12 
+
+> yy
+
+. The objective reduces to 
+
+max  
+
+> fWx,fWy
+
+Tr( fW ⊤ 
+
+> x
+
+M fWy ), (51) and we again get the CCA solution for the encoders. The difference is that now, the decoders interpolate between self-projections and cross-projections, with a weighting controlled by λ.30 H.3.4 Cycle consistency Lemma 7. Under the Lcy objective, the encoders and decoders recover the PCA. Proof. Let A := WxVy and B := Wy Vx. Let M := AB and N := BA . Then the cycle consistency objective can be rewritten as 
+
+min 
+
+> rg( A)≤K, rg( B)≤K
+
+1
+
+n ∥X − XM ∥2 
+
+> F
+
++ 1
+
+n ∥Y − Y N ∥2 
+
+> F
+
+. (52) Without the coupling constraint between M and N , the problem would reduce to two independent PCA problems, whose solutions are given by the top-K principal subspaces of Σxx and Σyy :
+
+M ∗ = PxP ⊤ 
+
+> x
+
+and N ∗ = Py P ⊤ 
+
+> y
+
+. This gives a lower bound on the objective. We now show that this lower bound is achievable, and therefore optimal. Let R ∈ RK×K be an arbitrary invertible matrix, and define 
+
+A = PxRP ⊤ 
+
+> y
+
+, B = Py R−1P ⊤ 
+
+> x
+
+. (53) Then M = AB = PxRP ⊤ 
+
+> y
+
+Py R−1P ⊤ 
+
+> x
+
+= PxP ⊤ 
+
+> x
+
+= M ∗, and similarly N = Py P ⊤ 
+
+> y
+
+= N ∗.
+
+# I Additional results and ablations. 
+
+Regularization Mextract (↑) Mtr (↑) Mcont (↑)
+
+Ldcy 0.99 0.00 0.00 
+
+Ldcy + Ltr 0.99 0.99 0.00 
+
+Ldcy + Lcont 1.00 0.98 0.99 
+
+Ldcy + Ldist tr 0.99 0.99 0.00 
+
+Ldcy + Ldist cont 1.00 0.98 0.99 
+
+Table 4: The Pcont and Ptr duality does not hold. The instance-wise vs distributional duality does 
+
+hold. SAE quality on synthetic DGP under different regularization regimes. Regularization Mextract (↑) Mtr (↑) Mcont (↑)
+
+Ldcy 0.9128 0.0177 0.0000 
+
+Ldcy + Ltr 0.9016 0.7283 0.2174 
+
+Ldcy + Lcont 0.5760 0.0554 0.6023 
+
+Ldcy + Ldist tr 0.8308 0.0250 0.0000 
+
+Ldcy + Ldist cont 0.9048 0.0522 0.0000 
+
+Ldcy + Ltr + Lcont 0.8360 0.7331 0.6192 
+
+Ldcy + Ldist tr + Ldist cont 0.8926 0.0116 0.0000 mixed (1 in 1000) 0.8933 0.7317 0.7946 
+
+Table 5: Ablation studies on the effect of regularization terms. SAE quality on vision embeddings 
+
+under different regularization regimes. In order to measure distributional alignment, we used a battery of distributional distances (Wasserstein, sliced Wasserstein, KL, ...) but found them all to be equally uninformative. We therefore rely on our distributional losses to provide statistical tests of distributional alignment. The distributional loss of element-wise regularised CoSAEs systematically converges to values of Ltr and Lcont below that of the distributionally-regularised CoSAEs. 31 Regularization Mextract (↑) Mtr (↑) Mcont (↑)
+
+Ldcy 0.8956 0.0000 0.0000 
+
+Ldcy + Ltr 0.7391 0.2974 0.2377 
+
+Ldcy + Lcont 0.8786 0.0000 0.3271 
+
+Ldcy + Ldist tr 0.7658 0.000 0.0000 
+
+Ldcy + Ldist cont 0.8879 0.000 0.0000 
+
+Ldcy + Ltr + Lcont 0.7496 0.2765 0.3454 
+
+Ldcy + Ldist tr + Ldist cont 0.8889 0.000 0.0000 mixed (1 in 1000) 0.7814 0.5053 0.5535 
+
+Table 6: Ablation studies on the effect of regularization terms. SAE quality on multimodal embeddings under different regularization regimes. 32
