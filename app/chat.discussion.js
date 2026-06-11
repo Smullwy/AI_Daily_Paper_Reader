@@ -8,6 +8,10 @@ window.PrivateDiscussionChat = (function () {
   const CHAT_DRAWER_MIN_WIDTH = 340;
   const CHAT_DRAWER_MAX_WIDTH = 860;
   const CHAT_DRAWER_DRAG_THRESHOLD = 4;
+  const CHAT_SYNC_SUCCESS_COLOR = '#0f766e';
+  const CHAT_SYNC_ERROR_COLOR = '#c00';
+  let remoteChatDbCache = null;
+  let remoteChatDbLoadedPath = '';
 
   // 最近提问记录（仅本机 localStorage，从现在开始记录，不回溯历史聊天内容）
   const QUESTION_RECENT_KEY = 'dpr_chat_recent_questions_v1';
@@ -259,6 +263,165 @@ window.PrivateDiscussionChat = (function () {
     }
   };
 
+  const getChatSyncUtils = () => window.DPRChatSyncUtils || null;
+
+  const setChatStatus = (message, color = '') => {
+    const statusEl = document.getElementById('chat-status');
+    if (!statusEl) return;
+    statusEl.textContent = message || '';
+    statusEl.style.color = color || '';
+  };
+
+  const canAttemptRemoteChatSync = () =>
+    String(window.DPR_ACCESS_MODE || '').toLowerCase() === 'full'
+    && window.SubscriptionsGithubToken
+    && typeof window.SubscriptionsGithubToken.loadRepoTextFile === 'function'
+    && typeof window.SubscriptionsGithubToken.commitRepoChanges === 'function';
+
+  const getReaderDatabaseConfig = async ({ create = false } = {}) => {
+    const session = window.DPRSecretSession || {};
+    if (create && typeof session.ensureReaderDatabaseConfig === 'function') {
+      return await session.ensureReaderDatabaseConfig();
+    }
+    if (typeof session.getReaderDatabaseConfig === 'function') {
+      return session.getReaderDatabaseConfig();
+    }
+    const secret = window.decoded_secret_private || {};
+    return secret && typeof secret.reader_database === 'object'
+      ? secret.reader_database
+      : null;
+  };
+
+  const resolveRemoteChatConfig = async ({ create = false } = {}) => {
+    if (!canAttemptRemoteChatSync()) return null;
+    const utils = getChatSyncUtils();
+    if (!utils || typeof utils.deriveChatDbPath !== 'function') return null;
+    const readerCfg = await getReaderDatabaseConfig({ create });
+    if (!readerCfg || readerCfg.enabled === false || !readerCfg.key_b64) return null;
+    return {
+      path: utils.deriveChatDbPath(readerCfg.path),
+      key_b64: String(readerCfg.key_b64 || '').trim(),
+    };
+  };
+
+  const loadRemoteChatDatabase = async (cfg, { force = false } = {}) => {
+    const utils = getChatSyncUtils();
+    if (!utils) throw new Error('聊天同步工具未加载。');
+    const path = cfg && cfg.path ? cfg.path : utils.deriveChatDbPath();
+    if (!force && remoteChatDbCache && remoteChatDbLoadedPath === path) {
+      return remoteChatDbCache;
+    }
+    const api = window.SubscriptionsGithubToken;
+    let database = null;
+    try {
+      const file = await api.loadRepoTextFile(path, { requireWorkflow: false });
+      const encrypted = JSON.parse(file.content || '{}');
+      database = await utils.decryptChatDatabase(encrypted, cfg.key_b64);
+    } catch (err) {
+      const msg = String((err && err.message) || err || '');
+      if (!msg.includes('HTTP 404')) throw err;
+      database = utils.emptyChatDatabase();
+    }
+    remoteChatDbCache = database;
+    remoteChatDbLoadedPath = path;
+    return database;
+  };
+
+  const loadRemoteChatHistory = async (paperId, { force = false } = {}) => {
+    try {
+      const utils = getChatSyncUtils();
+      const cfg = await resolveRemoteChatConfig({ create: false });
+      if (!utils || !cfg) return [];
+      const database = await loadRemoteChatDatabase(cfg, { force });
+      return utils.getChatMessages(database, paperId);
+    } catch (err) {
+      console.warn('[DPR CHAT] 加载仓库会话失败：', err);
+      return [];
+    }
+  };
+
+  const loadChatHistoryWithRemote = async (paperId) => {
+    const local = await loadChatHistory(paperId);
+    if (local && local.length) return local;
+    const remote = await loadRemoteChatHistory(paperId);
+    if (remote && remote.length) {
+      await saveChatHistory(paperId, remote);
+      setChatStatus('已从仓库加载同步会话。', CHAT_SYNC_SUCCESS_COLOR);
+      return remote;
+    }
+    return local || [];
+  };
+
+  const syncChatHistoryToRepo = async (paperId) => {
+    if (!canAttemptRemoteChatSync()) {
+      throw new Error('请先解锁密钥，并确认已配置可写入仓库的 GitHub Token。');
+    }
+    const utils = getChatSyncUtils();
+    if (!utils) throw new Error('聊天同步工具未加载。');
+    const history = await loadChatHistory(paperId);
+    if (!history || !history.length) {
+      throw new Error('当前论文还没有可同步的会话。');
+    }
+    const cfg = await resolveRemoteChatConfig({ create: true });
+    if (!cfg || !cfg.key_b64) {
+      throw new Error('未找到 reader database 加密配置，无法安全同步会话。');
+    }
+    const database = await loadRemoteChatDatabase(cfg, { force: true });
+    const nowIso = new Date().toISOString();
+    const nextDatabase = utils.setChatMessages(database, paperId, history, nowIso);
+    const encrypted = await utils.encryptChatDatabase(nextDatabase, cfg.key_b64, cfg.path);
+    const safeSlug =
+      String(paperId || 'paper')
+        .split('/')
+        .pop()
+        .replace(/[^A-Za-z0-9_.-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+      || 'paper';
+    const result = await window.SubscriptionsGithubToken.commitRepoChanges(
+      {
+        updates: [
+          {
+            path: cfg.path,
+            content: `${JSON.stringify(encrypted, null, 2)}\n`,
+          },
+        ],
+        deletes: [],
+      },
+      `chore: sync chat history for ${safeSlug}`,
+      { requireWorkflow: false },
+    );
+    remoteChatDbCache = nextDatabase;
+    remoteChatDbLoadedPath = cfg.path;
+    return {
+      path: cfg.path,
+      count: history.length,
+      branch: result && result.branch,
+      commit: result && result.commit,
+    };
+  };
+
+  const handleSyncChatClick = async (paperId) => {
+    const btn = document.getElementById('chat-sync-btn');
+    const previousText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '同步中';
+    }
+    setChatStatus('正在加密并同步会话到仓库...', '#666');
+    try {
+      const result = await syncChatHistoryToRepo(paperId);
+      const suffix = result && result.branch ? `（${result.branch}）` : '';
+      setChatStatus(`已同步 ${result.count} 条会话到仓库${suffix}。`, CHAT_SYNC_SUCCESS_COLOR);
+    } catch (err) {
+      setChatStatus(`同步失败：${(err && err.message) || err}`, CHAT_SYNC_ERROR_COLOR);
+    } finally {
+      if (btn) {
+        btn.disabled = String(window.DPR_ACCESS_MODE || '').toLowerCase() !== 'full';
+        btn.textContent = previousText || '同步';
+      }
+    }
+  };
+
   const renderChatUI = () => {
     return `
       <div id="paper-chat-container" class="paper-chat-drawer">
@@ -285,6 +448,7 @@ window.PrivateDiscussionChat = (function () {
                 <div class="chat-input-actions">
                   <button id="chat-quick-questions-toggle-btn" class="chat-quick-questions-toggle-btn" type="button" title="\u5feb\u6377\u95ee\u9898">\u5feb\u6377</button>
                   <button id="chat-questions-toggle-btn" class="chat-questions-toggle-btn" type="button" title="\u6700\u8fd1\u63d0\u95ee">\u5386\u53f2</button>
+                  <button id="chat-sync-btn" class="chat-sync-btn" type="button" title="\u52a0\u5bc6\u540c\u6b65\u4f1a\u8bdd\u5230\u4ed3\u5e93">\u540c\u6b65</button>
                   <button id="send-btn">\u53d1\u9001</button>
                 </div>
               </div>
@@ -1274,7 +1438,7 @@ window.PrivateDiscussionChat = (function () {
     const historyDiv = document.getElementById('chat-history');
     if (!historyDiv) return;
 
-    const data = await loadChatHistory(paperId);
+    const data = await loadChatHistoryWithRemote(paperId);
     if (!data || !data.length) {
       renderEmptyChatState(historyDiv, paperId);
       return;
@@ -1514,6 +1678,19 @@ window.PrivateDiscussionChat = (function () {
     input.disabled = true;
     btn.disabled = true;
     btn.innerText = '思考中...';
+    const syncBtnDuringSend = document.getElementById('chat-sync-btn');
+    if (syncBtnDuringSend) {
+      syncBtnDuringSend.disabled = true;
+    }
+    const restoreChatInputControls = () => {
+      input.disabled = false;
+      btn.disabled = false;
+      btn.innerText = '发送';
+      if (syncBtnDuringSend) {
+        syncBtnDuringSend.disabled =
+          String(window.DPR_ACCESS_MODE || '').toLowerCase() !== 'full';
+      }
+    };
 
     const historyDiv = document.getElementById('chat-history');
     clearEmptyChatState(historyDiv);
@@ -1613,7 +1790,7 @@ window.PrivateDiscussionChat = (function () {
     const toggleBtn = aiItem.querySelector('.thinking-toggle');
     const aiAnswerDiv = aiItem.querySelector('.msg-content');
 
-    const history = await loadChatHistory(paperId);
+    const history = await loadChatHistoryWithRemote(paperId);
 
     // 调试：打印历史消息前 50 个字符
     try {
@@ -1669,9 +1846,7 @@ window.PrivateDiscussionChat = (function () {
           '未检测到可用 Chat 模型，请检查密钥配置。';
         statusEl.style.color = '#c00';
       }
-      input.disabled = false;
-      btn.disabled = false;
-      btn.innerText = '发送';
+      restoreChatInputControls();
       return;
     }
 
@@ -1701,9 +1876,7 @@ window.PrivateDiscussionChat = (function () {
         statusEl.textContent = '未配置 Chat LLM API Key。';
         statusEl.style.color = '#c00';
       }
-      input.disabled = false;
-      btn.disabled = false;
-      btn.innerText = '发送';
+      restoreChatInputControls();
       return;
     }
 
@@ -1714,9 +1887,7 @@ window.PrivateDiscussionChat = (function () {
         statusEl.textContent = '未配置 Chat 模型。';
         statusEl.style.color = '#c00';
       }
-      input.disabled = false;
-      btn.disabled = false;
-      btn.innerText = '发送';
+      restoreChatInputControls();
       return;
     }
 
@@ -1743,9 +1914,7 @@ window.PrivateDiscussionChat = (function () {
         statusEl.textContent = 'Chat 模型配置缺少 baseUrl，请在配置页修正。';
         statusEl.style.color = '#c00';
       }
-      input.disabled = false;
-      btn.disabled = false;
-      btn.innerText = '发送';
+      restoreChatInputControls();
       return;
     }
 
@@ -2064,9 +2233,7 @@ window.PrivateDiscussionChat = (function () {
       if (historyDiv) {
         historyDiv.removeEventListener('scroll', onUserScroll);
       }
-      input.disabled = false;
-      btn.disabled = false;
-      btn.innerText = '发送';
+      restoreChatInputControls();
       input.focus();
     }
   };
@@ -2096,6 +2263,7 @@ window.PrivateDiscussionChat = (function () {
     const modelSelect = document.getElementById('chat-llm-model-select');
     const chatSidebarBtn = document.getElementById('chat-sidebar-toggle-btn');
     const chatSettingsBtn = document.getElementById('chat-settings-toggle-btn');
+    const chatSyncBtn = document.getElementById('chat-sync-btn');
     const chatQuickRunBtn = document.getElementById('chat-quick-run-btn');
     const chatQuickRunCloseBtn = document.getElementById('chat-quick-run-close-btn');
     const chatQuickRunTodayBtn = document.getElementById('chat-quick-run-today-btn');
@@ -2148,6 +2316,18 @@ window.PrivateDiscussionChat = (function () {
         input.addEventListener('input', () => resizeChatInput(input));
       }
       if (input) resizeChatInput(input);
+
+      const syncBtn = document.getElementById('chat-sync-btn');
+      if (syncBtn) {
+        syncBtn.disabled = false;
+        syncBtn.title = '加密同步会话到仓库';
+        if (!syncBtn._boundSync) {
+          syncBtn._boundSync = true;
+          syncBtn.addEventListener('click', () => {
+            handleSyncChatClick(paperId);
+          });
+        }
+      }
 
       if (select) {
         const chatModels = getChatLLMConfig();
@@ -2216,6 +2396,14 @@ window.PrivateDiscussionChat = (function () {
       if (inGuestMode) {
         modelSelect.disabled = true;
         modelSelect.title = '当前为游客模式或未解锁密钥，无法选择大模型。';
+      }
+    }
+    if (chatSyncBtn) {
+      if (inGuestMode) {
+        chatSyncBtn.disabled = true;
+        chatSyncBtn.title = '当前为游客模式或未解锁密钥，无法同步会话。';
+      } else {
+        chatSyncBtn.disabled = false;
       }
     }
 
