@@ -1,0 +1,1492 @@
+Title: Would you still call this Dax? Novel Visual References in VLMs and Humans
+
+URL Source: https://arxiv.org/pdf/2606.05409v1
+
+Published Time: Fri, 05 Jun 2026 00:21:53 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+## Would you still call this Dax? Novel Visual References in VLMs and Humans 
+
+Ada Defne Tür ♡♣ , Gaurav Kamath ♡♣ , Joyce Chai ♠, Siva Reddy ♡♣♢ , Benno Krojer ♡♣ ♡McGill University, ♣Mila Quebec AI Institute, 
+
+> ♠
+
+University of Michigan - Ann Arbor, ♢Canada CIFAR AI Chair  
+
+> Correspondence: ada.tur@mila.quebec
+
+Abstract 
+
+Vision-language models (VLMs), like human learners, are frequently exposed to new visual concepts, but how they map novel visual ref-erences to language after exposure remains largely underexplored, particularly when those references contradict prior knowledge from pre-training. To study this, we present the Novel Visual References Dataset (NVRD): 19,176 im-ages spanning 90 visual concepts across differ-ent levels of visual novelty, each with up to 20 increasingly perturbed versions of the original object to probe generalization. Unlike prior work on visual augmentations of familiar con-cepts, NVRD comprises entirely novel, open-ended stimuli constructed from scratch, mirror-ing how humans encounter genuinely new con-cepts. We evaluate 3 open- and 2 closed-source models alongside 2,400 human judgments for direct human–model comparison, and find that (i) models struggle to acquire novel concepts in-context when they contradict prior knowl-edge, and (ii) while models and humans show correlated sensitivity to visual perturbations, models significantly overgeneralize, extending learned labels to stimuli that humans reject. We contribute NVRD as a corpus and benchmark for research on visual concept learning in both humans and machines. 
+
+1 Introduction 
+
+As humans, we routinely encounter new ob-jects and visual referents through our lifetimes— whether newly-invented technologies or culturally unfamiliar items (such as a paella or a torii ). We are also remarkable learners, and quickly adapt to such novel references with only a single or few instances of the referent; specifically, we apply cer-tain biases acquired through previous knowledge to induce novel mappings between references and referents (Carey and Bartlett, 1978; Markman and Wachtel, 1988; Merriman et al., 1989). For in-stance, humans, both children and adults, notably exhibit the shape bias: if an object’s shape sig-nificantly changes, we are less likely to call it by the same name, compared to if only its color or texture changes (Landau et al., 1988, 1992, 1998; Samuelson and Horst, 2007). Computational vision models, likewise, are regularly exposed to novel visual references at inference time, well after their initial training. For instance, a user may present a model with an image of a newly-invented medical device, or a type of food that was not in its training data. We ask: how do models categorize novel stimuli after exposure, and how well do they map them to their nonce names (Section 4.1); do they generalize beyond perfectly identical instances of them (Section 4.3); and how does this behavior compare with humans (Section 4.4)? To better understand how VLMs behave when exposed to novel visual concepts, we introduce the Novel Visual References Dataset (NVRD): 90 visual concepts spanning familiar objects (e.g. a lamp) to entirely new objects, each paired with a nonce word and up to 20 levels of controlled visual perturbations, totaling 19,176 images (see Figure 1). We evaluate three open-source VLMs 1:Qwen-2 VL 7B (Wang et al., 2024), Idefics-3 8B (Laurençon et al., 2024), and Molmo-2 8B (Deitke et al., 2024), and two closed-source models: GPT-4o Mini (OpenAI, 2024) and Gemini-2.5 Flash (Comanici et al., 2025). Across three different prompting paradigms, we probe model behavior on NVRD under in-context learning (ICL) settings. Doing so, we find that while models are capable of in-context acquisition of new visual concepts after exposure, this capability is reduced for stimuli that contradict prior conceptual knowledge. To com-pare model behavior with humans, we then collect 2,400 human judgments on a subset of NVRD (see Figure 1 for an example trial). While models tend to generalize novel learned concepts more widely 
+
+> 1Our setup requires VLMs with multi-image capabilities.
+
+1
+
+> arXiv:2606.05409v1 [cs.CV] 3 Jun 2026
+
+than humans, both broadly agree on acceptability across perturbation types, scoring shape-based per-turbations as less acceptable than texture or other low-level changes. These findings connect to a broad literature on shape and texture biases in vi-sual recognition (Geirhos et al., 2019; Gavrikov et al., 2025), while extending these questions to a novel-concept learning setting now made tractable by modern image editing capabilities. We release NVRD as a corpus with an interac-tive explorer for studying concept generalization in VLMs, and hope it enables further cognitively-grounded evaluations of vision-language systems, as well as tools to probe how humans and agents communicate about a shared environment. 
+
+2 Background 
+
+Human language acquisition has long been studied in linguistics, cognitive science, and philosophy. Quine (1960) proposed the inscrutability of refer-ence: language learners theoretically face infinite potential mappings for any new word. Yet, chil-dren exhibit no such difficulty when acquiring lan-guage. Carey and Bartlett (1978) and Heibeck and Markman (1987) showed that children can form initial word-referent mappings after just one or two exposures—this is formally called fast-mapping— and Smith and Yu (2008) and Yu and Smith (2007) demonstrated that even infants use cross-situational statistics to spontaneously induce word-referent mappings in ambiguous contexts. Children further demonstrate learning biases to constrain such po-tential mappings. For instance, the shape bias ,children’s tendency to rely on object shape rather than color, texture, or size to learn novel concepts, is among the earliest inductive biases exhibited for language acquisition (Landau et al., 1988; Jones et al., 1991; Smith et al., 2002; Biederman, 1987). Children also demonstrate a mutual exclusivity 
+
+bias, where they assume objects map to a single label, and thus assign novel words to unfamiliar objects (Markman and Wachtel, 1988; Markman, 1989; Merriman et al., 1989). These biases accel-erate acquisition in language learners, particularly during early development, and carry on into adult-hood (Landau et al., 1992). A central question in comparing human and ma-chine vision is which visual features drive object recognition. Geirhos et al. (2019) showed that ImageNet-trained CNNs are biased towards tex-ture whereas humans favor shape; subsequent work argues this bias varies with architecture, training, and (for VLMs) language input (Gavrikov et al., 2025; Hermann et al., 2020). These findings moti-vate our study of how visual biases manifest under novel concept learning. A rapidly growing body of work investigates whether AI systems can acquire new concepts from limited exposure, mirroring fast mapping in hu-mans (Carey and Bartlett, 1978; Lake et al., 2015; Brown et al., 2020). Few-shot multimodal mod-els such as Frozen (Tsimpoukelli et al., 2021) and Flamingo (Alayrac et al., 2022) learn new visual concepts in context; MEWL (Jiang et al., 2023) reveals a large human–model gap under referential ambiguity, W2W (Ma et al., 2023a) adds explicit grounding objectives for novel referents, and Porte-lance et al. (2021) shows VLMs spontaneously adopt shape biases. Novel word learning has also been studied in text-only settings via learning pro-cedures (Hewitt et al., 2025; Wang et al., 2025) and inference-based probing (Brubaker et al., 2026). These contributions, however, mostly evaluate sim-plified or known object classes (e.g., MEWL com-bines known shapes/colors; Flamingo uses standard benchmarks); we extend evaluation to truly novel visual referents. 
+
+3 The Novel Visual References Dataset 
+
+3.1 Dataset Overview 
+
+We introduce the Novel Visual References Dataset, or NVRD, a corpus of 90 images of unique objects and entities ranging across a spectrum of novelty and different types of compositions, plus an addi-tional set of perturbations for each image across 11 augmentation axes, totaling 19,176 unique im-ages. Base images are generated using Gemini-3 Pro Image, and perturbations are produced using both Gemini-3 Pro Image and Gemini-2.5 Flash Image; we present a summary of the dataset cu-ration Figure 2. All generated images undergo a two-stage automated quality control pipeline fol-lowed by manual validation, with full generation prompts and procedures described in App. D. We begin by organizing visual concepts into three categories: known , composed and fully novel 
+
+entities. Whereas fully novel entities aim to repre-sent objects that do not exist or resemble anything that exists in the real world, composed entities com-bine specific attributes and components of existing objects; these are further distinguished between shape-shape compositions (e.g. a boar-toaster hy-2Can we also call the object in Image B ‘floundge’ ?Image A       
+
+> Can we also call the object in Image B ‘glemture’ ?
+> Image B
+> Image A Image B
+> Let’s call the object in Image A ‘glemture’ .
+> Let’s call the object in Image A ‘floundge’ .
+> VLM Humans
+> VLM Humans
+
+Figure 1: Task setup overview: On the left-hand side are examples of visual comparisons and nonce references evaluated; on the right-hand side, models and humans rate agreement with a novel label. 
+
+brid), and shape-texture compositions (e.g. a lion with bird feathers). Known entities depict objects which commonly occur in the model’s training (e.g. a chair); however, these too are given nonce names (e.g. the chair is given the name "blomwich" ), allowing us to study cases that contradict prior conceptual reference knowledge. We generate 30 known entities, 30 composed entities, and 30 fully novel entities, totaling 90 base objects (see App. B for the full list of concepts and generation prompts). 
+
+3.2 Image Perturbations 
+
+To study how visual augmentations affect model concept judgments, we construct controlled per-turbation sequences for each object in our dataset. A major consideration is that not all visual mod-ifications are equal; adding noise to an image is categorically different from deforming an object’s shape. We therefore select a range of visual pertur-bations motivated by distinct findings from model robustness benchmarks, cognitive science, and rep-resentation learning, which, together, span multiple dimensions along which stimuli can visually vary (Hendrycks and Dietterich, 2019; Hendrycks et al., 2021). Let x0 denote an image from our dataset, and let 
+
+P = {p1, . . . , p 11 } be the set of perturbations. For each perturbation p ∈ P we construct a compound-ing sequence of L levels: 
+
+x0
+
+> p
+
+−→ x1
+
+> p
+
+−→ x2
+
+> p
+
+−→ · · · p
+
+−→ xL (1) where each xℓ is generated by applying p to xℓ−1.Because the same perturbation is re-applied to its own output, the visual distance from x0 ideally increases monotonically with ℓ, giving a contin-uous axis of perturbation intensity along which we can study patterns of model judgments on novel concepts; we verify this compounding us-ing a set of quality control procedures, described in App. D, in addition to a manual author vali-dation (see App. D.4) on 100 random datapoints with high-level perturbations, of which 18% were noise/undesirable. We determine L based on each image independently, as certain perturbations tend to saturate 2, which we note for relevant perturba-tions; we select 11 perturbation axes, which we describe and motivate as follows. 
+
+3.2.1 Low-Level Edits. 
+
+We first use five standard image corruptions that alter low-level visual properties without modify-ing the object’s shape or structure: Gaussian Noise (ϵ ∼ N (0 , σ 2I)), Scale , which we produce with simple zooming augmentations, and Pixela-tion (nearest-neighbor down-sampling) allow us to measure the spatial granularities and noise ratios at which models still extend mappings, drawing on the finding that humans can recognize objects from highly reduced patches (Ullman et al., 2016), whereas models often rely on local texture (Geirhos et al., 2020). JPEG Compression introduces color banding and artifacts, which allows us to probe the effect of high-frequency information loss (Dodge 
+
+> 2Saturation is determined by the VLM judge, detailed in App. D
+
+3Object Categories Perturbation Types (Fully Novel Shape 17) Pert. Levels (Shape Deformation)         
+
+> Known Fully Novel  Shape-Texture Shape-Shape
+> Background Style Degradation Shape Deformation
+> Part Addition Part Removal Texture Shift
+> Color Shift JPEG Pixelation Scale Noise
+> Level 5 Level 10 Level 15 Level 20
+
+Figure 2: Overview of the creation pipeline for NVRD. On the left-most column, we present examples of the four object categories; in the middle column, we show all 11 perturbation axes on one example fully novel stimulus, enlarging the high-level edits; in the right-most column, we present how the shape deformation perturbation modifies the novel object shape monotonically over 20 levels. 
+
+and Karam, 2016). Finally, we apply Color Shift ,which we conduct by applying an arbitrary hue fil-ter of increasing intensity, allows us to probe color bias. 
+
+3.2.2 Higher-level Edits 
+
+We produce higher-level edits using Gemini-3 Pro Image and Gemini-2.5 Flash to apply perturbations to a source image, detailed further in App. B. 
+
+Texture Shift: We transfer a target texture (e.g., a slime-like surface) onto an object while preserv-ing its shape, then linearly interpolate between the original and textured images across 20 levels. Tex-ture plays a central, though contested, role in object recognition (Geirhos et al., 2019; Hermann et al., 2020); we examine its effect alongside shape and color perturbations. 
+
+Background: We generate a contextually inap-propriate background (e.g. a pub scene behind a humpback whale) and increase its opacity across 20 levels, probing whether models exploit context as a classification shortcut (Beery et al., 2018; Xiao et al., 2021). 
+
+Artistic Style: We generatively apply a pro-gressively rougher rendering style (saturating after 
+
+∼16.3 levels on average), probing whether mod-els rely on fine-grained rendering cues rather than structural form. 
+
+Shape Deformation: We generatively deform the object’s silhouette and geometry across 20 levels—the perturbation expected to most directly erode concept identity given the centrality of shape in human and machine learning (Section 2). 
+
+Part Addition: We generatively append an extra part or limb across 20 levels; the compounding sequence ensures level L has at least L extraneous parts, probing compositional understanding (Ma et al., 2023b). 
+
+Part Removal: Each level removes a part, limb, or appendage (saturating after ∼16 levels on aver-age), probing how learning degrades when parts— shown to serve as recognition cues in humans (Bie-derman and Cooper, 1991)—are removed. 
+
+4 Experiments 
+
+Given that VLMs can learn new concepts through a variety of settings (in-context learning, pre-training, post-training, etc), we consider which approach is most faithful to our goal of understanding how VLMs handle and acquire new visual concepts "in the wild"; in-context learning aligns more closely with how adults instinctively acquire novel vision-language mappings without repeated exposure and instruction. Since purely prompting-based ap-proaches raise questions of linguistic faithfulness (Hu and Levy, 2023), we use three separate behav-ioral probing methods on the five models listed in Section 1, which we describe and motivate below. 4Throughout all experiments, models are exposed to a base image x0 of a novel object paired with a nonce word r, and a perturbed variant xℓ at pertur-bation level ℓ. The specific inputs and elicitation method vary across the three setups described be-low. 
+
+4.1 Name Generation from Multi-Image In-Context Learning 
+
+In our first probing set-up, each visual stimulus 
+
+x0 is paired with a nonce word r, constructed by prompting GPT-4o to generate candidates and fil-tering for nonce words with exactly three tokens in length. We build an in-context pool C consisting of 
+
+x0 captioned with r, four distractor image-caption pairs (the most visually similar images to x0 from a pool of 20,000 PixMoCap images (Deitke et al., 2024) using CLIP ViT-B/32 (Radford et al., 2021), each with a single-word caption), and xℓ with a fill-in-the-blank caption: “This image is best de-scribed by the reference: ____.” We shuffle the full image pool and always show xℓ last. All models use greedy decoding and generate responses to fill the blank, re-generating up to three times if the response is shorter than 2 characters; prompting details are provided in App. E. 
+
+4.2 Token Probabilities Given Multi-Image In-Context Learning 
+
+As previously mentioned, prompting may not al-ways faithfully represent model preferences. We therefore additionally probe the three open-source models for the log probabilities they assign to our nonce words for each image. Using an identical setup to the multi-image generation, we present the shuffled image pools to the models, but, rather than a fill-in-the-blank task, we provide the final image caption with the target nonce reference and we com-pute the reference probability using the following formulation: 
+
+1
+
+N (logP (r | C )) = 1
+
+N (
+
+> N
+
+X
+
+> i=1
+
+log P (ti | t<i , C)) 
+
+(2) where r is our target nonce reference, N is the token-length of the reference, t1, t 2, . . . , t N are its constituent tokens, and C is the full in-context im-age pool with captions, the instruction, and the final prompt containing the target caption. We compute 
+
+log P (ti | t<i , C) by applying log-softmax over the model’s output logits and selecting the entry for 
+
+ti. We also compute the probability of "vanilla" references (e.g. "tree frog" instead of the assigned nonce label for an image of a tree frog), to com-pare whether our models are genuinely acquiring the novel mappings, or defaulting to labeling us-ing familiar concepts. This nonce–vanilla contrast controls for pure recency or continuation effects from the in-context label: such effects would assign comparable probabilities to both. 
+
+4.3 Dual-Image Likert-Scale Rating 
+
+Finally, as our third experimental setting, we use a dual-image Likert-scale rating setup, where we only present the models with x0 and xℓ, exclud-ing any other distractors. The model is first shown 
+
+x0 captioned “Let’s call the object in this image ‘[nonce word]’.” Then, it is shown xℓ and asked to rate agreement with the statement “Could both of these images be called ‘[nonce word]’?” on a scale from 1 to 7, where 1 = Strongly Disagree and 7 = Strongly Agree. The model responds with a single integer which we parse and collect. This set-up aligns closely with the experimental set-up we use for our human study (see below); we use model results from this setting for fair model-human com-parisons. 
+
+4.4 Human Study 
+
+Finally, we compare human and model judgments around our visual stimuli and novel references under the same Likert-Scale-based experimental setup. We conduct a crowd-sourced study through Prolific, collecting judgments from 30 anonymous native English speakers on 800 unique image pair trials. We describe participant details, compensa-tion, and privacy in App. F. While this represents a subset of NVRD, we focus on the higher-level perturbation types discussed in Section 3.2 which are most motivated by cognitive findings, and our sampling design ensures each image pair receives multiple independent judgments to support reliable mean rating estimates. Figure 9 shows the set-up of our human study. Each participant sees 80 image pairs and each image pair receives three separate human judgments, totaling 2400 human judgments. On each trial, participants see the original image and a perturbed version side-by-side, along with one of our nonce words; they are asked the same prompt as models, and to respond on a 7-point scale from "Strongly Disagree" to "Strongly Agree." 55 Results & Discussion 
+
+We present our primary results and discussion in the following sections, with more results in App. F. 
+
+Models acquire novel references in-context, but struggle when they conflict with prior knowl-edge. When examining nonce usage across ob-ject categories in the name generation setup (Sec-tion 4.1), we observe a noticeable effect of ob-ject novelty ( known , composed , novel ), which we present in Figure 3. Known entities consistently receive the lowest nonce reference usage across all models, with GPT-4o Mini displaying a particularly strong preference towards existing “vanilla labels” 3
+
+instead of novel learned mappings. This echoes 
+
+mutual exclusivity effects (Merriman et al., 1989; Markman and Wachtel, 1988), where learners are less willing to apply a new label to an object that already has an existing mapping. Novel objects, on the other hand, see the highest nonce reference usage, suggesting that the absence of competing known labels lowers the threshold for models to commit to using novel labels, while composed enti-ties fall in between the two, with shape-texture com-positions seeing slightly more nonce usage than shape-shape compositions. Closed-source models respond with slightly less hesitation overall, with Gemini-2.5 Flash exhibiting the highest nonce ref-erence usage across all models tested. Across per-turbation levels, models which do adopt the target nonce reference tend to continue doing so as visual distance from x0 increases, though with declining rates (Figure 4). This suggests that a single in-context exposure is sufficient to sustain some level of generalization, even as visual distance from the original increases. However, for some models (e.g. Idefics3 or Molmo2) generation curves are mostly flat, making it difficult to assess how confidence in novel references changes with perturbation. We therefore additionally examine log probabilities. 
+
+Log probabilities reveal more nuanced trends 
+
+In the more nuanced log probability setup (Sec-tion 4.2), we find that across all three open-source models, log-probability declines with perturbation level—steepest for Qwen-2 on part removal ( z-scored drop of 0.8). Across object categories, log probabilities largely mirror the generation results but sometimes show more gradual trends. Known   
+
+> 3Known objects have one vanilla label (e.g. “dog” for dog), composed objects have two such labels (e.g. “dog” and “cat” for a hybrid object of the two), novel objects have none.
+
+entities show flat, low nonce log-probabilities. Shape-shape compositions show a clearer decline than shape-texture, suggesting structurally hybrid objects are more sensitive to further structural per-turbation. 
+
+When generalizing novel concepts, models are most sensitive to structural perturbations (e.g. shape). In the dual-image Likert-scale setup (Sec-tion 4.3), we focus on perturbation types (shape, texture, etc.) rather than object categories. This setup is particularly suited for this analysis for two reasons: it enables a fair comparison with human judgments (Section 4.4), while sidestepping the issue that some models struggle to reliably adopt novel references in the previous setting, making Likert ratings a more direct signal of concept iden-tity judgments. In Figure 5, VLMs rate whether they fully agree (7) or disagree (1) that a perturbed object should be assigned the same nonce word as the original one: Here, even at perturbation level 1, model judgment starts slightly at lower ratings of 6 (Somewhat Agree /Agree ) for shape-related pertur-bations (part removal, part addition, shape deforma-tion). At stronger perturbation levels, particularly part removal drops very low to ratings between 1 and 2. Interestingly, some models (GPT-4o-mini, Molmo2) are also sensitive to texture to a lesser ex-tent. Other less semantic perturbations ( low-level edits ) such as resizing the object or color shift have almost no effect with model judgements remain-ing close to 7 ( strongly agree ); the only exception is Molmo2-7B that assign lower ratings below 5 for color perturbations (detailed breakdown in Sec-tion F.3). Overall, we can confirm existing findings (Gavrikov et al., 2025) that modern VLMs are more shape-biased, now in a more realistic scenario with novel objects and perturbations, and also find some influence of texture. 
+
+Models and humans strongly correlate on novel reference generalization across perturbation types, but models over-generalize. A central question motivating our study is not only whether VLMs can acquire novel visual references, but also how their generalization patterns compare with those of human learners. To conduct this compari-son, we analyze VLM Likert ratings against judg-ments from 30 human participants using the same dual-image task, finding both meaningful agree-ments and divergences. We first find that humans and models are broadly aligned in their sensitivity to different perturbation 6Known   
+
+> Novel
+> Shape-Shape
+> Shape-Texture
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Proportion of Responses
+> Idefics3 8B
+> Known
+> Novel
+> Shape-Shape
+> Shape-Texture
+> Molmo2 8B
+> Known
+> Novel
+> Shape-Shape
+> Shape-Texture
+> Qwen2-VL 7B
+> Known
+> Novel
+> Shape-Shape
+> Shape-Texture
+> Gemini 2.5 Flash
+> Known
+> Novel
+> Shape-Shape
+> Shape-Texture
+> GPT-4o-mini
+> Nonce word Vanilla name Other
+
+Figure 3: Nonce vs. vanilla label responses across models and object categories. We find: Models adopt a nonce words most easily for novel or partially novel objects. 0%        
+
+> 25%
+> 50%
+> 75%
+> 100%
+> Nonce Reference Usage
+> Known Shape-Texture Shape-Shape Novel
+> Perturbation Level
+> 0.25
+> 0.20
+> 0.15
+> 0.10
+> 0.05
+> 0.00
+> 0.05
+> Z-Scored Log-Prob
+> Known
+> Perturbation Level
+> Shape-Texture
+> Perturbation Level
+> Shape-Shape
+> Perturbation Level
+> Novel
+> Idefics3 8B Molmo2 8B Qwen2-VL 7B Gemini 2.5 Flash GPT-4o-mini
+
+Figure 4: Model results on both the multi-image name generation and log probability settings across object categories. Log probabilities are z-scored to make them comparable across models. 
+
+types, as shown in Figure 5. Human participants show the steepest declines in ratings for part ad-dition and removal, followed by shape deforma-tion and style degradation—an ordering identical to that observed across models. This alignment sug-gests that both humans and VLMs have internalized something of a shape bias in the context of novel concept generalization, treating modifications to an object’s structural configuration as more identity-threatening than surface-level changes to color, tex-ture, or background. Spearman correlations by leave-on-out between human and model ratings across perturbation types further confirm this agree-ment, where correlations are weakest for Idefics-3 8B, ranging from ρ = 0.688 for Background and ρ
+
+= 0.770 for Part Removal, and strongest for GPT-4o Mini, ranging from ρ = 0.899 and ρ = 0.925. Despite this broad agreement, a clear difference emerges when we examine object categories. Hu-man participants are substantially more influenced by object novelty, rating novel entities on aver-age two full points lower than known entities by the final perturbation level; model ratings, by con-trast, are relatively flat across all object categories (detailed breakdown in Figure 18). This is most noticible when comparing raw rating distributions, where humans produce the lowest mean ratings across all conditions and exhibit significantly more variability, while models cluster near the upper end of the scale with compressed variance, particularly the open-source models. The gap is most severe for shape-based perturbations, where human ratings fall below 3 ( Somewhat disagree ) by perturbation level 10 on average for part removal and shape de-formation, while most models remain between 4 (Neutral ) and 6 ( Agree ) at the same level; we ablate on this over-generalizing behavior in Section 6.1. For texture and color shift, by contrast, humans and models are closely aligned, suggesting genuine agreement on which perturbation types are most semantically significant. Thus, the divergence is more so that models recognize a similar hierarchy 75 10 15 20                  
+
+> Perturbation Level
+> 1
+> 3
+> 5
+> 7
+> Mean Rating
+> Part Removal
+> 510 15 20
+> Perturbation Level
+> Part Addition
+> 510 15 20
+> Perturbation Level
+> Shape Deform.
+> 510 15 20
+> Perturbation Level
+> Style Degrad.
+> 510 15 20
+> Perturbation Level
+> Texture
+> Humans (n=30) Molmo2 8B Qwen2-VL 7B Idefics3 8B Gemini 2.5 Flash GPT-4o-mini
+
+Figure 5: Human and model ratings on the subset of perturbation types that show a clear degradation at strong perturbation levels (i.e. high-level edits from Section 3.2.2, except background) 
+
+of perturbation severity that humans do, but apply it with far less discrimination, extending novel labels to stimuli that we would reject. 
+
+6 Ablations 
+
+We ablate the role of CLIP visual similarity on model ratings and the metric used to compose the in-context image pool; both confirm that our visual-similarity setup is the least trivial task (App. H.1, App. H.2). We focus the main-body discussion on a behavioral ablation that probes the over-generalization we observe. 
+
+6.1 Prompt Agreement Ablation 
+
+Since we notice that many of the models ap-pear to over-generalize learned concepts, we also probe whether this over-generalization is driven by a broader pattern of “agreeing with everything” shown to the model. On Qwen2-VL, we re-run a subset of 1000 randomly sampled image pairs from NVRD under the Likert-scale rating experimental setup, but make sure that the image pairs in the prompt are entirely different objects from one an-other. For example, even a fully novel object could now be paired with a known object and the model is asked whether they would assign the same refer-ence. Any human would assign 1 or 2 ( disagree )to such examples. However model now most often assign 3 ( somewhat disagree ), and in 30% of the cases even assign 6 ( agree ). We further find that most of these assigned 6 judgments occur when the second images comes from the fully novel category. We can conclude that while models and humans have high agreement in our main experiments, they diverge in this more adversarial setup. Our ob-servation aligns with the performance observed in the multi-image in-context learning settings, where Qwen-2 utilizes the target nonce reference much more when they are mapped to novel entities. De-tails in Section H. 
+
+7 Conclusion 
+
+In this work, we investigated how VLMs learn and generalize novel visual concepts, and how their behavior compares with human judgments. Evalu-ating five VLMs across three prompting paradigms on our Novel Visual References Dataset (NVRD), we find three key results. First, while models are capable of acquiring novel visual references in con-text, this capability is undermined when new stim-uli conflict with prior conceptual knowledge, echo-ing mutual exclusivity effects well-documented in human word learning. Second, models proved most sensitive to shape-based perturbations like part addition and removal, whereas surface-level changes like color shift and background had almost no effect, suggesting models track something of a shape bias, even in purely novel referential contexts. Third, while models and humans strongly corre-late in their overall sensitivity to perturbation type, models over-generalize and extend novel labels to heavily perturbed stimuli that human participants would reject. This misalignment has direct implications for re-liable human-agent interaction, where a human and agent must jointly establish and maintain shared referents for objects in a common and continuously evolving environment. Models that show a strong asymmetry between accepting and producing novel labels will struggle to act as consistent and capa-ble communicative partners in such settings. We contribute NVRD as an open-source corpus and evaluation tool to encourage further research into such cognitive gaps, and towards the development of vision-language systems that can learn, general-ize, and communicate about novel visual concepts with the sensitivity and grounding we observe in human learners. 8Limitations 
+
+NVRD is constructed using state-of-the-art gen-erative image models (Gemini-3 Pro Image and Gemini-2.5 Flash Image), which themselves embed biases over object structure, materials, and visual style. Our manual author validation on 100 high-level perturbation pairs found 18% to be noisy or undesirable, and several perturbation types saturate before reaching their nominal 20 levels. Although our two-stage VLM judge and post-hoc cleaning mitigate these effects, residual generator artifacts are likely present, particularly for compositional and fully novel categories where the generator has weaker priors. 
+
+Ethical Considerations 
+
+Our human study was conducted via Prolific with 30 anonymous adult participants, all native En-glish speakers residing in the US, Canada, UK, or Ireland. Participants were paid an average of £17.79/hour, were informed of how their responses would be used and of their rights regarding sub-mitted data, and could withdraw at any time. No personally identifying information was collected, and we report only aggregate statistics. Full details are provided in Appendix F. 
+
+Acknowledgments 
+
+We would like to thank Eva Portelance and Jeongh-wan Kim for the interesting and helpful conversa-tions and feedback during our research. This work was made possible by funding from the IVADO R3 NLP Régroupement. 
+
+References 
+
+Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, An-toine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katie Millican, Malcolm Reynolds, and 1 others. 2022. Flamingo: a visual language model for few-shot learning. In Advances in Neural Information Processing Systems , volume 35. Sara Beery, Grant Van Horn, and Pietro Perona. 2018. Recognition in terra incognita. In European Confer-ence on Computer Vision , pages 472–489. Irving Biederman. 1987. Recognition-by-components: A theory of human image understanding. Psycholog-ical Review , 94(2):115–147. Irving Biederman and Eric E. Cooper. 1991. Priming contour-deleted images: Evidence for intermediate representations in visual object recognition. Cogni-tive Psychology , 23(3):393–419. Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhariwal, and 1 oth-ers. 2020. Language models are few-shot learners. In 
+
+Advances in Neural Information Processing Systems ,volume 33, pages 1877–1901. Daniel Brubaker, William Sheffield, Junyi Jessy Li, and Kanishka Misra. 2026. Wugnectives: Novel entity inferences of language models from discourse con-nectives. In Proceedings of the 19th Conference of the European Chapter of the Association for Compu-tational Linguistics (Volume 1: Long Papers) , pages 6109–6127, Rabat, Morocco. Association for Com-putational Linguistics. Susan Carey and Elsa J. Bartlett. 1978. Acquiring a single new word. In Papers and Reports on Child Language Development , volume 15, pages 17–29. Stanford University. Gheorghe Comanici, Eric Bieber, Mike Schaekermann, Ice Pasupat, Noveen Sachdeva, Inderjit Dhillon, and 1 others. 2025. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities. arXiv preprint arXiv:2507.06261 .Matt Deitke, Christopher Clark, Sangho Lee, Rohun Tripathi, Yue Yang, Jae Sung Park, Mohammadreza Salehi, Niklas Muennighoff, Kyle Lo, Luca Soldaini, Jiasen Lu, Taira Anderson, Erin Bransom, Kiana Ehsani, Huong Ngo, YenSung Chen, Ajay Patel, Mark Yatskar, Chris Callison-Burch, and 31 oth-ers. 2024. Molmo and pixmo: Open weights and open data for state-of-the-art vision-language models. 
+
+Preprint , arXiv:2409.17146. Samuel Dodge and Lina Karam. 2016. Understand-ing how image quality affects deep neural networks. 
+
+Preprint , arXiv:1604.04004. Paul Gavrikov, Jovita Lukasik, Steffen Jung, Robert Geirhos, M. Jehanzeb Mirza, Margret Keuper, and Janis Keuper. 2025. Can we talk models into seeing 
+
+9the world differently? In International Conference on Learning Representations .Robert Geirhos, Patricia Rubisch, Claudio Michaelis, Matthias Bethge, Felix A. Wichmann, and Wieland Brendel. 2019. Imagenet-trained CNNs are biased towards texture; increasing shape bias improves ac-curacy and robustness. In International Conference on Learning Representations .Robert Geirhos, Carlos R. Medina Temme, Jonas Rauber, Heiko H. Schütt, Matthias Bethge, and Felix A. Wichmann. 2020. Generalisation in humans and deep neural networks. Preprint ,arXiv:1808.08750. Tracy H. Heibeck and Ellen M. Markman. 1987. Word learning in children: An examination of fast mapping. 
+
+Child Development , 58(4):1021–1034. Dan Hendrycks, Steven Basart, Norman Mu, Saurav Kadavath, Frank Wang, Evan Dorundo, Rahul De-sai, Tyler Zhu, Samyak Parajuli, Mike Guo, Dawn Song, Jacob Steinhardt, and Justin Gilmer. 2021. The many faces of robustness: A critical analy-sis of out-of-distribution generalization. Preprint ,arXiv:2006.16241. Dan Hendrycks and Thomas Dietterich. 2019. Bench-marking neural network robustness to common cor-ruptions and perturbations. In International Confer-ence on Learning Representations .Katherine L. Hermann, Ting Chen, and Simon Ko-rnblith. 2020. The origins and prevalence of tex-ture bias in convolutional neural networks. Preprint ,arXiv:1911.09071. John Hewitt, Oyvind Tafjord, Robert Geirhos, and Been Kim. 2025. Neologism learning for con-trollability and self-verbalization. arXiv preprint arXiv:2510.08506 .Jennifer Hu and Roger Levy. 2023. Prompting is not a substitute for probability measurements in large language models. Preprint , arXiv:2305.13264. Guangyuan Jiang, Manjie Xu, Shiji Xin, Wei Liang, Yujia Peng, Chi Zhang, and Yixin Zhu. 2023. Mewl: Few-shot multimodal word learning with referential uncertainty. In International Conference on Machine Learning , pages 15144–15169. PMLR. S. S. Jones, L. B. Smith, and B. Landau. 1991. Object properties and knowledge in early lexical learning. 
+
+Child Development , 62(3):499–516. Brenden M. Lake, Ruslan Salakhutdinov, and Joshua B. Tenenbaum. 2015. Human-level concept learning through probabilistic program induction. Science ,350(6266):1332–1338. Barbara Landau, Linda Smith, and Susan Jones. 1998. Object shape, object function, and object name. Jour-nal of memory and language , 38(1):1–27. Barbara Landau, Linda B Smith, and Susan Jones. 1992. Syntactic context and the shape bias in children’s and adults’ lexical learning. Journal of Memory and Language , 31(6):807–825. Barbara Landau, Linda B. Smith, and Susan S. Jones. 1988. The importance of shape in early lexical learn-ing. Cognitive Development , 3(3):299–321. Hugo Laurençon, Andrés Marafioti, Victor Sanh, and Léo Tronchon. 2024. Building and better understand-ing vision-language models: insights and future di-rections. Preprint , arXiv:2408.12637. Ziqiao Ma, Jiayi Pan, and Joyce Chai. 2023a. World-to-words: Grounded open vocabulary acquisition through fast mapping in vision-language models. In 
+
+Proceedings of the 61st Annual Meeting of the As-sociation for Computational Linguistics (Volume 1: Long Papers) , pages 524–544, Toronto, Canada. As-sociation for Computational Linguistics. Zixian Ma, Jerry Hong, Mustafa Omer Gul, Mona Gandhi, Irena Gao, and Ranjay Krishna. 2023b. CREPE: Can vision-language foundation models rea-son compositionally? In IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 10910–10921. Ellen M. Markman. 1989. Categorization and Nam-ing in Children: Problems of Induction . MIT Press, Cambridge, MA. Ellen M. Markman and Gwyneth F. Wachtel. 1988. Children’s use of mutual exclusivity to constrain the meanings of words. Cognitive Psychology ,20(2):121–157. William E Merriman, Laura L Bowman, and Brian MacWhinney. 1989. The mutual exclusivity bias in children’s word learning. Monographs of the society for research in child development , pages i–129. OpenAI. 2024. Gpt-4o system card. Preprint ,arXiv:2410.21276. Eva Portelance, Michael C. Frank, Dan Jurafsky, Alessandro Sordoni, and Romain Laroche. 2021. The emergence of the shape bias results from communica-tive efficiency. In Proceedings of the 25th Confer-ence on Computational Natural Language Learning ,pages 607–623. Association for Computational Lin-guistics. Willard Van Orman Quine. 1960. Word and object. In Word and Object , pages 26–79. MIT Press, Cam-bridge, MA. Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sas-try, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. 2021. Learn-ing transferable visual models from natural language supervision. In International Conference on Machine Learning , pages 8748–8763. PMLR. 
+
+10 Larissa K. Samuelson and Jessica S. Horst. 2007. Dy-namic noun generalization: Moment-to-moment in-teractions shape children’s naming biases. Infancy ,11(1):97–110. Linda B. Smith, Susan S. Jones, Barbara Landau, Lisa Gershkoff-Stowe, and Larissa Samuelson. 2002. Ob-ject name learning provides on-the-job training for attention. Psychological Science , 13(1):13–19. Linda B. Smith and Chen Yu. 2008. Infants rapidly learn word-referent mappings via cross-situational statistics. Cognition , 106(3):1558–1568. Maria Tsimpoukelli, Jacob Menick, Serkan Cabi, S. M. Ali Eslami, Oriol Vinyals, and Felix Hill. 2021. Multimodal few-shot learning with frozen language models. In Advances in Neural Information Process-ing Systems , volume 34. Shimon Ullman, Liav Assif, Ethan Fetaya, and Daniel Harari. 2016. Atoms of recognition in human and computer vision. Proceedings of the National Academy of Sciences , 113(10):2744–2749. Peng Wang, Shuai Bai, Sinan Tan, Shijie Wang, Zhi-hao Fan, Jinze Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Yang Fan, Kai Dang, Mengfei Du, Xuancheng Ren, Rui Men, Dayiheng Liu, Chang Zhou, Jingren Zhou, and Junyang Lin. 2024. Qwen2-VL: Enhancing vision-language model’s perception of the world at any resolution. arXiv preprint arXiv:2409.12191 .Wentao Wang, Guangyuan Jiang, Tal Linzen, and Bren-den Lake. 2025. Rapid word learning through meta in-context learning. In Proceedings of the 2025 Con-ference on Empirical Methods in Natural Language Processing , pages 32026–32061. Kai Xiao, Logan Engstrom, Andrew Ilyas, and Alek-sander Madry. 2021. Noise or signal: The role of image backgrounds in object recognition. In Interna-tional Conference on Learning Representations .Chen Yu and Linda B. Smith. 2007. Rapid word learn-ing under uncertainty via cross-situational statistics. 
+
+Psychological Science , 18(5):414–420. 
+
+Appendix: Table of Contents 
+
+A Dataset Examples . . . . . . . . . . . . . . . . . . . . . . 12 
+
+B Image Generation Prompts and Settings . . 12 
+
+C Image Perturbation Prompts and Settings . 16 
+
+D Dataset Generation, Validation, and Quality Control Details . . . . . . . . . . . . . . . . . . . . . . . . . 19 
+
+E Experimental Details . . . . . . . . . . . . . . . . . . . . 21 
+
+F Human Study Details . . . . . . . . . . . . . . . . . . . 22 
+
+G Human–Model Statistical Correlations . . . . 30 
+
+H Additional Ablation Results and Figures . . 31 11 A Dataset Examples 
+
+This section provides visual examples from NVRD to illustrate the range of entity categories and pertur-bation types in the dataset. Figure 6 shows example base images spanning all four entity categories, and Figure 7 shows three representative perturbation sequences applied to base images from the dataset. 
+
+B Image Generation Prompts and Settings 
+
+All base images are generated using Gemini-3 Pro Image (Comanici et al., 2025). We observed that the creation of novel entities, as well as their per-turbations, was disproportionately more trivial for generative models compared to all other entities, whereas known entities were the most difficult. We hypothesize this is due to the model’s motivation to preserve the original semantic composition of an object it is already familiar with from its training data, thus it struggles to envision unique perturba-tions to familiar concepts. Below we list the object pools and generation prompts for each of the four entity categories. Visual examples of base images and perturbation sequences are provided in App. A, and a full overview of the human study sample is shown in Figure 10. 
+
+B.1 Known Entities Known Characteristics  
+
+> Objects: ant, axolotl, backpack, bald eagle, bat, bear, bee, black widow, bow tie, camel, chair, chimpanzee, clock, cof-fee table, corkscrew, crocodile, dolphin, fedora, fire alarm, golden retriever, horse, humpback whale, ladle, leopard shark, moose, rabbit, siamese cat, tree frog, turtle, wallet
+
+Generation Prompt               
+
+> "Generate an image of a(n) obj. Make the background white and do not add anything else. Use a realistic art-style."
+
+B.2 Shape-Texture Compositions Shape-Texture Characteristics   
+
+> Shapes: ant, headphones, horse, ladybug, lion, saxophone, bee, camel, moose, panda, tiger, TV, broom, coyote
+> Textures: bird feathers, checkerboard, crochet
+
+Generation Prompt  
+
+> "Generate an image of a realistic <object>, but with the following <texture> texture: <image of texture>. Make the background white and do not add anything else to the image."
+
+B.3 Shape-Shape Compositions 
+
+To generate shape-shape compositions, we sample from the following pools of entities. 
+
+Shape-Shape Characteristics  
+
+> Objects: backpack, amplifier, boar, toaster, vacuum, bonsai, amplifier, crystal, cactus, camera, chipmunk, refrigerator, toaster, compass, totem, telescope, dagger, projector, dol-phin, office chair, radio, drone
+
+12 Example 1 Example 2 Example 3         
+
+> Known
+> golden retriever bee dolphin
+> Shape Texture
+> saxophone × bird feathers tiger × checkerboard TV remote × checkerboard
+> Shape Shape
+> bonsai × crystal drone × dagger crystal × telescope
+> Fully Novel
+> Shape 11 Shape 19 Shape 24
+
+Figure 6: Example base images from each of the four entity categories in NVRD. Known entities are familiar objects likely present in pre-training data. Shape–Texture compositions combine a known object’s shape with a different texture. Shape–Shape compositions merge two known objects into a single cohesive entity. Fully Novel 
+
+entities are designed from scratch and do not correspond to any real-world object. 
+
+Generation Prompt 
+
+"Generate an image of an animal/object that appears to be the logical composition of a obj1 and a obj2. Make the composition/merging of the two fluid and tasteful, such that the outcome is one cohesive animal/object. Make the background white and do not add anything else. Use arealistic art-style." 
+
+B.4 Fully Novel Entities 
+
+Fully novel entities are generated from composi-tional design specifications spanning five attribute categories. The following are a representative sub-set of the characteristic and design specification lists used to compose each novel object prompt. • Silhouettes: “lopsided hourglass with one chamber partially collapsed inward”, “asym-metric clamshell that never fully closes”, 13 Original Level 8 Level 14 Level 17 Level 20         
+
+> Style
+> Degradation
+> Shape
+> Deformation
+> Part
+> Addition Figure 7: Example perturbation sequences from NVRD. Each row shows an original base image and four increas-ingly perturbed variants along a single perturbation axis. Top: Style degradation applied to a fully novel entity, progressively reducing artistic fidelity. Middle: Shape deformation applied to a fully novel entity, warping and distorting the object’s silhouette. Bottom: Part addition applied to a shape–shape composition (drone ×dagger), progressively appending new structural elements.
+
+“dense knot-like mass with three lobes fused unevenly”, “flattened sphere stretched diag-onally as if pulled while soft”, “blocky cen-tral volume pierced by an off-axis tunnel”, “tall obelisk-like form warped into a gen-tle S-curve”, “compact puck shape with one side bulging outward unnaturally”, “clustered pebble-like forms fused into a single body”, “torso-like volume missing its top and bottom planes”, “squat pyramid whose faces bow in-ward instead of outward”, etc. • Materials: “slimy translucent green elas-tomer with suspended cloudy streaks”, “pink fluffy synthetic fiber compacted into a rigid solid”, “charred-looking polymer with a soft rubbery core”, “oily black resin that reflects light unevenly”, “milky silicone infused with darker fibrous strands”, “ceramic glaze that appears cracked but is perfectly smooth”, “carbon-fiber composite distorted into melted-looking waves”, “semi-transparent plastic re-sembling congealed candy”, “rubberized foam sealed under a glossy hard shell”, “bioplastic with faint organic veining like fat or cartilage”, “matte stone-like polymer that looks eroded but new”, “frosted gelatinous material that ap-pears wet but is solid”, etc. • Structural Rules: “exactly six curly pro-trusions that twist in alternating directions”, “three hollow prongs that bend slightly toward a shared center”, “one thick structural arm that dominates all other elements”, “a ring-like element partially embedded and partially exposed”, “five uneven spikes emerging only from concave regions”, “a continuous internal void visible through irregular openings”, “two mirrored appendages and one deliberately mis-matched third”, “structural elements that ap-pear stacked but never align vertically”, “four bulbous extensions connected by thin neck-like bridges”, “a rigid outer frame constrain-ing a visibly softer inner body”, etc. • Surface Details: “clusters of blunt micro-spikes that feel biological but artificial”, “puckered dimples scattered unevenly like pinched clay”, “fine wrinkles radiating out-14 ward from structural stress points”, “patches of glossy smoothness interrupting an other-wise matte skin”, “micro-ridges that abruptly stop and restart without pattern”, “subtle sur-face sagging as if the material barely holds its shape”, “tiny vent-like holes that suggest pressure release but do nothing”, “polished seams that zigzag unpredictably across the ob-ject”, “areas that appear stretched thin over an internal structure”, etc. • Palettes: “sickly pastel green with oily black shadows”, “cotton-candy pink con-trasted with industrial dark gray”, “bone white smeared with muted bruise-purple un-dertones”, “smoky translucent amber paired with dead matte charcoal”, “pale fleshy beige offset by sharp graphite accents”, “desaturated teal fading unevenly into off-black”, “chalky lavender with dirty metallic silver edges”, “warm nicotine-yellow contrasted with deep asphalt gray”, etc. Figure 8 shows example prompt compositions used to generate novel entities from these design specifications. 15 Design Specification Generated Object                     
+
+> Silhouette: Ovoid core with interlocking orbital rings
+> Materials: Brushed aluminum, matte sandstone polymer
+> Structure: Two thick rings encircling a hollow shell
+> Surface: Fine grain texture, recessed oval vents
+> Palette: Warm beige fading into steel gray
+> Silhouette: Bulbous dome atop splayed tapered legs
+> Materials: Matte coral ceramic, glossy jade resin
+> Structure: Domed cap resting on an organic base
+> Surface: Pitted matte top, smooth gloss underside
+> Palette: Salmon-pink to olive-green gradient
+> Silhouette: Pinched waist vase with protruding spines
+> Materials: Crackle-glaze ceramic, felted wool cap
+> Structure: Single tapered body with radial spikes
+> Surface: Crackle network on body, soft fuzzy top
+> Palette: Mint green to blush pink
+> Silhouette: Mushroom canopy over stout legged body
+> Materials: Rough terracotta, matte rubber nubs
+> Structure: Wide flared cap, tubular spout, four legs
+> Surface: Stippled pores on cap, smooth rounded legs
+> Palette: Burnt orange to muted teal accents
+
+Figure 8: Example prompt compositions used to generate novel entities. Each row shows a unique design specification (left) and the resulting generated object (right). 
+
+C Image Perturbation Prompts and Settings 
+
+To augment each of our objects with our variety of perturbation types, we use the templates, objects, and prompts listed and described below. Template variables are shown in blue . Perturbations fall into two broad groups: low-level edits that modify sur-face properties without changing object structure, and higher-level edits that alter the object’s shape, composition, or semantic identity. Perturbations within each group are presented in the same order as in the main paper (Section 3.2). 
+
+C.1 Low-Level Edits 
+
+The following five perturbation types are applied 
+
+programmatically (i.e. without a generative model) and do not alter the object’s shape or structure. 
+
+C.1.1 Gaussian Noise 
+
+At each level ℓ, we add i.i.d. Gaussian noise ϵ ∼N (0 , σ 2 
+
+> ℓ
+
+I) to the image, where σℓ increases linearly with ℓ. Because each level is applied to the output of the previous level (compounding), the cumula-tive noise intensity grows across the perturbation sequence. 
+
+C.1.2 Scale 
+
+We progressively down-sample the image using nearest-neighbor interpolation, reducing spatial res-olution at each level. The scale factor decreases linearly from near-original resolution at level 1 to a highly reduced image at the final level, probing the spatial granularity at which models can still maintain concept mappings. 
+
+C.1.3 Pixelation 
+
+Similar to scale, we apply nearest-neighbor down-sampling followed by nearest-neighbor up-sampling back to the original resolution, producing 16 a mosaic-like effect. The block size increases with each level, progressively removing fine-grained spatial detail while preserving the overall color distribution. 
+
+C.1.4 JPEG Compression 
+
+We apply JPEG compression with progressively decreasing quality factors across levels. This in-troduces color banding, block artifacts, and high-frequency information loss, allowing us to probe the effect of compression artifacts on concept judg-ments (Dodge and Karam, 2016). 
+
+C.1.5 Color Shift 
+
+We apply an arbitrary hue rotation of increasing in-tensity at each level. The hue shift angle increases linearly across levels, progressively altering the ob-ject’s color palette while leaving shape and texture entirely intact. 
+
+C.2 Higher-Level Edits 
+
+The following six perturbation types involve gen-erative editing or hybrid generative-programmatic pipelines. Unless otherwise noted, all generative perturbations are produced using Gemini-2.5 Flash Image and Gemini-3 Pro Image. 
+
+C.2.1 Texture Shift 
+
+We generate texture perturbations by transferring a target texture (e.g., a slime-like surface) onto an object (e.g., a golden retriever), while largely pre-serving its global shape and structure. We then linearly interpolate between the original and tex-tured images across 20 levels: xℓ = (1 − tℓ) xorig +
+
+tℓ xtextured , where tℓ = ℓ/L for ℓ ∈ { 1, . . . , L }
+
+with L = 20 , such that the visible texture intensity increases smoothly. This perturbation involves a hybrid generation process combining both genera-tive and programmatic augmentations. 
+
+C.2.2 Background Replacement 
+
+Background perturbation involves two sub-steps: we first generate a set of target scene images, and then we programmatically alpha-blend the back-ground at each level, compositing the original ob-ject on top. 
+
+Background Scene Generation Prompt  
+
+> Generate a photorealistic photograph of scene . Show the full scene filling the entire frame, photographed from eye level. No people, animals, or prominent foreground objects — just the environment/setting itself. Detailed, well-lit, natural-looking photograph.
+
+We use the following background scenes for the perturbations: 
+
+> “a wizard’s study with bookshelves, scrolls, can-dles, and arcane instruments”, “a cozy English pub with wooden beams, bar stools, pint glasses, and dartboard”, “a 1950s American diner with red vinyl booths, a jukebox, and checkered floor”, “a Japanese zen garden with raked sand, smooth stones, a bamboo fountain, and bonsai”, “a space station interior with control panels, round win-dows showing stars, and metal walls”, . . . (25 scenes total)
+
+We compute the background blend as follows: 
+
+Ik = α-blend  bg_color , I target , kN
+
+
+
+⊕ composite (Ioriginal )
+
+C.2.3 Style Degradation 
+
+To generate style degradation perturbations, we use a fixed 20-step trajectory ranging from a photoreal-istic art style to a largely blank canvas. We describe the prompt as well as the fixed trajectory in Table 1 below. 
+
+Style Degradation Prompt  
+
+> Slightly reduce the artistic quality and detail of this image. The result should look like trajectory_description . Make only a small change from the current image — keep the same general pose and composition.
+
+C.2.4 Shape Deformation 
+
+To deform the shape of each object, we use the following prompt. 
+
+Shape Deformation Prompt 
+
+> For the following image, complete this visual edit: Strongly deform, warp, or mutate the overall shape and silhouette of the subject. The change should be bold and unmistakable — significantly distort proportions, twist or melt parts of the body, or fracture and reshape the outline. Keep the rest of the image unchanged.
+
+C.2.5 Part Addition 
+
+To add a new part to each object at each new level 
+
+ℓ, we simply prompt the generative model as de-scribed below. 
+
+Part Addition Prompt 
+
+> For the following image, complete this visual edit: Add a large, clearly visible extra part, limb, or appendage to the subject. Make it bold — not a subtle bump, but a prominent new structure that obviously changes the subject’s form. Keep the rest of the image unchanged.
+
+C.2.6 Part Removal 
+
+To produce part removal perturbations, we first generate a list of “removable” parts for each object using GPT-4o Mini. For a golden retriever, for 17 Step Target Description 
+
+1 High-quality digital painting; smoother shading and softer edges than a photograph 2 Professional digital illustration; smoother color transitions, slightly less realistic lighting 3 Polished illustration with subtly flatter shading; most detail preserved 4 Clean illustration with moderately flat shading 5 Illustration with noticeably flat colors and slightly imprecise line work 6 Simple, clean illustration with flat unblended colors and basic outlines 7 Simplified graphic with about 10–15 flat color regions, no gradients 8 Bold, blocky graphic using only about 6–8 large flat color regions 9 Rough graphic with only 3–4 flat colors and thick uneven outlines 10 Crude rendering using 2–3 colors in roughly drawn overlapping shapes 11 Very rough single-color sketch; a few thick im-precise strokes 12 A few thick, sloppy strokes of a single dark color loosely hinting at the outline 13 3–4 rough overlapping dark strokes that very vaguely suggest the original mass 14 2–3 thick, rough smears of dark paint in approx-imately the original shape 15 A single thick rough brushstroke or blob of dark paint 16 An amorphous dark smudge; a rough mass of dark color 17 A faint, irregular dark stain or wash with almost no visual information 18 A barely visible, faded smudge of muted color 19 A nearly blank image with only the faintest dis-coloration 20 An essentially blank white image 
+
+Table 1: Style degradation trajectory (20 steps). 
+
+instance, this list would include its paws and legs, its ears, nose, and eyes, its tail, and finally, its torso. At each next level ℓ, the ℓ-th part from the list is targeted for removal; thus, we structure each list to prioritize conducting more semantically and visually significant changes last. 
+
+Part List Generation Prompt 
+
+Analyze this image of a(n) obj carefully. List exactly n_parts distinct, removable parts of this specific subject, ordered from MOST visually prominent/obvious to LEAST obvious. Rules: • Each part must be a specific, concrete body part or ap-pendage (e.g. “tail”, “left front leg”, “right antenna”, “dorsal fin”) — NOT abstract concepts like “texture” or “color”. • Parts should be things that could realistically be erased/removed from the image. • Be specific about LEFT vs RIGHT, FRONT vs BACK when applicable. • Include both large parts (legs, wings, head) and small parts (individual toes, whiskers, claws). • If the subject has fewer than n_parts truly distinct parts, repeat removal of the same type of part but specify dif-ferently (e.g. “front left leg” then “front right leg”). • For later entries when obvious parts are exhausted, in-clude things like “left eye”, “nose”, “mouth”, or describe portions of the body (“upper torso”, “lower abdomen”). 
+
+Part Removal Prompt 
+
+For the following image, complete this visual edit: Remove the part_k from the subject in the image. Completely erase it so there is a clear, visible gap or absence where the part_k 
+
+used to be. Keep everything else unchanged. Parts already removed in previous levels: [ parts_list ]. You MUST remove a DIFFERENT part that has NOT already been removed. Keep the rest of the image unchanged. 
+
+18 D Dataset Generation, Validation, and Quality Control Details 
+
+Perturbations requiring generative editing are cre-ated using both Gemini-2.5 Flash and Gemini-3 Pro with a dynamic prompt including the source image (Comanici et al., 2025). To validate that each perturbation is sufficient for experimentation, we employ a two-stage quality control pipeline us-ing Gemini-2.5 Flash as a VLM judge. All judge prompts share the following preamble, which con-textualizes the task for the VLM: 
+
+Project Context Preamble 
+
+You are part of a research pipeline studying learning biases in Vision-Language Models (VLMs). We are generating datasets of progressively perturbed images to measure how sensitive VLMs are to different visual properties (shape, texture, color, scale, etc.). For each object, we generate up to 10 levels of compound-ing perturbations along a single axis (e.g. 10 levels of shape deformation). Each level should be MORE visu-ally/semantically different from the original than the previ-ous level — this creates a monotonically increasing difficulty curve for VLM recognition. The KEY REQUIREMENT is that each perturbation level produces a CLEAR, VISIBLE change along the intended axis ONLY. Changes to other axes (e.g., shape changing when we only asked for texture) confound the experiment. The perturbation should be as pure and isolated as possible. At high levels, the object may become unrecognizable — this is expected and desired. The goal is to find the point at which VLMs can no longer identify the object. 
+
+D.1 Per-Level Judge 
+
+At each level ℓ, the judge receives both the source image xℓ−1 and the perturbed output ˆxℓ and evalu-ates whether (i) the model’s edit was “clearly and visibly applied” and (ii) the model didn’t introduce unwanted changes along other perturbation axes (e.g., changing the shape when only color was re-quested), as such changes could contaminate our axis-specific analysis. When the judge rejects a generation, it provides a revised instruction with details specific to the particular object depicted in the image, as the generative model is initially prompted with a generic prompt that isn’t tailored to the specific object, and then it prompts the gener-ative model to re-attempt the perturbation up to 10 times. For saturable perturbation types (scale, part removal, and artistic style) the judge additionally assesses whether the perturbation has reached a natural limit where it can no longer be applied (e.g., the object is too small to shrink further, no parts remain to remove). When saturation is detected, the sequence terminates at the current level. We use the following prompt: 
+
+Per-Level Judge Prompt 
+
+[Project Context Preamble] You are evaluating a single step in this pipeline. The orig-inal image (first) shows a(n) obj . The perturbation axis is: “ p_type ” The specific edit instruction was: “ perturba-tion_desc ”Evaluate against these criteria: 1. Is the requested edit (“ p_type ”) clearly and visibly ap-plied in the new generation? 2. Does the new generation show a visible change com-pared to the previous level? 3. Are there unwanted changes along OTHER axes? (e.g. shape changing when only texture was requested) — Changes along the requested axis are always welcome, even if dramatic. — Changes along other axes confound the experiment and should be flagged. If the edit failed, write a revised_prompt that is far more specific to the actual subject you see in the first image. — Look at the image carefully and describe the subject’s spe-cific parts, colors, textures, or spatial layout. — Instead of generic instructions, describe exactly what to change and where on this particular subject. — The revised prompt should be a complete, self-contained instruction for the im-age editor. Respond ONLY in valid JSON with these fields: 
+
+{"passed": true or false, "reason": "one or two sentences explaining why", "revised_prompt": "if failed, complete object-specific rewrite; if passed, null", "saturated": true or false (saturable type only) }
+
+Only set passed=true if the requested edit is clearly visible. The obj does NOT need to remain recognizable — progres-sive degradation is expected and desired. 
+
+D.2 Global Sequence Judge 
+
+After the full sequence is generated, a global judge receives the complete sequence (x0, x 1, . . . , x ℓ)
+
+and evaluates whether visual distance from x0 in-creases smoothly across all levels and the specific perturbation axis. The judge identifies undesirable levels , or those that regress back toward the original or stagnate for three or more consecutive steps, and returns their indices. For each undesirable level, the corresponding image is regenerated from its predecessor using the same per-level judge proto-col as before, and the sequence is re-evaluated, for up to three global rounds. As an additional safe-guard, the global judge is also used at intervals of every five levels during generation, allowing mid-sequence corrections before the full sequence is complete. We use the following prompt: 19 Global Sequence Judge Prompt             
+
+> [Project Context Preamble] You are evaluating a full sequence of nprogressively per-turbed images of a(n) obj . The perturbation axis is: “ p_type ”The first image is the ORIGINAL (unperturbed). The fol-lowing nimages are levels 1 through n, each generated from the previous level. The sequence should exhibit MONOTONIC PROGRES-SIVE DIVERGENCE from the original along the “ p_type ”axis: •Each level should look MORE different from the original than the previous level. •The visual distance from the original should strictly in-crease (or at least not decrease). •There should be no “resets” where a later level suddenly looks more like the original. •There should be no long plateaus where multiple consec-utive levels look identical. For each level, assess whether it maintains the monotonic progression. Respond ONLY in valid JSON:
+> {"monotonic": true or false, "bad_levels": [list of 1-indexed level numbers that break monotonicity], "reasoning": "brief overall assessment" }
+> A level is “bad” if: 1. It looks MORE similar to the original than the PREVI-OUS level (regression), OR 2. It looks virtually identical to the previous level (stagna-tion in a run of 3+ stagnant levels). Be strict about regressions but lenient about minor plateaus (2 similar levels are OK; 3+ are not).
+
+D.3 Post-Hoc Sequence Cleaning 
+
+These judges alone are not sufficient to ensure a clean degradation in the target object along the specified perturbation axes, thus, we also con-duct post-hoc sequence cleaning using Gemini-2.5 Flash. We prompt the model to score each level on a 0–100 scale indicating how intact the object re-mains, allowing us to identify levels which appear to be duplicates of other levels, or which linger out-side of acceptable visual degradation at its particu-lar level, thus stripping our perturbation sequences of redundant levels and images. 
+
+Sequence Scoring Prompt          
+
+> You are evaluating a sequence of images where a(n) obj is progressively perturbed. The FIRST image is the ORIGI-NAL. The next nimages are levels 1– n.For EACH level, rate how intact/complete the obj still is on a scale of 100 (100 = fully intact like original, 0 = completely removed/gone). Focus on how much of the object’s structure remains visible. Respond ONLY in valid JSON: {"scores": [s1, s2, ..., sn]}
+
+For cases where this cleaning reduces the num-ber of levels for a certain perturbation below ten total levels, we identify the largest score gaps in the remaining sequence and generate intermediate lev-els to fill them, targeting a score midway between adjacent levels. We also re-generate relevant per-turbation levels using Gemini-3 Pro Image. Finally, we, the authors, manually validate and curate the dataset prior to conducting both model and human experimentation. 
+
+D.4 Manual Author Validation 
+
+Manual author validation was also conducted to validate the cleanliness of the dataset. 100 image pairs were sampled across all object categories and perturbation levels and the high-level perturbation types, such that, if the first image in the pair is of object X with perturbation type Y at level Z, then the second image in the pair will be of object X
+
+with perturbation type Y , but at level Z + 1 . We then manually confirm if Y was correctly applied to 
+
+X to logically yield the following image in the tra-jectory, finding that, of the 100 image pairs, 18 of them were undesirable or noisy, that is, the pertur-bation wasn’t properly applied, or it was properly applied, but some other aspect of the object was also changed inappropriately (e.g. removing a cer-tain part for the part removal perturbation, but also adding another part elsewhere on the object). 20 E Experimental Details 
+
+This section provides full prompting details for each of the three experimental paradigms described in Section 4. All experiments are conducted under greedy decoding unless otherwise noted. 
+
+E.1 Name Generation from Multi-Image In-Context Learning 
+
+We iterate over each image in our data sample, as well as all of its available perturbation types and levels, where the main (non-perturbed) visual stimulus is paired with its nonce word caption using one of the following five caption templates: • “This image is best described by the reference: nonce label”, • “This image shows nonce label”, • “In this image, we see nonce label”, • “This image depicts nonce label”, • “The subject of this image is nonce label”. After the in-context pool (containing the target image-caption pair and four visually similar dis-tractors from PixMoCap; see Section 4.1 of the main paper), the perturbed stimulus is presented last with the following fill-in-the-blank prompt: 
+
+Fill-in-the-Blank Generation Prompt 
+
+> This image is best described by the reference: ____
+
+All models use greedy decoding and generate responses to fill the blank, re-generating up to three times if the response is shorter than 2 characters. We construct nonce words by prompting GPT-4o to generate candidates and filtering for nonce words with exactly three tokens in length. 
+
+E.2 Token Probabilities Given Multi-Image In-Context Learning 
+
+Using an identical setup to the multi-image gen-eration, we present the shuffled image pools to the models, but rather than a fill-in-the-blank task, we provide the final image caption with the target nonce reference and compute the reference proba-bility using: 
+
+1
+
+N
+
+ log P (r | C ) = 1
+
+N
+
+ NX
+
+> i=1
+
+log P (ti | t<i , C)
+
+
+
+where r is the target nonce reference, N is the token-length of the reference, t1, t 2, . . . , t N are its constituent tokens, and C is the full in-context im-age pool with captions, the instruction, and the final target caption. We compute log P (ti | t<i , C) by applying log-softmax over the model’s output log-its and selecting the entry for ti. We also compute the probability of “vanilla” references (e.g. “tree frog” instead of the assigned nonce label for an image of a tree frog), to compare whether our mod-els are genuinely acquiring the novel mappings or defaulting to labeling using familiar concepts. This task is only available for open-source models. 
+
+E.3 Dual-Image Likert-Scale Rating 
+
+In this setup, the model is first shown the origi-nal image captioned “Let’s call the object in this image ‘[nonce word]’.” Then, it is shown the per-turbed variant and asked to rate agreement with the statement “Could both of these images be called ‘[nonce word]’?” on a scale from 1 to 7, where 1 = Strongly Disagree and 7 = Strongly Agree. The model responds with a single integer which we parse and collect. This setup aligns closely with the experimental setup used for our human study (see App. F). 21 F Human Study Details 
+
+We conduct a crowd-sourced study through Pro-lific, collecting judgments from 30 anonymous na-tive English speakers residing in the United States, Canada, UK, and Ireland on 800 unique image pair trials. Inter-rater reliability, measured by the intra-class correlation coefficient ICC(2, k) which estimates the consistency of the mean rating across k = 3 
+
+raters per item, was 0.80 . On average, participants spent 6 minutes and 47 seconds on the full task. The task itself involved 80 image pair trials in ad-dition to 3 instruction slides and 5 attention checks presenting participants with 2 unrelated images, flagging for those who don’t respond with either “Disagree” or “Strongly Disagree”; no participant failed any attention check. Study participants were paid on average £17.79/hour, and were informed of how their responses would be used for the purposes of the study, as well as their rights over their submit-ted data. Responses from participants who failed attention checks interspersed within the study were excluded from further analysis. We show an example image pair trial with the user interface and setup a participant would have completed the study with in Figure 9. Figure 10 presents the full sample of objects and perturbations used in our human study across all four object categories and eight perturbation levels. 22 Figure 9: Example trial human participants observed during our study. Participants see the original image (left) and a perturbed variant (right), along with the nonce word, and respond on a 7-point Likert scale from “Strongly Disagree” to “Strongly Agree.” 
+
+23 Orig. 2 5 8 11 14 17 19 20 
+
+Perturbation Level 
+
+Known 
+
+> Bee
+> Golden
+> Retriever
+> Dolphin
+
+Shape-Texture 
+
+> Feathers
+> + Sax.
+> Checker.
+> + Tiger
+> Checker.
+> + TV Rem.
+
+Shape-Shape 
+
+> Bonsai
+> + Crystal
+> Crystal
+> + Telesc.
+> Drone
+> + Dagger
+
+Novel 
+
+> Novel 11
+> Novel 19
+> Novel 24
+> Perturbation Type (border color)
+> Part Addition
+> Background
+> Color Shift
+> Part Removal
+> Shape Deform.
+> Style Degrad.
+> Texture Shift
+
+Figure 10: Sample of objects and perturbations from NVRD across the four object categories (Known, Shape-Texture, Shape-Shape, Novel) and eight perturbation levels examined in our human study. Each image border is color-coded by perturbation type (see legend). The leftmost column shows the original (unperturbed) base image for each object. 
+
+24 Additional Results This section presents supplementary results or-ganized by experimental paradigm. 
+
+F.1 Name Generation Results 
+
+Figures 11 and 12 show the breakdown of nonce vs. vanilla label responses across perturbation levels and types, respectively, complementing the aggre-gate view in Figure 3. Figure 13 provides the per-perturbation-type breakdown of nonce reference usage, showing how generation accuracy varies across all 11 perturba-tion axes. 25 5 10 15 20 
+
+Perturbation Level 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Proportion of Responses
+
+Idefics3 8B 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Molmo2 8B 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Qwen2-VL 7B 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Gemini 2.5 Flash 
+
+5 10 15 20 
+
+Perturbation Level 
+
+GPT-4o-mini 
+
+Nonce word Vanilla name Other Figure 11: Nonce vs. vanilla label responses across models and perturbation levels. Remove 
+
+> Add
+> Shape
+> Style
+> Texture
+> Color
+> Bkgd
+> Noise
+> JPEG
+> Pixel
+> Scale
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Proportion of Responses
+
+Idefics3 8B 
+
+> Remove
+> Add
+> Shape
+> Style
+> Texture
+> Color
+> Bkgd
+> Noise
+> JPEG
+> Pixel
+> Scale
+
+Molmo2 8B 
+
+> Remove
+> Add
+> Shape
+> Style
+> Texture
+> Color
+> Bkgd
+> Noise
+> JPEG
+> Pixel
+> Scale
+
+Qwen2-VL 7B 
+
+> Remove
+> Add
+> Shape
+> Style
+> Texture
+> Color
+> Bkgd
+> Noise
+> JPEG
+> Pixel
+> Scale
+
+Gemini 2.5 Flash 
+
+> Remove
+> Add
+> Shape
+> Style
+> Texture
+> Color
+> Bkgd
+> Noise
+> JPEG
+> Pixel
+> Scale
+
+GPT-4o-mini 
+
+Nonce word Vanilla name Other 
+
+Figure 12: Nonce vs. vanilla label responses across models and perturbation types. 0% 
+
+25% 
+
+50% 
+
+75% 
+
+100% 
+
+> Nonce Reference Usage
+
+Part Addition Background Color Shift JPEG Noise Pixelation 
+
+5 10 15 20 
+
+Perturbation Level 
+
+0% 
+
+25% 
+
+50% 
+
+75% 
+
+100% 
+
+> Nonce Reference Usage
+
+Part Removal 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Scale 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Shape Deform. 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Style Degrad. 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Texture 
+
+Idefics3 8B Molmo2 8B Qwen2-VL 7B Gemini 2.5 Flash GPT-4o-mini 
+
+Figure 13: Model nonce reference usage across perturbation types and levels. 
+
+F.2 Log Probability Results 
+
+Figures 14 and 15 present the z-scored log proba-bility analysis broken down by perturbation type and object category, respectively. 26 1.0 
+
+> 0.5
+> 0.0
+> 0.5
+> Z-Scored Log-Prob
+
+Part Addition Background Color Shift JPEG Noise Pixelation    
+
+> 510 15 20
+
+Perturbation Level 
+
+> 1.0
+> 0.5
+> 0.0
+> 0.5
+> Z-Scored Log-Prob
+
+Part Removal    
+
+> 510 15 20
+
+Perturbation Level 
+
+Scale    
+
+> 510 15 20
+
+Perturbation Level 
+
+Shape Deform.    
+
+> 510 15 20
+
+Perturbation Level 
+
+Style Degrad.    
+
+> 510 15 20
+
+Perturbation Level 
+
+Texture 
+
+Idefics3 8B Molmo2 8B Qwen2-VL 7B Figure 14: Model nonce z-scored log probabilities across perturbation types and levels. 5 10 15 20 
+
+Perturbation Level 
+
+0.2 
+
+0.0 
+
+0.2 
+
+> Z-Scored Log-Prob
+
+Known 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Shape-Texture 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Shape-Shape 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Novel 
+
+Idefics3 8B Molmo2 8B Qwen2-VL 7B 
+
+Figure 15: Model nonce reference z-scored log probabilities across object categories and perturbation levels. 
+
+F.3 Likert Rating Results 
+
+Figures 16 and 17 show model Likert-scale ratings broken down by perturbation type and object cate-gory, respectively. 27 1                        
+
+> 3
+> 5
+> 7
+> Mean Rating
+> Part Addition Background Color Shift JPEG Noise Pixelation
+> 510 15 20
+> Perturbation Level
+> 1
+> 3
+> 5
+> 7
+> Mean Rating
+> Part Removal
+> 510 15 20
+> Perturbation Level
+> Scale
+> 510 15 20
+> Perturbation Level
+> Shape Deform.
+> 510 15 20
+> Perturbation Level
+> Style Degrad.
+> 510 15 20
+> Perturbation Level
+> Texture
+> Idefics3 8B Molmo2 8B Qwen2-VL 7B Gemini 2.5 Flash GPT-4o-mini
+
+Figure 16: Model ratings across perturbation types and levels. 5 10 15 20             
+
+> Perturbation Level
+> 1
+> 3
+> 5
+> 7
+> Mean Rating
+> Known
+> 510 15 20
+> Perturbation Level
+> Shape-Shape
+> 510 15 20
+> Perturbation Level
+> Shape-Texture
+> 510 15 20
+> Perturbation Level
+> Novel
+> Molmo2 8B Qwen2-VL 7B Gemini 2.5 Flash GPT-4o-mini
+
+Figure 17: Model ratings across object categories and perturbation levels. 
+
+F.4 Human–Model Comparisons 
+
+Figures 18 and 22 compare human and model be-havior across multiple views of the data. Figure 18 breaks down the comparison by object category, Figure 19 by perturbation type, Figures 20 and 21 show scatterplots of human vs. model mean rat-ings, and Figure 22 provides an aggregate bar plot comparison. 
+
+F.5 Cross-Task Consistency 
+
+As a final probe, we examine whether model behav-ior is self-consistent across our three experimental formats; Table 2 reports cross-task Spearman cor-relations. We are particularly interested in model consistency between the multi-image generation and the dual-image rating settings: GPT-4o Mini is the least consistent ( ρ = 0 .29 ), while Gemini-2.5 Flash is the most ( ρ = 0 .86 ). Whether a VLM is proprietary or not has little effect on cross-task con-sistency, though, without access to internal model information, we cannot compare this same correla-tion with a reference probability approach. Overall, our three paradigms measure related, though dis-tinct, aspects of novel reference behavior. 
+
+Model Cross-Task Spearman (ρ)
+
+Gen. 
+
+↔Likert Gen. 
+
+↔Log Prob. Likert 
+
+↔Log Prob. 
+
+Qwen-2 VL 7B 0.45 0.55 0.85 
+
+Idefics-3 8B 0.36 0.07 0.23 Molmo-2 8B 0.35 0.39 0.40 GPT-4o Mini 0.29 — —Gemini-2.5 Flash 0.86 — —
+
+Table 2: Cross-task Spearman correlations ( ρ) per model aggregated on all conditions; all results are sig-nificant (p<0.001) except for Idefics-3 Gen. ↔ Log Prob . Dashes indicate task combinations unavailable for closed-source models. Bold values mark the highest per-column. 
+
+28 5 10 15 20 
+
+Perturbation Level 
+
+> Mean Rating
+
+Known 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Shape-Shape 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Shape-Texture 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Novel 
+
+Humans (n=30) Idefics3 8B Molmo2 8B Qwen2-VL 7B Gemini 2.5 Flash GPT-4o-mini Figure 18: Human–model rating comparison across object categories and perturbation types. 1
+
+3
+
+5
+
+7
+
+> Mean Rating
+
+Part Removal Part Addition Shape Deform. Style Degrad. 
+
+5 10 15 20 
+
+Perturbation Level 
+
+1
+
+3
+
+5
+
+7
+
+> Mean Rating
+
+Texture 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Color Shift 
+
+5 10 15 20 
+
+Perturbation Level 
+
+Background 
+
+Humans (n=30) Molmo2 8B Qwen2-VL 7B Idefics3 8B Gemini 2.5 Flash GPT-4o-mini 
+
+Figure 19: Human–model rating comparison across perturbation types. 1 3 5 7
+
+Human Mean Rating 
+
+1
+
+3
+
+5
+
+7
+
+> Model Mean Rating
+
+Spearman = 0.77 
+
+Molmo2 8B 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.81 
+
+Qwen2-VL 7B 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.74 
+
+Idefics3 8B 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.91 
+
+Gemini 2.5 Flash 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.91 
+
+GPT-4o-mini       
+
+> Part Removal Part Addition Shape Deform. Style Degrad. Texture Color Shift Background
+
+Figure 20: Scatterplot of human vs. model mean ratings across perturbation types and levels. 1 3 5 7
+
+Human Mean Rating 
+
+1
+
+3
+
+5
+
+7
+
+> Model Mean Rating
+
+Spearman = 0.15 
+
+Idefics3 8B 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.76 
+
+Molmo2 8B 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.71 
+
+Qwen2-VL 7B 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.89 
+
+Gemini 2.5 Flash 
+
+1 3 5 7
+
+Human Mean Rating 
+
+Spearman = 0.83 
+
+GPT-4o-mini    
+
+> Known Shape-Shape Shape-Texture Novel
+
+Figure 21: Scatterplot of human vs. model mean ratings across object categories and perturbation types. 
+
+29 Known 
+
+> Shape-Texture
+> Shape-Shape
+> Novel
+> 1
+> 3
+> 5
+> 7
+> Mean Rating
+
+By Object Category 
+
+> Removal
+> Addition
+> Shape
+> Style
+> Texture
+> Color
+> Background
+> 1
+> 3
+> 5
+> 7
+> Mean Rating
+
+By Perturbation Type        
+
+> 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0
+> Perturbation Level
+> 1
+> 3
+> 5
+> 7
+> Mean Rating
+
+By Perturbation Severity      
+
+> Humans Idefics3 Molmo2 Qwen2-VL Gemini 2.5 Flash GPT-4o-mini
+
+Figure 22: Human–model rating bar plot comparison across object categories, perturbation types, and perturbation severity. 
+
+G Human–Model Statistical Correlations 
+
+Table 3 reports Spearman correlations ( ρ) between human and model Likert-scale ratings, computed at three granularities: overall (all conditions aggre-gated), leave-one-out (each perturbation type ex-cluded in turn), and single perturbation type (each type in isolation). 30 Subset n Idefics3 8B Molmo2 8B Qwen2-VL 7B Gemini 2.5 Flash GPT-4o-mini 
+
+Overall 
+
+All 56 .742 .771 .812 .905 .915 
+
+Leave-One-Out (P-Type) 
+
+Part Addition 48 .729 .843 .816 .904 .924 
+
+Part Removal 48 .770 .694 .752 .858 .899 
+
+Style Degradation 48 .753 .769 .836 .915 .925 
+
+Shape Deformation 48 .729 .760 .803 .889 .907 
+
+Color Shift 48 .717 .736 .809 .907 .901 Texture Shift 48 .688 .763 .824 .904 .913 
+
+Background 48 .723 .823 .784 .904 .903 
+
+Single P-Type 
+
+Part Addition 8 .012 .690 .802 .667 .833 
+
+Part Removal 8 .455 .756 .619 .786 .929 
+
+Style Degradation 8 .833 .905 .619 .881 .929 
+
+Shape Deformation 8 .794 .635 .589 .395 .717 
+
+Color Shift 8 -.521 .988 -.481 .764 .970 Texture Shift 8 .351 .946 .667 .433 .958 
+
+Background 8 .505 .648 .750 -.253 .248 
+
+> Table 3: Spearman correlation ( ρ) across models and perturbation types.
+
+H Additional Ablation Results and Figures 
+
+We present supplementary figures for the ablation studies described in Section 6. 
+
+H.1 Visual Similarity Ablation 
+
+Figure 23 examines how visual similarity (mea-sured via CLIP ViT-B/32 cosine similarity) be-tween each original and perturbed image pair re-lates to both generation accuracy and Likert-scale ratings. We observe a small overall increase in model ratings as similarity increases, but the effect varies sharply across models: Gemini-2.5 Flash’s rating increases from 40% on average when CLIP cosine similarity is 0.6 to 90% when it is 1.0, while Molmo-2 only increases by 2%. 31 0.60 0.65 0.70 0.75 0.80 0.85 0.90 0.95 1.00 
+
+Visual Similarity (CLIP Cosine) 
+
+0% 
+
+20% 
+
+40% 
+
+60% 
+
+80% 
+
+100% 
+
+> Nonce Reference Usage
+
+Generation Accuracy vs. Visual Similarity 
+
+> Idefics3 8B
+> Molmo2 8B
+> Qwen2-VL 7B
+> Gemini 2.5 Flash
+> GPT-4o-mini Figure 23: Model performance and ratings as a function of visual similarity between each original and perturbed image pair.
+
+H.2 In-Context Pool Composition Ablation 
+
+Figure 24 compares Qwen-2 VL 7B performance across three different strategies for composing the in-context image pool: visual similarity (CLIP-based, our default), color similarity (foreground-masked HSV histograms), and uniform random sampling. Random and color-similarity pools yield 6–10% more nonce reference usage across object categories on average, confirming that the visual-similarity setup is the least trivial task for Qwen-2. 32 5 10 15 20            
+
+> Perturbation Level
+> 0%
+> 25%
+> 50%
+> 75%
+> 100%
+> Nonce Reference Usage  Known
+> 510 15 20
+> Perturbation Level
+> Novel
+> 510 15 20
+> Perturbation Level
+> Shape-Shape
+> 510 15 20
+> Perturbation Level
+> Shape-Texture
+> Retrieval Strategy
+> Visual Similarity Color Similarity Random
+
+Figure 24: Qwen-2 VL 7B performance across pool composition strategies: random, color similarity, and visual similarity (CLIP). 
+
+H.3 Prompt Agreement Ablation 
+
+Figures 25 and 26 show results from the prompt agreement (“sycophancy”) ablation, where image pairs in the Likert-scale rating setup are composed of images from different objects rather than pertur-bations of the same concept. Figure 25 shows the distribution of Qwen-2 VL 7B responses by object category, while Figure 26 provides a heatmap of mean ratings broken down by the object categories of both Image A and Image B. 
+
+I Behind the Scenes 
+
+Inspired by final author BK, primary author AT would like to provide a reflection and glimpse into the work that was put in to make this project hap-pen, with the goal of offering transparency and discussion around the project and the scientific re-search process as a whole. 
+
+I.1 Formulating the Problem 
+
+Author AT recalls a lecture in McGill University’s Language Acquisition course where the Gavagai Problem was first introduced, that it should be the-oretically incredibly difficult for vision-language mappings to be acquired from minimal exposures, but that humans exhibit no such difficulty due to several factors, including inductive biases like the shape bias, mutual exclusivity bias, whole object constraint, etc. AT then began to wonder: do VLMs also have these biases? Could it be that, if these biases were misaligned or absent, then this could contribute to the gap in language learning efficiency between humans and machines? While this was an optimistic hypothesis, it got the wheels turning on what would be completed and presented in this paper. Originally, the plan was to focus in on what was happening during the model training, so we initially planned on training a VLM from scratch on some image-captioning dataset and probing responses on some curated evaluation set. In fact, unified models were even considered for the task, as they could undergo the most interesting and controllable evalu-ations of language acquisition from both visual and linguistic stimuli, until it was promptly understood that training a unified model from scratch on an academic research budget and resources was non-trivial. So, AI2’s Molmo was chosen instead for the task, and, after a long while of setting the training up and customizing for our particular analyses, the experiments were ready to be carried out. What a relief it was to have all of the moving parts working as intended, until the results revealing themselves to be largely inconclusive across the board—there just weren’t any directional patterns in how certain biases were developing during model training, not even for lower-level ones like color and texture. As it turns out, nearly everybody the work was discussed with agreed that probing using in-context learning was the most interesting anyways, as a direct comparison with human judgments could be done. This was far more straightforward to set up and produced cleaner results that yielded intriguing conclusions about novel concept learning in VLMs on the whole. 
+
+I.2 Final Reflections 
+
+Similar to author BK’s reflection in their most re-cent work, this research marks the end of a critical chapter in my (author AT’s) career and life—in this case, the undergraduate journey. AT has been in-credibly fortunate to have been involved in lots of academic research during the degree, an opportu-nity that many others don’t get at this stage in their education, as well as to be supported throughout the years by an amazing supervisor, author SR, and all the extraordinary collaborators and mentors, be-yond just those mentioned in this work. Research is one of the most rewarding journeys that one can 33 1 2 3 4 5 6 7                       
+
+> Rating
+> 0
+> 100
+> 200
+> 300
+> Count
+> 303
+> 16 6
+> Known
+> (n=325, mean=3.2, 7% 4)
+> 1234567
+> Rating
+> 115
+> 185
+> 33
+> Novel
+> (n=333, mean=5.1, 65% 4)
+> 1234567
+> Rating
+> 111
+> 48
+> 1
+> Shape-Shape
+> (n=160, mean=3.9, 31% 4)
+> 1234567
+> Rating
+> 126
+> 49
+> 7
+> Shape-Texture
+> (n=182, mean=4.0, 31% 4)
+> Sycophancy Ablation by Image B Category (Qwen2-VL 7B)
+
+Figure 25: Qwen-2 VL 7B responses on the ablated “failure case” trials, by object category. Known 
+
+Novel 
+
+Shape-Shape 
+
+Shape-Texture 
+
+Image B Category 
+
+Known 
+
+Novel 
+
+Shape-Shape 
+
+Shape-Texture 
+
+> Image A Category
+
+3.2 
+
+(n=91) 
+
+4.3 
+
+(n=120) 
+
+3.8 
+
+(n=39) 
+
+3.8 
+
+(n=59) 
+
+3.1 
+
+(n=133) 
+
+5.5 
+
+(n=101) 
+
+3.5 
+
+(n=62) 
+
+3.6 
+
+(n=62) 
+
+3.7 
+
+(n=47) 
+
+5.7 
+
+(n=54) 
+
+4.9 
+
+(n=27) 
+
+4.1 
+
+(n=32) 
+
+3.3 
+
+(n=54) 
+
+5.2 
+
+(n=58) 
+
+3.9 
+
+(n=32) 
+
+4.9 
+
+(n=29) 
+
+Mean Rating by Split Combination 
+
+(Qwen2-VL 7B, Cross-Object Pairs) 
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+> Mean Rating
+
+Figure 26: Heatmap of Qwen-2 VL 7B responses on the ablated “failure case” trials, by object category. 
+
+experience. 34

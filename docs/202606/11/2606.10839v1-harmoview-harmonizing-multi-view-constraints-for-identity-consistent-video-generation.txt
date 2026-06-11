@@ -1,0 +1,402 @@
+Title: HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation
+
+URL Source: https://arxiv.org/pdf/2606.10839v1
+
+Published Time: Wed, 10 Jun 2026 01:13:50 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation 
+
+Cong Wang , Zhentao Yu , Hongmei Wang , Weicong Liang , Zixiang Zhou ,
+
+Zilin Yang , Jiarong Ou , Rui Chen , Yuan Zhou , Qinglin Lu 
+
+Tencent Hunyuan 
+
+Project Page Project Code 
+
+Abstract 
+
+Current identity-consistent video generation methods struggle to preserve appearance fidelity under large viewpoint changes. While introducing multi-view reference input offers a natural solution, progress remains constrained by the lack of effective frameworks for multi-view inputs and the scarcity of multi-view data. We address these challenges by proposing HarmoView , a robust framework for identity-consistent video generation that effectively integrates multi-view cues through three synergistic architectural refinements complemented by a staged training curriculum. Specifically, (1) we first introduce Multi-level Feature Injection (MFI) to anchor identity fidelity; by injecting raw ViT features from frontal reference images alongside text tokens via cross-attention, MFI provides persistent low-level appearance anchors that complement the high-level identity features within DiT blocks, leading to enhanced identity preservation. Then, (2) we employ learnable proxy tokens to unify heterogeneous reference layouts across single- and multi-view settings while simultaneously resolving the reference–view mismatch problem. (3) Jump-RoPE is further developed for identity-wise feature isolation to reduce identity crosstalk. To activate these structural capabilities while preserving the model’s original generative priors, we propose the Progressive View Curriculum. This four-stage training strategy employs view dropout to facilitate a stable transition from vanilla T2V generation to high-fidelity, identity-persistent spatial reasoning. Furthermore, we construct a large-scale multi-view dataset to address the issue of data scarcity using an in-house LoRA-augmented pipeline and multi-stage filtering processes. Extensive evaluation on our multi-view benchmark—comprising 100 manually-curated cases spanning 52 unique identities—demonstrates that HarmoView significantly outperforms open-source baselines and matches leading closed-source engines, achieving state-of-the-art performance in identity-consistent video generation. 
+
+## 1 Introduction 
+
+The pursuit of identity-consistent video generation—the ability to synthesize high-fidelity videos that strictly adhere to a target person’s facial features—has witnessed significant breakthroughs with the emergence of Diffusion Transformers (DiTs) (Liu et al., 2025; Jiang et al., 2025; Hu et al., 2025; Chen et al., 2025; Wang et al., 2026). However, under large-angle synthesis, these models usually exhibit two characteristic failures: (1) hallucination, where unseen views are filled with fabricated facial structure unrelated to the target, and (2) reference–view mismatch, where frontal features are projected incorrectly onto a side view, thereby producing unnatural geometry or the “mean face” effect (an averaged, identity-less appearance, as shown in figure 1). Both failures share a single root cause: a lack of view-specific appearance evidence the model can ground large-angle predictions in .A natural remedy is to condition on multiple reference views (e.g., a frontal plus two side views) so that large-angle predictions are anchored in view-specific evidence rather than extrapolated from a single frontal image. Yet, effectively implementing this integration remains non-trivial due to two primary challenges. First ,there is no principled way to integrate multi-view cues into a pre-trained DiT backbone. Naively concatenating multi-view references with video noise often triggers two failure modes: (1) Inter-identity attention crosstalk. 
+
+> Corresponding Email: cw_research@163.com
+> arXiv:2606.10839v1 [cs.CV] 9 Jun 2026
+
+HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation rotation + zoom in 
+
+text prompt                                                   
+
+> Asingle shot rendered as asingle frame, in arealistic style, shot from amedium -close distance .The scene
+> shows an Asian man circling around on the grass while holding agolden retriever, looking very happy .The
+> camera gradually zooms in from adistance, eventually focusing on the man’s face as he spins .
+
+ID 
+
+VACE 
+
+> Poor prompt following
+> Identity drift
+
+HarmoView 
+
+(Ours) 
+
+Kaleido 
+
+RefAlign 
+
+HuMo     
+
+> Identity drift
+> Low Photorealism
+> Geometric distortion
+> Poor prompt following
+> Identity drift
+> Low Photorealism
+> Poor prompt following
+> Low motion magnitude
+> Precise Prompt Alignment Persistent Identity Preservation Vivid Motion Dynamics Superior Photorealism
+> Figure 1 Qualitative comparisons under large-viewpoint transitions.
+
+In scenarios involving drastic rotations and zooming, existing methods typically suffer from identity drift and geometric distortion. In contrast, HarmoView achieves superior identity persistence and structural integrity. 
+
+When multiple identity subjects are injected, the model suffers from cross-view attention contamination, causing features from different identities to blend uncontrollably. (2) Training overhead induced by sequnce OOD (Out-Of-Distribution). The extended token sequences deviate from the pre-training distribution, forcing the model to require significantly larger datasets and longer convergence steps to maintain the video generation quality of the original backbone. Second , multi-view video–identity pairs are effectively absent in existing data. Web-scale video corpora contain only unconstrained, single-view footage; curated multi-view portrait datasets cover at most a few dozen subjects and lack the motion diversity required by a video generator. Recent advancements in commercial video generation (ByteDance Seed, 2026; Kuaishou Kling AI, 2026) have begun exploring multi-view identity injection for enhanced identity persistence. However, academic research in this domain remains remarkably sparse. A concurrent work, MV-S2V (Song et al., 2026), attempt to address multi-view subject-consistent generation but focuses primarily on rigid objects, proposing a data-synthesis pipeline and a set of RoPE-shift variants for cross-view positional encoding. However, its assumptions break down on human portraits. Rigid objects admit sparse landmark correspondences and tolerate coarse cross-view alignment, whereas faces require sub-pixel precision in the eye–nose–mouth region to preserve identity and are more prone to cross-view feature blending. Consequently, there is an urgent need for a public dedicated framework capable of effectively leveraging multi-view cues to ensure robust identity persistence. 
+
+In this paper, we present HarmoView , a framework for identity-consistent video generation that effectively integrates multi-view reference cues through three synergistic architectural refinements complemented by a staged training curriculum, rectifying identity drift in large-angle synthesis. Specifically, our architectural refinements address the bottleneck of identity persistence through three key innovations. First, we introduce Multi-level Feature Injection (MFI) to anchor identity fidelity. Unlike previous methods that rely solely on HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation abstract identity latent from DiT blocks, MFI extracts additional visual features from frontal references and concatenates them with text tokens. By introducing this hybrid sequence with native cross-attention mechanism, the model can perceive these low-level appearance features throughout the entire denoising process, complementing the abstract high-level features for enhanced identity fidelity. Second, learnable proxy tokens are employed as structural placeholders to unify heterogeneous reference layouts across single- and multi-view settings, which also act as “attention sinks” to absorb redundant features and mitigate reference–view mismatch problem within the single-view setting. Third, we develop Jump-RoPE for identity-wise feature isolation. By introducing logical gaps between positional embedding bands of different identities, Jump-RoPE enforces strict feature boundaries, thus effectively suppress identity crosstalk. Complementing these structural enhancements, the Progressive View Curriculum (PVC) ensures a stable evolution toward identity-persistent spatial reasoning. The curriculum begins with large-scale single-view continuous training to scale the base model (i.e., Wan2.2-T2V (Wang et al., 2025a)), followed by three joint training stages with strategic view dropout, forcing the model to internalize multi-view geometric relationships and preserving the generative quality of the original T2V priors. To support the model training, we also construct a large-scale multi-view dataset using a LoRA-augmented image-to-image synthesis pipeline followed by rigorous multi-stage filtering processes. Extensive evaluation on our HarmoView-Bench—comprising 100 manually-curated cases spanning 52 unique identities—demonstrates that HarmoView achieves state-of-the-art performance among open-source methods and comparable perfor-mance to leading closed-source methods in the domain of identity-consistent video generation. The main contributions of this work are summarized as follows: 
+
+• We propose HarmoView , the first public human-centric framework to integrate multi-view reference cues into a pre-trained DiT video backbone with three synergistic architectural refinements for enhanced identity fidelity, especially under large viewpoint changes. 
+
+• We design the Progressive View Curriculum, a four-stage schedule with view dropout, that enables a stable transition to multi-view spatial reasoning without sacrificing the text-following and motion-synthesis capabilities of the underlying T2V backbone. 
+
+• We design a LoRA-augmented synthesis pipeline and rigorous multi-stage filtering processes, enabling the automated production of large-scale multi-view video-identity pairs. 
+
+• Extensive experiments demonstrate that HarmoView effectively leverages multi-view cues to significantly enhance identity-consistent video generation. On our curated benchmark, HarmoView achieves state-of-the-art performance among open-source methods and delivers results comparable to leading closed-source commercial engines. 
+
+## 2 Related Work  
+
+> Identity-consistent video generation.
+
+This field has evolved from audio-driven human animation, which focuses on lip-syncing and motion transfer relative to a fixed start frame, to more generalized identity-consistent video generation. While early animation methods (Cui et al., 2025b; Wang et al., 2025c; Lin et al., 2025; Cui et al., 2025a) achieve impressive realism, they remain fundamentally anchored to an identity-complete source frame, which simplifies appearance consistency but limits creative flexibility under large viewpoint shifts. Modern approaches bridge this gap by treating reference images as identity priors within a Text-to-Video backbone. Existing strategies typically employ external adapters (He et al., 2024) or in-context methods (Liu et al., 2025; Jiang et al., 2025; Hu et al., 2025; Chen et al., 2025) that concatenate reference latents with noisy video latents. Although this leverages the inherent spatial consistency of pre-trained DiTs, it often risks weakening textual control or suffering from identity drift under large-viewpoint generation. Unlike prior methods that rely on a single frontal image and struggle to preserve fine-grained identity details, HarmoView explicitly incorporate multi-view cues within a unified framework, achieving enhanced identity persistence and video naturalness.  
+
+> Multi-view conditioning.
+
+While multi-view injection has been extensively explored in fields such as 3D reconstruction and novel-view synthesis to enhance geometric performance (Cao et al., 2025; Wang et al., HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation PVC: Progressive 
+
+> View Curriculum
+> Stage 1: Single -view CT
+
+Text Branch 
+
+> ViT
+> vision tokens
+> A young man stepped
+> out of the car and set
+> foot on the floor …
+> T5
+> Encoder
+> text tokens
+> appearance -aware embeddings
+> cross -attn
+
+Multi -view reference images     
+
+> Stage 2: Multi -view CT
+> -90
+> °-60
+> °/-30
+> °0
+> °30
+> °/60
+> °90
+> °
+
+…… … …+ 
+
+> ID 1 ID 2
+> +
+> video noise
+> ID 1
+> ID 2
+
+Jump -RoPE strategy     
+
+> 012T-1
+> video noise
+> (T tokens)
+> jump
+> T+δ T+δ+4
+
+… … 
+
+> jump
+> T+2δ+5 T+2δ+9
+
+…  
+
+> ID 1 Refs
+> (5 views)
+> ID 2 Refs
+> (5 views)
+
+Learnable proxy token     
+
+> Missing views are replaced by learnable proxy tokens.
+> -90
+> °-60
+> °/-30
+> °0
+> °30
+> °/60
+> °90
+> °
+> proxy tokens observed view tokens
+> (video + single -view)
+
+… + 
+
+> (video + single -or full -view)
+
+… + or 
+
+> Stage 3: Multi -view CT w/ view dropout
+> (video + 1 -5 views)
+
+… +
+
+> Stage 4: Multi -view SFT w/ view dropout
+> (video + 1 -5 views, HQ Data)
+
+… +
+
+Figure 2 Overview of HarmoView. Our framework effectively integrates multi-view cues to pre-trained Wan2.2-T2V model through three key architectural refinements for enhanced identity persistence, complemented by a four-stage progressive view curriculum for stable training. 
+
+2025b; Kong et al., 2025; Sun et al., 2025), its application in identity-consistent video generation remains underdeveloped. In the current landscape, multi-view capabilities are primarily restricted to closed-source commercial engines (ByteDance Seed, 2026; Kuaishou Kling AI, 2026; Alibaba Wan Team, 2026; ShengShu Technology, 2026) or specialized frameworks like MV-S2V (Song et al., 2026), which predominantly focus on the generation of rigid objects with well-defined geometries. HarmoView represents the first public effort to explicitly introduce multi-view cues into the realm of identity-consistent human video generation 
+
+## 3 The HarmoView Framework 
+
+Built upon the Wan2.2-T2V architecture, our HarmoView framework (figure 2) synthesizes identity-consistent videos by integrating two primary information streams: descriptive text tokens injected via cross-attention, and a set of multi-view reference images {Iiref }Ni=1 that are encoded into latents and concatenated with the video noise along the sequence dimension . To effectively leverage multi-view cues without compromising pre-trained generative priors, our method introduces three targeted architectural refinements (section 3.1), complemented by the Progressive View Curriculum (PVC, section 3.2) to ensure a stable transition to multi-view constraints. Specifically, we first propose Multi-level Feature Injection (MFI) to anchor global identities by embedding fine-grained appearance features directly into the text conditioning sequence, ensuring these cues remain perceptible throughout the denoising process. Then, learnable proxy tokens are introduced to unify the sequence layout across heterogeneous references while functioning as "attention sinks" to mitigate reference–view mismatch problem. To further suppress feature crosstalk between distinct identities, we implement Jump-RoPE that introduces logical gaps in the rotary positional embeddings to enforce separation between different identity tokens. These structural capabilities are systematically activated via the PVC, a four-stage training strategy that facilitates the learning of multi-view spatial reasoning without degrading the model’s original generative quality. Finally, to provide a large-scale, high-fidelity foundation for effective training and benchmarking, we develop an automatic data pipeline (section 3.3), including a LoRA-augmented synthesis engine and multi-stage filtering processes. 
+
+3.1 Architectural Refinements for Identity Persistence 
+
+3.1.1 Multi-level Feature Injector 
+
+While DiTs excel at modeling high-level spatial relationships, their layer-wise abstraction often leads to the gradual erosion of fine-grained identity details. To counteract this loss and provide the model with persistent detailed guidance, we propose MFI. Instead of relying on complex latent space mapping between images and text, MFI enriches the conditioning sequence by surfacing low-level appearance features directly within HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation the text branch. Specifically, given a canonical frontal reference, we extract visual tokens vimg ∈ RLv ×D
+
+using a frozen ViT encoder (Bai et al., 2025). These tokens are then projected via a single linear layer and concatenated with textual tokens along the sequence dimension, forming a unified conditioning sequence: 
+
+zmm = [ Linear (vimg ); T5 (y)] (1) The core insight behind MFI is to leverage multi-level feature supervision to enhance identity consistency. While the DiT blocks transform reference cues into high-level spatial representations to capture geometric structure, MFI preserves raw low-level appearance priors within the conditioning buffer. By injecting these low-level features as constant, high-fidelity anchors that bypass the abstraction layers of the DiT, we ensure that fine-grained facial details are perceptible throughout the entire denoising process. Instead of employing auxiliary cross-attention heads, which often introduce feature competition and additional computation cost, our concatenation strategy leverages the model’s existing attention mechanism to perform joint spatial-semantic reasoning, forcing the model to resolve their inter-dependencies within a consistent and mutually-aware attention map. Furthermore, we utilize only frontal references as the anchor of identities, which strikes an optimal balance between providing a sufficient guidance and preventing the attention weight dilution typically caused by extended sequences, thereby preserving the model’s strict adherence to textual instructions.  
+
+> 3.1.2 Learnable Proxy Tokens
+
+Within the DiT branch, we encode the reference images {Iiref }Ni=1 into latents and concatenate them with the video noise along the sequence dimension. However, since the number of available reference views can vary between training stages and inference scenarios, directly feeding these variable-length tokens into the DiT blocks would disrupt the structural priors of the computation graph. To address this, we introduce a learnable proxy token Tproxy ∈ RP 2×C , where P × P represents the spatial resolution of the latent patches. These tokens are randomly initialized and optimized alongside the model parameters. When encountering a missing view (e.g., during single-view training or scenarios with limited reference views), we replicate Tproxy to match the latent resolution of a standard reference image and place these expanded tokens at the positions of the absent views. This design serves a dual role:  
+
+> Layout Unification and Semantic Consistency.
+
+By fixing the number of reference slots (e.g., N = 5 ), we ensure a unified token sequence layout across all stages. This provides deterministic positional semantics, allowing the DiT backbone to internalize robust spatial priors without the instability of dynamic sequence lengths, benefiting both joint training and inference phases.  
+
+> Attention Sinks for Mismatch Mitigation.
+
+The proxy tokens further resolve the reference–view mismatch problem. For example, when synthesizing a side-view video from only a frontal reference, due to the utilization of the softmax activation, the attention mechanism usually forces a false matching with irrelevant features due to the lack of correct spatial correspondence. Functioning as attention sinks, these proxy tokens learn to absorb these irrelevant weights, providing a dedicated space for unmappable features. This prevents conflicting identity cues from contaminating the video latents, ensuring that HarmoView not only effectively leverages multi-view cues when available but also strengthens the single-view reference capability.  
+
+> 3.1.3 Jump-RoPE
+
+Despite structural unification, the model suffers from identity crosstalk due to the inherent continuity of Rotary Positional Embeddings (RoPE). This positional leakage often leads to spatially inconsistent identity blending, where the model erroneously assembles disjointed facial features from different identities, such as blending the upper-face of one identity with the jawline structure of another. To resolve this, inspired by MV-S2V, we introduce Jump-RoPE , which implements discontinuous coordinate jumps to achieve clean feature decoupling. Unlike standard sequential indexing, Jump-RoPE applies two distinct levels of positional offsets: (1) Inter-identity Isolation. For scenarios involving multiple reference identities, we insert a significant index gap between the token blocks of different individuals, making their respective features occupy distant regions in the rotation space and alleviating cross-identity attribute leakage. HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation  
+
+> (2) Reference-to-Video Decoupling.
+
+Another index jump is further applied between the entire reference sequence and the video noise tokens to identify the role of different RoPE bands and achieve logical isolation. Jump-RoPE ensures that the reference and video latents are situated in logically distant regions of the high-dimensional coordinate system, effectively circumvents the identity crosstalk problem. 
+
+3.2 Progressive View Curriculum 
+
+The design of the Progressive View Curriculum (PVC) is necessitated due to the extreme scarcity of high-quality multi-view identity-video pairs. Unlike a “brute-force” approach that risks over-fitting or collapsing the model’s pre-trained priors due to data limitations, PVC utilizes a four-stage optimization schedule that gradually increase the complexity of reference cues. This design ensures a stable transition toward multi-view spatial reasoning, while preserving the text-following and motion-synthesis capabilities of the underlying T2V backbone.  
+
+> Stage 1: Single-View Structure Alignment and Capacity Scaling.
+
+This stage aims to align the pre-trained T2V backbone with our architectural refinements by leveraging the abundance of single-view video-identity pairs. Through continuous training, the model learns to anchor identity semantics and establish a high-fidelity baseline for identity persistence using single-view references. This foundational step ensures the structural modifications are fully integrated and the model’s capacity on identity persistence is scaled up before introducing the geometric complexities of multi-view fusion.  
+
+> Stage 2: Multi-View Alignment and Knowledge Injection.
+
+Building upon the single-view consistency from Stage 1, this stage introduces multi-view cues to establish a fundamental mapping between multi-view inputs and target video latents. We employ a dual-configuration training strategy, utilizing either single-view or complete full-view (all N references) inputs. By bypassing the complexity of missing-view scenarios, this "warm-up" phase reduces the learning difficulty of multi-view integration, enabling the model to effectively capture global spatial correspondences.  
+
+> Stage 3: Strategic View Dropout for Spatial Reasoning.
+
+To enhance the model’s capacity for sparse conditioning, this stage introduces a strategic view dropout mechanism where we randomly sample a variable number of reference views (from 1 to N ). Rather than just improving robustness, this strategy compels the model to internalize precise positional semantics by forcing it to rely on specific geometric cues from dynamic active slots, ensuring global coherence and accurate spatial reasoning even under imperfect or limited conditioning.  
+
+> Stage 4: High-Fidelity Refinement and Identity Polishing.
+
+The final stage serves as a polishing phase, shifting the optimization focus from structural alignment to aesthetic refinement and fine-grained identity reconstruction. By utilizing a curated, high-quality data subset while reducing the intensity of view dropout, we enable the model to prioritize the reconstruction of subtle facial textures and idiosyncratic features. This phase effectively bridges the gap between raw multi-view consistency and professional-grade visual quality, seamlessly integrating the previously learned spatial reasoning with the pixel-level fidelity required for state-of-the-art identity-consistent video generation. 
+
+3.3 Scalable Multi-View Data Pipeline 
+
+To overcome the extreme scarcity of high-quality multi-view video-identity pairs, we develop an automated pipeline to construct the HarmoView-Dataset. The pipeline leverages an in-house LoRA-augmented view-synthesis engine that supports transforming massive existing video corpora into multi-view video-identity pairs, complemented by a multi-stage filtering protocol to ensure geometric accuracy and identity persistence. Specifically, to establish a foundational mapping for viewpoint manipulation, we distill precise multi-view geometric priors from a curated high-fidelity dataset into a generative framework.  
+
+> Controlled Data Acquisition.
+
+We first curated a proprietary dataset of 1,000 diverse subjects performing standardized head-rotation sequences. Using the InsightFace framework (Deep Insight, 2023), we extract seven canonical frames per subject at specific yaw angles Y = {0◦, ±30 ◦, ±60 ◦, ±90 ◦}. Since frames are sampled from a single continuous clip, all environmental factors (e.g., lighting and background) remain strictly constant, effectively isolating head orientation as the sole variable. HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation Foundation: Build View -Synthesis Engine 
+
+> Controlled Data Acquisition
+> captured raw video clip
+> extract 7 canonical views
+> Engine Training
+
+Scale -up : Transform video corpora into HarmoView -Data                 
+
+> Yaw ={0 °,±30 °,±60 °,±90 °}
+> 1,000 subjects constant environment
+> Large -Scale Pair Construction Multi -Stage Filtering
+> LoRA fine -tuning
+> on FLUX.1 -dev
+> “Look completely
+> to the left.”
+> frontal text prompt
+> predicted
+> portrait
+> ground -truth
+> from stage 1
+> supervision
+> Existing
+> Video Data
+> frontal
+> extract
+> LoRA fine -tuned
+> FLUX.1 -dev
+> text prompt
+> video multi -view identity
+> multi -view video -identity pair s
+> High Quality
+> Ensure Aesthetic
+> and no blur
+> Same Identity
+> Using arcface
+> cosine similarity
+> Correct Views
+> yaw angle error
+> less than 10
+
+Figure 3 Scalable Multi-View Data Pipeline. Our automated data pipeline leverages a LoRA-augmented synthesis engine and a multi-stage filtering protocol to construct high-quality multi-view identity-video pairs for effective training and benchmarking. 
+
+Engine Training. Using these aligned sets, we fine-tune a LoRA adapter on the FLUX.1 model (Labs et al., 2025) to develop a specialized view-synthesis engine. By framing the task as a conditional generation problem where the input is a frontal reference and the target is a portrait in specific yaw angles, the engine learns to synthesize high-fidelity portraits at specific orientations, acting as a "pseudo-labeler," allowing us to project any frontal portrait image into multi-view sets while perseving identity features. With the view-synthesis engine established, we construct our multi-view training data by transforming existing raw videos into multi-view video-identity pairs. For each video in the corpus, we first extract a high-quality frontal reference frame Iref using existing methods. This reference is then processed by the synthesis engine to generate a set of multi-view portraits {Ii}Ni=1 based on given yaw angles, which are paired with the original video to form the required training pairs. To ensure the generated data meets the high standards of our training framework, we implement a multi-stage filtering protocol to verify the quality of these synthetic pairs through a sequence of rigorous checks: First, we apply (1) image quality filtering by utilizing an automated aesthetic predictor (Esfandarani and Milanfar, 2018) and a blur-detection operator to filter out low-quality generations, ensuring only “pixel-perfect” images proceed to subsequent verification. This is followed by (2) identity verification, where we employ the InsightFace to calculate the cosine similarity between the synthesized views and the original reference frame. To account for the inherent difficulty of cross-view identity matching, we apply a viewpoint-dependent thresholding strategy, gradually relaxing the similarity requirement as the yaw angle increases from the frontal pose. Finally, we perform (3) geometric validation using a pose estimator (Yin, 2020) to verify the head poses of the synthesized images, ensuring the target yaw angles are accurately manifested within a ±10 ◦ tolerance. Through this rigorous orchestration, we successfully bridge the gap between massive video data and the large-scale requirements of our multi-view spatial reasoning framework. 
+
+## 4 Experiments 
+
+4.1 Experimental Setup 
+
+HarmoView-Bench. Due to the lack of existing video generation benchmarks that support multi-view conditioning, we introduce HarmoView-Bench , a manually curated evaluation suite comprising 100 diverse human-centric scenarios. Each test case involves up to two distinct identities, with each identity accompanied by seven canonical yaw-angle reference images: {0◦, ±30 ◦, ±60 ◦, ±90 ◦}. These scenarios encompass a broad spectrum of skin tones and complex motion trajectories, specifically designed to test a model’s ability to aggregate disjointed spatial cues across multiple perspectives. Detailed benchmark descriptions and visual examples are provided in the Supplementary Materials. 
+
+Evaluation Metrics. To ensure an objective and authoritative assessment, we adopt the comprehensive evaluation HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation (a) The video starts with … focusing on the cute little boy ... He is wearing a blue pilot uniform and a red helmet , …. He is seated in the cockpit of a red mini helicopter , gripping the control sticks with both hands .                  
+
+> The helicopter has a realistic metallic and painted finish . The propeller spins at high speed , creating a motion blur effect . ... Sunlight reflects brilliantly off the red helmet , casting soft light on his face. …
+> (c) On the left, a young man ... He is turned sideways, looking down, holding an umbrella … On the right, a young woman … She looks up at the man, her fingers lightly clutching his jacket button , her lips
+> slightly parted. Raindrops catch the backlight, forming golden specks ; light from the side above pierces through the mist, creating a soft -focus halo around their silhouettes …The background is a blurred green.
+> (b) On the left side of the frame is a young man wearing a shirt and vest , with black rectangular -framed glasses. He is bowing with his hands clasped in front of his chest … On the right side is another young
+> man … He occupies most of the frame , ... The background features the Canton Tower and parked luxury cars . The camera slowly and smoothly rotates from a tilted diagonal composition to a frontal view …
+
+Refs Kling 3.0 Wan2.7 HarmoView (ours) HuMo RefAlign Kaleido VACE 
+
+Commercial Engines Open -Source Models 
+
+Figure 4 Comparison with State of the Art Methods. 
+
+framework from OpenS2V-Eval (Yuan et al., 2025), a standardized benchmark for human-domain video generation. We evaluate the generated videos across three primary axes: 
+
+• Video Quality : We assess the aesthetic appeal and temporal coherence of the videos. This includes measuring visual beauty via aesthetic models (AES), temporal stability via motion smoothness metrics (Motion Smooth), physical realism through naturalness scoring (Natural Score), and motion amplitude (Motion Amp). 
+
+• Text Alignment : To evaluate adherence to input prompts, we utilize multimodal similarity scores (GME) based on MLLM, ensuring the generated motion and environment accurately reflect the textual descriptions. 
+
+• Identity Consistency : We employ ArcFace-based facial similarity (FaceSim) to verify human identity persistence. Additionally, the Nexus score, which calculates the similarity between references and detected subject crops, is employed to mitigate background noise. To complement these objective metrics and account for potential biases in automated scoring, we further conduct a GSB (Good/Same/Bad) human preference study. For each test case, three independent annotators perform side-by-side comparisons between HarmoView and competing models, with the final rating determined by a majority vote. By involving this subjective preference study, we provide a balanced and rigorous assessment of the model’s performance. 
+
+Baselines. We compare HarmoView against a broad range of state-of-the-art methods to demonstrate its superiority in both open-source and commercial landscapes. The baselines include: (i) Open-source academic models, including VACE (Jiang et al., 2025), Kaleido (Zhang et al., 2025), RefAlign (Wang et al., 2026), and HuMo (Chen et al., 2025); and (ii) Leading commercial engines, including Wan 2.7 (Alibaba Wan Team, 2026) and Kling 3.0 (Kuaishou Kling AI, 2026). This selection ensures a comprehensive evaluation against the current frontier of human-centric video generation. 
+
+4.2 Comparison with State-of-the-Art Methods 
+
+We conduct comprehensive comparisons on the HarmoView-Bench against both academic baselines and industry-leading engines. As summarized in table 1, HarmoView achieves the best total score of 74.70, outperforming all open-source academic baselines and competitive commercial engines. Notably, HarmoView exhibits a significant advantage in Video Quality, particularly in the Natural metric ( 89 .12 ), which evaluates the overall realism and physical plausibility of the generated content. Compared to academic models like HuMo (83 .67 ) and RefAlign ( 65 .14 ), our method produces videos with fewer geometric artifacts under large-viewpoint HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation  
+
+> Table 1
+
+Quantitative comparison on the HarmoView-Bench. All metrics are calculated following the OpenS2V-Eval protocol. ⋆ utilizes only the frontal reference.   
+
+> Method Total
+
+↑ Video Quality Text Align. Identity Consistency Natural ↑ AES ↑ Smooth ↑ Motion Amp ↑ GME ↑ FaceSim ↑ Nexus ↑
+
+Open-source Academic Models 
+
+VACE 67.74 73.64 54.10 91.21 26.70 60.01 42.84 98.17 
+
+Kaleido 61.11 60.37 57.35 96.02 23.81 59.84 25.32 94.83 RefAlign 68.71 65.14 50.10 92.44 30.35 60.90 60.13 97.51 HuMo 73.11 83.67 53.15 95.81 22.88 62.32 59.69 94.52  
+
+> HarmoView ⋆
+
+73.54 89.46 54.89 89.80 38.57 62.28 54.40 93.90   
+
+> HarmoView (Ours) 74.70
+
+89.12 53.80 91.68 33.63 62.07 57.91 97.89 
+
+Commercial Closed-source Engines 
+
+Wan 2.7 73.53 84.86 59.44 97.69 16.28 61.43 61.12 89.35 Kling 3.0 70.92 78.57 50.86 89.02 23.75 59.64 57.88 96.87  
+
+> Table 2
+
+Ablation analysis of HarmoView components on HarmoView-Bench. All models are evaluated for identity similarity and temporal stability.                                                                                            
+
+> Label Method Total ↑Video Quality Text Align. Identity Consistency Natural ↑AES ↑Smooth ↑Motion Amp ↑GME ↑FaceSim ↑Nexus ↑
+> –HarmoView (Ours) 74.70 89.12 53.80 91.68 33.63 62.07 57.91 97.89
+> (a) w/o MFI 73.62 89.46 53.68 91.48 32.21 61.59 53.10 97.10 (b.1) w/o LPT (Sequential Concat) 70.41 80.50 50.45 92.80 34.25 61.40 51.50 95.50 (b.2) w/o LPT (Gray Padding) 72.46 82.81 51.76 92.26 35.11 61.46 56.31 97.15 (c) w/o Jump-RoPE 74.51 89.10 53.75 91.65 33.50 62.05 56.80 97.75 (d.1) only single-view training 72.61 85.35 52.10 88.50 39.20 60.15 55.86 96.53 (d.2) only multi-view training 68.26 75.65 49.30 86.20 28.50 58.80 52.20 94.90 (d.3) PVC w/o view dropout 74.51 88.85 53.75 91.60 32.10 61.95 57.25 97.80
+
+transitions (see figure 4). Furthermore, we observe that existing automated evaluation pipelines may introduce systematic biases in two key aspects. First, identity metrics like FaceSim that relies on arcface-based embeddings exhibit a clear preference for frontal views where facial features are maximally visible. As HarmoView generates a wider range of profile perspectives during large rotations, its objective identity score is inherently penalized compared to models that favor static, frontal outputs. Second, there is often an inverse correlation between Motion Amp and overall aesthetic or smoothness scores in automated suites, where high-magnitude motion is frequently misinterpreted as a loss of stability. To address these potential inaccuracies and provide a more authoritative assessment, we further conduct a human preference study (GSB) comparing HarmoView with six representative methods. The results in figure 5(a) demonstrate that HarmoView consistently outperforms all six representative methods, including both open-source baselines and leading commercial engines, in human preference. This clear margin across all comparisons validates the superior efficacy of our approach in maintaining robust identity consistency and high generation quality. 
+
+4.3 Ablation Studies 
+
+To investigate the effects of each proposed component, we conduct a series of ablation experiments. Extended qualitative results are provided in our Supplementary Materials. 
+
+Efficacy of MFI. table 2(a) demonstrate that removing the MFI leads to a noticeable drop in the Total score from 74 .70 to 73 .62 . The most significant impact is observed in FaceSim (53.1 vs. 57.91), indicating that anchoring low-level identity features throughout the entire generation process is crucial for the enhanced identity persistence. 
+
+Functionality of Learnable Proxy Tokens. We further investigate the design of Learnable Proxy Tokens (LPT) HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation 28.6% 12.2%          
+
+> 32.7% 14.3%
+> 0% 20% 40% 60% 80% 100%
+> vs. Wan2.7
+> vs. Kling 3.0
+> vs. HuMo
+> vs. VACE
+> vs. RefAlign
+> vs. Kaleido
+> 53.1%
+> 59.2%
+> (a) Human Preference Study (GSB) (b) Composite artifacts after removing Jump -RoPE
+> w/o Jump -RoPE w/ Jump -RoPE  Identity Persistence
+> Identity Crosstalk
+> 12.2% 83.7%
+> 6.4% 89.4%
+> 89.6%
+> 95.8%
+> G (Good) S (Similar) B (Bad)
+> Figure 5 Human Preference Study & Ablation Study on Jump-RoPE.
+
+by comparing with two alternative padding strategies for missing views (table 2(b.1) and (b.2)). Specifically, simply concatenating available views (Sequential Concat) results in a significant performance drop, with the Total score falling to 70 .41 , as the lack of spatial anchors disrupts the fixed correspondence between RoPE-based position embeddings and specific viewpoints. Replacing missing views with Gray Padding partially recovers performance ( 72 .46 Total), yet it still lags behind our full model, particularly in terms of Naturalness ( 82 .81 vs. 89 .12 ). 
+
+Necessity of Jump-RoPE. table 2(c) shows that removing Jump-RoPE results in a marginal decrease in the Total score ( 74 .51 ). However, without the positional gaps introduced by Jump-RoPE, the latent representations of different identities tend to suffer from severe crosstalk. This leads to composite artifacts where the generated subject inherits mismatched features from multiple references (e.g., figure 5(b) shows a blending between the jawline of Identity A and the upper-face of Identity B.) 
+
+Impact of Progressive View Curriculum (PVC). Finally, we analyze the PVC by comparing it against three naive training baselines (table 2(d.1)–(d.3)). When trained exclusively on single-view data (only single-view training), the model retains the strongest motion priors, achieving the highest Motion Amp score ( 39 .20 ). However, this comes at the cost of geometric consistency, as evidenced by the lower FaceSim ( 55 .86 ) and Nexus (96 .53 ) scores compared to the full model. Conversely, training only on multi-view data (only multi-view training) results in poor convergence and the lowest Total score ( 68 .26 ), primarily due to the limited scale of multi-view datasets relative to general video corpora. While the variant without view dropout (PVC w/o view dropout) yields competitive results, it remains slightly inferior to our full framework in identity preservation. 
+
+## 5 Conclusion 
+
+In this work, we presented HarmoView, a novel framework designed to achieve high-fidelity, identity-consistent video generation through multi-view conditioning. Our contribution is threefold , spanning architecture, training strategy, and data engineering. First, we introduced three architectural refinements: the Multi-level Feature Injection for global identity anchoring, Learnable Proxy Tokens for layout unification and mismatch mitigation, as well as the Jump-RoPE for physical feature isolation. Second, recognizing the scarcity of multi-view training pairs, we proposed the Progressive View Curriculum that leverages limited multi-view data for stable transition from the T2V backbone to complex multi-view reasoning. Finally, we developed a scalable multi-view data pipeline that bridges the gap between massive video data and the requirements of multi-view video-identity pairs. Extensive evaluations on our HarmoView-Bench demonstrate that HarmoView significantly outperforms existing academic baselines and remains highly competitive with top-tier commercial engines in the domain of identity-consistent video generation. We hope our framework and benchmark will catalyze further research into controllable and identity-persistent digital human generation. HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation 
+
+## References 
+
+Alibaba Wan Team. Wan 2.7. https://fal.ai/wan-2.7 , 2026. Accessed: 2026-05-06. Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun Tang, Humen Zhong, Yuanzhi Zhu, Ming-Hsuan Yang, Zhaohai Li, Jianqiang Wan, Pengfei Wang, Wei Ding, Zheren Fu, Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao Xie, Zesen Cheng, Hang Zhang, Zhibo Yang, Haiyang Xu, and Junyang Lin. Qwen2.5-vl technical report. CoRR , abs/2502.13923, 2025. ByteDance Seed. Seedance 2.0. https://seed.bytedance.com/en/seedance2_0 , 2026. Accessed: 2026-05-06. Chenjie Cao, Chaohui Yu, Shang Liu, Fan Wang, Xiangyang Xue, and Yanwei Fu. Mvgenmaster: Scaling multi-view generation from any image via 3d priors enhanced diffusion model. In IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR 2025, Nashville, TN, USA, June 11-15, 2025 , pages 6045–6056. Computer Vision Foundation / IEEE, 2025. Liyang Chen, Tianxiang Ma, Jiawei Liu, Bingchuan Li, Zhuowei Chen, Lijie Liu, Xu He, Gen Li, Qian He, and Zhiyong Wu. Humo: Human-centric video generation via collaborative multi-modal conditioning. CoRR , abs/2509.08519, 2025. Jiahao Cui, Yan Chen, Mingwang Xu, Hanlin Shang, Yuxuan Chen, Yun Zhan, Zilong Dong, Yao Yao, Jingdong Wang, and Siyu Zhu. Hallo4: High-fidelity dynamic portrait animation via direct preference optimization and temporal motion modulation. CoRR , abs/2505.23525, 2025a. Jiahao Cui, Hui Li, Yun Zhan, Hanlin Shang, Kaihui Cheng, Yuqi Ma, Shan Mu, Hang Zhou, Jingdong Wang, and Siyu Zhu. Hallo3: Highly dynamic and realistic portrait image animation with video diffusion transformer. In 
+
+IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR 2025, Nashville, TN, USA, June 11-15, 2025 , pages 21086–21095. Computer Vision Foundation / IEEE, 2025b. Deep Insight. Insightface: 2d and 3d face analysis project. https://github.com/deepinsight/insightface , 2023. Accessed: 2026-05-06. Hossein Talebi Esfandarani and Peyman Milanfar. NIMA: neural image assessment. IEEE Trans. Image Process. , 27 (8):3998–4011, 2018. Xuanhua He, Quande Liu, Shengju Qian, Xin Wang, Tao Hu, Ke Cao, Keyu Yan, Man Zhou, and Jie Zhang. Id-animator: Zero-shot identity-preserving human video generation. CoRR , abs/2404.15275, 2024. Teng Hu, Zhentao Yu, Zhengguang Zhou, Sen Liang, Yuan Zhou, Qin Lin, and Qinglin Lu. Hunyuancustom: A multimodal-driven architecture for customized video generation. CoRR , abs/2505.04512, 2025. Zeyinzi Jiang, Zhen Han, Chaojie Mao, Jingfeng Zhang, Yulin Pan, and Yu Liu. VACE: all-in-one video creation and editing. CoRR , abs/2503.07598, 2025. Xin Kong, Daniel Watson, Yannick Strümpler, Michael Niemeyer, and Federico Tombari. Causnvs: Autoregressive multi-view diffusion for flexible 3d novel view synthesis. CoRR , abs/2509.06579, 2025. Kuaishou Kling AI. Klingai 3.0 series. https://kling.ai/ , 2026. Accessed: 2026-05-06. Black Forest Labs, Stephen Batifol, Andreas Blattmann, Frederic Boesel, Saksham Consul, Cyril Diagne, Tim Dockhorn, Jack English, Zion English, Patrick Esser, Sumith Kulal, Kyle Lacey, Yam Levi, Cheng Li, Dominik Lorenz, Jonas Müller, Dustin Podell, Robin Rombach, Harry Saini, Axel Sauer, and Luke Smith. FLUX.1 kontext: Flow matching for in-context image generation and editing in latent space. CoRR , abs/2506.15742, 2025. Gaojie Lin, Jianwen Jiang, Jiaqi Yang, Zerong Zheng, and Chao Liang. Omnihuman-1: Rethinking the scaling-up of one-stage conditioned human animation models. CoRR , abs/2502.01061, 2025. Lijie Liu, Tianxiang Ma, Bingchuan Li, Zhuowei Chen, Jiawei Liu, Qian He, and Xinglong Wu. Phantom: Subject-consistent video generation via cross-modal alignment. CoRR , abs/2502.11079, 2025. ShengShu Technology. Vidu ai video generator. https://www.vidu.com/ , 2026. Accessed: 2026-05-06. Ziyang Song, Xinyu Gong, Bangya Liu, and Zelin Zhao. MV-S2V: multi-view subject-consistent video generation. 
+
+CoRR , abs/2601.17756, 2026. doi: 10.48550/ARXIV.2601.17756. https://doi.org/10.48550/arXiv.2601.17756 .Zeyi Sun, Tong Wu, Pan Zhang, Yuhang Zang, Xiaoyi Dong, Yuanjun Xiong, Dahua Lin, and Jiaqi Wang. Bootstrap3d: Improving multi-view diffusion model with synthetic data. In Proceedings of the IEEE/CVF International Conference on Computer Vision , 2025. HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation 
+
+Ang Wang, Baole Ai, Bin Wen, Chaojie Mao, Chen-Wei Xie, Di Chen, Feiwu Yu, Haiming Zhao, Jianxiao Yang, Jianyuan Zeng, Jiayu Wang, Jingfeng Zhang, Jingren Zhou, Jinkai Wang, Jixuan Chen, Kai Zhu, Kang Zhao, Keyu Yan, Lianghua Huang, Xiaofeng Meng, Ningyi Zhang, Pandeng Li, Pingyu Wu, Ruihang Chu, Ruili Feng, Shiwei Zhang, Siyang Sun, Tao Fang, Tianxing Wang, Tianyi Gui, Tingyu Weng, Tong Shen, Wei Lin, Wei Wang, Wei Wang, Wenmeng Zhou, Wente Wang, Wenting Shen, Wenyuan Yu, Xianzhong Shi, Xiaoming Huang, Xin Xu, Yan Kou, Yangyu Lv, Yifei Li, Yijing Liu, Yiming Wang, Yingya Zhang, Yitong Huang, Yong Li, You Wu, Yu Liu, Yulin Pan, Yun Zheng, Yuntao Hong, Yupeng Shi, Yutong Feng, Zeyinzi Jiang, Zhen Han, Zhi-Fan Wu, and Ziyu Liu. Wan: Open and advanced large-scale video generative models. CoRR , abs/2503.20314, 2025a. Cong Wang, Di Kang, Heyi Sun, Shen-Han Qian, Zixuan Wang, Linchao Bao, and Song-Hai Zhang. Mega: Hybrid mesh-gaussian head avatar for high-fidelity rendering and head editing. In IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR 2025, Nashville, TN, USA, June 11-15, 2025 , pages 26274–26284. Computer Vision Foundation / IEEE, 2025b. Lei Wang, YuXin Song, Ge Wu, Haocheng Feng, Hang Zhou, Jingdong Wang, Yaxing Wang, and Jian Yang. Refalign: Representation alignment for reference-to-video generation. CoRR , abs/2603.25743, 2026. Mengchao Wang, Qiang Wang, Fan Jiang, Yaqi Fan, Yunpeng Zhang, Yonggang Qi, Kun Zhao, and Mu Xu. Fantasytalking: Realistic talking portrait generation via coherent motion synthesis. In Cathal Gurrin, Klaus Schoeffmann, Min Zhang, Luca Rossetto, Stevan Rudinac, Duc-Tien Dang-Nguyen, Wen-Huang Cheng, Phoebe Chen, and Jenny Benois-Pineau, editors, Proceedings of the 33rd ACM International Conference on Multimedia, MM 2025, Dublin, Ireland, October 27-31, 2025 , pages 9891–9900. ACM, 2025c. Guobing Yin. Head pose estimation. https://github.com/yinguobing/head-pose-estimation , 2020. GitHub repository. Accessed: 2026-05-06. Shenghai Yuan, Xianyi He, Yufan Deng, Yang Ye, Jinfa Huang, Bin Lin, Jiebo Luo, and Li Yuan. Opens2v-nexus: A detailed benchmark and million-scale dataset for subject-to-video generation. CoRR , abs/2505.20292, 2025. Zhenxing Zhang, Jiayan Teng, Zhuoyi Yang, Tiankun Cao, Cheng Wang, Xiaotao Gu, Jie Tang, Dan Guo, and Meng Wang. Kaleido: Open-sourced multi-subject reference video generation model. CoRR , abs/2510.18573, 2025.

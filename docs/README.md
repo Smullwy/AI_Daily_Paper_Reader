@@ -3,54 +3,38 @@
     <div class="dpr-daily-kicker">Daily Research Brief</div>
     <h3>最新日报</h3>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
-      <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-05 05:14 北京时间</strong></div>
+      <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-11 06:14 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
-      <div class="dpr-daily-stat"><span>总数</span><strong>14</strong></div>
-      <div class="dpr-daily-stat"><span>精读 / 速读</span><strong>4 / 10</strong></div>
-      <div class="dpr-daily-stat dpr-daily-topic-stat"><span>今日主题</span><div class="dpr-daily-topic-cloud"><span class="dpr-daily-topic-pill dpr-daily-topic-query">fclip<em>14</em></span></div></div>
+      <div class="dpr-daily-stat"><span>总数</span><strong>12</strong></div>
+      <div class="dpr-daily-stat"><span>精读 / 速读</span><strong>2 / 10</strong></div>
+      <div class="dpr-daily-stat dpr-daily-topic-stat"><span>今日主题</span><div class="dpr-daily-topic-cloud"><span class="dpr-daily-topic-pill dpr-daily-topic-query">fclip<em>12</em></span></div></div>
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>脑重建和面孔-身体视觉整合均获高分精读，揭示层次化序列模型与人类感知机制的融合趋势；三维多模态对齐和混合时空记忆等速读方向同步跟进值得关注。</p>
+      <p>今日聚焦多视角特征融合与一致性生成，精读两篇顶会高分论文，速读十篇前沿工作。</p>
+<p>最值得看：多源特征融合显著提升特征匹配鲁棒性，多视角约束统一则让视频生成身份更稳定。</p>
+<p>建议关注跨模态对齐新框架，下周可深入对比不同对齐策略在情感分析中的表现。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/05/README">打开完整日报</a>
+    <a class="dpr-daily-detail-link" href="#/202606/11/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
     <div class="dpr-daily-paper-grid"><article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">01</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.04772v1-coarse-to-fine-hierarchical-architecture-with-sequential-mamba-for-brain-reconstruction">Coarse-to-fine Hierarchical Architecture with Sequential Mamba for Brain Reconstruction</a>
-    <div class="dpr-daily-paper-title-zh">面向大脑重建的序列曼巴由粗到细层次架构</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>视觉皮层图像到fMRI编码模型</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.09262v1-see-more-match-better-multi-source-feature-fusion-for-two-view-correspondence-learning">See More, Match Better: Multi-Source Feature Fusion for Two-View Correspondence Learning</a>
+    <div class="dpr-daily-paper-title-zh">看得更多，匹配更好：用于双视图对应学习的多源特征融合</div>
+    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>双视图对应学习的多源特征融合</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-deep">
   <div class="dpr-daily-paper-index">02</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/biorxiv-10-64898-2026-02-16-706115-v2-faces-and-bodies-are-increasingly-integrated-along-the-visual-hierarchy-in-humans-and-deep-neural-networks">Faces and bodies are increasingly integrated along the visual hierarchy in humans and deep neural networks</a>
-    <div class="dpr-daily-paper-title-zh">人脸与身体在人类与深度神经网络的视觉层级中逐渐整合</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>深度神经网络与fMRI在人脸身体整合上的比较</div>
-  </div>
-</article>
-<article class="dpr-daily-paper-card is-deep">
-  <div class="dpr-daily-paper-index">03</div>
-  <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/biorxiv-10-64898-2026-05-31-729141-v1-brain-states-recur-across-diverse-narrative-contexts-during-longitudinal-viewing">Brain states recur across diverse narrative contexts during longitudinal viewing</a>
-    <div class="dpr-daily-paper-title-zh">在跨时观看中，大脑状态在多种叙事情境下重现</div>
-    <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">9.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>个体间fMRI脑状态在不同叙事语境中的重现</div>
-  </div>
-</article>
-<article class="dpr-daily-paper-card is-deep">
-  <div class="dpr-daily-paper-index">04</div>
-  <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.02841v1-learning-coherent-representations-a-topological-approach-to-interpretability">Learning Coherent Representations: A Topological Approach to Interpretability</a>
-    <div class="dpr-daily-paper-title-zh">学习相干表征：一种可解释性的拓扑方法</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.10839v1-harmoview-harmonizing-multi-view-constraints-for-identity-consistent-video-generation">HarmoView: Harmonizing Multi-View Constraints for Identity-Consistent Video Generation</a>
+    <div class="dpr-daily-paper-title-zh">HarmoView：调和多视角约束以实现身份一致的视频生成</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">8.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>受脑启发的连贯性用于可解释表示</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>协调多视图约束以生成身份一致的视频</div>
   </div>
 </article></div>
   </section>
@@ -59,91 +43,91 @@
     <div class="dpr-daily-paper-grid"><article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">01</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.01334v1-hola-holistic-multi-modal-alignment-for-open-set-3d-recognition">HOLA: Holistic Multi-Modal Alignment for Open-Set 3D Recognition</a>
-    <div class="dpr-daily-paper-title-zh">HOLA：面向开放集3D识别的整体多模态对齐</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.09148v1-explicit-representation-alignment-for-multimodal-sentiment-analysis">Explicit Representation Alignment for Multimodal Sentiment Analysis</a>
+    <div class="dpr-daily-paper-title-zh">多模态情感分析中的显式表示对齐</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>多视图图像文本对齐损失</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>使用视觉语言模型进行跨模态表征对齐</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">02</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.01357v1-hypergraphs-from-multivariate-connectivity-cacoh-based-eegmeg-representation">Hypergraphs from multivariate connectivity: caCoh-based EEG/MEG representation</a>
-    <div class="dpr-daily-paper-title-zh">基于多元连接的超图：以典型相干性为基础的EEG/MEG表示</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.09287v1-trajectory-geometry-of-transformer-representations-across-layers">Trajectory Geometry of Transformer Representations Across Layers</a>
+    <div class="dpr-daily-paper-title-zh">跨层Transformer表示的轨迹几何</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>从神经生理连接构建超图表示</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>使用计算神经科学几何工具分析Transformer表征</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">03</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.03374v1-emem-a-hybrid-spatio-temporal-memory-system-for-embodied-agents">eMEM: A Hybrid Spatio-Temporal Memory System For Embodied Agents</a>
-    <div class="dpr-daily-paper-title-zh">eMEM：一种面向具身智能体的混合时空记忆系统</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.09653v1-a-unifying-framework-for-concept-based-representational-similarity">A Unifying Framework for Concept-Based Representational Similarity</a>
+    <div class="dpr-daily-paper-title-zh">基于概念的表征相似性统一框架</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>海马-新皮层记忆巩固启发</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>跨模态表示对齐的通用框架</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">04</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.04651v1-spectral-criteria-for-generalization-in-unsupervised-hebbian-nets">Spectral criteria for generalization in unsupervised Hebbian nets</a>
-    <div class="dpr-daily-paper-title-zh">无监督Hebbian网络泛化的谱准则</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.10530v1-machine-learning-methods-for-studying-latent-neural-activity-dynamics">Machine Learning Methods for Studying Latent Neural Activity Dynamics</a>
+    <div class="dpr-daily-paper-title-zh">研究潜在神经活动动力学的机器学习方法</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>Hebbian网络中泛化的谱准则</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>潜变量模型用于多区域神经动力学的综述</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">05</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/biorxiv-10-64898-2026-05-31-729074-v1-quilting-the-brain-whole-brain-ieeg-reconstruction-via-incomplete-observation-linear-mixed-models">Quilting the Brain: Whole-Brain iEEG Reconstruction via Incomplete Observation Linear Mixed Models</a>
-    <div class="dpr-daily-paper-title-zh">拼缝大脑：通过不完全观测线性混合模型实现全脑iEEG重建</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/biorxiv-10-1101-2025-08-18-670891-v3-learning-regularities-in-noise-engages-both-neural-predictive-activity-and-representational-changes">Learning regularities in noise engages both neural predictive activity and representational changes</a>
+    <div class="dpr-daily-paper-title-zh">噪声中规律性学习同时涉及神经预测活动与表征变化</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>线性混合模型用于全脑重建中的人口级神经先验</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>神经预测活动和学习规律中的表征变化</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">06</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/biorxiv-10-64898-2026-06-01-729427-v1-spatiotemporal-decoding-of-explore-exploit-decisions-in-the-human-brain">Spatiotemporal Decoding of Explore-Exploit Decisions in the Human Brain</a>
-    <div class="dpr-daily-paper-title-zh">人脑中探索-利用决策的时空解码</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/biorxiv-10-1101-2025-11-07-687226-v3-beyond-the-canonical-hrf-flexible-temporal-modeling-reveals-unconstrained-bold-profiles-during-naturalistic-viewing">Beyond the Canonical HRF: Flexible Temporal Modeling Reveals Unconstrained BOLD Profiles During Naturalistic Viewing</a>
+    <div class="dpr-daily-paper-title-zh">超越经典HRF：灵活的时间建模揭示自然观看下无约束的BOLD响应曲线</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">7.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>人脑探索-利用决策的时空解码</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>自然观看过程中的BOLD特征建模</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">07</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.00959v1-towards-understanding-modality-interaction-in-multimodal-language-models-via-partial-information-decomposition">Towards Understanding Modality Interaction in Multimodal Language Models via Partial Information Decomposition</a>
-    <div class="dpr-daily-paper-title-zh">通过部分信息分解理解多模态语言模型中的模态交互</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.08370v1-programmable-silicon-retina-on-pixel-processor-array">Programmable Silicon Retina on Pixel Processor Array</a>
+    <div class="dpr-daily-paper-title-zh">基于像素处理器阵列的可编程硅视网膜</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">6.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>部分信息分解分析模态交互</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>硅视网膜实现生物启发视觉处理用于编码</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">08</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/2606.02242v1-towards-resolving-optimization-conflicts-between-image--and-text-based-person-re-identification">Towards Resolving Optimization Conflicts Between Image- and Text-Based Person Re-Identification</a>
-    <div class="dpr-daily-paper-title-zh">解决基于图像与文本的行人重识别优化冲突</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.08721v1-a-geometric-measure-of-linear-separability-for-neural-representations">A Geometric Measure of Linear Separability for Neural Representations</a>
+    <div class="dpr-daily-paper-title-zh">神经表示线性可分性的几何度量</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">6.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>图像与文本模态的优化冲突</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>神经表征的几何可分离性度量</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">09</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/biorxiv-10-1101-2025-10-10-681143-v3-hidden-state-inference-aligns-attention-and-neural-representational-geometry-during-flexible-behaviour">Hidden-state inference aligns attention and neural representational geometry during flexible behaviour</a>
-    <div class="dpr-daily-paper-title-zh">灵活行为中隐状态推理协调注意与神经表征几何</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/2606.10504v1-cross-modal-knowledge-distillation-without-paired-data-theoretical-foundation-and-algorithm">Cross-Modal Knowledge Distillation without Paired Data: Theoretical Foundation and Algorithm</a>
+    <div class="dpr-daily-paper-title-zh">无配对数据的跨模态知识蒸馏：理论基础与算法</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">6.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>神经表征几何与注意力对齐</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>无需配对数据的跨模态知识蒸馏</div>
   </div>
 </article>
 <article class="dpr-daily-paper-card is-quick">
   <div class="dpr-daily-paper-index">10</div>
   <div class="dpr-daily-paper-main">
-    <a class="dpr-daily-paper-title" href="#/202606/05/biorxiv-10-64898-2026-05-25-727742-v2-supervised-domain-adaptation-mitigates-cross-ethnicity-prediction-error-in-neuroimaging-based-cognitive-prediction">Supervised Domain Adaptation Mitigates Cross-Ethnicity Prediction Error in Neuroimaging Based Cognitive Prediction</a>
-    <div class="dpr-daily-paper-title-zh">有监督领域自适应减轻基于神经影像的认知预测中的跨种族预测误差</div>
+    <a class="dpr-daily-paper-title" href="#/202606/11/biorxiv-10-64898-2026-06-04-730065-v1-spatiotemporal-unfolding-of-prefrontal-neural-response-divergence-in-adolescent-depression-during-naturalistic-experience">Spatiotemporal unfolding of prefrontal neural response divergence in adolescent depression during naturalistic experience</a>
+    <div class="dpr-daily-paper-title-zh">青少年抑郁症在自然体验中前额叶神经反应差异的时空展开</div>
     <div class="dpr-daily-paper-meta"><span class="dpr-daily-score-pill">6.0/10</span><span class="dpr-daily-topic-chip dpr-daily-topic-query">fclip</span></div>
-    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>领域自适应方法提升基于脑影像认知预测的跨种族泛化</div>
+    <div class="dpr-daily-paper-evidence"><span>推荐依据</span>跨被试fMRI自然电影刺激</div>
   </div>
 </article></div>
   </section>
