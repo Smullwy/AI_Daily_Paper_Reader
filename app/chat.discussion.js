@@ -490,8 +490,8 @@ window.PrivateDiscussionChat = (function () {
           <div class="paper-chat-panel-body">
             <nav id="chat-question-nav" class="chat-question-nav" aria-label="\u5bf9\u8bdd\u95ee\u9898\u5bfc\u822a" hidden></nav>
             <div id="chat-history"></div>
+            <div id="chat-input-quote-stack" class="chat-input-quote-stack" aria-live="polite" hidden></div>
             <div class="input-area">
-              <div id="chat-input-quote-stack" class="chat-input-quote-stack" aria-live="polite" hidden></div>
               <textarea id="user-input" rows="1" placeholder="\u9488\u5bf9\u8fd9\u7bc7\u8bba\u6587\u63d0\u95ee\uff0c\u4ec5\u81ea\u5df1\u53ef\u89c1..."></textarea>
               <div class="chat-input-toolbar">
                 <select id="chat-llm-model-select" class="chat-model-select"></select>
@@ -1840,15 +1840,12 @@ window.PrivateDiscussionChat = (function () {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-  const formatQuotedInput = (text, source) => {
+  const formatQuotedInput = (text) => {
     const normalized = normalizeQuoteText(text);
     if (!normalized) return '';
-    const title = source === 'chat' ? '引用对话' : '引用原文';
     const lines = normalized.split('\n').map((line) => (line ? `> ${line}` : '>'));
-    return `${title}:\n${lines.join('\n')}\n\n`;
+    return `${lines.join('\n')}\n\n`;
   };
-
-  const quoteTitleForSource = (source) => (source === 'chat' ? '引用对话' : '引用原文');
 
   const previewQuoteText = (text) => {
     const normalized = normalizeQuoteText(text).replace(/\s+/g, ' ');
@@ -1867,7 +1864,10 @@ window.PrivateDiscussionChat = (function () {
       stack.setAttribute('aria-live', 'polite');
       stack.hidden = true;
       const inputArea = r.querySelector('.input-area');
-      if (inputArea && input) {
+      const panelBody = r.querySelector('.paper-chat-panel-body');
+      if (panelBody && inputArea) {
+        panelBody.insertBefore(stack, inputArea);
+      } else if (inputArea && input) {
         inputArea.insertBefore(stack, input);
       }
     }
@@ -1910,13 +1910,9 @@ window.PrivateDiscussionChat = (function () {
 
       const body = document.createElement('div');
       body.className = 'chat-input-quote-body';
-      const title = document.createElement('div');
-      title.className = 'chat-input-quote-title';
-      title.textContent = quoteTitleForSource(quote.source);
       const text = document.createElement('div');
       text.className = 'chat-input-quote-text';
       text.textContent = previewQuoteText(quote.text);
-      body.appendChild(title);
       body.appendChild(text);
 
       const remove = document.createElement('button');
@@ -1941,7 +1937,7 @@ window.PrivateDiscussionChat = (function () {
   const buildQuestionWithPendingQuotes = (typedQuestion) => {
     const typed = String(typedQuestion || '').trim();
     const quoteText = pendingQuoteBlocks
-      .map((quote) => formatQuotedInput(quote.text, quote.source).trimEnd())
+      .map((quote) => formatQuotedInput(quote.text).trimEnd())
       .filter(Boolean)
       .join('\n\n');
     return [quoteText, typed].filter(Boolean).join('\n\n').trim();
@@ -1972,7 +1968,7 @@ window.PrivateDiscussionChat = (function () {
     renderPendingQuoteStack(root);
     resizeChatInput(input);
     input.focus();
-    setChatStatus('已引用到提问框上方，可继续输入问题。', CHAT_SYNC_SUCCESS_COLOR);
+    setChatStatus('');
     return true;
   };
 

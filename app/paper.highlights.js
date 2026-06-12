@@ -364,10 +364,7 @@ window.DPRPaperHighlights = (function () {
       return false;
     }
     const ok = chat.quoteToInput(text, { source: 'paper' });
-    showToast(
-      ok ? '已引用到 Paper Copilot 提问框。' : '引用失败，请先打开可用的 Paper Copilot。',
-      ok ? 'success' : 'error',
-    );
+    if (!ok) showToast('引用失败，请先打开可用的 Paper Copilot。', 'error');
     if (ok) clearTextSelection();
     return ok;
   };
