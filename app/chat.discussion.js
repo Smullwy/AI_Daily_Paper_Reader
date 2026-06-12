@@ -340,6 +340,20 @@ window.PrivateDiscussionChat = (function () {
     }
   };
 
+  const fetchRemoteChatHistoryStrict = async (paperId) => {
+    if (!canAttemptRemoteChatSync()) {
+      throw new Error('请先解锁密钥，并确认已配置可读取仓库的 GitHub Token。');
+    }
+    const utils = getChatSyncUtils();
+    if (!utils) throw new Error('聊天同步工具未加载。');
+    const cfg = await resolveRemoteChatConfig({ create: false });
+    if (!cfg || !cfg.key_b64) {
+      throw new Error('未找到 reader database 加密配置，无法读取远程会话。');
+    }
+    const database = await loadRemoteChatDatabase(cfg, { force: true });
+    return utils.getChatMessages(database, paperId);
+  };
+
   const loadChatHistoryWithRemote = async (paperId) => {
     const local = await loadChatHistory(paperId);
     if (local && local.length) return local;
@@ -422,6 +436,40 @@ window.PrivateDiscussionChat = (function () {
     }
   };
 
+  const handlePullRemoteChatClick = async (paperId) => {
+    const btn = document.getElementById('chat-pull-remote-btn');
+    const previousText = btn ? btn.textContent : '';
+    const local = await loadChatHistory(paperId);
+    if (local && local.length) {
+      const ok = window.confirm(
+        '这会清空当前论文的本地对话，并用仓库里的远程会话覆盖。未同步的本地内容会丢失，继续吗？',
+      );
+      if (!ok) return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '拉取中';
+    }
+    setChatStatus('正在读取远程会话...', '#666');
+    try {
+      const remote = await fetchRemoteChatHistoryStrict(paperId);
+      await saveChatHistory(paperId, remote);
+      await renderHistory(paperId);
+      if (remote && remote.length) {
+        setChatStatus(`已清空本地并拉取 ${remote.length} 条远程会话。`, CHAT_SYNC_SUCCESS_COLOR);
+      } else {
+        setChatStatus('远程没有会话；本地对话已清空。', CHAT_SYNC_SUCCESS_COLOR);
+      }
+    } catch (err) {
+      setChatStatus(`拉取失败：${(err && err.message) || err}`, CHAT_SYNC_ERROR_COLOR);
+    } finally {
+      if (btn) {
+        btn.disabled = String(window.DPR_ACCESS_MODE || '').toLowerCase() !== 'full';
+        btn.textContent = previousText || '拉取';
+      }
+    }
+  };
+
   const renderChatUI = () => {
     return `
       <div id="paper-chat-container" class="paper-chat-drawer">
@@ -447,7 +495,7 @@ window.PrivateDiscussionChat = (function () {
                 <select id="chat-llm-model-select" class="chat-model-select"></select>
                 <div class="chat-input-actions">
                   <button id="chat-quick-questions-toggle-btn" class="chat-quick-questions-toggle-btn" type="button" title="\u5feb\u6377\u95ee\u9898">\u5feb\u6377</button>
-                  <button id="chat-questions-toggle-btn" class="chat-questions-toggle-btn" type="button" title="\u6700\u8fd1\u63d0\u95ee">\u5386\u53f2</button>
+                  <button id="chat-pull-remote-btn" class="chat-pull-remote-btn" type="button" title="\u6e05\u7a7a\u672c\u5730\u5bf9\u8bdd\u5e76\u62c9\u53d6\u8fdc\u7a0b\u4f1a\u8bdd">\u62c9\u53d6</button>
                   <button id="chat-sync-btn" class="chat-sync-btn" type="button" title="\u52a0\u5bc6\u540c\u6b65\u4f1a\u8bdd\u5230\u4ed3\u5e93">\u540c\u6b65</button>
                   <button id="send-btn">\u53d1\u9001</button>
                 </div>
@@ -719,6 +767,13 @@ window.PrivateDiscussionChat = (function () {
         // ignore
       }
     });
+    document.querySelectorAll('.chat-quote-popover').forEach((el) => {
+      try {
+        el.remove();
+      } catch {
+        // ignore
+      }
+    });
   };
 
   const setChatDrawerOpen = (open, options = {}) => {
@@ -753,6 +808,7 @@ window.PrivateDiscussionChat = (function () {
       setChatDrawerFullscreen(false);
       closeQuestionsPanel(root);
       closeQuickQuestionsPanel(root);
+      hideChatQuotePopover();
       return;
     }
 
@@ -1587,6 +1643,241 @@ window.PrivateDiscussionChat = (function () {
     requestAnimationFrame(() => resizeChatInput(input));
   };
 
+  let chatQuotePopover = null;
+  let chatQuoteSelectionText = '';
+  let chatQuoteSelectionBound = false;
+
+  const normalizeQuoteText = (text) =>
+    String(text || '')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+  const formatQuotedInput = (text, source) => {
+    const normalized = normalizeQuoteText(text);
+    if (!normalized) return '';
+    const title = source === 'chat' ? '引用对话' : '引用原文';
+    const lines = normalized.split('\n').map((line) => (line ? `> ${line}` : '>'));
+    return `${title}:\n${lines.join('\n')}\n`;
+  };
+
+  const insertTextIntoChatInput = (input, text) => {
+    if (!input || !text) return false;
+    const current = input.value || '';
+    const canUseSelection =
+      typeof input.selectionStart === 'number' &&
+      typeof input.selectionEnd === 'number' &&
+      document.activeElement === input;
+
+    if (canUseSelection) {
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const before = current.slice(0, start);
+      const after = current.slice(end);
+      const prefix = before && !/\n\n$/.test(before) ? (/\n$/.test(before) ? '\n' : '\n\n') : '';
+      const suffix = after && !/^\n/.test(after) ? '\n\n' : '';
+      input.value = `${before}${prefix}${text}${suffix}${after}`;
+      const cursor = before.length + prefix.length + text.length;
+      try {
+        input.setSelectionRange(cursor, cursor);
+      } catch {
+        // ignore
+      }
+    } else {
+      const prefix = current.trim() ? `${current.replace(/\s+$/g, '')}\n\n` : '';
+      input.value = `${prefix}${text}`;
+      try {
+        input.setSelectionRange(input.value.length, input.value.length);
+      } catch {
+        // ignore
+      }
+    }
+
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    resizeChatInput(input);
+    input.focus();
+    return true;
+  };
+
+  const quoteToInput = (text, options = {}) => {
+    const snippet = formatQuotedInput(text, options.source);
+    if (!snippet) return false;
+
+    const root = getChatRoot();
+    if (!root) return false;
+    setChatDrawerOpen(true, { focusInput: false });
+
+    const input = root.querySelector('#user-input');
+    if (!input || input.disabled) {
+      setChatStatus('Paper Copilot 输入框当前不可用，解锁后再引用。', CHAT_SYNC_ERROR_COLOR);
+      return false;
+    }
+
+    closeQuickQuestionsPanel(root);
+    closeQuestionsPanel(root);
+    hideChatQuotePopover();
+    const ok = insertTextIntoChatInput(input, snippet);
+    if (ok) {
+      setChatStatus('已引用到提问框，可继续输入问题。', CHAT_SYNC_SUCCESS_COLOR);
+    }
+    return ok;
+  };
+
+  const getElementFromRangeNode = (node) => {
+    if (!node) return null;
+    return node.nodeType === 1 ? node : node.parentElement;
+  };
+
+  const getChatSelectableContent = (node) => {
+    const el = getElementFromRangeNode(node);
+    return el && el.closest ? el.closest('#chat-history .msg-content') : null;
+  };
+
+  const clampChatQuotePopoverPosition = (x, y, popover) => {
+    if (!popover) return;
+    const rect = popover.getBoundingClientRect();
+    const pad = 10;
+    const left = Math.max(pad, Math.min(x, window.innerWidth - rect.width - pad));
+    const top = Math.max(pad, Math.min(y, window.innerHeight - rect.height - pad));
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+  };
+
+  const hideChatQuotePopover = () => {
+    chatQuoteSelectionText = '';
+    if (chatQuotePopover) {
+      chatQuotePopover.classList.remove('is-open');
+    }
+  };
+
+  const ensureChatQuotePopover = () => {
+    if (chatQuotePopover && document.body.contains(chatQuotePopover)) {
+      return chatQuotePopover;
+    }
+    const popover = document.createElement('div');
+    popover.className = 'chat-quote-popover';
+    popover.innerHTML =
+      '<button type="button" class="chat-quote-popover-btn" data-chat-quote-action="quote">引用</button>';
+    popover.addEventListener('mousedown', (event) => event.preventDefault());
+    popover.addEventListener('click', (event) => {
+      const quoteBtn =
+        event.target && event.target.closest
+          ? event.target.closest('[data-chat-quote-action="quote"]')
+          : null;
+      if (!quoteBtn) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const quoted = chatQuoteSelectionText;
+      if (quoteToInput(quoted, { source: 'chat' })) {
+        const selection = window.getSelection && window.getSelection();
+        if (selection && selection.removeAllRanges) selection.removeAllRanges();
+      }
+      hideChatQuotePopover();
+    });
+    document.body.appendChild(popover);
+    chatQuotePopover = popover;
+    return popover;
+  };
+
+  const showChatQuotePopover = (text, x, y) => {
+    chatQuoteSelectionText = normalizeQuoteText(text);
+    if (!chatQuoteSelectionText) {
+      hideChatQuotePopover();
+      return;
+    }
+    const popover = ensureChatQuotePopover();
+    popover.classList.add('is-open');
+    requestAnimationFrame(() => clampChatQuotePopoverPosition(x, y, popover));
+  };
+
+  const handleChatHistorySelectionMouseUp = (event) => {
+    window.setTimeout(() => {
+      const target = event && event.target;
+      if (target && target.closest && target.closest('.chat-quote-popover')) return;
+      if (target && target.closest && target.closest('textarea,input,select,button')) {
+        hideChatQuotePopover();
+        return;
+      }
+
+      const root = getChatRoot();
+      const historyDiv = root && root.querySelector('#chat-history');
+      if (!historyDiv) {
+        hideChatQuotePopover();
+        return;
+      }
+
+      const selection = window.getSelection && window.getSelection();
+      if (!selection || selection.rangeCount < 1 || selection.isCollapsed) {
+        hideChatQuotePopover();
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const startContent = getChatSelectableContent(range.startContainer);
+      const endContent = getChatSelectableContent(range.endContainer);
+      if (
+        !startContent ||
+        !endContent ||
+        !historyDiv.contains(startContent) ||
+        !historyDiv.contains(endContent)
+      ) {
+        hideChatQuotePopover();
+        return;
+      }
+
+      const selectedText = normalizeQuoteText(selection.toString());
+      if (!selectedText) {
+        hideChatQuotePopover();
+        return;
+      }
+
+      const rect = range.getBoundingClientRect();
+      const x =
+        rect && rect.left
+          ? rect.left + rect.width / 2
+          : (event.clientX || window.innerWidth / 2);
+      const y =
+        rect && rect.bottom
+          ? rect.bottom + 8
+          : ((event.clientY || window.innerHeight / 2) + 12);
+      showChatQuotePopover(selectedText, x, y);
+    }, 0);
+  };
+
+  const bindChatQuoteSelectionEventsOnce = () => {
+    if (chatQuoteSelectionBound) return;
+    chatQuoteSelectionBound = true;
+
+    document.addEventListener('mouseup', handleChatHistorySelectionMouseUp, true);
+    document.addEventListener(
+      'pointerdown',
+      (event) => {
+        const target = event && event.target;
+        if (target && target.closest && target.closest('.chat-quote-popover')) return;
+        if (chatQuotePopover && chatQuotePopover.classList.contains('is-open')) {
+          hideChatQuotePopover();
+        }
+      },
+      true,
+    );
+    document.addEventListener('keydown', (event) => {
+      if (event && event.key === 'Escape') hideChatQuotePopover();
+    });
+    document.addEventListener(
+      'scroll',
+      () => {
+        if (chatQuotePopover && chatQuotePopover.classList.contains('is-open')) {
+          hideChatQuotePopover();
+        }
+      },
+      true,
+    );
+  };
+
   const sendMessage = async (paperId) => {
     // 游客模式或尚未解锁密钥时，禁止直接调用大模型
     if (window.DPR_ACCESS_MODE === 'guest' || window.DPR_ACCESS_MODE === 'locked') {
@@ -1682,12 +1973,20 @@ window.PrivateDiscussionChat = (function () {
     if (syncBtnDuringSend) {
       syncBtnDuringSend.disabled = true;
     }
+    const pullRemoteBtnDuringSend = document.getElementById('chat-pull-remote-btn');
+    if (pullRemoteBtnDuringSend) {
+      pullRemoteBtnDuringSend.disabled = true;
+    }
     const restoreChatInputControls = () => {
       input.disabled = false;
       btn.disabled = false;
       btn.innerText = '发送';
       if (syncBtnDuringSend) {
         syncBtnDuringSend.disabled =
+          String(window.DPR_ACCESS_MODE || '').toLowerCase() !== 'full';
+      }
+      if (pullRemoteBtnDuringSend) {
+        pullRemoteBtnDuringSend.disabled =
           String(window.DPR_ACCESS_MODE || '').toLowerCase() !== 'full';
       }
     };
@@ -2253,6 +2552,7 @@ window.PrivateDiscussionChat = (function () {
     setChatDrawerFullscreen(chatDrawerFullscreen);
     setChatDrawerOpen(chatDrawerOpen);
     bindChatDrawerEventsOnce(root);
+    bindChatQuoteSelectionEventsOnce();
 
     // 最近提问按钮/面板
     bindQuestionsPanelEventsOnce(paperId);
@@ -2264,6 +2564,7 @@ window.PrivateDiscussionChat = (function () {
     const chatSidebarBtn = document.getElementById('chat-sidebar-toggle-btn');
     const chatSettingsBtn = document.getElementById('chat-settings-toggle-btn');
     const chatSyncBtn = document.getElementById('chat-sync-btn');
+    const chatPullRemoteBtn = document.getElementById('chat-pull-remote-btn');
     const chatQuickRunBtn = document.getElementById('chat-quick-run-btn');
     const chatQuickRunCloseBtn = document.getElementById('chat-quick-run-close-btn');
     const chatQuickRunTodayBtn = document.getElementById('chat-quick-run-today-btn');
@@ -2325,6 +2626,18 @@ window.PrivateDiscussionChat = (function () {
           syncBtn._boundSync = true;
           syncBtn.addEventListener('click', () => {
             handleSyncChatClick(paperId);
+          });
+        }
+      }
+
+      const pullRemoteBtn = document.getElementById('chat-pull-remote-btn');
+      if (pullRemoteBtn) {
+        pullRemoteBtn.disabled = false;
+        pullRemoteBtn.title = '清空本地对话并拉取远程会话';
+        if (!pullRemoteBtn._boundPullRemote) {
+          pullRemoteBtn._boundPullRemote = true;
+          pullRemoteBtn.addEventListener('click', () => {
+            handlePullRemoteChatClick(paperId);
           });
         }
       }
@@ -2404,6 +2717,14 @@ window.PrivateDiscussionChat = (function () {
         chatSyncBtn.title = '当前为游客模式或未解锁密钥，无法同步会话。';
       } else {
         chatSyncBtn.disabled = false;
+      }
+    }
+    if (chatPullRemoteBtn) {
+      if (inGuestMode) {
+        chatPullRemoteBtn.disabled = true;
+        chatPullRemoteBtn.title = '当前为游客模式或未解锁密钥，无法拉取远程会话。';
+      } else {
+        chatPullRemoteBtn.disabled = false;
       }
     }
 
@@ -2622,6 +2943,7 @@ window.PrivateDiscussionChat = (function () {
   return {
     initForPage,
     destroyForPage,
+    quoteToInput,
     openQuickRunPanel: () => {
       if (typeof quickRunPanelController === 'function') {
         const ok = quickRunPanelController();

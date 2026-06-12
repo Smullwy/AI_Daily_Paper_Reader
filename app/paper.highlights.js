@@ -337,6 +337,41 @@ window.DPRPaperHighlights = (function () {
     popover.style.top = `${top}px`;
   };
 
+  const clearTextSelection = () => {
+    const selection = window.getSelection && window.getSelection();
+    if (selection && selection.removeAllRanges) selection.removeAllRanges();
+  };
+
+  const getQuoteTextFromPopover = (popover) => {
+    if (!popover) return '';
+    if (popover.dataset.mode === 'edit') {
+      const highlightId = popover.dataset.highlightId || '';
+      const item = state.items.find((entry) => entry.id === highlightId);
+      return item ? item.text : '';
+    }
+    return state.pendingSelection ? state.pendingSelection.text : '';
+  };
+
+  const quoteSelectionToChat = (popover) => {
+    const text = getQuoteTextFromPopover(popover);
+    const chat = window.PrivateDiscussionChat;
+    if (!text || !text.trim()) {
+      showToast('没有可引用的文本。', 'error');
+      return false;
+    }
+    if (!chat || typeof chat.quoteToInput !== 'function') {
+      showToast('Paper Copilot 尚未就绪。', 'error');
+      return false;
+    }
+    const ok = chat.quoteToInput(text, { source: 'paper' });
+    showToast(
+      ok ? '已引用到 Paper Copilot 提问框。' : '引用失败，请先打开可用的 Paper Copilot。',
+      ok ? 'success' : 'error',
+    );
+    if (ok) clearTextSelection();
+    return ok;
+  };
+
   const ensurePopover = () => {
     if (state.popover && document.body.contains(state.popover)) return state.popover;
     const popover = document.createElement('div');
@@ -349,6 +384,14 @@ window.DPRPaperHighlights = (function () {
       const deleteBtn = event.target && event.target.closest
         ? event.target.closest('[data-highlight-action="delete"]')
         : null;
+      const quoteBtn = event.target && event.target.closest
+        ? event.target.closest('[data-highlight-action="quote"]')
+        : null;
+      if (quoteBtn) {
+        quoteSelectionToChat(popover);
+        hidePopover();
+        return;
+      }
       if (colorBtn) {
         const color = colorBtn.getAttribute('data-highlight-color');
         if (popover.dataset.mode === 'edit') {
@@ -381,6 +424,7 @@ window.DPRPaperHighlights = (function () {
         `<button type="button" class="dpr-highlight-color-btn" data-highlight-color="${escapeHtml(item.value)}" title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}" style="--dpr-highlight-swatch:${escapeHtml(item.value)}"></button>`
       )).join(''),
       '</div>',
+      '<button type="button" class="dpr-highlight-quote-btn" data-highlight-action="quote">引用到 Copilot</button>',
       isEdit
         ? '<button type="button" class="dpr-highlight-delete-btn" data-highlight-action="delete">删除高亮</button>'
         : '',
