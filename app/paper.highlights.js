@@ -424,10 +424,10 @@ window.DPRPaperHighlights = (function () {
         `<button type="button" class="dpr-highlight-color-btn" data-highlight-color="${escapeHtml(item.value)}" title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}" style="--dpr-highlight-swatch:${escapeHtml(item.value)}"></button>`
       )).join(''),
       '</div>',
-      '<button type="button" class="dpr-highlight-quote-btn" data-highlight-action="quote">引用到 Copilot</button>',
       isEdit
         ? '<button type="button" class="dpr-highlight-delete-btn" data-highlight-action="delete">删除高亮</button>'
         : '',
+      '<button type="button" class="dpr-highlight-quote-btn" data-highlight-action="quote">引用到 Copilot</button>',
     ].join('');
     popover.classList.add('is-open');
     requestAnimationFrame(() => clampPopoverPosition(x, y, popover));

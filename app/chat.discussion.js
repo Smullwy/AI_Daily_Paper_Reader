@@ -1662,7 +1662,7 @@ window.PrivateDiscussionChat = (function () {
     if (!normalized) return '';
     const title = source === 'chat' ? '引用对话' : '引用原文';
     const lines = normalized.split('\n').map((line) => (line ? `> ${line}` : '>'));
-    return `${title}:\n${lines.join('\n')}\n`;
+    return `${title}:\n${lines.join('\n')}\n\n`;
   };
 
   const insertTextIntoChatInput = (input, text) => {
