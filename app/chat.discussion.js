@@ -488,6 +488,7 @@ window.PrivateDiscussionChat = (function () {
             </div>
           </div>
           <div class="paper-chat-panel-body">
+            <nav id="chat-question-nav" class="chat-question-nav" aria-label="\u5bf9\u8bdd\u95ee\u9898\u5bfc\u822a" hidden></nav>
             <div id="chat-history"></div>
             <div class="input-area">
               <textarea id="user-input" rows="1" placeholder="\u9488\u5bf9\u8fd9\u7bc7\u8bba\u6587\u63d0\u95ee\uff0c\u4ec5\u81ea\u5df1\u53ef\u89c1..."></textarea>
@@ -1497,11 +1498,13 @@ window.PrivateDiscussionChat = (function () {
     const data = await loadChatHistoryWithRemote(paperId);
     if (!data || !data.length) {
       renderEmptyChatState(historyDiv, paperId);
+      renderQuestionNav();
       return;
     }
 
     const { renderMarkdownWithTables, renderMathInEl } = window.DPRMarkdown || {};
     historyDiv.innerHTML = '';
+    let userQuestionIndex = -1;
     data.forEach((msg) => {
       const item = document.createElement('div');
       item.className = 'msg-item';
@@ -1510,6 +1513,11 @@ window.PrivateDiscussionChat = (function () {
       const isThinking = role === 'thinking';
       const isAi = role === 'ai' || role === 'assistant' || isThinking;
       const isUser = role === 'user';
+      if (isUser) {
+        userQuestionIndex += 1;
+        item.id = `user-question-${userQuestionIndex}`;
+        item.dataset.questionIndex = String(userQuestionIndex);
+      }
 
       if (!isThinking) {
         if (msg.time) {
@@ -1606,7 +1614,7 @@ window.PrivateDiscussionChat = (function () {
 
     // 同时更新问题导航
     ensureQuestionNavContainer();
-    renderQuestionNav(paperId);
+    renderQuestionNav();
 
     // 聊天历史渲染完成后，通知 Zotero 元数据刷新一次（包含最新对话）
     try {
@@ -1619,9 +1627,182 @@ window.PrivateDiscussionChat = (function () {
     }
   };
 
-  const ensureQuestionNavContainer = () => {};
+  const ensureQuestionNavContainer = () => {
+    const root = getChatRoot();
+    if (!root) return null;
+    let nav = root.querySelector('#chat-question-nav');
+    const historyDiv = root.querySelector('#chat-history');
+    if (!nav) {
+      nav = document.createElement('nav');
+      nav.id = 'chat-question-nav';
+      nav.className = 'chat-question-nav';
+      nav.setAttribute('aria-label', '对话问题导航');
+      nav.hidden = true;
+      const body = root.querySelector('.paper-chat-panel-body');
+      if (body && historyDiv) {
+        body.insertBefore(nav, historyDiv);
+      }
+    }
+    if (!nav || nav._boundQuestionNav) return nav;
+    nav._boundQuestionNav = true;
+    const openQuestionNav = () => {
+      window.clearTimeout(nav._questionNavCloseTimer);
+      nav.classList.add('is-open');
+    };
+    const closeQuestionNavSoon = () => {
+      window.clearTimeout(nav._questionNavCloseTimer);
+      nav._questionNavCloseTimer = window.setTimeout(() => {
+        nav.classList.remove('is-open');
+      }, 180);
+    };
+    nav.addEventListener('mouseenter', openQuestionNav);
+    nav.addEventListener('mouseover', openQuestionNav);
+    nav.addEventListener('mouseleave', closeQuestionNavSoon);
+    nav.addEventListener('click', (event) => {
+      const trigger =
+        event.target && event.target.closest
+          ? event.target.closest('.chat-question-nav-trigger')
+          : null;
+      if (trigger) {
+        event.preventDefault();
+        nav.classList.toggle('is-open');
+        return;
+      }
+      const btn =
+        event.target && event.target.closest
+          ? event.target.closest('.chat-question-nav-item')
+          : null;
+      if (!btn) return;
+      const targetId = btn.getAttribute('data-target-id') || '';
+      const target = targetId ? document.getElementById(targetId) : null;
+      const history = root.querySelector('#chat-history');
+      if (!target || !history) return;
+      event.preventDefault();
+      history.scrollTo({
+        top: Math.max(target.offsetTop - 12, 0),
+        behavior: 'smooth',
+      });
+      target.classList.add('is-chat-jump-highlight');
+      window.setTimeout(() => {
+        target.classList.remove('is-chat-jump-highlight');
+      }, 1400);
+      nav.classList.remove('is-open');
+      setActiveQuestionNavItem(nav, targetId);
+    });
+    if (historyDiv && !historyDiv._boundQuestionNavScroll) {
+      historyDiv._boundQuestionNavScroll = true;
+      historyDiv.addEventListener('scroll', () => syncActiveQuestionNav(nav, historyDiv));
+    }
+    return nav;
+  };
 
-  const renderQuestionNav = () => {};
+  const summarizeQuestionForNav = (text) => {
+    const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return '';
+    const detail = String(text || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('>') && !/^引用(?:原文|对话)[:：]?$/.test(line))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const source = detail || normalized;
+    return source.length > 34 ? `${source.slice(0, 34)}...` : source;
+  };
+
+  const collectQuestionNavItems = (historyDiv) => {
+    if (!historyDiv || !historyDiv.querySelectorAll) return [];
+    return Array.from(historyDiv.querySelectorAll('.msg-item'))
+      .map((item) => {
+        const content = item.querySelector('.msg-content-user');
+        if (!content) return null;
+        return { item, content };
+      })
+      .filter(Boolean)
+      .map(({ item, content }, index) => {
+        if (!item.id) item.id = `user-question-${index}`;
+        item.dataset.questionIndex = String(index);
+        const fullText = (content.innerText || content.textContent || '').trim();
+        return {
+          id: item.id,
+          index,
+          title: fullText,
+          label: summarizeQuestionForNav(fullText) || `问题 ${index + 1}`,
+        };
+      });
+  };
+
+  const setActiveQuestionNavItem = (nav, targetId) => {
+    if (!nav) return;
+    nav.querySelectorAll('.chat-question-nav-item').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.getAttribute('data-target-id') === targetId);
+    });
+  };
+
+  const syncActiveQuestionNav = (nav, historyDiv) => {
+    if (!nav || !historyDiv) return;
+    const items = Array.from(historyDiv.querySelectorAll('.msg-item[data-question-index]'));
+    if (!items.length) return;
+    const scrollLine = historyDiv.scrollTop + 24;
+    let active = items[0];
+    items.forEach((item) => {
+      if (item.offsetTop <= scrollLine) active = item;
+    });
+    setActiveQuestionNavItem(nav, active.id || '');
+  };
+
+  const renderQuestionNav = () => {
+    const nav = ensureQuestionNavContainer();
+    const root = getChatRoot();
+    const historyDiv = root && root.querySelector('#chat-history');
+    if (!nav || !historyDiv) return;
+
+    const items = collectQuestionNavItems(historyDiv);
+    if (!items.length) {
+      nav.hidden = true;
+      nav.innerHTML = '';
+      return;
+    }
+
+    nav.hidden = false;
+    nav.innerHTML = '';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'chat-question-nav-trigger';
+    trigger.setAttribute('aria-haspopup', 'true');
+    const triggerText = document.createElement('span');
+    triggerText.className = 'chat-question-nav-trigger-text';
+    triggerText.textContent = `问题导航 · ${items.length}`;
+    trigger.appendChild(triggerText);
+    nav.appendChild(trigger);
+
+    const menu = document.createElement('div');
+    menu.className = 'chat-question-nav-menu';
+    const list = document.createElement('div');
+    list.className = 'chat-question-nav-list';
+    list.setAttribute('role', 'list');
+    items.forEach((entry) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chat-question-nav-item';
+      btn.setAttribute('role', 'listitem');
+      btn.setAttribute('data-target-id', entry.id);
+      btn.title = entry.title || entry.label;
+      const index = document.createElement('span');
+      index.className = 'chat-question-nav-index';
+      index.textContent = String(entry.index + 1);
+      btn.appendChild(index);
+      const text = document.createElement('span');
+      text.className = 'chat-question-nav-text';
+      text.textContent = entry.label;
+      btn.appendChild(text);
+      list.appendChild(btn);
+    });
+    menu.appendChild(list);
+    nav.appendChild(menu);
+    syncActiveQuestionNav(nav, historyDiv);
+  };
 
   const resizeChatInput = (input) => {
     if (!input) return;
@@ -2113,7 +2294,7 @@ window.PrivateDiscussionChat = (function () {
     await saveChatHistory(paperId, history);
 
     // 更新问题导航（新增了用户提问）
-    renderQuestionNav(paperId);
+    renderQuestionNav();
 
     // 给刚添加的用户消息设置 ID（用于问题导航定位）
     const userMessages = historyDiv.querySelectorAll('.msg-content-user');
