@@ -491,6 +491,7 @@ window.PrivateDiscussionChat = (function () {
             <nav id="chat-question-nav" class="chat-question-nav" aria-label="\u5bf9\u8bdd\u95ee\u9898\u5bfc\u822a" hidden></nav>
             <div id="chat-history"></div>
             <div class="input-area">
+              <div id="chat-input-quote-stack" class="chat-input-quote-stack" aria-live="polite" hidden></div>
               <textarea id="user-input" rows="1" placeholder="\u9488\u5bf9\u8fd9\u7bc7\u8bba\u6587\u63d0\u95ee\uff0c\u4ec5\u81ea\u5df1\u53ef\u89c1..."></textarea>
               <div class="chat-input-toolbar">
                 <select id="chat-llm-model-select" class="chat-model-select"></select>
@@ -1827,6 +1828,7 @@ window.PrivateDiscussionChat = (function () {
   let chatQuotePopover = null;
   let chatQuoteSelectionText = '';
   let chatQuoteSelectionBound = false;
+  let pendingQuoteBlocks = [];
 
   const normalizeQuoteText = (text) =>
     String(text || '')
@@ -1846,47 +1848,108 @@ window.PrivateDiscussionChat = (function () {
     return `${title}:\n${lines.join('\n')}\n\n`;
   };
 
-  const insertTextIntoChatInput = (input, text) => {
-    if (!input || !text) return false;
-    const current = input.value || '';
-    const canUseSelection =
-      typeof input.selectionStart === 'number' &&
-      typeof input.selectionEnd === 'number' &&
-      document.activeElement === input;
+  const quoteTitleForSource = (source) => (source === 'chat' ? '引用对话' : '引用原文');
 
-    if (canUseSelection) {
-      const start = input.selectionStart;
-      const end = input.selectionEnd;
-      const before = current.slice(0, start);
-      const after = current.slice(end);
-      const prefix = before && !/\n\n$/.test(before) ? (/\n$/.test(before) ? '\n' : '\n\n') : '';
-      const suffix = after && !/^\n/.test(after) ? '\n\n' : '';
-      input.value = `${before}${prefix}${text}${suffix}${after}`;
-      const cursor = before.length + prefix.length + text.length;
-      try {
-        input.setSelectionRange(cursor, cursor);
-      } catch {
-        // ignore
-      }
-    } else {
-      const prefix = current.trim() ? `${current.replace(/\s+$/g, '')}\n\n` : '';
-      input.value = `${prefix}${text}`;
-      try {
-        input.setSelectionRange(input.value.length, input.value.length);
-      } catch {
-        // ignore
+  const previewQuoteText = (text) => {
+    const normalized = normalizeQuoteText(text).replace(/\s+/g, ' ');
+    return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized;
+  };
+
+  const ensureChatQuoteStack = (root) => {
+    const r = root || getChatRoot();
+    if (!r) return null;
+    let stack = r.querySelector('#chat-input-quote-stack');
+    const input = r.querySelector('#user-input');
+    if (!stack) {
+      stack = document.createElement('div');
+      stack.id = 'chat-input-quote-stack';
+      stack.className = 'chat-input-quote-stack';
+      stack.setAttribute('aria-live', 'polite');
+      stack.hidden = true;
+      const inputArea = r.querySelector('.input-area');
+      if (inputArea && input) {
+        inputArea.insertBefore(stack, input);
       }
     }
+    if (!stack || stack._boundQuoteStack) return stack;
+    stack._boundQuoteStack = true;
+    stack.addEventListener('click', (event) => {
+      const removeBtn =
+        event.target && event.target.closest
+          ? event.target.closest('[data-chat-quote-remove]')
+          : null;
+      if (!removeBtn) return;
+      event.preventDefault();
+      const quoteId = removeBtn.getAttribute('data-chat-quote-remove') || '';
+      pendingQuoteBlocks = pendingQuoteBlocks.filter((item) => item.id !== quoteId);
+      renderPendingQuoteStack(r);
+      const inputEl = r.querySelector('#user-input');
+      if (inputEl && !inputEl.disabled) inputEl.focus();
+    });
+    return stack;
+  };
 
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    resizeChatInput(input);
-    input.focus();
-    return true;
+  const renderPendingQuoteStack = (root) => {
+    const r = root || getChatRoot();
+    const stack = ensureChatQuoteStack(r);
+    if (!stack) return;
+    stack.innerHTML = '';
+    if (!pendingQuoteBlocks.length) {
+      stack.hidden = true;
+      return;
+    }
+    stack.hidden = false;
+    pendingQuoteBlocks.forEach((quote) => {
+      const card = document.createElement('div');
+      card.className = 'chat-input-quote-card';
+
+      const icon = document.createElement('span');
+      icon.className = 'chat-input-quote-enter-key';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = '↵';
+
+      const body = document.createElement('div');
+      body.className = 'chat-input-quote-body';
+      const title = document.createElement('div');
+      title.className = 'chat-input-quote-title';
+      title.textContent = quoteTitleForSource(quote.source);
+      const text = document.createElement('div');
+      text.className = 'chat-input-quote-text';
+      text.textContent = previewQuoteText(quote.text);
+      body.appendChild(title);
+      body.appendChild(text);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'chat-input-quote-remove';
+      remove.setAttribute('data-chat-quote-remove', quote.id);
+      remove.setAttribute('aria-label', '移除引用');
+      remove.textContent = '×';
+
+      card.appendChild(icon);
+      card.appendChild(body);
+      card.appendChild(remove);
+      stack.appendChild(card);
+    });
+  };
+
+  const clearPendingQuoteBlocks = (options = {}) => {
+    pendingQuoteBlocks = [];
+    if (options.render !== false) renderPendingQuoteStack();
+  };
+
+  const buildQuestionWithPendingQuotes = (typedQuestion) => {
+    const typed = String(typedQuestion || '').trim();
+    const quoteText = pendingQuoteBlocks
+      .map((quote) => formatQuotedInput(quote.text, quote.source).trimEnd())
+      .filter(Boolean)
+      .join('\n\n');
+    return [quoteText, typed].filter(Boolean).join('\n\n').trim();
   };
 
   const quoteToInput = (text, options = {}) => {
-    const snippet = formatQuotedInput(text, options.source);
-    if (!snippet) return false;
+    const normalized = normalizeQuoteText(text);
+    if (!normalized) return false;
 
     const root = getChatRoot();
     if (!root) return false;
@@ -1901,11 +1964,16 @@ window.PrivateDiscussionChat = (function () {
     closeQuickQuestionsPanel(root);
     closeQuestionsPanel(root);
     hideChatQuotePopover();
-    const ok = insertTextIntoChatInput(input, snippet);
-    if (ok) {
-      setChatStatus('已引用到提问框，可继续输入问题。', CHAT_SYNC_SUCCESS_COLOR);
-    }
-    return ok;
+    pendingQuoteBlocks.push({
+      id: `quote-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      source: options.source === 'chat' ? 'chat' : 'paper',
+      text: normalized,
+    });
+    renderPendingQuoteStack(root);
+    resizeChatInput(input);
+    input.focus();
+    setChatStatus('已引用到提问框上方，可继续输入问题。', CHAT_SYNC_SUCCESS_COLOR);
+    return true;
   };
 
   const getElementFromRangeNode = (node) => {
@@ -2088,7 +2156,8 @@ window.PrivateDiscussionChat = (function () {
       return;
     }
 
-    const question = input.value.trim();
+    const typedQuestion = input.value.trim();
+    const question = buildQuestionWithPendingQuotes(typedQuestion);
     let paperContent = '';
 
     if (!question) {
@@ -2100,6 +2169,7 @@ window.PrivateDiscussionChat = (function () {
     }
 
     resetChatInput(input);
+    clearPendingQuoteBlocks();
 
     // 优先使用与后端一致的 .txt 抽取全文作为上下文（不截断）
     if (paperId) {
@@ -2141,7 +2211,7 @@ window.PrivateDiscussionChat = (function () {
     if (!question) return;
 
     // 从现在开始记录“最近提问”（只记录用户输入；不回溯旧聊天）
-    recordRecentQuestion(question);
+    recordRecentQuestion(typedQuestion || question);
     // 如果面板开着，顺手刷新一下列表（体验更顺滑）
     if (isQuestionsPanelOpen(null)) {
       renderQuestionsPanel(null);
@@ -2723,6 +2793,7 @@ window.PrivateDiscussionChat = (function () {
     if (!mainContent || !paperId) return;
 
     removeChatArtifacts();
+    clearPendingQuoteBlocks({ render: false });
     const container = document.createElement('div');
     container.innerHTML = renderChatUI();
     const root = container.firstElementChild;
