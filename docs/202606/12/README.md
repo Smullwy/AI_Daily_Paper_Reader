@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-12</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-12 06:04 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读6篇脑科学前沿论文，聚焦于高分辨率 fMRI 编码与神经种群几何如何支撑行为泛化。</p>
-<p>最值得关注：FlexiBrain 实现体素级原生 fMRI 解码，以及灵长类皮层中稳定的神经几何结构可预测跨任务泛化能力。</p>
-<p>建议深入了解这两篇9分研究，它们正在重新定义我们读取大脑信息与理解学习迁移的方式。</p>
+      <p>今日从16篇论文中精选6篇深度解读，聚焦高分辨率脑成像与神经群体几何结构如何支撑行为泛化。</p>
+<p>最值得关注：FlexiBrain实现了无视分辨率限制的全脑体素编码，而守恒的神经群体几何解释了跨任务泛化的共性机制。</p>
+<p>下步推荐结合速读中的专家脑低维表征与决策回路动态，思考抽象知识如何压缩与流动。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/12/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
