@@ -106,6 +106,31 @@ class QueryTagFlowTest(unittest.TestCase):
         self.assertIn("scientific equation discovery", composite[0]["query"].lower())
         self.assertIn("embodied actions", composite[0]["query"].lower())
 
+    def test_build_user_requirements_sanitizes_short_keyword_query_in_composite(self):
+        config = {
+            "subscriptions": {
+                "intent_profiles": [
+                    {
+                        "tag": "Brain",
+                        "description": "brain decoding focus",
+                        "enabled": True,
+                        "keywords": [
+                            {"keyword": "brain decoding", "query": "b", "enabled": True},
+                            {"keyword": "fMRI representation learning", "query": "fMRI representation learning", "enabled": True},
+                        ],
+                    }
+                ]
+            }
+        }
+
+        reqs = self.refine_mod.build_user_requirements(config, [])
+        req_texts = [item["query"] for item in reqs]
+        composite = [item for item in reqs if item.get("kind") == "composite"][0]
+
+        self.assertIn("brain decoding", req_texts)
+        self.assertIn("brain decoding", composite["query"])
+        self.assertNotIn("connects or combines: b;", composite["query"])
+
     def test_build_scored_papers_fallback_match_tag(self):
         papers = [{"id": "p-1", "title": "t", "abstract": "a"}]
         llm_ranked = [

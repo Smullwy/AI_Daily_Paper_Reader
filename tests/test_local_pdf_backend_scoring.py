@@ -32,7 +32,11 @@ class LocalPdfBackendScoringTest(unittest.TestCase):
                 def __init__(self, *args, **kwargs):
                     self.kwargs = {}
 
+            class DummyLLMAuthenticationError(Exception):
+                pass
+
             llm_stub.LLMClient = DummyLLMClient
+            llm_stub.LLMAuthenticationError = DummyLLMAuthenticationError
             llm_stub.make_task_client = lambda *args, **kwargs: DummyLLMClient()
             sys.modules["llm"] = llm_stub
 
@@ -68,6 +72,23 @@ class LocalPdfBackendScoringTest(unittest.TestCase):
         self.assertEqual(paper["llm_tldr_cn"], "与订阅方向高度相关")
         self.assertIn("query:neural-editing", paper["llm_tags"])
         self.assertEqual(paper["matched_query_text"], "neural image editing")
+
+    def test_local_subscription_keyword_fallback_scores_exact_match(self):
+        paper = {
+            "id": "local-paper",
+            "title": "MoRE-Brain: Routed Mixture of Experts for Interpretable Brain Decoding",
+            "abstract": "The method decodes fMRI signals into CLIP representations for visual reconstruction.",
+        }
+        result = self.mod._score_local_pdf_by_subscription_requirements(
+            paper,
+            "MoRE-Brain is an interpretable fMRI neural decoding framework.",
+            [{"query": "brain decoding", "tag": "query:fclip"}],
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["score"], 9.0)
+        self.assertEqual(result["matched_query_tag"], "query:fclip")
+        self.assertEqual(result["matched_query_text"], "brain decoding")
 
     def test_sidebar_entry_writes_subscription_score_label(self):
         with tempfile.TemporaryDirectory() as tmp:

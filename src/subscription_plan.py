@@ -179,6 +179,19 @@ def _normalize_query_item(item: Any) -> str:
   )
 
 
+def _is_malformed_keyword_query(query: str, keyword: str) -> bool:
+  query_text = _norm_text(query)
+  keyword_text = _norm_text(keyword)
+  if not query_text:
+    return True
+  if query_text.lower() == keyword_text.lower():
+    return False
+  # A stray one-letter query is almost always an accidental edit. Falling back
+  # to the keyword keeps downstream embedding and LLM scoring semantically sane.
+  compact = re.sub(r"[^A-Za-z0-9]+", "", query_text)
+  return len(compact) < 3 and len(re.sub(r"[^A-Za-z0-9]+", "", keyword_text)) >= 3
+
+
 def _normalize_intent_query_entry(item: Any) -> Dict[str, Any]:
   if isinstance(item, str):
     query = _norm_text(item)
@@ -255,7 +268,7 @@ def _normalize_keyword_entry(item: Any) -> Dict[str, Any]:
   if not keyword:
     return {}
   query = _normalize_query_item(item)
-  if not query:
+  if _is_malformed_keyword_query(query, keyword):
     query = keyword
 
   return {

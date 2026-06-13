@@ -4,9 +4,10 @@ title_zh: NeurIPS25 MoRE-Brain：面向可解释大脑解码的路由式混合�
 authors: Unknown
 date: 2026-06-06
 pdf: assets/local_pdfs/local-20260606-202932316261-neurips25-more-brain_-routed-mixture-of-experts-for-interpretable-br.pdf
-tags: ["paper:本地PDF", "query:local-pdf"]
-score: local
-evidence: 本地上传 PDF，使用后端精读流程生成。
+tags: ["paper:本地PDF", "query:local-pdf", "query:fCLIP"]
+score: 9.0 订阅评分
+score_label: 订阅评分
+evidence: 匹配 brain decoding、fMRI-to-CLIP neural decoding 与可解释脑区路由，适合当前脑解码方向精读
 tldr: MoRE-Brain提出基于脑网络原理的混合专家框架，用于从fMRI信号进行可解释的视觉重建。该框架将功能相关体素分组，由不同专家编码到CLIP空间，再通过双阶段路由机制动态融合专家输出，指导扩散模型生成图像。主要贡献包括：新颖的神经解码架构、高效的跨被试泛化能力（共享核心专家网络，仅调整被试特定路由器），以及通过路由揭示脑区如何影响重建图像的语义和空间属性，提升了可解释性。
 source: local-pdf
 selection_source: local_upload

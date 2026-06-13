@@ -4,10 +4,10 @@ title_zh: NeurIPS25：通过增量与总结语言建模实现脑启发的fMRI到
 authors: Unknown
 date: 2026-06-06
 pdf: assets/local_pdfs/local-20260606-202550581900-neurips25-brain-inspired-fmri-to-text-decoding-via-incremental-and-w.pdf
-tags: ["paper:本地PDF", "query:local-pdf"]
-score: 0.0 订阅评分
+tags: ["paper:本地PDF", "query:local-pdf", "query:fCLIP"]
+score: 9.0 订阅评分
 score_label: 订阅评分
-evidence: 不相关
+evidence: 匹配 brain decoding 与 fMRI representation learning，适合当前脑解码方向精读
 tldr: 为解决fMRI到文本解码中长序列处理的内存过载与语义漂移问题，本文提出脑启发式框架CogReader，模仿人类分段归纳语言处理，将长fMRI序列分段增量解码，并引入wrap-up机制传递语义先验。同时，设计文本引导掩码策略结合掩码自编码器，聚焦语义关键时刻的神经活动，增强fMRI表征。实验表明，该方法显著优于现有技术，且性能增益随解码长度增加而提升。
 source: local-pdf
 selection_source: local_upload

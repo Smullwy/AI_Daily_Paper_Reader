@@ -98,6 +98,31 @@ class SubscriptionPlanTest(unittest.TestCase):
         self.assertEqual(emb.get('query_text'), 'legacy expr')
         self.assertEqual(emb.get('paper_sources'), ['arxiv'])
 
+    def test_keyword_query_falls_back_when_accidentally_too_short(self):
+        cfg = {
+            'subscriptions': {
+                'intent_profiles': [
+                    {
+                        'tag': 'Brain',
+                        'enabled': True,
+                        'keywords': [
+                            {
+                                'keyword': 'brain decoding',
+                                'query': 'b',
+                                'enabled': True,
+                            },
+                        ],
+                    }
+                ],
+            }
+        }
+        plan = build_pipeline_inputs(cfg)
+        emb = [q for q in plan['embedding_queries'] if q.get('type') == 'keyword'][0]
+        context = [q for q in plan['context_queries'] if q.get('tag') == 'query:Brain'][0]
+
+        self.assertEqual(emb.get('query_text'), 'brain decoding')
+        self.assertEqual(context.get('query'), 'brain decoding')
+
     def test_build_pipeline_inputs_with_intent_queries(self):
         cfg = {
             'subscriptions': {

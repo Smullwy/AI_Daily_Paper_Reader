@@ -245,7 +245,7 @@ def build_user_requirements(
             }
         )
 
-    profiles = (((config or {}).get("subscriptions") or {}).get("intent_profiles") or [])
+    profiles = pipeline_inputs.get("profiles") or []
     if isinstance(profiles, list):
         for idx, profile in enumerate(profiles):
             composite_req = _build_profile_composite_requirement(profile, idx, seen)

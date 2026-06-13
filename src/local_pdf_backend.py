@@ -30,6 +30,29 @@ _REFINE_MODULE = None
 _LOCAL_PDF_ASSET_KEY_MAX_LEN = 96
 _LOCAL_PDF_SLUG_MAX_LEN = 96
 _LOCAL_PDF_BATCH_MAX_ATTEMPTS = 3
+_RELEVANCE_STOPWORDS = {
+    "about",
+    "across",
+    "and",
+    "between",
+    "for",
+    "from",
+    "into",
+    "like",
+    "model",
+    "models",
+    "of",
+    "paper",
+    "papers",
+    "that",
+    "the",
+    "this",
+    "to",
+    "using",
+    "via",
+    "with",
+    "work",
+}
 
 
 def _clean_line(value: Any) -> str:
@@ -257,17 +280,91 @@ def _make_local_filter_client(refine: Any, llm_config: Dict[str, Any] | None):
     return client
 
 
+def _normalized_relevance_text(value: Any) -> str:
+    text = re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())
+    collapsed = re.sub(r"\s+", " ", text).strip()
+    return f" {collapsed} "
+
+
+def _meaningful_requirement_tokens(query: str) -> list[str]:
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for raw in re.findall(r"[a-z0-9]+", str(query or "").lower()):
+        if len(raw) < 3 or raw in _RELEVANCE_STOPWORDS or raw in seen:
+            continue
+        seen.add(raw)
+        tokens.append(raw)
+    return tokens
+
+
+def _score_local_pdf_by_subscription_requirements(
+    paper: Dict[str, Any],
+    text: str,
+    requirements: list[Dict[str, Any]],
+) -> Dict[str, Any] | None:
+    if not requirements:
+        return None
+    haystack = _normalized_relevance_text(
+        " ".join(
+            [
+                _clean_line(paper.get("title")),
+                _clean_line(paper.get("abstract")),
+                _clean_line(text[:12000]),
+            ]
+        )
+    )
+    if not haystack.strip():
+        return None
+
+    best: Dict[str, Any] | None = None
+    for req in requirements:
+        if not isinstance(req, dict):
+            continue
+        query = _clean_line(req.get("query"))
+        tokens = _meaningful_requirement_tokens(query)
+        if not query or not tokens:
+            continue
+
+        matched = [token for token in tokens if f" {token} " in haystack]
+        coverage = len(matched) / max(len(tokens), 1)
+        phrase = " ".join(tokens)
+        exact_phrase = bool(phrase and f" {phrase} " in haystack)
+        if exact_phrase:
+            score = 8.5
+        elif len(tokens) <= 3 and coverage >= 1.0:
+            score = 8.0
+        elif len(tokens) >= 4 and len(matched) >= 3 and coverage >= 0.75:
+            score = 7.5
+        else:
+            continue
+
+        if any(f" {term} " in haystack for term in ("brain", "fmri", "neural", "clip", "decoding", "voxel")):
+            score += 0.5
+        score = min(9.0, score)
+        if best is not None and score <= float(best.get("score") or 0):
+            continue
+        best = {
+            "score": score,
+            "canonical_evidence": f"本地关键词兜底匹配：{query}",
+            "matched_query_tag": _clean_line(req.get("tag")),
+            "matched_query_text": query,
+        }
+    return best
+
+
 def _score_local_pdf_against_subscriptions(
     paper: Dict[str, Any],
     text: str,
     llm_config: Dict[str, Any] | None,
 ) -> Dict[str, Any] | None:
+    fallback_score: Dict[str, Any] | None = None
     try:
         refine = _load_refine_module()
         config = refine.load_config()
         requirements = refine.build_user_requirements(config, [])
         if not requirements:
             return None
+        fallback_score = _score_local_pdf_by_subscription_requirements(paper, text, requirements)
 
         paper_id = _clean_line(paper.get("id")) or "local-pdf"
         abstract = _clean_line(paper.get("abstract"))
@@ -294,10 +391,10 @@ def _score_local_pdf_against_subscriptions(
         requirement_by_index = {i + 1: r for i, r in enumerate(requirements)}
         for item in results:
             refine.merge_filter_result(merged, item, requirement_by_index)
-        return merged.get(paper_id)
+        return merged.get(paper_id) or fallback_score
     except Exception as exc:
         print(f"[WARN] local PDF subscription scoring skipped: {exc}", flush=True)
-        return None
+        return fallback_score
 
 
 def _apply_subscription_score(paper: Dict[str, Any], score_result: Dict[str, Any] | None) -> None:
