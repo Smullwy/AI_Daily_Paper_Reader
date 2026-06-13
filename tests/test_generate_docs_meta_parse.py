@@ -462,6 +462,8 @@ class GenerateDocsMetaParseTest(unittest.TestCase):
             self.assertIn("* 📄 本地 PDF 解析", content)
             self.assertIn('href="#/local-pdf">📝 上传解析</a>', content)
             self.assertIn("#/reader-library", content)
+            self.assertIn("tutorial/README", content)
+            self.assertLess(content.index("#/reader-library"), content.index("tutorial/README"))
             self.assertIn("#/reports/weekly/README", content)
             self.assertIn("#/reports/monthly/README", content)
             self.assertIn(

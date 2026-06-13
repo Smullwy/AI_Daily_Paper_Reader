@@ -5731,6 +5731,7 @@ window.$docsify = {
 
       const renderFigureCarousel = (figures) => {
         if (!figures || !figures.length) return '';
+        const longGallery = figures.length > 12;
         const slides = figures.map((figure, index) => {
           const pageText = figure.page ? `PDF p. ${figure.page}` : '';
           const captionText = String(figure.caption || '').trim();
@@ -5768,10 +5769,15 @@ window.$docsify = {
         }).join('');
 
         return [
-          '<div class="paper-figure-section" data-paper-figure-carousel>',
+          `<div class="paper-figure-section${longGallery ? ' is-long is-thumbs-collapsed' : ''}" data-paper-figure-carousel>`,
           '<div class="paper-figure-toolbar">',
           '<div class="paper-section-kicker">Figure Gallery</div>',
+          '<div class="paper-figure-toolbar-actions">',
           `<div class="paper-figure-counter"><span data-figure-current>1</span> / ${figures.length}</div>`,
+          longGallery
+            ? `<button class="paper-figure-gallery-toggle" type="button" data-figure-gallery-toggle data-expanded="false" aria-expanded="false">展开全部 ${figures.length} 张图</button>`
+            : '',
+          '</div>',
           '</div>',
           '<div class="paper-figure-stage">',
           figures.length > 1 ? '<button class="paper-figure-nav paper-figure-nav-prev" type="button" data-figure-prev aria-label="Previous">&lsaquo;</button>' : '',
@@ -5934,6 +5940,16 @@ window.$docsify = {
               btn.textContent = collapsed ? 'Expand caption' : 'Collapse caption';
             });
           });
+          const galleryToggle = root.querySelector('[data-figure-gallery-toggle]');
+          if (galleryToggle) {
+            galleryToggle.addEventListener('click', () => {
+              const expanded = galleryToggle.getAttribute('data-expanded') === 'true';
+              root.classList.toggle('is-thumbs-collapsed', expanded);
+              galleryToggle.setAttribute('data-expanded', expanded ? 'false' : 'true');
+              galleryToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+              galleryToggle.textContent = expanded ? `展开全部 ${slides.length} 张图` : '收起图片列表';
+            });
+          }
 
           render();
         });

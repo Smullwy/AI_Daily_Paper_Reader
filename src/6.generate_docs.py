@@ -2453,7 +2453,7 @@ def update_sidebar(
         )
 
     def ensure_leading_sidebar_links(daily_index: int) -> int:
-        specs = [(SIDEBAR_HOME_LINK, 'href="#/"'), (SIDEBAR_TUTORIAL_LINK, "tutorial/README")]
+        specs = [(SIDEBAR_HOME_LINK, 'href="#/"')]
 
         def leading_insert_index() -> int:
             candidates = [
@@ -2477,7 +2477,17 @@ def update_sidebar(
             (SIDEBAR_WEEKLY_REPORT_LINK, "#/reports/weekly/README"),
             (SIDEBAR_MONTHLY_REPORT_LINK, "#/reports/monthly/README"),
             (SIDEBAR_READER_LIBRARY_LINK, "#/reader-library"),
+            (SIDEBAR_TUTORIAL_LINK, "tutorial/README"),
         ]
+
+        for _link, needle in specs:
+            matched = [
+                idx for idx, line in enumerate(lines) if line.startswith("* ") and needle in line
+            ]
+            for idx in reversed(matched):
+                del lines[idx]
+                if daily_index > idx:
+                    daily_index -= 1
 
         def daily_block_end() -> int:
             if daily_index < 0:
@@ -2489,11 +2499,8 @@ def update_sidebar(
                 end += 1
             return end
 
-        for link, needle in specs:
-            if any(needle in line for line in lines):
-                continue
-            insert_at = daily_block_end()
-            lines.insert(insert_at, link)
+        insert_at = daily_block_end()
+        lines[insert_at:insert_at] = [link for link, _needle in specs]
         return daily_index
 
     def ensure_local_pdf_section(daily_index: int) -> int:
