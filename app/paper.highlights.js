@@ -19,6 +19,8 @@ window.DPRPaperHighlights = (function () {
     toast: null,
     syncTimer: 0,
     syncInFlight: false,
+    selectionTimer: 0,
+    lastTouchSelectionAt: 0,
   };
 
   const nowIso = () => new Date().toISOString();
@@ -337,6 +339,49 @@ window.DPRPaperHighlights = (function () {
     popover.style.top = `${top}px`;
   };
 
+  const getPointFromEvent = (event) => {
+    if (!event) return null;
+    const touch =
+      event.changedTouches && event.changedTouches.length
+        ? event.changedTouches[0]
+        : event.touches && event.touches.length
+          ? event.touches[0]
+          : null;
+    const source = touch || event;
+    const x = Number(source && source.clientX);
+    const y = Number(source && source.clientY);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  };
+
+  const getRangePopoverPoint = (range, fallbackPoint) => {
+    const rects =
+      range && range.getClientRects ? Array.from(range.getClientRects()) : [];
+    const rect =
+      rects.find((item) => item && (item.width || item.height)) ||
+      (range && range.getBoundingClientRect ? range.getBoundingClientRect() : null);
+    if (rect && Number.isFinite(rect.left) && Number.isFinite(rect.bottom)) {
+      return {
+        x: rect.left + (rect.width || 0) / 2,
+        y: rect.bottom + 10,
+      };
+    }
+    return fallbackPoint || {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    };
+  };
+
+  const isLikelyTouchDevice = () => {
+    try {
+      return (
+        (navigator && Number(navigator.maxTouchPoints) > 0) ||
+        (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+      );
+    } catch {
+      return false;
+    }
+  };
+
   const clearTextSelection = () => {
     const selection = window.getSelection && window.getSelection();
     if (selection && selection.removeAllRanges) selection.removeAllRanges();
@@ -503,22 +548,49 @@ window.DPRPaperHighlights = (function () {
     saveItems(state.items.filter((item) => item.id !== id));
   };
 
+  const showPopoverForCurrentSelection = (fallbackPoint) => {
+    if (!state.paperId || !state.root) return;
+    const selection = window.getSelection && window.getSelection();
+    if (!selection || selection.rangeCount < 1 || selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    if (!rangeInsideRoot(range, state.root)) return;
+    const pending = getRangeOffsets(range, state.root);
+    if (!pending.text || !pending.text.trim()) return;
+    const point = getRangePopoverPoint(range, fallbackPoint);
+    state.pendingSelection = pending;
+    renderPopover({
+      mode: 'new',
+      x: point.x,
+      y: point.y,
+    });
+  };
+
+  const scheduleSelectionPopover = (event, delay = 0) => {
+    const fallbackPoint = getPointFromEvent(event);
+    window.clearTimeout(state.selectionTimer);
+    state.selectionTimer = window.setTimeout(() => {
+      showPopoverForCurrentSelection(fallbackPoint);
+    }, delay);
+  };
+
   const onMouseUp = (event) => {
-    window.setTimeout(() => {
-      if (!state.paperId || !state.root) return;
-      const selection = window.getSelection && window.getSelection();
-      if (!selection || selection.rangeCount < 1 || selection.isCollapsed) return;
-      const range = selection.getRangeAt(0);
-      if (!rangeInsideRoot(range, state.root)) return;
-      const pending = getRangeOffsets(range, state.root);
-      if (!pending.text || !pending.text.trim()) return;
-      state.pendingSelection = pending;
-      renderPopover({
-        mode: 'new',
-        x: event.clientX || window.innerWidth / 2,
-        y: (event.clientY || window.innerHeight / 2) + 12,
-      });
-    }, 0);
+    scheduleSelectionPopover(event, 0);
+  };
+
+  const onTouchSelectionEnd = (event) => {
+    state.lastTouchSelectionAt = Date.now();
+    scheduleSelectionPopover(event, 180);
+  };
+
+  const onPointerSelectionEnd = (event) => {
+    if (!event || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
+    state.lastTouchSelectionAt = Date.now();
+    scheduleSelectionPopover(event, 180);
+  };
+
+  const onSelectionChange = () => {
+    if (!isLikelyTouchDevice() && Date.now() - state.lastTouchSelectionAt > 1200) return;
+    scheduleSelectionPopover(null, 220);
   };
 
   const onDocumentClick = (event) => {
@@ -538,6 +610,11 @@ window.DPRPaperHighlights = (function () {
       return;
     }
     if (state.popover && target && !state.popover.contains(target)) {
+      const selection = window.getSelection && window.getSelection();
+      if (selection && selection.rangeCount && !selection.isCollapsed && state.root) {
+        const range = selection.getRangeAt(0);
+        if (rangeInsideRoot(range, state.root)) return;
+      }
       hidePopover();
     }
   };
@@ -678,6 +755,9 @@ window.DPRPaperHighlights = (function () {
     if (window.__DPR_PAPER_HIGHLIGHTS_BOUND__) return;
     window.__DPR_PAPER_HIGHLIGHTS_BOUND__ = true;
     document.addEventListener('mouseup', onMouseUp, true);
+    document.addEventListener('touchend', onTouchSelectionEnd, true);
+    document.addEventListener('pointerup', onPointerSelectionEnd, true);
+    document.addEventListener('selectionchange', onSelectionChange, true);
     document.addEventListener('click', onDocumentClick, true);
     document.addEventListener('keyup', (event) => {
       if (event.key === 'Escape') hidePopover();
