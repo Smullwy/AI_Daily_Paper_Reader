@@ -10,8 +10,17 @@ window.PrivateDiscussionChat = (function () {
   const CHAT_DRAWER_DRAG_THRESHOLD = 4;
   const CHAT_SYNC_SUCCESS_COLOR = '#0f766e';
   const CHAT_SYNC_ERROR_COLOR = '#c00';
+  const CHAT_HIGHLIGHTS_KEY = 'dpr_chat_text_highlights_v1';
+  const CHAT_HIGHLIGHT_COLORS = Object.freeze([
+    { key: 'yellow', label: '黄色', value: '#fff2a8' },
+    { key: 'green', label: '绿色', value: '#c9f7d4' },
+    { key: 'blue', label: '蓝色', value: '#cfe8ff' },
+    { key: 'pink', label: '粉色', value: '#ffd6d6' },
+  ]);
+  const CHAT_ANSWER_OUTLINE_MAX_ITEMS = 10;
   let remoteChatDbCache = null;
   let remoteChatDbLoadedPath = '';
+  let activeChatPaperId = '';
 
   // 最近提问记录（仅本机 localStorage，从现在开始记录，不回溯历史聊天内容）
   const QUESTION_RECENT_KEY = 'dpr_chat_recent_questions_v1';
@@ -489,6 +498,7 @@ window.PrivateDiscussionChat = (function () {
           </div>
           <div class="paper-chat-panel-body">
             <nav id="chat-question-nav" class="chat-question-nav" aria-label="\u5bf9\u8bdd\u95ee\u9898\u5bfc\u822a" hidden></nav>
+            <aside id="chat-answer-outline" class="chat-answer-outline" aria-label="\u5f53\u524d\u56de\u7b54\u5927\u7eb2" hidden></aside>
             <div id="chat-history"></div>
             <div id="chat-input-quote-stack" class="chat-input-quote-stack" aria-live="polite" hidden></div>
             <div class="input-area">
@@ -811,8 +821,12 @@ window.PrivateDiscussionChat = (function () {
       closeQuestionsPanel(root);
       closeQuickQuestionsPanel(root);
       hideChatQuotePopover();
+      const outline = root.querySelector('#chat-answer-outline');
+      if (outline) outline.hidden = true;
       return;
     }
+
+    scheduleChatAnswerOutlineUpdate();
 
     if (options.focusInput) {
       setTimeout(() => {
@@ -964,6 +978,7 @@ window.PrivateDiscussionChat = (function () {
   const destroyForPage = () => {
     chatDrawerOpen = false;
     chatDrawerFullscreen = false;
+    activeChatPaperId = '';
     if (document.body && document.body.classList) {
       document.body.classList.remove('dpr-chat-drawer-open');
       document.body.classList.remove('dpr-chat-drawer-fullscreen');
@@ -1492,7 +1507,744 @@ window.PrivateDiscussionChat = (function () {
     });
   };
 
+  const chatNowIso = () => new Date().toISOString();
+
+  const normalizeChatHighlightColor = (color) => {
+    const found = CHAT_HIGHLIGHT_COLORS.find((item) => item.key === color || item.value === color);
+    return found ? found.value : CHAT_HIGHLIGHT_COLORS[0].value;
+  };
+
+  const hashChatString = (value) => {
+    const text = String(value || '');
+    let hash = 5381;
+    for (let i = 0; i < text.length; i += 1) {
+      hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
+    }
+    return (hash >>> 0).toString(36);
+  };
+
+  const normalizeChatMessageRole = (role) => {
+    const value = String(role || '').toLowerCase();
+    if (value === 'assistant') return 'ai';
+    if (value === 'user') return 'user';
+    if (value === 'thinking') return 'thinking';
+    return value || 'message';
+  };
+
+  const getChatMessageBaseKey = (msg) => {
+    const role = normalizeChatMessageRole(msg && msg.role);
+    const explicitId = String((msg && (msg.id || msg.messageId || msg.uuid)) || '').trim();
+    const source = explicitId
+      ? `id:${explicitId}`
+      : [
+          role,
+          (msg && msg.time) || '',
+          (msg && msg.model) || '',
+          (msg && msg.content) || '',
+        ].join('|');
+    return `chat-${role}-${hashChatString(source)}`;
+  };
+
+  const getChatMessageKeyForList = (messages, index) => {
+    const list = Array.isArray(messages) ? messages : [];
+    const msg = list[index] || {};
+    const base = getChatMessageBaseKey(msg);
+    let occurrence = 0;
+    for (let i = 0; i < index; i += 1) {
+      if (getChatMessageBaseKey(list[i]) === base) occurrence += 1;
+    }
+    return occurrence ? `${base}-${occurrence + 1}` : base;
+  };
+
+  const assignChatMessageIdentity = (item, contentEl, msg, messages, index) => {
+    if (!item || !contentEl) return '';
+    const role = normalizeChatMessageRole(msg && msg.role);
+    const key = getChatMessageKeyForList(messages, index);
+    item.dataset.chatMessageKey = key;
+    item.dataset.chatRole = role;
+    contentEl.dataset.chatMessageKey = key;
+    contentEl.dataset.chatRole = role;
+    return key;
+  };
+
+  const loadChatHighlightStore = () => {
+    try {
+      if (!window.localStorage) return { papers: {} };
+      const raw = window.localStorage.getItem(CHAT_HIGHLIGHTS_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' && parsed.papers
+        ? parsed
+        : { papers: {} };
+    } catch {
+      return { papers: {} };
+    }
+  };
+
+  const saveChatHighlightStore = (store) => {
+    try {
+      if (!window.localStorage) return;
+      window.localStorage.setItem(CHAT_HIGHLIGHTS_KEY, JSON.stringify(store || { papers: {} }));
+    } catch {
+      // ignore
+    }
+  };
+
+  const sanitizeChatHighlightItems = (items) =>
+    (Array.isArray(items) ? items : [])
+      .map((item) => {
+        const start = Number(item && item.start);
+        const end = Number(item && item.end);
+        return {
+          id: String((item && item.id) || '').trim(),
+          messageKey: String((item && item.messageKey) || '').trim(),
+          start,
+          end,
+          text: String((item && item.text) || ''),
+          color: normalizeChatHighlightColor(item && item.color),
+          createdAt: String((item && item.createdAt) || chatNowIso()),
+          updatedAt: String((item && item.updatedAt) || chatNowIso()),
+        };
+      })
+      .filter((item) => (
+        item.id
+        && item.messageKey
+        && Number.isFinite(item.start)
+        && Number.isFinite(item.end)
+        && item.end > item.start
+      ));
+
+  const getChatHighlightRecord = (paperId) => {
+    const store = loadChatHighlightStore();
+    const record = (store.papers && store.papers[paperId]) || {};
+    return {
+      paperId,
+      items: sanitizeChatHighlightItems(record.items),
+      updatedAt: String(record.updatedAt || ''),
+    };
+  };
+
+  const setChatHighlightRecord = (paperId, patch) => {
+    if (!paperId) return;
+    const store = loadChatHighlightStore();
+    store.papers = store.papers || {};
+    const prev = (store.papers && store.papers[paperId]) || {};
+    store.papers[paperId] = {
+      paperId,
+      updatedAt: (patch && patch.updatedAt) || chatNowIso(),
+      items: sanitizeChatHighlightItems(
+        patch && Object.prototype.hasOwnProperty.call(patch, 'items')
+          ? patch.items
+          : prev.items,
+      ),
+    };
+    saveChatHighlightStore(store);
+  };
+
+  const getChatHighlightById = (id) => {
+    if (!activeChatPaperId || !id) return null;
+    const record = getChatHighlightRecord(activeChatPaperId);
+    return record.items.find((item) => item.id === id) || null;
+  };
+
+  const saveChatHighlightItems = (items) => {
+    if (!activeChatPaperId) return;
+    setChatHighlightRecord(activeChatPaperId, {
+      items,
+      updatedAt: chatNowIso(),
+    });
+    renderChatHighlightsForHistory();
+  };
+
+  const isIgnoredChatTextParent = (parent) => {
+    if (!parent) return true;
+    return !!parent.closest(
+      'script, style, textarea, input, button, .chat-quote-popover, .chat-answer-outline',
+    );
+  };
+
+  const getChatTextNodes = (root) => {
+    const nodes = [];
+    if (!root || !document.createTreeWalker || !window.NodeFilter) return nodes;
+    const nodeFilter = window.NodeFilter;
+    const walker = document.createTreeWalker(root, nodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node && node.parentElement;
+        return isIgnoredChatTextParent(parent)
+          ? nodeFilter.FILTER_REJECT
+          : nodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let node = walker.nextNode();
+    while (node) {
+      nodes.push(node);
+      node = walker.nextNode();
+    }
+    return nodes;
+  };
+
+  const unwrapRenderedChatHighlights = (root) => {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('span.dpr-chat-text-highlight').forEach((span) => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) {
+        parent.insertBefore(span.firstChild, span);
+      }
+      span.remove();
+      parent.normalize();
+    });
+  };
+
+  const getChatAcceptedText = (root) =>
+    getChatTextNodes(root).map((node) => node.nodeValue || '').join('');
+
+  const findNearestChatTextIndex = (rootText, text, near) => {
+    if (!text) return -1;
+    let best = -1;
+    let bestDistance = Infinity;
+    let from = 0;
+    while (from <= rootText.length) {
+      const idx = rootText.indexOf(text, from);
+      if (idx < 0) break;
+      const distance = Math.abs(idx - near);
+      if (distance < bestDistance) {
+        best = idx;
+        bestDistance = distance;
+      }
+      from = idx + Math.max(1, text.length);
+    }
+    return best;
+  };
+
+  const resolveChatStoredRanges = (items, rootText) => {
+    const resolved = [];
+    let lastEnd = -1;
+    sanitizeChatHighlightItems(items)
+      .sort((a, b) => a.start - b.start || a.end - b.end)
+      .forEach((item) => {
+        let start = item.start;
+        let end = item.end;
+        if (rootText.slice(start, end) !== item.text && item.text) {
+          const idx = findNearestChatTextIndex(rootText, item.text, start);
+          if (idx >= 0) {
+            start = idx;
+            end = idx + item.text.length;
+          }
+        }
+        if (start < 0 || end > rootText.length || end <= start) return;
+        if (start < lastEnd) return;
+        resolved.push(Object.assign({}, item, { start, end }));
+        lastEnd = end;
+      });
+    return resolved;
+  };
+
+  const wrapChatTextSegment = (node, start, end, item) => {
+    if (!node || start >= end || !node.parentNode) return;
+    const len = node.nodeValue.length;
+    let target = node;
+    if (end < len) {
+      target.splitText(end);
+    }
+    if (start > 0) {
+      target = target.splitText(start);
+    }
+    const span = document.createElement('span');
+    span.className = 'dpr-chat-text-highlight';
+    span.dataset.chatHighlightId = item.id;
+    span.style.setProperty('--dpr-chat-highlight-color', normalizeChatHighlightColor(item.color));
+    span.title = '点击修改高亮';
+    target.parentNode.insertBefore(span, target);
+    span.appendChild(target);
+  };
+
+  const applySingleChatHighlight = (root, item) => {
+    const nodes = getChatTextNodes(root).map((node) => ({
+      node,
+      len: node.nodeValue.length,
+    }));
+    let offset = 0;
+    nodes.forEach(({ node, len }) => {
+      const nodeStart = offset;
+      const nodeEnd = offset + len;
+      offset = nodeEnd;
+      const start = Math.max(item.start, nodeStart);
+      const end = Math.min(item.end, nodeEnd);
+      if (start >= end) return;
+      wrapChatTextSegment(node, start - nodeStart, end - nodeStart, item);
+    });
+  };
+
+  const renderChatHighlightsForContent = (contentEl) => {
+    if (!contentEl) return;
+    unwrapRenderedChatHighlights(contentEl);
+    const messageKey = contentEl.dataset ? contentEl.dataset.chatMessageKey : '';
+    if (!activeChatPaperId || !messageKey) return;
+    const record = getChatHighlightRecord(activeChatPaperId);
+    const items = record.items.filter((item) => item.messageKey === messageKey);
+    if (!items.length) return;
+    const rootText = getChatAcceptedText(contentEl);
+    resolveChatStoredRanges(items, rootText).forEach((item) => {
+      applySingleChatHighlight(contentEl, item);
+    });
+  };
+
+  const renderChatHighlightsForHistory = () => {
+    const root = getChatRoot();
+    const historyDiv = root && root.querySelector('#chat-history');
+    if (!historyDiv) return;
+    historyDiv
+      .querySelectorAll('.msg-content[data-chat-message-key]')
+      .forEach((contentEl) => renderChatHighlightsForContent(contentEl));
+  };
+
+  const rangeInsideChatContent = (range, root) => {
+    if (!range || !root) return false;
+    const elementNode = window.Node ? window.Node.ELEMENT_NODE : 1;
+    const startNode = range.startContainer.nodeType === elementNode
+      ? range.startContainer
+      : range.startContainer.parentNode;
+    const endNode = range.endContainer.nodeType === elementNode
+      ? range.endContainer
+      : range.endContainer.parentNode;
+    return root.contains(startNode) && root.contains(endNode);
+  };
+
+  const getChatRangeOffsets = (range, root) => {
+    const fallbackText = range && typeof range.toString === 'function' ? range.toString() : '';
+    const fallbackRootText = getChatAcceptedText(root);
+    const fallbackIndex = () => findNearestChatTextIndex(fallbackRootText, fallbackText, 0);
+    const nodes = getChatTextNodes(root);
+    let cursor = 0;
+    let start = null;
+    let end = null;
+    let text = '';
+
+    try {
+      nodes.forEach((node) => {
+        const len = node.nodeValue.length;
+        let intersects = false;
+        try {
+          intersects = range.intersectsNode(node);
+        } catch {
+          intersects = range.startContainer === node || range.endContainer === node;
+        }
+
+        if (!intersects) {
+          cursor += len;
+          return;
+        }
+
+        const sliceStart = range.startContainer === node ? range.startOffset : 0;
+        const sliceEnd = range.endContainer === node ? range.endOffset : len;
+        if (sliceEnd > sliceStart) {
+          if (start === null) start = cursor + sliceStart;
+          end = cursor + sliceEnd;
+          text += node.nodeValue.slice(sliceStart, sliceEnd);
+        }
+        cursor += len;
+      });
+    } catch {
+      const idx = fallbackIndex();
+      return {
+        start: idx >= 0 ? idx : 0,
+        end: idx >= 0 ? idx + fallbackText.length : 0,
+        text: idx >= 0 ? fallbackText : '',
+      };
+    }
+
+    if ((!text || !text.trim()) && fallbackText && fallbackText.trim()) {
+      const idx = fallbackIndex();
+      if (idx >= 0) {
+        return {
+          start: idx,
+          end: idx + fallbackText.length,
+          text: fallbackText,
+        };
+      }
+    }
+
+    return {
+      start: start == null ? 0 : start,
+      end: end == null ? 0 : end,
+      text,
+    };
+  };
+
+  const trimChatOutlineLabel = (text, maxLength = 58) => {
+    const value = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!value) return '';
+    return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+  };
+
+  const ensureChatOutlineTargetId = (el, index) => {
+    if (!el) return '';
+    if (el.dataset.chatOutlineId) return el.dataset.chatOutlineId;
+    const content = el.closest ? el.closest('.msg-content-ai[data-chat-message-key]') : null;
+    const messageKey = content && content.dataset ? content.dataset.chatMessageKey : '';
+    const id = `outline-${hashChatString(`${messageKey}|${index}|${el.textContent || ''}`)}`;
+    el.dataset.chatOutlineId = id;
+    return id;
+  };
+
+  const collectChatAnswerOutlineItems = (contentEl) => {
+    if (!contentEl || !contentEl.querySelectorAll) return [];
+    const headingNodes = Array.from(contentEl.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+      .filter((el) => trimChatOutlineLabel(el.textContent));
+    if (!headingNodes.length) return [];
+    const seen = new Set();
+    return headingNodes
+      .map((el, index) => {
+        const text = trimChatOutlineLabel(el.textContent);
+        if (!text || seen.has(text)) return null;
+        seen.add(text);
+        const tag = String(el.tagName || '').toLowerCase();
+        const level = /^h[1-6]$/.test(tag) ? Number(tag.slice(1)) : 3;
+        return {
+          id: ensureChatOutlineTargetId(el, index),
+          text,
+          level,
+        };
+      })
+      .filter(Boolean)
+      .slice(0, CHAT_ANSWER_OUTLINE_MAX_ITEMS);
+  };
+
+  const scrollChatHistoryToElement = (historyDiv, target) => {
+    if (!historyDiv || !target || !target.getBoundingClientRect) return;
+    const historyRect = historyDiv.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const nextTop = historyDiv.scrollTop + targetRect.top - historyRect.top - 18;
+    historyDiv.scrollTo({
+      top: Math.max(nextTop, 0),
+      behavior: 'smooth',
+    });
+  };
+
+  const getActiveChatAnswerItem = (historyDiv) => {
+    if (!historyDiv || !historyDiv.querySelectorAll) return null;
+    const items = Array.from(historyDiv.querySelectorAll('.msg-item'))
+      .filter((item) => item.querySelector('.msg-content-ai'));
+    if (!items.length) return null;
+    const pivot = historyDiv.scrollTop + Math.min(180, Math.max(90, historyDiv.clientHeight * 0.32));
+    let active = items[0];
+    let bestDistance = Infinity;
+    items.forEach((item) => {
+      const top = item.offsetTop;
+      const bottom = top + item.offsetHeight;
+      if (pivot >= top && pivot <= bottom) {
+        active = item;
+        bestDistance = -1;
+        return;
+      }
+      if (bestDistance >= 0) {
+        const distance = Math.min(Math.abs(top - pivot), Math.abs(bottom - pivot));
+        if (distance < bestDistance) {
+          active = item;
+          bestDistance = distance;
+        }
+      }
+    });
+    return active;
+  };
+
+  const syncActiveChatAnswerOutline = (outline, historyDiv) => {
+    if (!outline || !historyDiv) return;
+    const buttons = Array.from(outline.querySelectorAll('.chat-answer-outline-item'));
+    if (!buttons.length) return;
+    const historyRect = historyDiv.getBoundingClientRect();
+    const anchorTop = historyRect.top + Math.min(120, Math.max(48, historyRect.height * 0.18));
+    let activeId = buttons[0].getAttribute('data-outline-target') || '';
+    buttons.forEach((btn) => {
+      const id = btn.getAttribute('data-outline-target') || '';
+      const target = id
+        ? historyDiv.querySelector(`[data-chat-outline-id="${id}"]`)
+        : null;
+      if (!target || !target.getBoundingClientRect) return;
+      const rect = target.getBoundingClientRect();
+      if (rect.top <= anchorTop) activeId = id;
+    });
+    buttons.forEach((btn) => {
+      btn.classList.toggle('is-active', btn.getAttribute('data-outline-target') === activeId);
+    });
+  };
+
+  let chatAnswerOutlineCollapsed = false;
+  let chatAnswerOutlineScale = 1;
+  let chatAnswerOutlineDragState = null;
+
+  const clampChatOutlineNumber = (value, min, max) =>
+    Math.max(min, Math.min(max, value));
+
+  const getChatAnswerOutlineBounds = (outline) => {
+    if (!outline) return null;
+    const outlineRect = outline.getBoundingClientRect();
+    const bodyRect = {
+      left: 0,
+      top: 0,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    return {
+      bodyRect,
+      outlineRect,
+      left: outlineRect.left - bodyRect.left,
+      top: outlineRect.top - bodyRect.top,
+      width: outlineRect.width,
+      height: outlineRect.height,
+      layoutWidth: outline.offsetWidth || outlineRect.width,
+      scale: chatAnswerOutlineScale,
+    };
+  };
+
+  const applyChatAnswerOutlineScale = (outline) => {
+    if (!outline) return;
+    outline.style.setProperty(
+      '--dpr-chat-answer-outline-scale',
+      chatAnswerOutlineScale.toFixed(2),
+    );
+  };
+
+  const startChatAnswerOutlineDrag = (outline, event, mode) => {
+    const bounds = getChatAnswerOutlineBounds(outline);
+    if (!bounds || !event) return;
+    event.preventDefault();
+    event.stopPropagation();
+    chatAnswerOutlineDragState = {
+      mode,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startLeft: bounds.left,
+      startTop: bounds.top,
+      startWidth: bounds.width,
+      startHeight: bounds.height,
+      startLayoutWidth: bounds.layoutWidth,
+      startScale: bounds.scale,
+      bodyWidth: bounds.bodyRect.width,
+      bodyHeight: bounds.bodyRect.height,
+      hasMoved: false,
+    };
+    applyChatAnswerOutlineScale(outline);
+    outline.classList.toggle('is-dragging', mode === 'drag');
+    outline.classList.toggle('is-resizing', mode === 'resize');
+    try {
+      outline.setPointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const moveChatAnswerOutline = (outline, event) => {
+    const state = chatAnswerOutlineDragState;
+    if (!outline || !event || !state) return;
+    event.preventDefault();
+    const dx = event.clientX - state.startX;
+    const dy = event.clientY - state.startY;
+    if (Math.hypot(dx, dy) > 3) {
+      state.hasMoved = true;
+    }
+    if (state.mode === 'drag') {
+      const width = state.startWidth;
+      const height = state.startHeight;
+      const visualLeft = clampChatOutlineNumber(state.startLeft + dx, 4, state.bodyWidth - width - 4);
+      const top = clampChatOutlineNumber(state.startTop + dy, 4, state.bodyHeight - height - 4);
+      const cssLeft = visualLeft - state.startLayoutWidth * (1 - state.startScale);
+      outline.style.left = `${cssLeft}px`;
+      outline.style.top = `${top}px`;
+      outline.style.right = 'auto';
+      return;
+    }
+    if (state.mode === 'resize') {
+      const delta = (dx + dy) / 260;
+      chatAnswerOutlineScale = clampChatOutlineNumber(state.startScale + delta, 0.65, 1.7);
+      applyChatAnswerOutlineScale(outline);
+    }
+  };
+
+  const finishChatAnswerOutlineDrag = (outline, event) => {
+    if (!chatAnswerOutlineDragState) return;
+    const state = chatAnswerOutlineDragState;
+    try {
+      if (outline && event) outline.releasePointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+    if (outline) {
+      outline.classList.remove('is-dragging', 'is-resizing');
+      if (state.mode === 'drag') {
+        outline._suppressOutlineCollapseClick = true;
+        window.setTimeout(() => {
+          outline._suppressOutlineCollapseClick = false;
+        }, 0);
+        if (!state.hasMoved) {
+          chatAnswerOutlineCollapsed = !chatAnswerOutlineCollapsed;
+          renderChatAnswerOutline();
+        }
+      }
+    }
+    chatAnswerOutlineDragState = null;
+  };
+
+  const createChatAnswerOutlineControls = () => {
+    const controls = document.createElement('div');
+    controls.className = 'chat-answer-outline-controls';
+    [
+      ['resize', '⇲', '缩放大纲'],
+      [
+        'collapse',
+        chatAnswerOutlineCollapsed ? '+' : '−',
+        chatAnswerOutlineCollapsed ? '拖动 / 展开大纲' : '拖动 / 收起大纲',
+      ],
+    ].forEach(([action, label, title]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `chat-answer-outline-tool chat-answer-outline-tool-${action}`;
+      btn.setAttribute('data-outline-tool', action);
+      btn.setAttribute('aria-label', title);
+      btn.title = title;
+      btn.textContent = label;
+      controls.appendChild(btn);
+    });
+    return controls;
+  };
+
+  const ensureChatAnswerOutlineContainer = () => {
+    const root = getChatRoot();
+    if (!root) return null;
+    let outline = root.querySelector('#chat-answer-outline');
+    const historyDiv = root.querySelector('#chat-history');
+    if (!outline) {
+      outline = document.createElement('aside');
+      outline.id = 'chat-answer-outline';
+      outline.className = 'chat-answer-outline';
+      outline.setAttribute('aria-label', '当前回答大纲');
+      outline.hidden = true;
+    }
+    if (outline.parentElement !== root) {
+      root.appendChild(outline);
+    }
+    if (outline && !outline._boundChatAnswerOutline) {
+      outline._boundChatAnswerOutline = true;
+      outline.addEventListener('click', (event) => {
+        const tool =
+          event.target && event.target.closest
+            ? event.target.closest('[data-outline-tool]')
+            : null;
+        if (tool) {
+          const action = tool.getAttribute('data-outline-tool') || '';
+          if (action === 'collapse') {
+            event.preventDefault();
+            event.stopPropagation();
+            if (outline._suppressOutlineCollapseClick) {
+              outline._suppressOutlineCollapseClick = false;
+              return;
+            }
+            chatAnswerOutlineCollapsed = !chatAnswerOutlineCollapsed;
+            renderChatAnswerOutline();
+          }
+          return;
+        }
+        const btn =
+          event.target && event.target.closest
+            ? event.target.closest('.chat-answer-outline-item')
+            : null;
+        if (!btn || !historyDiv) return;
+        const targetId = btn.getAttribute('data-outline-target') || '';
+        const target = targetId
+          ? historyDiv.querySelector(`[data-chat-outline-id="${targetId}"]`)
+          : null;
+        if (!target) return;
+        event.preventDefault();
+        scrollChatHistoryToElement(historyDiv, target);
+        syncActiveChatAnswerOutline(outline, historyDiv);
+      });
+      outline.addEventListener('pointerdown', (event) => {
+        const tool =
+          event.target && event.target.closest
+            ? event.target.closest('[data-outline-tool]')
+            : null;
+        if (!tool) return;
+        const action = tool.getAttribute('data-outline-tool') || '';
+        if (action === 'resize') {
+          startChatAnswerOutlineDrag(outline, event, 'resize');
+          return;
+        }
+        if (action === 'collapse') {
+          startChatAnswerOutlineDrag(outline, event, 'drag');
+        }
+      });
+      outline.addEventListener('pointermove', (event) => {
+        moveChatAnswerOutline(outline, event);
+      });
+      outline.addEventListener('pointerup', (event) => {
+        finishChatAnswerOutlineDrag(outline, event);
+      });
+      outline.addEventListener('pointercancel', (event) => {
+        finishChatAnswerOutlineDrag(outline, event);
+      });
+    }
+    if (historyDiv && !historyDiv._boundChatAnswerOutlineScroll) {
+      historyDiv._boundChatAnswerOutlineScroll = true;
+      historyDiv.addEventListener('scroll', () => scheduleChatAnswerOutlineUpdate());
+    }
+    return outline;
+  };
+
+  const renderChatAnswerOutline = () => {
+    const outline = ensureChatAnswerOutlineContainer();
+    const root = getChatRoot();
+    const historyDiv = root && root.querySelector('#chat-history');
+    if (!outline || !historyDiv) return;
+    if (!chatDrawerOpen) {
+      outline.hidden = true;
+      return;
+    }
+    const activeItem = getActiveChatAnswerItem(historyDiv);
+    const contentEl = activeItem && activeItem.querySelector('.msg-content-ai');
+    const items = collectChatAnswerOutlineItems(contentEl);
+    if (!contentEl || !items.length) {
+      outline.hidden = true;
+      outline.innerHTML = '';
+      return;
+    }
+
+    outline.hidden = false;
+    outline.innerHTML = '';
+    applyChatAnswerOutlineScale(outline);
+    outline.classList.toggle('is-collapsed', chatAnswerOutlineCollapsed);
+    outline.appendChild(createChatAnswerOutlineControls());
+
+    if (chatAnswerOutlineCollapsed) {
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'chat-answer-outline-list';
+    items.forEach((item) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `chat-answer-outline-item is-level-${Math.min(4, Math.max(1, item.level))}`;
+      btn.setAttribute('data-outline-target', item.id);
+      btn.title = item.text;
+      btn.textContent = item.text;
+      list.appendChild(btn);
+    });
+    outline.appendChild(list);
+    syncActiveChatAnswerOutline(outline, historyDiv);
+  };
+
+  let chatAnswerOutlineTimer = 0;
+  const scheduleChatAnswerOutlineUpdate = () => {
+    if (chatAnswerOutlineTimer) return;
+    chatAnswerOutlineTimer = requestAnimationFrame(() => {
+      chatAnswerOutlineTimer = 0;
+      renderChatAnswerOutline();
+    });
+  };
+
   const renderHistory = async (paperId) => {
+    activeChatPaperId = paperId || activeChatPaperId;
     const historyDiv = document.getElementById('chat-history');
     if (!historyDiv) return;
 
@@ -1500,13 +2252,14 @@ window.PrivateDiscussionChat = (function () {
     if (!data || !data.length) {
       renderEmptyChatState(historyDiv, paperId);
       renderQuestionNav();
+      renderChatAnswerOutline();
       return;
     }
 
     const { renderMarkdownWithTables, renderMathInEl } = window.DPRMarkdown || {};
     historyDiv.innerHTML = '';
     let userQuestionIndex = -1;
-    data.forEach((msg) => {
+    data.forEach((msg, index) => {
       const item = document.createElement('div');
       item.className = 'msg-item';
 
@@ -1549,6 +2302,7 @@ window.PrivateDiscussionChat = (function () {
         if (renderMathInEl) {
           renderMathInEl(contentDiv);
         }
+        assignChatMessageIdentity(item, contentDiv, msg, data, index);
 
         item.appendChild(contentDiv);
         historyDiv.appendChild(item);
@@ -1616,6 +2370,8 @@ window.PrivateDiscussionChat = (function () {
     // 同时更新问题导航
     ensureQuestionNavContainer();
     renderQuestionNav();
+    renderChatHighlightsForHistory();
+    scheduleChatAnswerOutlineUpdate();
 
     // 聊天历史渲染完成后，通知 Zotero 元数据刷新一次（包含最新对话）
     try {
@@ -1827,6 +2583,9 @@ window.PrivateDiscussionChat = (function () {
 
   let chatQuotePopover = null;
   let chatQuoteSelectionText = '';
+  let chatQuoteSelection = null;
+  let chatQuoteSelectionTimer = 0;
+  let chatQuoteLastTouchAt = 0;
   let chatQuoteSelectionBound = false;
   let pendingQuoteBlocks = [];
 
@@ -1982,6 +2741,14 @@ window.PrivateDiscussionChat = (function () {
     return el && el.closest ? el.closest('#chat-history .msg-content') : null;
   };
 
+  const getChatHighlightableContent = (node) => {
+    const el = getElementFromRangeNode(node);
+    if (!el || !el.closest) return null;
+    const content = el.closest('#chat-history .msg-content-ai, #chat-history .msg-content-user');
+    if (!content || content.closest('.thinking-container, .thinking-history-container')) return null;
+    return content.dataset && content.dataset.chatMessageKey ? content : null;
+  };
+
   const clampChatQuotePopoverPosition = (x, y, popover) => {
     if (!popover) return;
     const rect = popover.getBoundingClientRect();
@@ -1992,11 +2759,158 @@ window.PrivateDiscussionChat = (function () {
     popover.style.top = `${top}px`;
   };
 
+  const getChatPointFromEvent = (event) => {
+    if (!event) return null;
+    const touch =
+      event.changedTouches && event.changedTouches.length
+        ? event.changedTouches[0]
+        : event.touches && event.touches.length
+          ? event.touches[0]
+          : null;
+    const source = touch || event;
+    const x = Number(source && source.clientX);
+    const y = Number(source && source.clientY);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  };
+
+  const getChatRangePopoverPoint = (range, fallbackPoint) => {
+    const rects =
+      range && range.getClientRects ? Array.from(range.getClientRects()) : [];
+    const rect =
+      rects.find((item) => item && (item.width || item.height)) ||
+      (range && range.getBoundingClientRect ? range.getBoundingClientRect() : null);
+    if (rect && Number.isFinite(rect.left) && Number.isFinite(rect.bottom)) {
+      return {
+        x: rect.left + (rect.width || 0) / 2,
+        y: rect.bottom + 8,
+      };
+    }
+    return fallbackPoint || {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    };
+  };
+
+  const isLikelyChatTouchDevice = () => {
+    try {
+      return (
+        (navigator && Number(navigator.maxTouchPoints) > 0) ||
+        (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+      );
+    } catch {
+      return false;
+    }
+  };
+
   const hideChatQuotePopover = () => {
     chatQuoteSelectionText = '';
+    chatQuoteSelection = null;
     if (chatQuotePopover) {
       chatQuotePopover.classList.remove('is-open');
     }
+  };
+
+  const clearChatTextSelection = () => {
+    const selection = window.getSelection && window.getSelection();
+    if (selection && selection.removeAllRanges) selection.removeAllRanges();
+  };
+
+  const getChatQuoteTextFromPopover = (popover) => {
+    if (!popover) return '';
+    if (popover.dataset.mode === 'edit') {
+      const item = getChatHighlightById(popover.dataset.highlightId || '');
+      return item ? item.text : '';
+    }
+    return chatQuoteSelectionText;
+  };
+
+  const addChatHighlightFromSelection = (color) => {
+    const pending = chatQuoteSelection;
+    if (!activeChatPaperId || !pending || !pending.messageKey || pending.end <= pending.start) return;
+    const record = getChatHighlightRecord(activeChatPaperId);
+    const item = {
+      id: `chl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      messageKey: pending.messageKey,
+      start: pending.start,
+      end: pending.end,
+      text: pending.text,
+      color: normalizeChatHighlightColor(color),
+      createdAt: chatNowIso(),
+      updatedAt: chatNowIso(),
+    };
+    const next = record.items.filter((old) => (
+      old.messageKey !== item.messageKey
+      || old.end <= item.start
+      || old.start >= item.end
+    ));
+    next.push(item);
+    saveChatHighlightItems(next);
+    clearChatTextSelection();
+  };
+
+  const updateChatHighlightColor = (id, color) => {
+    if (!activeChatPaperId || !id) return;
+    const record = getChatHighlightRecord(activeChatPaperId);
+    saveChatHighlightItems(
+      record.items.map((item) =>
+        item.id === id
+          ? Object.assign({}, item, {
+              color: normalizeChatHighlightColor(color),
+              updatedAt: chatNowIso(),
+            })
+          : item,
+      ),
+    );
+  };
+
+  const deleteChatHighlight = (id) => {
+    if (!activeChatPaperId || !id) return;
+    const record = getChatHighlightRecord(activeChatPaperId);
+    saveChatHighlightItems(record.items.filter((item) => item.id !== id));
+  };
+
+  const renderChatQuotePopoverContent = (popover, options = {}) => {
+    if (!popover) return;
+    const mode = options.mode === 'edit' ? 'edit' : 'new';
+    const canHighlight = !!options.canHighlight;
+    popover.innerHTML = '';
+
+    if (canHighlight) {
+      const title = document.createElement('div');
+      title.className = 'chat-highlight-popover-title';
+      title.textContent = mode === 'edit' ? '修改高亮' : '选择高亮颜色';
+      popover.appendChild(title);
+
+      const row = document.createElement('div');
+      row.className = 'chat-highlight-color-row';
+      CHAT_HIGHLIGHT_COLORS.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chat-highlight-color-btn';
+        btn.setAttribute('data-chat-highlight-color', item.value);
+        btn.setAttribute('aria-label', item.label);
+        btn.title = item.label;
+        btn.style.setProperty('--dpr-chat-highlight-swatch', item.value);
+        row.appendChild(btn);
+      });
+      popover.appendChild(row);
+
+      if (mode === 'edit') {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'chat-highlight-delete-btn';
+        deleteBtn.setAttribute('data-chat-highlight-action', 'delete');
+        deleteBtn.textContent = '删除高亮';
+        popover.appendChild(deleteBtn);
+      }
+    }
+
+    const quoteBtn = document.createElement('button');
+    quoteBtn.type = 'button';
+    quoteBtn.className = 'chat-quote-popover-btn';
+    quoteBtn.setAttribute('data-chat-quote-action', 'quote');
+    quoteBtn.textContent = '引用';
+    popover.appendChild(quoteBtn);
   };
 
   const ensureChatQuotePopover = () => {
@@ -2005,92 +2919,178 @@ window.PrivateDiscussionChat = (function () {
     }
     const popover = document.createElement('div');
     popover.className = 'chat-quote-popover';
-    popover.innerHTML =
-      '<button type="button" class="chat-quote-popover-btn" data-chat-quote-action="quote">引用</button>';
     popover.addEventListener('mousedown', (event) => event.preventDefault());
     popover.addEventListener('click', (event) => {
       const quoteBtn =
         event.target && event.target.closest
           ? event.target.closest('[data-chat-quote-action="quote"]')
           : null;
-      if (!quoteBtn) return;
+      const colorBtn =
+        event.target && event.target.closest
+          ? event.target.closest('[data-chat-highlight-color]')
+          : null;
+      const deleteBtn =
+        event.target && event.target.closest
+          ? event.target.closest('[data-chat-highlight-action="delete"]')
+          : null;
+      if (!quoteBtn && !colorBtn && !deleteBtn) return;
       event.preventDefault();
       event.stopPropagation();
-      const quoted = chatQuoteSelectionText;
-      if (quoteToInput(quoted, { source: 'chat' })) {
-        const selection = window.getSelection && window.getSelection();
-        if (selection && selection.removeAllRanges) selection.removeAllRanges();
+      if (quoteBtn) {
+        const quoted = getChatQuoteTextFromPopover(popover);
+        if (quoteToInput(quoted, { source: 'chat' })) {
+          clearChatTextSelection();
+        }
+        hideChatQuotePopover();
+        return;
       }
-      hideChatQuotePopover();
+      if (colorBtn) {
+        const color = colorBtn.getAttribute('data-chat-highlight-color') || '';
+        if (popover.dataset.mode === 'edit') {
+          updateChatHighlightColor(popover.dataset.highlightId || '', color);
+        } else {
+          addChatHighlightFromSelection(color);
+        }
+        hideChatQuotePopover();
+        return;
+      }
+      if (deleteBtn) {
+        deleteChatHighlight(popover.dataset.highlightId || '');
+        hideChatQuotePopover();
+      }
     });
     document.body.appendChild(popover);
     chatQuotePopover = popover;
     return popover;
   };
 
-  const showChatQuotePopover = (text, x, y) => {
+  const showChatQuotePopover = (text, x, y, options = {}) => {
     chatQuoteSelectionText = normalizeQuoteText(text);
+    chatQuoteSelection = options.selection || null;
     if (!chatQuoteSelectionText) {
       hideChatQuotePopover();
       return;
     }
     const popover = ensureChatQuotePopover();
+    popover.dataset.mode = options.mode === 'edit' ? 'edit' : 'new';
+    popover.dataset.highlightId = options.highlightId || '';
+    renderChatQuotePopoverContent(popover, {
+      mode: popover.dataset.mode,
+      canHighlight: !!(options.canHighlight || chatQuoteSelection),
+    });
     popover.classList.add('is-open');
     requestAnimationFrame(() => clampChatQuotePopoverPosition(x, y, popover));
   };
 
+  const showChatPopoverForCurrentSelection = (fallbackPoint) => {
+    const root = getChatRoot();
+    const historyDiv = root && root.querySelector('#chat-history');
+    if (!historyDiv) {
+      hideChatQuotePopover();
+      return;
+    }
+
+    const selection = window.getSelection && window.getSelection();
+    if (!selection || selection.rangeCount < 1 || selection.isCollapsed) {
+      hideChatQuotePopover();
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const startContent = getChatSelectableContent(range.startContainer);
+    const endContent = getChatSelectableContent(range.endContainer);
+    if (
+      !startContent ||
+      !endContent ||
+      !historyDiv.contains(startContent) ||
+      !historyDiv.contains(endContent)
+    ) {
+      hideChatQuotePopover();
+      return;
+    }
+
+    const selectedText = normalizeQuoteText(selection.toString());
+    if (!selectedText) {
+      hideChatQuotePopover();
+      return;
+    }
+
+    let highlightSelection = null;
+    const startHighlightContent = getChatHighlightableContent(range.startContainer);
+    const endHighlightContent = getChatHighlightableContent(range.endContainer);
+    if (
+      startHighlightContent
+      && startHighlightContent === endHighlightContent
+      && rangeInsideChatContent(range, startHighlightContent)
+    ) {
+      const pending = getChatRangeOffsets(range, startHighlightContent);
+      if (pending.text && pending.text.trim() && pending.end > pending.start) {
+        highlightSelection = Object.assign({}, pending, {
+          messageKey: startHighlightContent.dataset.chatMessageKey || '',
+        });
+      }
+    }
+
+    const point = getChatRangePopoverPoint(range, fallbackPoint);
+    showChatQuotePopover(selectedText, point.x, point.y, {
+      selection: highlightSelection,
+    });
+  };
+
+  const scheduleChatQuoteSelectionPopover = (event, delay = 0) => {
+    const target = event && event.target;
+    if (target && target.closest && target.closest('.chat-quote-popover')) return;
+    if (target && target.closest && target.closest('.dpr-chat-text-highlight')) return;
+    if (target && target.closest && target.closest('textarea,input,select,button')) {
+      hideChatQuotePopover();
+      return;
+    }
+    const fallbackPoint = getChatPointFromEvent(event);
+    window.clearTimeout(chatQuoteSelectionTimer);
+    chatQuoteSelectionTimer = window.setTimeout(() => {
+      showChatPopoverForCurrentSelection(fallbackPoint);
+    }, delay);
+  };
+
   const handleChatHistorySelectionMouseUp = (event) => {
-    window.setTimeout(() => {
-      const target = event && event.target;
-      if (target && target.closest && target.closest('.chat-quote-popover')) return;
-      if (target && target.closest && target.closest('textarea,input,select,button')) {
-        hideChatQuotePopover();
-        return;
-      }
+    scheduleChatQuoteSelectionPopover(event, 0);
+  };
 
-      const root = getChatRoot();
-      const historyDiv = root && root.querySelector('#chat-history');
-      if (!historyDiv) {
-        hideChatQuotePopover();
-        return;
-      }
+  const handleChatHistorySelectionTouchEnd = (event) => {
+    chatQuoteLastTouchAt = Date.now();
+    scheduleChatQuoteSelectionPopover(event, 180);
+  };
 
-      const selection = window.getSelection && window.getSelection();
-      if (!selection || selection.rangeCount < 1 || selection.isCollapsed) {
-        hideChatQuotePopover();
-        return;
-      }
+  const handleChatHistorySelectionPointerUp = (event) => {
+    if (!event || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
+    chatQuoteLastTouchAt = Date.now();
+    scheduleChatQuoteSelectionPopover(event, 180);
+  };
 
-      const range = selection.getRangeAt(0);
-      const startContent = getChatSelectableContent(range.startContainer);
-      const endContent = getChatSelectableContent(range.endContainer);
-      if (
-        !startContent ||
-        !endContent ||
-        !historyDiv.contains(startContent) ||
-        !historyDiv.contains(endContent)
-      ) {
-        hideChatQuotePopover();
-        return;
-      }
+  const handleChatHistorySelectionChange = () => {
+    if (!isLikelyChatTouchDevice() && Date.now() - chatQuoteLastTouchAt > 1200) return;
+    window.clearTimeout(chatQuoteSelectionTimer);
+    chatQuoteSelectionTimer = window.setTimeout(() => {
+      showChatPopoverForCurrentSelection(null);
+    }, 220);
+  };
 
-      const selectedText = normalizeQuoteText(selection.toString());
-      if (!selectedText) {
-        hideChatQuotePopover();
-        return;
-      }
-
-      const rect = range.getBoundingClientRect();
-      const x =
-        rect && rect.left
-          ? rect.left + rect.width / 2
-          : (event.clientX || window.innerWidth / 2);
-      const y =
-        rect && rect.bottom
-          ? rect.bottom + 8
-          : ((event.clientY || window.innerHeight / 2) + 12);
-      showChatQuotePopover(selectedText, x, y);
-    }, 0);
+  const handleChatHighlightClick = (event) => {
+    const target = event && event.target;
+    const mark = target && target.closest ? target.closest('.dpr-chat-text-highlight') : null;
+    if (!mark) return;
+    const content = mark.closest && mark.closest('#chat-history .msg-content[data-chat-message-key]');
+    if (!content) return;
+    const item = getChatHighlightById(mark.dataset.chatHighlightId || '');
+    if (!item) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clearChatTextSelection();
+    showChatQuotePopover(item.text, event.clientX || window.innerWidth / 2, (event.clientY || window.innerHeight / 2) + 12, {
+      mode: 'edit',
+      highlightId: item.id,
+      canHighlight: true,
+    });
   };
 
   const bindChatQuoteSelectionEventsOnce = () => {
@@ -2098,6 +3098,10 @@ window.PrivateDiscussionChat = (function () {
     chatQuoteSelectionBound = true;
 
     document.addEventListener('mouseup', handleChatHistorySelectionMouseUp, true);
+    document.addEventListener('touchend', handleChatHistorySelectionTouchEnd, true);
+    document.addEventListener('pointerup', handleChatHistorySelectionPointerUp, true);
+    document.addEventListener('selectionchange', handleChatHistorySelectionChange, true);
+    document.addEventListener('click', handleChatHighlightClick, true);
     document.addEventListener(
       'pointerdown',
       (event) => {
@@ -2242,6 +3246,8 @@ window.PrivateDiscussionChat = (function () {
     clearEmptyChatState(historyDiv);
     const nowStr = new Date().toLocaleString();
     // 立刻用“气泡样式”渲染用户消息（避免等刷新后才套上 msg-content-user）
+    let liveUserItem = null;
+    let liveUserContent = null;
     try {
       const userItem = document.createElement('div');
       userItem.className = 'msg-item';
@@ -2257,6 +3263,8 @@ window.PrivateDiscussionChat = (function () {
       userItem.appendChild(time);
       userItem.appendChild(content);
       historyDiv.appendChild(userItem);
+      liveUserItem = userItem;
+      liveUserContent = content;
     } catch {
       // 回退：至少不要把用户输入当作 HTML 注入
       const userItem = document.createElement('div');
@@ -2266,6 +3274,8 @@ window.PrivateDiscussionChat = (function () {
       content.textContent = question;
       userItem.appendChild(content);
       historyDiv.appendChild(userItem);
+      liveUserItem = userItem;
+      liveUserContent = content;
     }
     historyDiv.scrollTop = historyDiv.scrollHeight;
 
@@ -2358,6 +3368,13 @@ window.PrivateDiscussionChat = (function () {
       time: nowStr,
     });
     await saveChatHistory(paperId, history);
+    assignChatMessageIdentity(
+      liveUserItem,
+      liveUserContent,
+      history[history.length - 1],
+      history,
+      history.length - 1,
+    );
 
     // 更新问题导航（新增了用户提问）
     renderQuestionNav();
@@ -2507,6 +3524,7 @@ window.PrivateDiscussionChat = (function () {
       if (renderMathInEl) {
         renderMathInEl(aiAnswerDiv);
       }
+      scheduleChatAnswerOutlineUpdate();
     };
 
     if (toggleBtn && thinkingContainer) {
@@ -2716,13 +3734,23 @@ window.PrivateDiscussionChat = (function () {
           time: nowStrAnswer,
         });
       }
-      updated.push({
+      const savedAiMessage = {
         role: 'ai',
         content: answerBuffer || '（模型未返回内容）',
         time: nowStrAnswer,
         model,
-      });
+      };
+      updated.push(savedAiMessage);
       await saveChatHistory(paperId, updated);
+      assignChatMessageIdentity(
+        aiItem,
+        aiAnswerDiv,
+        savedAiMessage,
+        updated,
+        updated.length - 1,
+      );
+      renderChatHighlightsForContent(aiAnswerDiv);
+      scheduleChatAnswerOutlineUpdate();
 
       // 新一轮对话完成后，再次刷新 Zotero 元数据
       try {
@@ -2788,6 +3816,7 @@ window.PrivateDiscussionChat = (function () {
     const mainContent = document.querySelector('.markdown-section');
     if (!mainContent || !paperId) return;
 
+    activeChatPaperId = paperId;
     removeChatArtifacts();
     clearPendingQuoteBlocks({ render: false });
     const container = document.createElement('div');
