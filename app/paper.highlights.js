@@ -460,7 +460,6 @@ window.DPRPaperHighlights = (function () {
     popover.dataset.highlightId = highlightId;
     const isEdit = mode === 'edit';
     popover.innerHTML = [
-      `<div class="dpr-highlight-popover-title">${isEdit ? '修改高亮' : '选择高亮颜色'}</div>`,
       '<div class="dpr-highlight-color-row">',
       COLORS.map((item) => (
         `<button type="button" class="dpr-highlight-color-btn" data-highlight-color="${escapeHtml(item.value)}" title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}" style="--dpr-highlight-swatch:${escapeHtml(item.value)}"></button>`

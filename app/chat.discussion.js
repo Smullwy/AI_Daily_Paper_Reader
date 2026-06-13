@@ -15,7 +15,8 @@ window.PrivateDiscussionChat = (function () {
     { key: 'yellow', label: '黄色', value: '#fff2a8' },
     { key: 'green', label: '绿色', value: '#c9f7d4' },
     { key: 'blue', label: '蓝色', value: '#cfe8ff' },
-    { key: 'pink', label: '粉色', value: '#ffd6d6' },
+    { key: 'purple', label: '紫色', value: '#eadcff' },
+    { key: 'red', label: '红色', value: '#ffd6d6' },
   ]);
   const CHAT_ANSWER_OUTLINE_MAX_ITEMS = 10;
   let remoteChatDbCache = null;
@@ -2876,11 +2877,6 @@ window.PrivateDiscussionChat = (function () {
     popover.innerHTML = '';
 
     if (canHighlight) {
-      const title = document.createElement('div');
-      title.className = 'chat-highlight-popover-title';
-      title.textContent = mode === 'edit' ? '修改高亮' : '选择高亮颜色';
-      popover.appendChild(title);
-
       const row = document.createElement('div');
       row.className = 'chat-highlight-color-row';
       CHAT_HIGHLIGHT_COLORS.forEach((item) => {
