@@ -145,8 +145,14 @@
     var btn = document.createElement('button');
     btn.id = 'custom-toggle-btn';
     btn.className = 'custom-toggle-btn';
-    btn.innerHTML = '⚙️';
+    btn.innerHTML = [
+      '<svg class="custom-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">',
+      '<circle cx="12" cy="12" r="3.4"></circle>',
+      '<path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.07a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.04A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 10 3.01V3a2 2 0 1 1 4 0v.01a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.04A1.7 1.7 0 0 0 19.4 15Z"></path>',
+      '</svg>',
+    ].join('');
     btn.title = '设置';
+    btn.setAttribute('aria-label', '设置');
 
     btn.addEventListener('click', function () {
       var event = new CustomEvent('ensure-arxiv-ui');
