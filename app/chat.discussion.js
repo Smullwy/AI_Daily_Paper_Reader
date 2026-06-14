@@ -2537,6 +2537,20 @@ window.PrivateDiscussionChat = (function () {
     return source.length > 34 ? `${source.slice(0, 34)}...` : source;
   };
 
+  const summarizeQuestionQuoteForNav = (text) => {
+    const quote = String(text || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('>'))
+      .map((line) => line.replace(/^>\s?/, '').trim())
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!quote) return '';
+    return quote.length > 52 ? `${quote.slice(0, 52)}...` : quote;
+  };
+
   const collectQuestionNavItems = (historyDiv) => {
     if (!historyDiv || !historyDiv.querySelectorAll) return [];
     return Array.from(historyDiv.querySelectorAll('.msg-item'))
@@ -2555,6 +2569,7 @@ window.PrivateDiscussionChat = (function () {
           index,
           title: fullText,
           label: summarizeQuestionForNav(fullText) || `问题 ${index + 1}`,
+          quote: summarizeQuestionQuoteForNav(fullText),
         };
       });
   };
@@ -2620,10 +2635,23 @@ window.PrivateDiscussionChat = (function () {
       index.className = 'chat-question-nav-index';
       index.textContent = String(entry.index + 1);
       btn.appendChild(index);
+
+      const body = document.createElement('span');
+      body.className = 'chat-question-nav-body';
+
       const text = document.createElement('span');
       text.className = 'chat-question-nav-text';
       text.textContent = entry.label;
-      btn.appendChild(text);
+      body.appendChild(text);
+
+      if (entry.quote) {
+        const quote = document.createElement('span');
+        quote.className = 'chat-question-nav-quote';
+        quote.textContent = `引用：${entry.quote}`;
+        body.appendChild(quote);
+      }
+
+      btn.appendChild(body);
       list.appendChild(btn);
     });
     menu.appendChild(list);
