@@ -1966,6 +1966,26 @@ window.PrivateDiscussionChat = (function () {
     return active;
   };
 
+  const getQuestionTextForChatAnswer = (answerItem) => {
+    let cursor = answerItem ? answerItem.previousElementSibling : null;
+    while (cursor) {
+      const content = cursor.querySelector ? cursor.querySelector('.msg-content-user') : null;
+      if (content) {
+        const raw = String(content.innerText || content.textContent || '');
+        const detail = raw
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line && !line.startsWith('>') && !/^引用(?:原文|对话)[:：]?$/.test(line))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return detail || raw.replace(/\s+/g, ' ').trim() || '当前问题';
+      }
+      cursor = cursor.previousElementSibling;
+    }
+    return '当前问题';
+  };
+
   const syncActiveChatAnswerOutline = (outline, historyDiv) => {
     if (!outline || !historyDiv) return;
     const buttons = Array.from(outline.querySelectorAll('.chat-answer-outline-item'));
@@ -2074,7 +2094,7 @@ window.PrivateDiscussionChat = (function () {
       return;
     }
     if (state.mode === 'resize') {
-      const delta = (dx + dy) / 260;
+      const delta = (dy - dx) / 260;
       chatAnswerOutlineScale = clampChatOutlineNumber(state.startScale + delta, 0.65, 1.7);
       applyChatAnswerOutlineScale(outline);
     }
@@ -2104,27 +2124,47 @@ window.PrivateDiscussionChat = (function () {
     chatAnswerOutlineDragState = null;
   };
 
-  const createChatAnswerOutlineControls = () => {
+  const createChatAnswerOutlineControls = (questionText = '') => {
     const controls = document.createElement('div');
     controls.className = 'chat-answer-outline-controls';
-    [
-      ['resize', '⇲', '缩放大纲'],
-      [
-        'collapse',
-        chatAnswerOutlineCollapsed ? '+' : '−',
-        chatAnswerOutlineCollapsed ? '拖动 / 展开大纲' : '拖动 / 收起大纲',
-      ],
-    ].forEach(([action, label, title]) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `chat-answer-outline-tool chat-answer-outline-tool-${action}`;
-      btn.setAttribute('data-outline-tool', action);
-      btn.setAttribute('aria-label', title);
-      btn.title = title;
-      btn.textContent = label;
-      controls.appendChild(btn);
-    });
+    const label = questionText || '当前问题';
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'chat-answer-outline-drag-toggle';
+    handle.setAttribute('data-outline-tool', 'collapse');
+    handle.setAttribute(
+      'aria-label',
+      chatAnswerOutlineCollapsed ? '拖动 / 展开大纲' : '拖动 / 收起大纲',
+    );
+    handle.title = `${label} · ${chatAnswerOutlineCollapsed ? '拖动 / 展开大纲' : '拖动 / 收起大纲'}`;
+
+    const question = document.createElement('span');
+    question.className = 'chat-answer-outline-question';
+    question.textContent = label;
+    handle.appendChild(question);
+
+    const icon = document.createElement('span');
+    icon.className = 'chat-answer-outline-toggle-symbol';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = chatAnswerOutlineCollapsed ? '+' : '−';
+    handle.appendChild(icon);
+
+    controls.appendChild(handle);
     return controls;
+  };
+
+  const createChatAnswerOutlineResizeControl = () => {
+    const row = document.createElement('div');
+    row.className = 'chat-answer-outline-resize-row';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chat-answer-outline-tool chat-answer-outline-tool-resize';
+    btn.setAttribute('data-outline-tool', 'resize');
+    btn.setAttribute('aria-label', '缩放大纲');
+    btn.title = '沿左下到右上缩放大纲';
+    btn.textContent = '⇗';
+    row.appendChild(btn);
+    return row;
   };
 
   const ensureChatAnswerOutlineContainer = () => {
@@ -2221,7 +2261,7 @@ window.PrivateDiscussionChat = (function () {
     const activeItem = getActiveChatAnswerItem(historyDiv);
     const contentEl = activeItem && activeItem.querySelector('.msg-content-ai');
     const items = collectChatAnswerOutlineItems(contentEl);
-    if (!contentEl || !items.length) {
+    if (!contentEl) {
       outline.hidden = true;
       outline.innerHTML = '';
       return;
@@ -2231,7 +2271,7 @@ window.PrivateDiscussionChat = (function () {
     outline.innerHTML = '';
     applyChatAnswerOutlineScale(outline);
     outline.classList.toggle('is-collapsed', chatAnswerOutlineCollapsed);
-    outline.appendChild(createChatAnswerOutlineControls());
+    outline.appendChild(createChatAnswerOutlineControls(getQuestionTextForChatAnswer(activeItem)));
 
     if (chatAnswerOutlineCollapsed) {
       return;
@@ -2239,17 +2279,27 @@ window.PrivateDiscussionChat = (function () {
 
     const list = document.createElement('div');
     list.className = 'chat-answer-outline-list';
-    items.forEach((item) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `chat-answer-outline-item is-level-${Math.min(4, Math.max(1, item.level))}`;
-      btn.setAttribute('data-outline-target', item.id);
-      btn.title = item.text;
-      btn.textContent = item.text;
-      list.appendChild(btn);
-    });
+    if (items.length) {
+      items.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `chat-answer-outline-item is-level-${Math.min(4, Math.max(1, item.level))}`;
+        btn.setAttribute('data-outline-target', item.id);
+        btn.title = item.text;
+        btn.textContent = item.text;
+        list.appendChild(btn);
+      });
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'chat-answer-outline-empty';
+      empty.textContent = '无';
+      list.appendChild(empty);
+    }
     outline.appendChild(list);
-    syncActiveChatAnswerOutline(outline, historyDiv);
+    outline.appendChild(createChatAnswerOutlineResizeControl());
+    if (items.length) {
+      syncActiveChatAnswerOutline(outline, historyDiv);
+    }
   };
 
   let chatAnswerOutlineTimer = 0;
