@@ -18,7 +18,6 @@ window.PrivateDiscussionChat = (function () {
     { key: 'purple', label: '紫色', value: '#eadcff' },
     { key: 'red', label: '红色', value: '#ffd6d6' },
   ]);
-  const CHAT_ANSWER_OUTLINE_MAX_ITEMS = 10;
   let remoteChatDbCache = null;
   let remoteChatDbLoadedPath = '';
   let activeChatPaperId = '';
@@ -1872,10 +1871,9 @@ window.PrivateDiscussionChat = (function () {
     };
   };
 
-  const trimChatOutlineLabel = (text, maxLength = 58) => {
+  const trimChatOutlineLabel = (text) => {
     const value = String(text || '').replace(/\s+/g, ' ').trim();
-    if (!value) return '';
-    return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+    return value || '';
   };
 
   const ensureChatOutlineTargetId = (el, index) => {
@@ -1907,8 +1905,7 @@ window.PrivateDiscussionChat = (function () {
           level,
         };
       })
-      .filter(Boolean)
-      .slice(0, CHAT_ANSWER_OUTLINE_MAX_ITEMS);
+      .filter(Boolean);
   };
 
   const scrollChatHistoryToElement = (historyDiv, target) => {
