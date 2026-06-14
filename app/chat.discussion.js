@@ -1798,6 +1798,26 @@ window.PrivateDiscussionChat = (function () {
       .forEach((contentEl) => renderChatHighlightsForContent(contentEl));
   };
 
+  const disableChatHeadingPageAnchors = (root) => {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((heading) => {
+      heading.removeAttribute('id');
+      heading.querySelectorAll('a').forEach((link) => {
+        const href = String(link.getAttribute('href') || '');
+        const isGeneratedAnchor =
+          href.startsWith('#') ||
+          link.classList.contains('anchor') ||
+          link.hasAttribute('data-id');
+        if (!isGeneratedAnchor || !link.parentNode) return;
+        const parent = link.parentNode;
+        while (link.firstChild) {
+          parent.insertBefore(link.firstChild, link);
+        }
+        link.remove();
+      });
+    });
+  };
+
   const rangeInsideChatContent = (range, root) => {
     if (!range || !root) return false;
     const elementNode = window.Node ? window.Node.ELEMENT_NODE : 1;
@@ -2294,6 +2314,7 @@ window.PrivateDiscussionChat = (function () {
           contentDiv.textContent = markdown;
         } else if (renderMarkdownWithTables) {
           contentDiv.innerHTML = renderMarkdownWithTables(markdown);
+          disableChatHeadingPageAnchors(contentDiv);
         } else {
           contentDiv.textContent = markdown;
         }
@@ -2341,6 +2362,7 @@ window.PrivateDiscussionChat = (function () {
           thinkingContent.textContent = source;
         } else {
           thinkingContent.innerHTML = renderMarkdownWithTables(source);
+          disableChatHeadingPageAnchors(thinkingContent);
         }
         thinkingContent.classList.toggle('thinking-collapsed', thinkingCollapsed);
         toggleBtn.textContent = thinkingCollapsed ? '展开' : '收起';
@@ -3499,6 +3521,7 @@ window.PrivateDiscussionChat = (function () {
         thinkingContent.textContent = source;
       } else {
         thinkingContent.innerHTML = renderMarkdownWithTables(source);
+        disableChatHeadingPageAnchors(thinkingContent);
       }
       thinkingContent.classList.toggle('thinking-collapsed', thinkingCollapsed);
       if (!thinkingCollapsed && renderMathInEl) {
@@ -3511,6 +3534,7 @@ window.PrivateDiscussionChat = (function () {
       const content = answerBuffer || '（空响应）';
       if (renderMarkdownWithTables) {
         aiAnswerDiv.innerHTML = renderMarkdownWithTables(content);
+        disableChatHeadingPageAnchors(aiAnswerDiv);
       } else {
         aiAnswerDiv.textContent = content;
       }
