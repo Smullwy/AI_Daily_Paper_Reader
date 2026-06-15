@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-15</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-15 05:15 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读：高效深度学习模型用静息态功能连接预测个体任务激活，以及行为中感知与价值的多阶段高效编码，速读涵盖神经动力学解耦、潜伏方程提取与皮层本体感觉增强。</p>
-<p>最值得看：静息态→个体化任务反应的高分预测模型（9分）和感知-价值统一编码框架（8分），为脑功能个体差异研究提供新工具。</p>
-<p>下步建议：可关注模型在疾病预后分型或个性化脑机接口中的落地潜力，普通读者可从开源代码复现入手。</p>
+      <p>今日精读2篇脑科学前沿研究，速读3篇交叉方法论文，聚焦个体化脑功能预测与感知-价值编码机制。</p>
+<p>最有启发性发现：静息态功能连接可高效预测个体任务激活（9分精读），而目标导向行为中感知与价值存在多阶段高效编码（8分精读）。</p>
+<p>建议关注个体化预测模型在神经调控中的应用潜力，并留意跨脑区神经动态解耦新方法（BiXformer）如何提升解码精度。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/15/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -123,3 +122,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
