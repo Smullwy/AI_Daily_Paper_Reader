@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-16</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-16 05:50 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日解码大脑感知：从听觉注意力到3D视觉，高精度模型与跨模态重建齐头并进。</p>
-<p>FAConformer 用频域卷积突破听觉注意解码，跨线索 3D 重建揭示视觉皮层如何表征物体结构。</p>
-<p>建议关注脑机接口如何将这类神经解码技术推向助听、机器人与脑成像临床落地。</p>
+      <p>今日精读FAConformer与3D感知重建两篇高分研究，并速读脑机接口、脑成像统计及大脑词性表征等前沿论文。</p>
+<p>最值得关注的是：听觉注意力解码的频域感知卷积Transformer架构突破，以及从视觉皮层跨线索重建3D物体结构的惊艳能力。</p>
+<p>建议读者优先阅读这两篇9分工作，它们分别在神经解码精度与感知重建维度上，带来了令人振奋的进展。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/16/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -105,3 +104,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
