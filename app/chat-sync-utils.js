@@ -28,6 +28,33 @@
   const normalizePaperId = (paperId) =>
     normalizeText(paperId).replace(/^#\//, '').replace(/\.md$/i, '').replace(/\/$/, '');
 
+  const normalizeQuoteBlocks = (quotes) =>
+    (Array.isArray(quotes) ? quotes : [])
+      .map((quote) => {
+        const source = quote && quote.source === 'chat'
+          ? 'chat'
+          : quote && quote.source === 'paper'
+            ? 'paper'
+            : 'auto';
+        const text = String((quote && quote.text) || '').trim();
+        if (!text) return null;
+        const out = { source, text };
+        const start = Number(quote && quote.start);
+        const end = Number(quote && quote.end);
+        const paperId = normalizePaperId(quote && quote.paperId);
+        const messageKey = normalizeText(quote && quote.messageKey);
+        const highlightId = normalizeText(quote && quote.highlightId);
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+          out.start = start;
+          out.end = end;
+        }
+        if (paperId) out.paperId = paperId;
+        if (messageKey) out.messageKey = messageKey;
+        if (highlightId) out.highlightId = highlightId;
+        return out;
+      })
+      .filter(Boolean);
+
   const normalizeChatMessage = (message) => {
     const source = message && typeof message === 'object' ? message : {};
     const rawRole = normalizeText(source.role).toLowerCase();
@@ -41,8 +68,10 @@
     };
     const time = normalizeText(source.time);
     const model = normalizeText(source.model);
+    const quotes = normalizeQuoteBlocks(source.quotes || source.quoteBlocks);
     if (time) out.time = time;
     if (model && role === 'ai') out.model = model;
+    if (role === 'user' && quotes.length) out.quotes = quotes;
     return out;
   };
 

@@ -1971,14 +1971,15 @@ window.PrivateDiscussionChat = (function () {
     while (cursor) {
       const content = cursor.querySelector ? cursor.querySelector('.msg-content-user') : null;
       if (content) {
-        const raw = String(content.innerText || content.textContent || '');
-        const detail = raw
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter((line) => line && !line.startsWith('>') && !/^引用(?:原文|对话)[:：]?$/.test(line))
-          .join(' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+        const raw = String(
+          content._chatRawText ||
+          (content.dataset && content.dataset.chatRawText) ||
+          content.innerText ||
+          content.textContent ||
+          '',
+        );
+        const parsed = parseUserQuestionWithQuotes(raw);
+        const detail = parsed.question.replace(/\s+/g, ' ').trim();
         return detail || raw.replace(/\s+/g, ' ').trim() || '当前问题';
       }
       cursor = cursor.previousElementSibling;
@@ -2311,6 +2312,115 @@ window.PrivateDiscussionChat = (function () {
     });
   };
 
+  const normalizeInlineQuoteText = (text) =>
+    String(text || '')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const previewInlineQuoteText = (text, limit = 180) => {
+    const normalized = normalizeInlineQuoteText(text);
+    return normalized.length > limit ? `${normalized.slice(0, limit)}...` : normalized;
+  };
+
+  const normalizeQuoteBlockMeta = (quote, fallbackText = '') => {
+    const source = quote && quote.source === 'chat'
+      ? 'chat'
+      : quote && quote.source === 'paper'
+        ? 'paper'
+        : 'auto';
+    const out = {
+      source,
+      text: String((quote && quote.text) || fallbackText || ''),
+    };
+    const id = String((quote && quote.id) || '').trim();
+    const start = Number(quote && quote.start);
+    const end = Number(quote && quote.end);
+    if (id) out.id = id;
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      out.start = start;
+      out.end = end;
+    }
+    const paperId = String((quote && quote.paperId) || '').trim();
+    const messageKey = String((quote && quote.messageKey) || '').trim();
+    const highlightId = String((quote && quote.highlightId) || '').trim();
+    if (paperId) out.paperId = paperId;
+    if (messageKey) out.messageKey = messageKey;
+    if (highlightId) out.highlightId = highlightId;
+    return out;
+  };
+
+  const parseUserQuestionWithQuotes = (text) => {
+    const quoteBlocks = [];
+    const questionLines = [];
+    let currentQuote = [];
+    const flushQuote = () => {
+      const quote = currentQuote.join('\n').trim();
+      if (quote) quoteBlocks.push(quote);
+      currentQuote = [];
+    };
+
+    String(text || '')
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('>')) {
+          currentQuote.push(trimmed.replace(/^>\s?/, ''));
+          return;
+        }
+        flushQuote();
+        if (!trimmed || /^引用(?:原文|对话)[:：]?$/.test(trimmed)) return;
+        questionLines.push(line);
+      });
+    flushQuote();
+
+    return {
+      question: questionLines.join('\n').trim(),
+      quotes: quoteBlocks,
+    };
+  };
+
+  const renderUserQuestionContent = (contentEl, text, quoteMeta = []) => {
+    if (!contentEl) return;
+    const raw = String(text || '');
+    const parsed = parseUserQuestionWithQuotes(raw);
+    contentEl._chatRawText = raw;
+    contentEl.dataset.chatHasRawText = '1';
+    contentEl.innerHTML = '';
+
+    if (parsed.quotes.length) {
+      const quotesWrap = document.createElement('div');
+      quotesWrap.className = 'chat-user-question-quotes';
+      parsed.quotes.forEach((quoteText, index) => {
+        const meta = normalizeQuoteBlockMeta(
+          Array.isArray(quoteMeta) ? quoteMeta[index] : null,
+          quoteText,
+        );
+        const quote = document.createElement('button');
+        quote.type = 'button';
+        quote.className = 'chat-user-question-quote';
+        quote.setAttribute('data-chat-question-quote-index', String(index));
+        quote._chatQuoteText = quoteText;
+        quote._chatQuoteTarget = meta;
+        quote.dataset.quoteSource = meta.source;
+        quote.title = quoteText;
+        quote.textContent = `引用：${previewInlineQuoteText(quoteText)}`;
+        quotesWrap.appendChild(quote);
+      });
+      contentEl.appendChild(quotesWrap);
+    }
+
+    if (parsed.question) {
+      const question = document.createElement('div');
+      question.className = 'chat-user-question-text';
+      question.textContent = parsed.question;
+      contentEl.appendChild(question);
+    } else if (!parsed.quotes.length) {
+      contentEl.textContent = raw;
+    }
+  };
+
   const renderHistory = async (paperId) => {
     activeChatPaperId = paperId || activeChatPaperId;
     const historyDiv = document.getElementById('chat-history');
@@ -2361,7 +2471,7 @@ window.PrivateDiscussionChat = (function () {
         const markdown = msg.content || '';
 
         if (isUser) {
-          contentDiv.textContent = markdown;
+          renderUserQuestionContent(contentDiv, markdown, msg.quotes || msg.quoteBlocks || []);
         } else if (renderMarkdownWithTables) {
           contentDiv.innerHTML = renderMarkdownWithTables(markdown);
           disableChatHeadingPageAnchors(contentDiv);
@@ -2454,6 +2564,34 @@ window.PrivateDiscussionChat = (function () {
     }
   };
 
+  const fastScrollElementTo = (el, top, duration = 150) => {
+    if (!el) return;
+    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    const targetTop = Math.max(0, Math.min(Number(top) || 0, maxTop));
+    if (el._chatFastScrollFrame) {
+      cancelAnimationFrame(el._chatFastScrollFrame);
+      el._chatFastScrollFrame = 0;
+    }
+    if (duration <= 0 || Math.abs(el.scrollTop - targetTop) < 2) {
+      el.scrollTop = targetTop;
+      return;
+    }
+    const startTop = el.scrollTop;
+    const delta = targetTop - startTop;
+    const startTime = performance.now();
+    const tick = (now) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.scrollTop = startTop + delta * eased;
+      if (progress < 1) {
+        el._chatFastScrollFrame = requestAnimationFrame(tick);
+      } else {
+        el._chatFastScrollFrame = 0;
+      }
+    };
+    el._chatFastScrollFrame = requestAnimationFrame(tick);
+  };
+
   const ensureQuestionNavContainer = () => {
     const root = getChatRoot();
     if (!root) return null;
@@ -2505,10 +2643,7 @@ window.PrivateDiscussionChat = (function () {
       const history = root.querySelector('#chat-history');
       if (!target || !history) return;
       event.preventDefault();
-      history.scrollTo({
-        top: Math.max(target.offsetTop - 12, 0),
-        behavior: 'smooth',
-      });
+      fastScrollElementTo(history, Math.max(target.offsetTop - 12, 0), 120);
       target.classList.add('is-chat-jump-highlight');
       window.setTimeout(() => {
         target.classList.remove('is-chat-jump-highlight');
@@ -2526,27 +2661,16 @@ window.PrivateDiscussionChat = (function () {
   const summarizeQuestionForNav = (text) => {
     const normalized = String(text || '').replace(/\s+/g, ' ').trim();
     if (!normalized) return '';
-    const detail = String(text || '')
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('>') && !/^引用(?:原文|对话)[:：]?$/.test(line))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const detail = parseUserQuestionWithQuotes(text).question.replace(/\s+/g, ' ').trim();
     const source = detail || normalized;
     return source.length > 34 ? `${source.slice(0, 34)}...` : source;
   };
 
   const summarizeQuestionQuoteForNav = (text) => {
-    const quote = String(text || '')
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith('>'))
-      .map((line) => line.replace(/^>\s?/, '').trim())
+    const quote = parseUserQuestionWithQuotes(text).quotes
+      .map((item) => normalizeInlineQuoteText(item))
       .filter(Boolean)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+      .join(' ');
     if (!quote) return '';
     return quote.length > 52 ? `${quote.slice(0, 52)}...` : quote;
   };
@@ -2563,7 +2687,13 @@ window.PrivateDiscussionChat = (function () {
       .map(({ item, content }, index) => {
         if (!item.id) item.id = `user-question-${index}`;
         item.dataset.questionIndex = String(index);
-        const fullText = (content.innerText || content.textContent || '').trim();
+        const fullText = String(
+          content._chatRawText ||
+          (content.dataset && content.dataset.chatRawText) ||
+          content.innerText ||
+          content.textContent ||
+          '',
+        ).trim();
         return {
           id: item.id,
           index,
@@ -2817,11 +2947,16 @@ window.PrivateDiscussionChat = (function () {
     closeQuickQuestionsPanel(root);
     closeQuestionsPanel(root);
     hideChatQuotePopover();
-    pendingQuoteBlocks.push({
+    pendingQuoteBlocks.push(normalizeQuoteBlockMeta({
       id: `quote-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
       source: options.source === 'chat' ? 'chat' : 'paper',
       text: normalized,
-    });
+      paperId: options.paperId,
+      messageKey: options.messageKey,
+      highlightId: options.highlightId,
+      start: options.start,
+      end: options.end,
+    }, normalized));
     renderPendingQuoteStack(root);
     resizeChatInput(input);
     input.focus();
@@ -2920,6 +3055,320 @@ window.PrivateDiscussionChat = (function () {
       return item ? item.text : '';
     }
     return chatQuoteSelectionText;
+  };
+
+  const getChatQuoteOptionsFromPopover = (popover) => {
+    const base = { source: 'chat' };
+    if (!popover) return base;
+    if (popover.dataset.mode === 'edit') {
+      const item = getChatHighlightById(popover.dataset.highlightId || '');
+      if (!item) return base;
+      return {
+        source: 'chat',
+        messageKey: item.messageKey,
+        highlightId: item.id,
+        start: item.start,
+        end: item.end,
+      };
+    }
+    if (!chatQuoteSelection) return base;
+    return {
+      source: 'chat',
+      messageKey: chatQuoteSelection.messageKey,
+      start: chatQuoteSelection.start,
+      end: chatQuoteSelection.end,
+    };
+  };
+
+  const getQuoteJumpNeedles = (text) => {
+    const normalized = normalizeInlineQuoteText(text);
+    if (!normalized) return [];
+    const candidates = [normalized];
+    if (normalized.length > 140) {
+      candidates.push(normalized.slice(0, 140), normalized.slice(-140));
+    }
+    if (normalized.length > 80) {
+      candidates.push(normalized.slice(0, 80));
+    }
+    return Array.from(new Set(candidates.filter((item) => item.length >= 8)));
+  };
+
+  const getQuoteJumpTextNodes = (root, options = {}) => {
+    const ignoredSelector = options.ignoredSelector || 'script, style, textarea, input, button';
+    const excluded = Array.isArray(options.exclude) ? options.exclude.filter(Boolean) : [];
+    const textNodes = [];
+    if (!root || !document.createTreeWalker || !window.NodeFilter) {
+      return textNodes;
+    }
+    const nodeFilter = window.NodeFilter;
+    const walker = document.createTreeWalker(root, nodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node && node.parentElement;
+        if (!parent) return nodeFilter.FILTER_REJECT;
+        if (excluded.some((el) => el && el.contains && el.contains(parent))) {
+          return nodeFilter.FILTER_REJECT;
+        }
+        if (parent.closest && parent.closest(ignoredSelector)) {
+          return nodeFilter.FILTER_REJECT;
+        }
+        return nodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let node = walker.nextNode();
+    while (node) {
+      textNodes.push(node);
+      node = walker.nextNode();
+    }
+    return textNodes;
+  };
+
+  const createRangeFromQuoteOffsets = (root, start, end, options = {}) => {
+    const textNodes = getQuoteJumpTextNodes(root, options);
+    const rangeStart = Number(start);
+    const rangeEnd = Number(end);
+    const total = textNodes.reduce((sum, node) => sum + String(node.nodeValue || '').length, 0);
+    if (
+      !document.createRange ||
+      !Number.isFinite(rangeStart) ||
+      !Number.isFinite(rangeEnd) ||
+      rangeEnd <= rangeStart ||
+      rangeStart < 0 ||
+      rangeEnd > total
+    ) {
+      return null;
+    }
+
+    const locate = (offset) => {
+      let cursor = 0;
+      for (const node of textNodes) {
+        const value = String(node.nodeValue || '');
+        const next = cursor + value.length;
+        if (offset <= next) {
+          return {
+            node,
+            offset: Math.max(0, Math.min(value.length, offset - cursor)),
+          };
+        }
+        cursor = next;
+      }
+      const last = textNodes[textNodes.length - 1];
+      return last ? { node: last, offset: String(last.nodeValue || '').length } : null;
+    };
+
+    const startPos = locate(rangeStart);
+    const endPos = locate(rangeEnd);
+    if (!startPos || !endPos) return null;
+    const range = document.createRange();
+    try {
+      range.setStart(startPos.node, startPos.offset);
+      range.setEnd(endPos.node, endPos.offset);
+      return range;
+    } catch {
+      return null;
+    }
+  };
+
+  const buildQuoteJumpTextIndex = (root, options = {}) => {
+    const textNodes = getQuoteJumpTextNodes(root, options);
+    if (!textNodes.length) return { text: '', map: [] };
+
+    let text = '';
+    const map = [];
+    let lastWasSpace = true;
+    textNodes.forEach((node) => {
+      const value = String(node.nodeValue || '');
+      for (let i = 0; i < value.length; i += 1) {
+        const ch = value[i];
+        if (/\s/.test(ch)) {
+          if (text && !lastWasSpace) {
+            text += ' ';
+            map.push({ node, offset: i });
+            lastWasSpace = true;
+          }
+          continue;
+        }
+        text += ch;
+        map.push({ node, offset: i });
+        lastWasSpace = false;
+      }
+    });
+    return { text, map };
+  };
+
+  const findQuoteJumpRange = (root, quoteText, options = {}) => {
+    const needles = getQuoteJumpNeedles(quoteText);
+    if (!needles.length) return null;
+    const index = buildQuoteJumpTextIndex(root, options);
+    if (!index.text || !index.map.length) return null;
+    let foundAt = -1;
+    let foundNeedle = '';
+    needles.some((needle) => {
+      const at = index.text.indexOf(needle);
+      if (at < 0) return false;
+      foundAt = at;
+      foundNeedle = needle;
+      return true;
+    });
+    if (foundAt < 0 || !foundNeedle) return null;
+    const start = index.map[foundAt];
+    const end = index.map[foundAt + foundNeedle.length - 1];
+    if (!start || !end || !document.createRange) return null;
+    const range = document.createRange();
+    try {
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset + 1);
+      return range;
+    } catch {
+      return null;
+    }
+  };
+
+  const getQuoteJumpTargetElement = (range) => {
+    const start = range && range.startContainer;
+    const parent = start && (start.nodeType === 1 ? start : start.parentElement);
+    if (!parent || !parent.closest) return parent || null;
+    return (
+      parent.closest(
+        'p, li, blockquote, figcaption, td, th, h1, h2, h3, h4, h5, h6, .msg-item',
+      ) ||
+      parent
+    );
+  };
+
+  const pulseQuoteJumpTarget = (el) => {
+    if (!el || !el.classList) return;
+    el.classList.remove('dpr-chat-quote-jump-highlight');
+    void el.offsetWidth;
+    el.classList.add('dpr-chat-quote-jump-highlight');
+    window.setTimeout(() => {
+      if (el.classList) el.classList.remove('dpr-chat-quote-jump-highlight');
+    }, 1500);
+  };
+
+  const scrollWindowToQuoteRange = (range) => {
+    if (!range) return false;
+    const rect = range.getBoundingClientRect();
+    const target = getQuoteJumpTargetElement(range);
+    if (rect && Number.isFinite(rect.top)) {
+      const top = Math.max(window.scrollY + rect.top - window.innerHeight * 0.28, 0);
+      window.scrollTo({ top, behavior: 'smooth' });
+    } else if (target && target.scrollIntoView) {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } else {
+      return false;
+    }
+    pulseQuoteJumpTarget(target);
+    return true;
+  };
+
+  const jumpToPaperQuote = (quoteText, targetMeta = null) => {
+    const root = document.querySelector('.markdown-section');
+    const meta = normalizeQuoteBlockMeta(targetMeta, quoteText);
+    if (
+      root &&
+      meta.source === 'paper' &&
+      (!meta.paperId || !activeChatPaperId || meta.paperId === activeChatPaperId) &&
+      Number.isFinite(meta.start) &&
+      Number.isFinite(meta.end)
+    ) {
+      const preciseRange = createRangeFromQuoteOffsets(root, meta.start, meta.end, {
+        ignoredSelector:
+          'script, style, textarea, input, button, #paper-chat-container, .chat-quote-popover, .dpr-highlight-popover',
+      });
+      if (scrollWindowToQuoteRange(preciseRange)) return true;
+    }
+
+    const range = findQuoteJumpRange(root, quoteText, {
+      ignoredSelector:
+        'script, style, textarea, input, button, #paper-chat-container, .chat-quote-popover, .dpr-highlight-popover',
+    });
+    return scrollWindowToQuoteRange(range);
+  };
+
+  const scrollChatHistoryToQuoteRange = (historyDiv, range) => {
+    if (!historyDiv || !range) return false;
+    const rect = range.getBoundingClientRect();
+    const historyRect = historyDiv.getBoundingClientRect();
+    const target = getQuoteJumpTargetElement(range);
+    if (rect && historyRect && Number.isFinite(rect.top)) {
+      const top = historyDiv.scrollTop + rect.top - historyRect.top - 28;
+      fastScrollElementTo(historyDiv, top, 130);
+    } else if (target) {
+      fastScrollElementTo(historyDiv, Math.max(target.offsetTop - 18, 0), 130);
+    } else {
+      return false;
+    }
+    pulseQuoteJumpTarget(target && target.closest ? target.closest('.msg-item') || target : target);
+    return true;
+  };
+
+  const findChatMessageContentByKey = (historyDiv, messageKey) => {
+    if (!historyDiv || !messageKey || !historyDiv.querySelectorAll) return null;
+    return Array.from(historyDiv.querySelectorAll('.msg-content[data-chat-message-key]'))
+      .find((el) => el.dataset && el.dataset.chatMessageKey === messageKey) || null;
+  };
+
+  const jumpToChatQuote = (quoteText, currentItem, targetMeta = null) => {
+    const root = getChatRoot();
+    const historyDiv = root && root.querySelector('#chat-history');
+    if (!historyDiv) return false;
+    const meta = normalizeQuoteBlockMeta(targetMeta, quoteText);
+    if (
+      meta.source === 'chat' &&
+      meta.messageKey &&
+      Number.isFinite(meta.start) &&
+      Number.isFinite(meta.end)
+    ) {
+      const content = findChatMessageContentByKey(historyDiv, meta.messageKey);
+      const preciseRange = createRangeFromQuoteOffsets(content, meta.start, meta.end, {
+        ignoredSelector:
+          'script, style, textarea, input, button, .chat-quote-popover, .chat-answer-outline, .chat-user-question-quote',
+      });
+      if (scrollChatHistoryToQuoteRange(historyDiv, preciseRange)) return true;
+    }
+
+    const range = findQuoteJumpRange(historyDiv, quoteText, {
+      exclude: [currentItem],
+      ignoredSelector:
+        'script, style, textarea, input, button, .chat-quote-popover, .chat-answer-outline, .chat-user-question-quote',
+    });
+    return scrollChatHistoryToQuoteRange(historyDiv, range);
+  };
+
+  const jumpToUserQuestionQuote = (quoteBtn) => {
+    if (!quoteBtn) return false;
+    const quoteText =
+      quoteBtn._chatQuoteText ||
+      quoteBtn.dataset.quoteText ||
+      quoteBtn.textContent ||
+      '';
+    const targetMeta = normalizeQuoteBlockMeta(quoteBtn._chatQuoteTarget, quoteText);
+    const source = targetMeta.source || quoteBtn.dataset.quoteSource || 'auto';
+    const currentItem = quoteBtn.closest ? quoteBtn.closest('.msg-item') : null;
+    let jumped = false;
+    if (source === 'paper') {
+      jumped = jumpToPaperQuote(quoteText, targetMeta) || jumpToChatQuote(quoteText, currentItem, targetMeta);
+    } else {
+      jumped = jumpToChatQuote(quoteText, currentItem, targetMeta) || jumpToPaperQuote(quoteText, targetMeta);
+    }
+    if (!jumped) {
+      setChatStatus('没有找到引用位置。', CHAT_SYNC_ERROR_COLOR);
+    } else {
+      setChatStatus('');
+    }
+    return jumped;
+  };
+
+  const handleUserQuestionQuoteJumpClick = (event) => {
+    const target = event && event.target;
+    const quoteBtn =
+      target && target.closest
+        ? target.closest('#paper-chat-container .chat-user-question-quote')
+        : null;
+    if (!quoteBtn) return;
+    event.preventDefault();
+    event.stopPropagation();
+    jumpToUserQuestionQuote(quoteBtn);
   };
 
   const addChatHighlightFromSelection = (color) => {
@@ -3031,7 +3480,7 @@ window.PrivateDiscussionChat = (function () {
       event.stopPropagation();
       if (quoteBtn) {
         const quoted = getChatQuoteTextFromPopover(popover);
-        if (quoteToInput(quoted, { source: 'chat' })) {
+        if (quoteToInput(quoted, getChatQuoteOptionsFromPopover(popover))) {
           clearChatTextSelection();
         }
         hideChatQuotePopover();
@@ -3194,6 +3643,7 @@ window.PrivateDiscussionChat = (function () {
     document.addEventListener('touchend', handleChatHistorySelectionTouchEnd, true);
     document.addEventListener('pointerup', handleChatHistorySelectionPointerUp, true);
     document.addEventListener('selectionchange', handleChatHistorySelectionChange, true);
+    document.addEventListener('click', handleUserQuestionQuoteJumpClick, true);
     document.addEventListener('click', handleChatHighlightClick, true);
     document.addEventListener(
       'pointerdown',
@@ -3262,6 +3712,9 @@ window.PrivateDiscussionChat = (function () {
     }
 
     resetChatInput(input);
+    const outgoingQuoteBlocks = pendingQuoteBlocks.map((quote) =>
+      normalizeQuoteBlockMeta(quote, quote && quote.text),
+    );
     clearPendingQuoteBlocks();
 
     // 优先使用与后端一致的 .txt 抽取全文作为上下文（不截断）
@@ -3351,7 +3804,7 @@ window.PrivateDiscussionChat = (function () {
 
       const content = document.createElement('div');
       content.className = 'msg-content msg-content-user';
-      content.textContent = question;
+      renderUserQuestionContent(content, question, outgoingQuoteBlocks);
 
       userItem.appendChild(time);
       userItem.appendChild(content);
@@ -3364,7 +3817,7 @@ window.PrivateDiscussionChat = (function () {
       userItem.className = 'msg-item';
       const content = document.createElement('div');
       content.className = 'msg-content msg-content-user';
-      content.textContent = question;
+      renderUserQuestionContent(content, question, outgoingQuoteBlocks);
       userItem.appendChild(content);
       historyDiv.appendChild(userItem);
       liveUserItem = userItem;
@@ -3459,6 +3912,7 @@ window.PrivateDiscussionChat = (function () {
       role: 'user',
       content: question,
       time: nowStr,
+      quotes: outgoingQuoteBlocks,
     });
     await saveChatHistory(paperId, history);
     assignChatMessageIdentity(

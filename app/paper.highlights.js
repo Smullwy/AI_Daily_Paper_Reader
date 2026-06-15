@@ -397,6 +397,26 @@ window.DPRPaperHighlights = (function () {
     return state.pendingSelection ? state.pendingSelection.text : '';
   };
 
+  const getQuoteTargetFromPopover = (popover) => {
+    const base = { source: 'paper', paperId: state.paperId };
+    if (!popover) return base;
+    if (popover.dataset.mode === 'edit') {
+      const highlightId = popover.dataset.highlightId || '';
+      const item = state.items.find((entry) => entry.id === highlightId);
+      if (!item) return base;
+      return Object.assign({}, base, {
+        highlightId: item.id,
+        start: item.start,
+        end: item.end,
+      });
+    }
+    if (!state.pendingSelection) return base;
+    return Object.assign({}, base, {
+      start: state.pendingSelection.start,
+      end: state.pendingSelection.end,
+    });
+  };
+
   const quoteSelectionToChat = (popover) => {
     const text = getQuoteTextFromPopover(popover);
     const chat = window.PrivateDiscussionChat;
@@ -408,7 +428,7 @@ window.DPRPaperHighlights = (function () {
       showToast('Paper Copilot 尚未就绪。', 'error');
       return false;
     }
-    const ok = chat.quoteToInput(text, { source: 'paper' });
+    const ok = chat.quoteToInput(text, getQuoteTargetFromPopover(popover));
     if (!ok) showToast('引用失败，请先打开可用的 Paper Copilot。', 'error');
     if (ok) clearTextSelection();
     return ok;
