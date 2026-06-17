@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-18</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-18 04:50 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读6篇（11篇总量），聚焦大脑结构与功能建模，从皮层几何驱动RNN到多模态融合诊断癫痫。</p>
-<p>最值得关注：用皮层物理连接与功能作为网络生长偏置，让AI更类脑；动态混合专家模型为癫痫诊断找到结构与功能的协同钥匙。</p>
-<p>下步可追踪“静息-任务融合”精准划分脑区技术，它或将重塑个性化神经影像解读。</p>
+      <p>今日聚焦脑启发人工智能与临床应用，精读了皮层几何/连接/功能作为递归网络先验的方法，以及动态功能-结构混合专家模型在创伤后癫痫诊断上的研究。</p>
+<p>最值得关注的是：将大脑皮层的物理结构与功能连线直接嵌入递归神经网络，可显著提升计算效率与泛化能力；而功能-结构的动态融合正成为精准神经系统诊断的新范式。</p>
+<p>建议对“大脑先验如何塑造更聪明的机器”感兴趣的读者，从精读论文的归纳偏置设计入手；关注医学AI的读者可优先阅读混合专家模型在真实临床诊断场景中的验证细节。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/18/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -123,3 +122,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
