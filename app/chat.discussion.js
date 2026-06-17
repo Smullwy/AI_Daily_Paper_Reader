@@ -795,6 +795,14 @@ window.PrivateDiscussionChat = (function () {
     if (document.body && document.body.classList) {
       document.body.classList.toggle('dpr-chat-drawer-open', nextOpen);
     }
+    try {
+      const notebook = window.DPRPaperNotebook;
+      if (notebook && typeof notebook.syncLayout === 'function') {
+        notebook.syncLayout();
+      }
+    } catch {
+      // ignore
+    }
 
     const root = getChatRoot();
     if (!root) return;
@@ -3262,7 +3270,9 @@ window.PrivateDiscussionChat = (function () {
   };
 
   const jumpToPaperQuote = (quoteText, targetMeta = null) => {
-    const root = document.querySelector('.markdown-section');
+    const root =
+      document.querySelector('.markdown-section .dpr-page-content') ||
+      document.querySelector('.markdown-section');
     const meta = normalizeQuoteBlockMeta(targetMeta, quoteText);
     if (
       root &&
@@ -3359,6 +3369,14 @@ window.PrivateDiscussionChat = (function () {
     return jumped;
   };
 
+  const jumpToQuote = (quoteText, targetMeta = {}) => {
+    const meta = normalizeQuoteBlockMeta(targetMeta, quoteText);
+    if (meta.source === 'paper') {
+      return jumpToPaperQuote(quoteText, meta) || jumpToChatQuote(quoteText, null, meta);
+    }
+    return jumpToChatQuote(quoteText, null, meta) || jumpToPaperQuote(quoteText, meta);
+  };
+
   const handleUserQuestionQuoteJumpClick = (event) => {
     const target = event && event.target;
     const quoteBtn =
@@ -3453,6 +3471,13 @@ window.PrivateDiscussionChat = (function () {
     quoteBtn.setAttribute('data-chat-quote-action', 'quote');
     quoteBtn.textContent = '引用';
     popover.appendChild(quoteBtn);
+
+    const noteBtn = document.createElement('button');
+    noteBtn.type = 'button';
+    noteBtn.className = 'chat-quote-popover-btn';
+    noteBtn.setAttribute('data-chat-quote-action', 'note');
+    noteBtn.textContent = '引用到笔记';
+    popover.appendChild(noteBtn);
   };
 
   const ensureChatQuotePopover = () => {
@@ -3467,6 +3492,10 @@ window.PrivateDiscussionChat = (function () {
         event.target && event.target.closest
           ? event.target.closest('[data-chat-quote-action="quote"]')
           : null;
+      const noteBtn =
+        event.target && event.target.closest
+          ? event.target.closest('[data-chat-quote-action="note"]')
+          : null;
       const colorBtn =
         event.target && event.target.closest
           ? event.target.closest('[data-chat-highlight-color]')
@@ -3475,12 +3504,22 @@ window.PrivateDiscussionChat = (function () {
         event.target && event.target.closest
           ? event.target.closest('[data-chat-highlight-action="delete"]')
           : null;
-      if (!quoteBtn && !colorBtn && !deleteBtn) return;
+      if (!quoteBtn && !noteBtn && !colorBtn && !deleteBtn) return;
       event.preventDefault();
       event.stopPropagation();
       if (quoteBtn) {
         const quoted = getChatQuoteTextFromPopover(popover);
         if (quoteToInput(quoted, getChatQuoteOptionsFromPopover(popover))) {
+          clearChatTextSelection();
+        }
+        hideChatQuotePopover();
+        return;
+      }
+      if (noteBtn) {
+        const quoted = getChatQuoteTextFromPopover(popover);
+        const notebook = window.DPRPaperNotebook;
+        if (notebook && typeof notebook.quoteToNotebook === 'function') {
+          notebook.quoteToNotebook(quoted, getChatQuoteOptionsFromPopover(popover));
           clearChatTextSelection();
         }
         hideChatQuotePopover();
@@ -4770,6 +4809,7 @@ window.PrivateDiscussionChat = (function () {
     initForPage,
     destroyForPage,
     quoteToInput,
+    jumpToQuote,
     openQuickRunPanel: () => {
       if (typeof quickRunPanelController === 'function') {
         const ok = quickRunPanelController();

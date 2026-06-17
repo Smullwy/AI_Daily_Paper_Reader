@@ -323,6 +323,148 @@ window.DPRPaperHighlights = (function () {
     };
   };
 
+  const getHighlightById = (id) => {
+    const cleanId = String(id || '').trim();
+    if (!cleanId) return null;
+    return state.items.find((item) => item.id === cleanId) || null;
+  };
+
+  const findRenderedHighlightElement = (id) => {
+    const cleanId = String(id || '').trim();
+    const root = state.root || getRoot();
+    if (!cleanId || !root || !root.querySelectorAll) return null;
+    return Array.from(root.querySelectorAll('.dpr-paper-text-highlight'))
+      .find((el) => el.dataset && el.dataset.highlightId === cleanId) || null;
+  };
+
+  const createRangeFromOffsets = (root, start, end) => {
+    const rangeStart = Number(start);
+    const rangeEnd = Number(end);
+    const nodes = getTextNodes(root);
+    const total = nodes.reduce((sum, node) => sum + String(node.nodeValue || '').length, 0);
+    if (
+      !document.createRange ||
+      !Number.isFinite(rangeStart) ||
+      !Number.isFinite(rangeEnd) ||
+      rangeEnd <= rangeStart ||
+      rangeStart < 0 ||
+      rangeEnd > total
+    ) {
+      return null;
+    }
+
+    const locate = (offset) => {
+      let cursor = 0;
+      for (const node of nodes) {
+        const value = String(node.nodeValue || '');
+        const next = cursor + value.length;
+        if (offset <= next) {
+          return {
+            node,
+            offset: Math.max(0, Math.min(value.length, offset - cursor)),
+          };
+        }
+        cursor = next;
+      }
+      const last = nodes[nodes.length - 1];
+      return last ? { node: last, offset: String(last.nodeValue || '').length } : null;
+    };
+
+    const startPos = locate(rangeStart);
+    const endPos = locate(rangeEnd);
+    if (!startPos || !endPos) return null;
+    const range = document.createRange();
+    try {
+      range.setStart(startPos.node, startPos.offset);
+      range.setEnd(endPos.node, endPos.offset);
+      return range;
+    } catch {
+      return null;
+    }
+  };
+
+  const getHighlightJumpElement = (range) => {
+    const start = range && range.startContainer;
+    const parent = start && (start.nodeType === Node.ELEMENT_NODE ? start : start.parentElement);
+    if (!parent || !parent.closest) return parent || null;
+    return (
+      parent.closest(
+        '.dpr-paper-text-highlight, p, li, blockquote, figcaption, td, th, h1, h2, h3, h4, h5, h6',
+      ) ||
+      parent
+    );
+  };
+
+  const pulseHighlightJumpTarget = (el) => {
+    if (!el || !el.classList) return;
+    el.classList.remove('dpr-paper-jump-highlight');
+    void el.offsetWidth;
+    el.classList.add('dpr-paper-jump-highlight');
+    window.setTimeout(() => {
+      if (el.classList) el.classList.remove('dpr-paper-jump-highlight');
+    }, 1500);
+  };
+
+  const scrollToHighlightTarget = (target) => {
+    if (!target) return false;
+    if (target.getBoundingClientRect && window.scrollTo) {
+      const rect = target.getBoundingClientRect();
+      if (rect && Number.isFinite(rect.top)) {
+        const top = Math.max(window.scrollY + rect.top - window.innerHeight * 0.28, 0);
+        window.scrollTo({ top, behavior: 'smooth' });
+      } else if (target.scrollIntoView) {
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    } else if (target.scrollIntoView) {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } else {
+      return false;
+    }
+    pulseHighlightJumpTarget(target);
+    return true;
+  };
+
+  const jumpToHighlight = (target) => {
+    const root = state.root || getRoot();
+    if (!root) return false;
+    state.root = root;
+
+    const source = typeof target === 'string'
+      ? { highlightId: target }
+      : (target && typeof target === 'object' ? target : {});
+    const highlightId = String(source.highlightId || source.id || '').trim();
+    const rendered = findRenderedHighlightElement(highlightId);
+    if (scrollToHighlightTarget(rendered)) return true;
+
+    const stored = getHighlightById(highlightId);
+    const item = Object.assign({}, stored || {}, source);
+    const start = Number(item.start);
+    const end = Number(item.end);
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      const rootText = getAcceptedText(root);
+      const resolved = resolveStoredRanges([Object.assign({}, item, {
+        id: item.id || highlightId || `jump-${Date.now()}`,
+        text: String(item.text || ''),
+        color: item.color || COLORS[0].value,
+      })], rootText)[0];
+      const range = resolved
+        ? createRangeFromOffsets(root, resolved.start, resolved.end)
+        : createRangeFromOffsets(root, start, end);
+      if (range) return scrollToHighlightTarget(getHighlightJumpElement(range));
+    }
+
+    const text = String(item.text || source.text || '').trim();
+    if (text) {
+      const rootText = getAcceptedText(root);
+      const index = findNearestTextIndex(rootText, text, Number.isFinite(start) ? start : 0);
+      if (index >= 0) {
+        const range = createRangeFromOffsets(root, index, index + text.length);
+        if (range) return scrollToHighlightTarget(getHighlightJumpElement(range));
+      }
+    }
+    return false;
+  };
+
   const hidePopover = () => {
     if (state.popover) {
       state.popover.classList.remove('is-open');
@@ -434,6 +576,23 @@ window.DPRPaperHighlights = (function () {
     return ok;
   };
 
+  const quoteSelectionToNotebook = (popover) => {
+    const text = getQuoteTextFromPopover(popover);
+    const notebook = window.DPRPaperNotebook;
+    if (!text || !text.trim()) {
+      showToast('没有可引用的文本。', 'error');
+      return false;
+    }
+    if (!notebook || typeof notebook.quoteToNotebook !== 'function') {
+      showToast('笔记本尚未就绪。', 'error');
+      return false;
+    }
+    const ok = notebook.quoteToNotebook(text, getQuoteTargetFromPopover(popover));
+    if (!ok) showToast('引用到笔记失败，请稍后重试。', 'error');
+    if (ok) clearTextSelection();
+    return ok;
+  };
+
   const ensurePopover = () => {
     if (state.popover && document.body.contains(state.popover)) return state.popover;
     const popover = document.createElement('div');
@@ -449,8 +608,16 @@ window.DPRPaperHighlights = (function () {
       const quoteBtn = event.target && event.target.closest
         ? event.target.closest('[data-highlight-action="quote"]')
         : null;
+      const noteBtn = event.target && event.target.closest
+        ? event.target.closest('[data-highlight-action="note"]')
+        : null;
       if (quoteBtn) {
         quoteSelectionToChat(popover);
+        hidePopover();
+        return;
+      }
+      if (noteBtn) {
+        quoteSelectionToNotebook(popover);
         hidePopover();
         return;
       }
@@ -489,6 +656,7 @@ window.DPRPaperHighlights = (function () {
         ? '<button type="button" class="dpr-highlight-delete-btn" data-highlight-action="delete">删除高亮</button>'
         : '',
       '<button type="button" class="dpr-highlight-quote-btn" data-highlight-action="quote">引用到 Copilot</button>',
+      '<button type="button" class="dpr-highlight-quote-btn" data-highlight-action="note">引用到笔记</button>',
     ].join('');
     popover.classList.add('is-open');
     requestAnimationFrame(() => clampPopoverPosition(x, y, popover));
@@ -804,5 +972,6 @@ window.DPRPaperHighlights = (function () {
   return {
     syncNow,
     getRecord,
+    jumpToHighlight,
   };
 })();
