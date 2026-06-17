@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-17</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-17 06:56 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>从三组新鲜脑科学论文看，今天呈现两条清晰线：脉冲神经网络（SNN）测试时自适应解码，与皮层几何/连接/功能作为RNN的归纳偏置。</p>
-<p>最值得关注：SNN可通过膜电位对齐在不重新训练下适应分布漂移（9分），而大脑皮层的几何与布线可显式注入循环网络，大幅提升样本效率和生物保真度（9分）。</p>
-<p>普通读者不妨从这两篇高分精读入手：一篇回答“低功耗神经形态芯片怎么在线稳定读脑”，另一篇回答“如何把脑区形状和连线变成AI模型的先天结构”。</p>
+      <p>从脉冲神经网络实时解码运动意图，到用大脑皮层结构为AI注入先天智慧，今日聚焦脑科学与计算深度融合。</p>
+<p>最值得一看：无需重训即可在线适应脑信号的膜电位对齐算法，以及将大脑几何与连接规律化作循环网络归纳偏置的全新思路。</p>
+<p>建议从膜电位对齐入手，理解实时脑机接口的适应能力，再思考皮层几何如何重塑AI的学习方式。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/17/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

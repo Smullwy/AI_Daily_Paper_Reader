@@ -1,0 +1,3712 @@
+Title: Scalable and Interpretable Representation Alignment with Ordinal Similarity
+
+URL Source: https://arxiv.org/pdf/2606.16379v1
+
+Published Time: Tue, 16 Jun 2026 02:41:17 GMT
+
+Number of Pages: 48
+
+Markdown Content:
+# Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Diogo Soares 1 Pankhil Gawade 1 2 Andrea Dittadi 1 2 Ewa Szczurek 1 3 
+
+# Abstract 
+
+Evaluating representation similarity is fundamen-tal to representation learning. However, existing metrics suffer from significant limitations: they lack interpretability due to shifting baselines, lack robustness to outliers, and are computationally intractable for large datasets, forcing reliance on heuristic approximations. To address this, we develop an ordinal-similarity framework, instan-tiated by the Triplet (TSI) and Quadruplet (QSI) Similarity Indices, which measure alignment by quantifying the consistency of ordinal relation-ships. We theoretically demonstrate this formu-lation is inherently interpretable, robust to out-liers, and computationally efficient. Finally, we establish a formal equivalence between TSI and local neighborhood alignment, measured by Mu-tual Nearest Neighbors. Empirically, we validate these properties and show that ordinal similarity offers a scalable approach to measuring alignment, enabling practitioners to better understand and de-sign representations. 
+
+# 1. Introduction 
+
+The ability to quantify representational similarity is a foun-dational challenge in modern machine learning, essential for interpreting model behavior (Nguyen et al., 2021; Huh et al., 2024; Klabunde et al., 2025) and aligning artificial systems with human cognition (Muttenthaler et al., 2023; Sucholutsky et al., 2025). Similarity metrics are central to understanding how neural networks interpret semantic concepts, directly informing the design of transfer learning, knowledge distillation (Park et al., 2019; Gou et al., 2021), and generative modeling (Yao et al., 2025; Yu et al., 2025; Leng et al., 2025). Given their extensive influence on both 
+
+> 1
+
+Institute of AI for Health, Helmholtz Munich 2School of Computation, Information and Technology, Technical University of Munich 3Faculty of Mathematics, Informatics and Mechan-ics, University of Warsaw. Correspondence to: Diogo Soares 
+
+<diogo.soares@helmholtz-munich.de >.
+
+Proceedings of the 43 rd International Conference on Machine Learning , Seoul, South Korea. PMLR 306, 2026. Copyright 2026 by the author(s). 
+
+Figure 1. TSI and QSI measure alignment between two represen-tation spaces (e.g., Visual and Textual) by quantifying the con-sistency of ordinal relationships. TSI checks if relative similarity from an anchor is preserved (e.g., ’Is A closer to B than to C?’). QSI compares relative similarity between distinct pairs (e.g., ’Is A
+
+closer to B than C is to D?’) 
+
+model design and behavioral analysis, the reliability of these metrics is paramount for the interpretability of increasingly ubiquitous AI systems. However, despite their widespread use, current metrics suf-fer from key shortcomings: (i) Complex to Interpret: The interpretation of most metrics is inherently difficult as they yield raw scores that lack intuitive meaning and, as noted by Cloos et al. (2025), fail to provide a consistent threshold to distinguish meaningful alignment from spurious similarity. 
+
+(ii) Sensitive to Outliers: Most metrics lack robustness to outliers, a fragility so pronounced that two perfectly aligned representations can appear misaligned after introducing only a small number of extreme outliers (Davari et al., 2023). 
+
+(iii) Computationally Infeasible: Existing metrics demand significant memory resources and extensive computation time (Nguyen et al., 2021), leading to a reliance on practical, often batched, approximations (Huh et al., 2024). However, these approximations lack theoretical bounds for correctness and can yield inconsistent estimates. To overcome these challenges, we shift our focus from met-rics reliant on precise nominal values to those that empha-size more robust relational properties. Inspiration for our work comes from Non-metric Multidimensional Scaling (NMDS), a data visualization technique that arranges points in a 2D space to preserve the rank order of pre-specified pairwise distances, rather than their exact values (Borg & Groenen, 2005; Agarwal et al., 2007; Van Der Maaten & Weinberger, 2012; Vankadara et al., 2023). The success of NMDS in creating perceptually aligned visualizations, demonstrates that preserving ordinal relationships captures 1
+
+> arXiv:2606.16379v1 [cs.LG] 15 Jun 2026 Scalable and Interpretable Representation Alignment with Ordinal Similarity
+
+essential structure needed for alignment. Building on this insight, we measure representational similarity by quanti-fying the consistency of ordinal relationships between two representation spaces. Specifically, we evaluate the fraction of similarity triplets (of the form “A is more similar to B than to C”) and quadruplets (of the form “A is more similar to B than C is to D”) for which the relationship holds true in both representations. To make this ordinal principle concrete, we study it through the Triplet (TSI) and Quadruplet (QSI) Similarity Indices (Figure 1). We analyze the key theoretical properties of ordinal consistency and its connections to existing methods. Our main contributions are: • Ordinal Similarity Formulation (Section 4.1): We formalize ordinal consistency through TSI and QSI, two metrics based on the agreement of relative similar-ity and distance comparisons. • Theoretical Interpretability (Section 4.2): We show that ordinal similarity has a direct probabilistic inter-pretation and establish stable baselines for dissimilar representations (Lemma 1). • Connection to Neighborhood Consistency (Sec-tion 4.3): We prove a formal equivalence between perfect TSI alignment and Mutual Nearest Neighbors (MNN) across all scales (Corollary 1). • Guaranteed Robustness (Section 4.4): We establish theoretical bounds that guarantee robustness to outliers for ordinal similarity (Lemma 2, Corollary 2). • Computational Scalability (Section 4.5): We provide efficient algorithms for exact calculation (Corollary 3) and a principled approximation scheme with theoreti-cal error bounds (Corollary 4). • Empirical Validation (Section 6): We demonstrate the utility of TSI and QSI in diverse real-world ap-plications, including tracking training representation convergence and CLIP multimodal alignment. Together, these contributions establish ordinal similarity as a rigorous, scalable and theoretically grounded framework for representation alignment, giving practitioners a reliable way to understand and interpret their models. 
+
+# 2. Related Work 
+
+This section reviews existing similarity metrics and situates our approach within the broader landscape of representa-tional analysis. 
+
+Similarity Metrics. Numerous similarity metrics have been proposed to compare representations (Sucholutsky et al., 2025; Klabunde et al., 2025), with formal charac-terizations provided in Section A. Foundational work in-cludes Canonical Correlation Analysis (CCA) (Hardoon et al., 2004) and its refinements: SVCCA (Raghu et al., 2017), which filters for variance-explaining directions, and PWCCA (Morcos et al., 2018), which weights correlations by explained variance. Another seminal contribution, Cen-tered Kernel Alignment (CKA) (Kornblith et al., 2019), satisfies critical invariance properties by computing a nor-malized Hilbert-Schmidt Independence Criterion (HSIC) on pairwise distance matrices. This method and the metrics pro-posed here are both inspired by Representational Similarity Analysis (RSA) (Kriegeskorte et al., 2008), a neuroscience framework for measuring alignment across brain areas (Frei-wald & Tsao, 2010) and individuals (Connolly et al., 2012). More recently, methods focusing on local structure, particu-larly Mutual Nearest Neighbors (MutualNN) and CKNNA, have gained widespread use. MutualNN directly computes the average number of shared k-nearest neighbors between representations, while CKNNA calculates a version of CKA masked to these mutual neighborhoods (Huh et al., 2024). Such local metrics have been instrumental in analyzing representation convergence and the alignment between gen-erative and foundation models (Huh et al., 2024; Duraphe et al., 2025; Yu et al., 2025; Leng et al., 2025). 
+
+Concepts Related to Ordinal Similarity. Seminal ordi-nal correlation coefficients such as Kendall’s Tau (Kendall, 1938) and Spearman’s Rho (Spearman, 1961) motivated the study of relational properties and share important connec-tions with the metrics analyzed in this work. In addition, preserving ordinal relationships in the d-dimensional vector space has been studied within the scope of NMDS (Borg & Groenen, 2005; Agarwal et al., 2007; Van Der Maaten & Weinberger, 2012; Vankadara et al., 2023) with impor-tant theoretical results on the uniqueness and existence of aligned hyper-dimensional pointclouds derived over the years (Bilu & Linial, 2005; Jamieson & Nowak, 2011; Kleindessner & von Luxburg, 2014; Chatziafratis & Indyk, 2024). From an application perspective, several methodolo-gies have been proposed that leverage ordinal information, such as evaluation metrics assessing whether embeddings satisfy a pre-defined set of triplet relationships (Veit et al., 2017; Vankadara et al., 2023; Li et al., 2024), similarity kernels constructed from such sets (Tamuz et al., 2011; Kleindessner & von Luxburg, 2017), and loss functions that optimize them (Schroff et al., 2015). Crucially, these meth-ods typically rely on an externally provided set of triplet relationships as input, rather than evaluating the consistency of ordinal relationships between two representation spaces. 
+
+# 3. Background & Notation 
+
+Let us consider a set of points from an original input space, 
+
+{zi}Ni=1 . Let f : Z → X and g : Z → Y be two em-bedding functions that map these inputs into two different 2Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+representation spaces. This process yields a paired dataset of embeddings (xi, y i)Ni=1 , where each pair is generated from the same source, i.e., xi = f (zi) and yi = g(zi). We define the complete sets of representations as X = {x1, . . . , x N }
+
+and Y = {y1, . . . , y N }. Furthermore, assume that the simi-larities in X and Y are individually modeled through their corresponding distance functions dX and dY . The field of similarity metrics aims to quantify the alignment between 
+
+(X, d X ) and (Y, d Y ) using a metric, which can be viewed as a function MdX ,d Y (X, Y ) that maps the two sets of rep-resentations to a score, typically in the range [0 , 1] , where higher scores correspond to greater similarity. 
+
+# 4. Ordinal Similarity Metrics 
+
+To measure representation alignment, we evaluate the con-sistency of ordinal relationships between spaces via two metrics: the Triplet Similarity Index (TSI), which evaluates anchor-based relative similarity, and the Quadruplet Similar-ity Index (QSI), which compares distances between disjoint pairs. Our focus on ordinal relations is deliberate. While dis-carding absolute distances may appear to inflate similar-ity, ordinal methods such as NMDS, as well as our TSI and QSI, impose a number of constraints that grows cubi-cally (or faster) with the number of points N , sharply re-stricting admissible configurations (Borg & Groenen, 2005). Moreover, under suitable conditions and as N → ∞ , ordi-nal relationships uniquely determine a representation up to similarity-preserving transformations (e.g., isotropic scal-ing, orthogonal transforms) (Kleindessner & von Luxburg, 2014), making ordinal consistency a principled and robust measure of geometric alignment. 
+
+4.1. Formal Definitions 
+
+Our metrics are built upon a generalized ordinal compar-ison function, Od(a, b, c, d ) = sign  d(a, b ) − d(c, d ) ∈{− 1, 0, 1}, which captures the relationship between a pair of distances in a space with metric d. A special case of this function, which we denote O∆ 
+
+> d
+
+, compares the dis-tances from a single anchor point a to two other points, 
+
+b and c. It is defined as O∆ 
+
+> d
+
+(a, b, c ) ≡ Od(a, b, a, c ) = sign  d(a, b ) − d(a, c ). Using these functions, we define our metrics as the expected agreement of ordinal compar-isons over sets of points. 
+
+Definition 1 (Triplet Similarity Index (TSI)) . Let T := 
+
+{(i, j, k ) ∈ { 1, . . . N }| i̸ = j, i ̸ = k, j ̸ = k} be the set of all triplets of distinct indices. The TSI is the average agree-ment of the three-point (anchor-based) ordinal comparison function: TSI dX ,d Y (X, Y ) = 
+
+E(i,j,k )∈T 
+
+h
+
+IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)i
+
+.
+
+For QSI, we use the set Q of all quadruplets of distinct indices. 
+
+Definition 2 (Quadruplet Similarity Index (QSI)) . The QSI is the average agreement of the ordinal comparison function over all distinct quadruplets: QSI dX ,d Y (X, Y ) = 
+
+E(i,j,k,l )∈Q 
+
+h
+
+IOdX (xi, x j , x k, x l) = OdY (yi, y j , y k, y l)i
+
+.
+
+This reliance on ordinal comparisons ensures our metrics satisfy a critical set of invariance properties. As highlighted by Kornblith et al. (2019), a similarity metric should be invariant to translations, isotropic scaling, and orthogonal transformations, but not to arbitrary invertible linear trans-forms. Given that TSI and QSI depend only on the relative ordering of distances, they directly satisfy these criteria in inner product spaces, as is formally analyzed in Section B. Moreover, by showing that 1 − TSI and 1 − QSI can be formulated as normalized Hamming distances over ordinal relationship arrays, we formally prove that these correspond-ing distance functions satisfy all three metric axioms: equiv-alence, symmetry, and triangle inequality (see Section C for a complete analysis). This ensures that TSI and QSI offer theoretically grounded notions of dissimilarity, fulfilling the requirement from Williams et al. (2021) that representation distances should yield proper metrics. 
+
+4.2. Probabilistic Interpretation 
+
+An essential property of our ordinal metrics is their direct probabilistic interpretation. Defined as the expectation of an indicator function, their values represent the probability that a given ordinal relationship is preserved. The TSI, for example, is the probability that for a randomly chosen triplet of points, the relative ordering of distances from an anchor point is the same in both spaces (e.g., “ xi is closer to xj
+
+than to xk”): TSI dX ,d Y (X, Y ) = P(i,j,k )∈T 
+
+
+
+O∆ 
+
+> dX
+
+(xi, x j , x k)= O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+ (1) Similarly, the QSI is the probability that for a randomly chosen quadruplet of distinct points, the ordinal relationship between a pair of distances is preserved: QSI dX ,d Y (X, Y ) = P(i,j,k,l )∈Q 
+
+
+
+OdX (xi, x j , x k, x l)= OdY (yi, y j , y k, y l)
+
+ (2) This probabilistic framing highlights the clear semantic value of these metrics. For instance, a TSI of 0.8 means that 3Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+80% of triplets agree on their ordering, in sharp contrast to metrics that yield hard-to-interpret opaque values. Addi-tionally, these ordinal relationships yield predictable scores for both perfectly aligned and dissimilar representations. While a score of 1 indicates complete alignment, dissim-ilarity is captured when the ordinal relations induced by two representations are statistically independent. Sampling independent representations X ⊥⊥ Y provides a natural and interpretable construction that induces this ordinal indepen-dence and therefore serves as a baseline for dissimilarity (see Section D for the rationale). Under this setting, the following lemma demonstrates that the expected score is approximately 12 when the probability of ties is negligible. 
+
+Lemma 1 (Expected Similarity for Independent Representa-tions) . Let X = {xi}Ni=1 and Y = {yi}Ni=1 be two datasets, with points drawn i.i.d. from arbitrary and independent distributions, DX and DY , respectively, and equipped with distance functions dX and dY . This setting ensures that the ordinal comparisons in X and Y are independent. For TSI, let a, b, c be points drawn i.i.d. from DX . We define the prob-ability of a tie as p0 
+
+> X
+
+= Pa,b,c ∼D X
+
+ dX (a, b ) = dX (a, c ).Similarly for DY . The expected TSI is: 
+
+EX∼D NX 
+
+> Y∼D NY
+
+[TSI dX ,d Y (X, Y )] = p0 
+
+> X
+
+p0 
+
+> Y
+
++ 12 (1 − p0 
+
+> X
+
+)(1 − p0 
+
+> Y
+
+)
+
+For QSI, let a, b, c, d be points drawn i.i.d. from 
+
+DX . We define the probability of a tie as p0 
+
+> X
+
+=
+
+Pa,b,c,d ∼D X
+
+ dX (a, b ) = dX (c, d ). Similarly for DY . The expected QSI is: 
+
+EX∼D NX 
+
+> Y∼D NY
+
+QSI dX ,d Y (X, Y ) = p0 
+
+> X
+
+p0 
+
+> Y
+
++ 12 (1 −p0 
+
+> X
+
+)(1 −p0 
+
+> Y
+
+)
+
+Universal dissimilarity baseline. The significance of this result, whose proof is provided in Section N.1, lies in its universality: the baseline for independent representations does not depend on the number of samples, their dimen-sionality, or the type of distribution. This establishes 12 as a consistent reference point for random alignment across diverse applications. While scores below this baseline are mathematically possible, theoretical analysis with 1D repre-sentations suggests that geometric constraints might make such extreme misalignment exceedingly rare in practice (see Section E). Consequently, when analyzing their ML models, practitioners can evaluate the TSI/QSI and confidently use  
+
+> 12
+
+as a robust dissimilarity reference, regardless of the archi-tecture or set size. This is key, since previous work from Cloos et al. (2025) reported that existing metrics do not offer consistent thresholds for determining good similarity scores, thus requiring case-specific calibration that hinders method interpretability. 
+
+4.3. Connection to Neighborhood Consistency 
+
+A fundamental characteristic of any similarity metric is its alignment condition, i.e., the set of joint representations for which the metric yields the maximum score of 1. This condition formalizes the notion of perfect alignment and provides a semantic anchor for interpreting lower scores. For TSI, the alignment condition is given by the following equivalence: 
+
+Corollary 1 (Perfect TSI alignment is equivalent to joint Mutual Nearest Neighbors alignment) . Let (X, d X ) and 
+
+(Y, d Y ) be two sets of N representations without ties. Then, full alignment of the TSI is equivalent to joint alignment of Mutual Nearest Neighbors for all k-nearest neighbors with 
+
+k ranging from 1 to N − 2:TSI dX ,d Y (X, Y ) = 1 ⇐⇒ ∀k ∈ { 1, . . . , N − 2} : MutualNN k,d X ,d Y (X, Y ) = 1 
+
+where MutualNN k,d X ,d Y (X, Y ) is the Mutual Nearest Neighbors score for k neighbors. 
+
+This result, proven in Section N.2.1, is significant because it addresses the limitations of traditional neighborhood de-scriptors. While Mutual Nearest Neighbors (MNN) is ex-tensively used to analyze representation convergence (Huh et al., 2024) and forms the backbone of metrics like CKNNA, individual MutualNN k scores suffer from specific limita-tions: they only measure consistency for a fixed number of neighbors ( k), ignore their relative ordering within that set, and become ill-defined when ties prevent unique neigh-borhood determination. Although evaluating neighborhood consistency across all possible scales would provide a more complete view, such an exhaustive approach is typically computationally prohibitive. The equivalence in Corollary 1 shows that TSI overcomes this by jointly evaluating local neighborhood consistency across all scales. Importantly, as we show later, TSI can be efficiently estimated with high precision in time independent of the dataset size N , posi-tioning it as a computationally efficient metric for capturing multi-scale neighborhood consistency. We further explore this relationship in Section F, where we show that TSI align-ment also serves as a lower bound for a convex combination of MNN coefficients. 
+
+4.4. Robustness to Outliers 
+
+A similarity metric is unreliable if small subsets dispro-portionately affect its value. TSI and QSI address this by relying on ordinal relationships rather than precise values, which naturally limits the influence of extreme fluctuations. This robustness is formally captured in Lemma 2, which establishes tight bounds on the change in similarity when a subset of representations is transformed. 
+
+Lemma 2 (Bounds for Ordinal Similarity Metrics under Partial Transformations) . Let the set of indices {1, . . . , N }
+
+4Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+be partitioned into two disjoint subsets, U (unchanged) and 
+
+V (transformed). Let T : X → X be a transformation, and define a new dataset X′ = {x′
+
+> i
+
+}Ni=1 where x′ 
+
+> i
+
+= xi
+
+for i ∈ U and x′ 
+
+> i
+
+= T (xi) for i ∈ V . For similarity scores S ∈ { TSI , QSI }, the score of the transformed dataset, 
+
+S(X′, Y ), is bounded by the score on the unchanged subset, 
+
+S(XU , Y U ), as follows: 
+
+cS · S(XU , Y U ) ≤ S(X′, Y ) ≤ cS · S(XU , Y U ) + (1 − cS )
+
+where cS is the proportion of comparisons drawn exclusively from the unchanged set U : cTSI = (|U |)3  
+
+> (N)3
+
+and cQSI = (|U |)4  
+
+> (N)4
+
+,where (n)k = n(n − 1) · · · (n − k + 1) denotes the falling factorial. 
+
+This result, proven in Section N.3.1, quantifies the extent to which the similarity score remains bounded by the un-transformed subset. Within this paradigm, outliers (extreme numerical representations) and corruptions (perturbations of existing samples) can be viewed as partial transforma-tions, allowing us to bound their deviation from the ground-truth, i.e., the ideal representations we wish to evaluate but which are often inaccessible: (i) the clean subset after removing outliers, |S(XU , Y U ) − S(X′, Y )|; and (ii) the original dataset without corruptions, |S(X, Y ) − S(X′, Y )|.
+
+Corollary 2 (TSI and QSI are Robust to Corruptions and Outliers) . Consider the setup of Lemma 2 where U indices the subset of clean or unchanged points and V corresponds to the subset of corruptions/outliers. For any similarity met-ric S ∈ { TSI , QSI }, the absolute deviation of the similarity score is bounded by: 
+
+|S(XU , Y U ) − S(X′, Y )| ≤ 1 − cS (Outliers) 
+
+|S(X, Y ) − S(X′, Y )| ≤ 1 − cS (Corruptions) 
+
+The deviation upper-bounds in Corollary 2 guarantee that neither extreme outliers nor corrupted entries can dispropor-tionately shift the similarity score. Since (1 −cS ) → 0 as the fraction of transformed points |V |/N vanishes, ordinal sim-ilarity is theoretically robust to sparse outliers/corruptions (proof in Section N.3.2). 
+
+4.5. Efficient Computation 
+
+A critical requirement for any metric is computational tractability (R ¨ais ¨a et al., 2025). While naive TSI and QSI implementations require O(N 3) and O(N 4) time, resulting in prohibitive runtimes, in this section, we show that not only can our metrics be computed exactly with a complexity comparable to existing methods, but they also admit a prin-cipled approximation scheme with theoretical guarantees. 
+
+Tractable Exact Computation. Noting the connection between TSI, QSI, and Kendall’s Tau Correlation Coeffi-cient (Kendall, 1938), as explored in Section G, we draw inspiration from efficient algorithms for the Kendall’s Tau computation (Knight, 1966) to significantly reduce the cost of exact computation of TSI and QSI, leading to improved time-complexity bounds: 
+
+Corollary 3 (Computational Complexity of TSI and QSI) .
+
+TSI can be computed exactly in O(N 2 log N ) time and 
+
+O(N ) space. Assuming a symmetric distance function, QSI can be computed exactly in O(N 2 log N ) time and O(N 2)
+
+space. 
+
+This quadratic complexity, established in Section H.1, makes our metrics practical for many real-world datasets. 
+
+Principled Approximation for Large-Scale Data. While quadratic complexity is a significant improvement, it can still be a bottleneck for the massive datasets common in modern machine learning. This has led other metrics to rely on heuristic, batched approximations that often lack theoretical guarantees of convergence (Nguyen et al., 2021; Huh et al., 2024). In contrast, a key advantage of our ordinal framework is that TSI and QSI, being bounded U-statistics, provide high-quality estimates with probabilistic bounds on their deviation error by evaluating the ordinal relationships of a small subset of uniformly sampled triplets/quadruplets, respectively. We formalize these concepts in Corollary 4 and provide supporting formal analysis in Section H.2. 
+
+Corollary 4 (Computational Complexity of Approximate TSI and QSI) . By evaluating ⌈ 12ϵ2 log( 2 
+
+> δ
+
+)⌉ triplets or quadruplets sampled uniformly at random, we can estimate TSI or QSI with an additive error of at most ϵ with a prob-ability of at least 1 − δ. This approximation has a time complexity of O   1 
+
+> ϵ2
+
+log   1
+
+> δ
+
+ and an auxiliary space com-plexity of O(1) .
+
+Notably, the complexity of this approximation is indepen-dent of the dataset size N . This yields a theoretically grounded and highly scalable method to estimate represen-tational alignment, ensuring reliable results even on massive datasets where exact computation is infeasible. 
+
+4.6. Predictable Estimates of True Similarity 
+
+Beyond computing a similarity metric on a fixed dataset of size N , a fundamental question in practice is how reliably this score estimates the true alignment of the underlying data-generating processes (i.e., the similarity as N → ∞ ). Because TSI and QSI are bounded U-statistics, we prove in Section I that they exhibit Hoeffding-type concentration bounds, guaranteeing that the probability of deviation from their true population values decays exponentially with N .This predictable convergence, a significant property not shown in existing metrics, perfectly complements the fact that, as N → ∞ , ordinal constraints uniquely determine representations up to similarity-preserving transformations 5Scalable and Interpretable Representation Alignment with Ordinal Similarity    
+
+> Figure 2. (a) Local failure mode of MutualNN and CKA: shuffling points within a cluster (green) destroys local geometric structure. (b)
+> Global failure mode of MutualNN and CKNNA: rigidly translating one cluster (red) drastically alters the macroscopic layout.
+
+(Kleindessner & von Luxburg, 2014). Because ordinal re-lationships uniquely dictate geometric structure in the large-sample limit, and our empirical metrics tightly concentrate around their population values, TSI and QSI serve as reliable and robust measurements of alignment between the generat-ing processes of X and Y , even for moderate sample sizes. 
+
+# 5. Illustrative Examples 
+
+We now present illustrative examples that expose concrete failure modes of existing metrics and highlight the comple-mentary nature of TSI and QSI. Each example starts from a representation X, applies a structure-disrupting transfor-mation to obtain X′, and evaluates whether each metric correctly reports misalignment (i.e., a score < 1 between representations X, X ′). Throughout, all metrics use the Euclidean distance dX = ∥·∥ 2. For brevity, we only state the critical insights; formal computations are deferred to Section M. 
+
+5.1. Local Failure Mode of MutualNN and CKA 
+
+Metrics relying on neighborhood overlap or centered kernels can be blind to local geometric disruptions (Figure 2a), with MutualNN k−1(X, X ′) = 1 and CKA (X, X ′) → 1, while TSI (X, X ′) < 1 and QSI (X, X ′) < 1. Input X ⊂ Rd
+
+consists of N = 2 k representations ( k ≥ 5) partitioned into two clusters C1 and C2, each of size k, with all intra-cluster pairwise distances unique and inter-cluster distance 
+
+D → +∞. The transformed X′ is obtained by applying a permutation π that shuffles points within C1 (π(C1) = C1), leaving at least one point fixed and swapping two pairs. This destroys local geometric structure while preserving cluster assignments. 
+
+5.2. Global Failure Mode of MutualNN and CKNNA 
+
+Local metrics based on k-nearest-neighbor structures can be blind to massive global rearrangements (Figure 2b), yielding MutualNN k−1(X, X ′) = 1 and CKNNA k−1(X, X ′) = 1 ,while TSI (X, X ′) < 1 and QSI (X, X ′) < 1. Input X ⊂
+
+Rd consists of N = 3 k representations ( k ≥ 2) partitioned into three tightly packed clusters C1, C 2, C 3 with centroids 
+
+c1, c 2, c 3, inter-cluster distances ∥c1 − c2∥ ≈ D and ∥c1 −
+
+c3∥ ≈ R with D ≫ R ≫ 1, and c1 − c2 ⊥ c1 − c3.The transformed X′ translates the entire cluster C3 by 
+
+c2 − c1, leaving C1 and C2 unchanged, so that ∥c1 − c′
+
+> 3
+
+∥ ≈ √D2 + R2 and ∥c2 − c′
+
+> 3
+
+∥ ≈ R.       
+
+> Figure 3. Distinguishing TSI and QSI: contracting the upper cluster from gap 2to 1preserves every point’s nearest-neighbor ordering, yet alters the relative scale between disjoint intra-cluster pairs; TSI remains at 1, while QSI drops to 1/3.
+
+5.3. Distinguishing TSI and QSI 
+
+We show that QSI, as opposed to TSI, is sensitive to global geometric changes that leave local neighborhood structure intact (Figure 3), yielding QSI (X, X ′) = 13
+
+(severe misalignment) despite TSI (X, X ′) = 1 (perfect alignment). Input X consists of N = 4 points in R:
+
+X = {0, 1, D, D +2 } with D ≫ 1, forming two remote clusters {x1, x 2} and {x3, x 4}. The transformed X′ con-tracts the second cluster by mapping x4 7 → x′ 
+
+> 4
+
+= D+1 ,giving X′ = {0, 1, D, D +1 }.
+
+# 6. Experiments 
+
+In this section, we compare the interpretability, sensitivity to outliers, and approximation quality of ordinal similarity (TSI/QSI) with metrics from previous work. Furthermore, we explore two real-world case studies: analyzing the con-vergence of representations during training, and evaluating multimodal alignment in CLIP models. We provide the mathematical formulation of these metrics in Section A and describe the parameter selection used to compute them in Section J. Note that for the experiments in Sections 6.3 6Scalable and Interpretable Representation Alignment with Ordinal Similarity        
+
+> Figure 4. Analysis of the output of various similarity metrics in the setting of two statistically independent representation sets composed of Nuniformly sampled points from a unitary Ddimensional hypercube.
+> Figure 5. Evaluation of similarity metric sensitivity when 2% of the dataset is perturbed by outliers of increasing strength ( σ). a) Synthetic representations sampled from a D-dimensional hypercube, b) Representations from a Vision Transformer trained on CIFAR-10.
+
+to 6.5, we do not report SVCCA and PWCCA due to the numerical instability problems highlighted in Section K.1. 
+
+6.1. Ordinal Similarity Provides Consistent Baseline for Dissimilar Representations 
+
+We investigate the stability of dissimilarity scores i.e., scores obtained for two statistically independent representation sets, generated by sampling N points from a D-dimensional uniform distribution, U([0 , 1] D ). The evaluation was per-formed under two distinct conditions, with results averaged over 20 runs: (i) varying the number of samples N with fixed dimensionality D = 500 , and (ii) varying the dimen-sionality D with a fixed number of samples N = 1000 .The results, presented in Figure 4, demonstrate that dis-similarity scores of several existing metrics are highly sen-sitive to these parameters. The scores of CKA, SVCCA and PWCCA strongly depend on both sample size and di-mensionality, spanning nearly the entire range of possible values; in certain scenarios, they even yield almost perfect alignment for independent representations. While CKNNA and MutualNN appear stable, this is an artifact of their small neighborhood ( k = 10 ): their sensitivity becomes noticeable at smaller sample sizes ( N ≤ 400 ) as N ap-proaches k; in the limit k = N − 1, CKNNA corresponds to CKA. In contrast, as predicted by our theoretical analysis in Lemma 1, TSI and QSI provide stable scores for statistical independence ( ≈ 0.5), yielding consistent similarity scores regardless of sample size or dimensionality. This stabil-ity provides an interpretable baseline, allowing alignment quality to be judged independently of these parameters. 
+
+6.2. Ordinal Similarity Metrics Are Robust to Outliers 
+
+Inspired by the experimental setting in Davari et al. (2023), we assess robustness by comparing an original representa-tion set X to a version X′ containing a small fraction of perturbed points. Following Section 4.4, these perturbations can be considered as either transforming normal points into outliers or directly injecting noisy corruptions. We evalu-ate two settings: a) a synthetic dataset of N = 1000 points sampled from U([0 , 1] 50 ), and b) 10000 real-world represen-tations from a Vision Transformer (ViT) (Dosovitskiy et al., 2021) trained on CIFAR-10 (Krizhevsky, 2009) (details in Section L). In both cases, 2% of the data are designated for perturbation. To standardize the scale, each perturbed point is displaced by a vector dσ v, where d is the average Euclidean pairwise distance of the set, σ is a scalar control-ling the perturbation strength, and v is a uniformly sampled random unit vector. We report the change in similarity as a function of σ, averaged over 20 runs. Given that 98% of the data points remain identical between the two representation sets, a reliable metric should output a consistently high similarity score close to 1. However, the results in Figure 5 show significant deviations for several standard metrics. In both the synthetic and real-world settings (panels a and b respectively), CKA, CKNNA, and MutualNN are highly sensitive to the perturbation magnitude σ, eventually dropping to near-zero values. This is counter-intuitive for neighborhood-based metrics; In Section K.2, we trace this failure to dot-product induced hub-ness, where a single outlier globally disrupts neighborhood structures. SVCCA and PWCCA are more resilient but still exhibit a noticeable decline as the outlier strength increases. 7Scalable and Interpretable Representation Alignment with Ordinal Similarity      
+
+> Figure 6. Evaluation of the approximation error for various similarity metrics. The plot reports the absolute deviation between the exact and approximate similarity scores as a function of the number of batches ( B) for varying batch sizes ( NB).
+> Figure 7. Evolution of representation similarity during training on CIFAR-10. We compare the representations of a ViT at epoch twith its final representation (Same Seed) and with the final representation of a separately initialized model (Distinct Seed).
+
+In contrast, TSI and QSI remain remarkably stable, match-ing the tight theoretical lower bounds from Lemma 2 (e.g., 
+
+≈ 94% for TSI in panel a with N = 1000 and |U | = 980 ). Since these bounds depend only on the proportion of outliers and are independent of distance function selection, ordinal metrics are immune to failures of other approaches. 
+
+6.3. Ordinal Similarity Can Be Efficiently Approximated with Negligible Deviation 
+
+We evaluate the approximation quality of various metrics by measuring the absolute deviation between exact scores and their estimates as the computational budget increases. The metrics are applied to compute the similarity between initial and final representations of a ViT trained on CIFAR-10 (Section L). Following Section A.1, we compare standard batched approximations (B- prefix), which average over B
+
+batches of size NB , with metric-specific schemes (C- prefix). For CKA, the C- prefix denotes batching of individual HSIC coefficients (Nguyen et al., 2021), while for TSI and QSI it represents our approximate sampling approach, using B ×
+
+N 2 
+
+> B
+
+samples to match the computational cost of quadratic metrics. As shown in Figure 6, the metric-specific schemes consis-tently outperform the standard batched approximations. In the regime of smaller batches ( NB = 100 ), standard approx-imations yield absolute deviations between 10 −1 and 10 −2.Given that similarity scores are bounded within [0 , 1] , er-rors of this magnitude are significant, potentially obscuring meaningful distinctions in representation alignment. While increasing the batch size to NB = 1000 reduces the devia-tion error for all metrics, standard local metrics (CKNNA, MutualNN) continue to exhibit high approximation errors that stagnate despite increased computation. In contrast, TSI and QSI demonstrate rapid, monotonic convergence, yielding estimates orders of magnitude more precise than competing approaches. These empirical results validate the tight theoretical bounds established in Corollary 4, confirm-ing that our ordinal framework offers not just scalability, but a mathematically guaranteed confidence in approximation quality that heuristic methods lack. 
+
+6.4. TSI and QSI Capture Representation Convergence in Real-World Settings 
+
+To validate TSI and QSI in a practical training scenario, we analyze representation convergence of a ViT when trained on CIFAR-10, see the setup in Section L. We track the align-ment between intermediate model checkpoints at epoch t
+
+and two reference points: (i) the final representation of the 
+
+same model, and (ii) the final representation of a model trained with a distinct random seed. We compare our met-rics against CKA; for the sake of conciseness, we opt not to report results for metrics that only capture local struc-ture (MutualNN, CKNNA). To reflect real-world resource constraints, all metrics are approximated rather than ex-actly computed. These estimations use B = 10 batches of size NB = 1000 , utilizing metric-specific approximation schemes where applicable (see Section J for details). All results are averaged over 5 independent runs. As shown in Figure 7, TSI and QSI accurately capture the training dynamics, exhibiting behavior consistent with es-tablished expectations that similarity increases as training progresses. In the “Same Seed” regime, both metrics start near the random dissimilarity baseline ( ≈ 0.5) and mono-tonically increase to perfect alignment ( 1.0) as the model 8Scalable and Interpretable Representation Alignment with Ordinal Similarity  
+
+> Figure 8. Multimodal alignment analysis using CLIP models of increasing scale on the ImageNet validation set.
+
+converges to itself. In the “Distinct Seed” regime, the met-rics correctly identify that while models trained from differ-ent initializations converge to similar representations, they do not reach identical alignment. These results confirm that ordinal metrics effectively measure representation evo-lution in real-world deep learning workflows, offering the utility of established methods like CKA while maintaining the theoretical robustness and interpretability advantages demonstrated in previous sections. 
+
+6.5. Ordinal Similarity Consistently Tracks Multimodal Alignment Across Model Scales 
+
+A major real-world application of similarity metrics is evalu-ating multimodal alignment, such as vision-language consis-tency in CLIP (Radford et al., 2021). We analyze three CLIP variants from sentence-transformers (Reimers & Gurevych, 2019)—Small (ViT-B/32), Medium (ViT-B/16), and Large (ViT-L/14)—which exhibit increasing ImageNet zero-shot accuracy (63.3%, 68.1%, and 75.4%) on the vali-dation set of ImageNet containing 50k datapoints. Follow-ing the original CLIP evaluation, we compare image repre-sentations with prompt-based label embeddings (“A photo of {label }”). As CLIP optimizes cosine similarity between modalities, larger models with higher accuracy should con-tain increasingly aligned representations. This is especially true for the alignment measured with dot products or cosine similarity, which is the case for all reported metrics except for TSI and QSI, which by default uses Euclidean distance. For these reasons, we also report TSI and QSI using nega-tive cosine similarity. While this distance does not satisfy metric axioms and may therefore lack clear practical lower bounds (Section E) or exhibit the counter-intuitive behaviors discussed in Section K.2, its direct link to the CLIP objec-tive provides valuable insight into multimodal alignment. To enable realistic evaluation, all metrics are approximated rather than exactly computed. These estimations are com-puted using B = 10 batches of size NB = 1000 , utilizing metric-specific approximation schemes where applicable (see Section J for details). The empirical results presented in Figure 8 largely confirm these expectations, though they also reveal critical failure modes in established metrics. While TSI and QSI correctly capture the monotonic increase in alignment using both Euclidean distance and negative cosine similarity, CKA ex-hibits a counter-intuitive behavior: the similarity score drops when transitioning from the Medium to the Large model. This drop coincides with a change in embedding dimen-sionality, as both the Small and Medium models have 512 dimensions while the Large model has 768, further highlight-ing CKA’s sensitivity to varying dimensions as previously discussed in Section 6.1. While local metrics like CKNNA and MutualNN also capture the alignment increase, they are intrinsically limited as they only evaluate the consistency of very reduced local substructures. In contrast, our ordinal metrics capture the global geometric structure composed of these local substructures, as formally established by the connection between MutualNN and TSI in Section 4.3. This use-case underscores the practical advantages of our approach. Beyond enabling scalable, high-confidence eval-uation on large datasets like ImageNet, TSI and QSI offer immediate interpretability: a score of 0.57 , for instance, indicates that 57% of relative distance relationships are pre-served across modalities. This provides a clear geometric measure of alignment relative to the 0.5 random baseline, underscoring the metrics’ utility for practitioners seeking interpretable results at scale. 
+
+# 7. Conclusion 
+
+In this paper, we introduced TSI and QSI, redefining repre-sentational similarity via ordinal relationship consistency. By prioritizing distance ordering over raw values, these metrics provide stable, interpretable baselines and a direct probabilistic interpretation across varying dimensions and sample sizes. We theoretically established the equivalence of ordinal alignment to multi-scale neighborhood consis-tency and proved robustness to outliers where metrics like CKA fail. Methodologically, we developed efficient algo-rithms for exact computation and a Monte Carlo sampling scheme with provable approximation guarantees indepen-dent of dataset size. Empirical validation on Vision Transformer training dynam-ics and multimodal CLIP patterns confirms the practical utility of our approach. TSI and QSI correctly track align-ment across varying model scales and training regimes, even as embedding dimensions change, where metrics like CKA often fail. Furthermore, our proposed sampling schemes achieve approximation precision orders of magnitude higher than standard batching, enabling high-confidence evaluation on massive datasets like ImageNet. By combining mathe-matical rigor with scalable computation, ordinal similarity provides a principled and reliable framework for evaluating representational alignment in modern machine learning. 9Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+# Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here. 
+
+# Code Availability 
+
+Code is available at 
+
+https://github.com/diogosoares22/ ordinal-similarity-metrics .
+
+# Acknowledgments 
+
+This project has received funding from the European Re-search Council (ERC) under the European Funding Union’s Horizon 2020 research and innovation programme (grant agreement No 810115 – DOG-AMP). 
+
+Conflict of Interest: Projects in Szczurek lab at the Univer-sity of Warsaw are cofunded by Merck Healthcare. 
+
+# LLM Usage 
+
+This paper was written with the assistance of Gemini2.5 (Co-manici et al., 2025), which was used to enhance language clarity and flow. All content has been reviewed and edited to ensure originality and accuracy. 
+
+# References 
+
+Agarwal, S., Wills, J., Cayton, L., Lanckriet, G. R. G., Krieg-man, D. J., and Belongie, S. J. Generalized non-metric multidimensional scaling. In Proceedings of the Eleventh International Conference on Artificial Intelligence and Statistics, AISTATS , 2007. Bilu, Y. and Linial, N. Monotone maps, sphericity and bounded second eigenvalue. J. Comb. Theory B , 95(2): 283–299, 2005. Borg, I. and Groenen, P. J. Modern multidimensional scal-ing: Theory and applications . Springer, 2005. Chatziafratis, V. and Indyk, P. Dimension-accuracy tradeoffs in contrastive embeddings for triplets, terminals & top-k nearest neighbors. In 2024 Symposium on Simplicity in Algorithms, SOSA , pp. 230–243, 2024. Cloos, N., Yang, G. R., and Cueva, C. J. A framework for standardizing similarity measures in a rapidly evolv-ing field. In UniReps: 2nd Edition of the Workshop on Unifying Representations in Neural Models , 2024. Cloos, N., Li, M., Siegel, M., Brincat, S. L., Miller, E. K., Yang, G. R., and Cueva, C. J. Differentiable optimization of similarity scores between models and brains. In The Thirteenth International Conference on Learning Repre-sentations, ICLR , 2025. Comanici, G., Bieber, E., Schaekermann, M., Pasupat, I., Sachdeva, N., Dhillon, I., Blistein, M., Ram, O., Zhang, D., Rosen, E., et al. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities, 2025. Connolly, A. C., Guntupalli, J. S., Gors, J., Hanke, M., Halchenko, Y. O., Wu, Y.-C., Abdi, H., and Haxby, J. V. The representation of biological classes in the human brain. Journal of Neuroscience , 32(8):2608–2618, 2012. Davari, M., Horoi, S., Natik, A., Lajoie, G., Wolf, G., and Belilovsky, E. Reliability of cka as a similarity measure in deep learning. In The Eleventh International Conference on Learning Representations , 2023. Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., and Houlsby, N. An image is worth 16x16 words: Transformers for image recognition at scale. In 9th International Conference on Learning Representations, ICLR , 2021. Duraphe, K., Smith, M. J., Sourav, S., and Wu, J. F. The platonic universe: Do foundation models see the same sky? In NeurIPS 2025 Workshop on Machine Learning and the Physical Sciences , 2025. Freiwald, W. A. and Tsao, D. Y. Functional compartmental-ization and viewpoint generalization within the macaque face-processing system. Science , 330(6005):845–851, 2010. Gou, J., Yu, B., Maybank, S. J., and Tao, D. Knowledge distillation: A survey. International journal of computer vision , 129(6):1789–1819, 2021. Gretton, A., Bousquet, O., Smola, A. J., and Sch ¨olkopf, B. Measuring statistical dependence with hilbert-schmidt norms. In Algorithmic Learning Theory, 16th Interna-tional Conference, ALT , 2005. Hardoon, D. R., Szedmak, S., and Shawe-Taylor, J. Canon-ical correlation analysis: An overview with application 10 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+to learning methods. Neural computation , 16(12):2639– 2664, 2004. Hoeffding, W. Probability inequalities for sums of bounded random variables. Journal of the American statistical association , 58(301):13–30, 1963. Huh, M., Cheung, B., Wang, T., and Isola, P. Position: The platonic representation hypothesis. In Proceedings of the 41st International Conference on Machine Learning ,2024. Jamieson, K. G. and Nowak, R. D. Low-dimensional em-bedding using adaptively selected ordinal data. In 49th Annual Allerton Conference on Communication, Control, and Computing , 2011. Kendall, M. G. A new measure of rank correlation. 
+
+Biometrika , 30(1-2):81–93, 1938. Klabunde, M., Schumacher, T., Strohmaier, M., and Lem-merich, F. Similarity of neural network models: A survey of functional and representational measures. ACM Com-put. Surv. , 57(9):242:1–242:52, 2025. Kleindessner, M. and von Luxburg, U. Uniqueness of ordi-nal embedding. In Proceedings of The 27th Conference on Learning Theory, COLT , 2014. Kleindessner, M. and von Luxburg, U. Kernel functions based on triplet comparisons. In Advances in Neural Information Processing Systems 30: Annual Conference on Neural Information Processing Systems , 2017. Knight, W. R. A computer method for calculating kendall’s tau with ungrouped data. Journal of the American Statis-tical Association , 61(314):436–439, 1966. Kornblith, S., Norouzi, M., Lee, H., and Hinton, G. Sim-ilarity of neural network representations revisited. In 
+
+Proceedings of the 36th International Conference on Ma-chine Learning , 2019. Kriegeskorte, N., Mur, M., and Bandettini, P. A. Repre-sentational similarity analysis-connecting the branches of systems neuroscience. Frontiers in systems neuroscience ,2:249, 2008. Krizhevsky, A. Learning multiple layers of features from tiny images. Technical report, University of Toronto, Toronto, Ontario, 2009. Leng, X., Singh, J., Hou, Y., Xing, Z., Xie, S., and Zheng, L. Repa-e: Unlocking vae for end-to-end tuning of latent diffusion transformers. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) ,2025. Li, P., Castelo, N., Katona, Z., and Sarvary, M. Frontiers: Determining the validity of large language models for automated perceptual analysis. Marketing Science , 43(2): 254–266, 2024. Morcos, A. S., Raghu, M., and Bengio, S. Insights on repre-sentational similarity in neural networks with canonical correlation. In Advances in Neural Information Process-ing Systems 31: Annual Conference on Neural Informa-tion Processing Systems , 2018. Muttenthaler, L., Dippel, J., Linhardt, L., Vandermeulen, R. A., and Kornblith, S. Human alignment of neural network representations. In The Eleventh International Conference on Learning Representations,ICLR , 2023. Nguyen, T., Raghu, M., and Kornblith, S. Do wide and deep networks learn the same things? uncovering how neural network representations vary with width and depth. In 9th International Conference on Learning Representations, ICLR , 2021. Park, W., Kim, D., Lu, Y., and Cho, M. Relational knowl-edge distillation. In Proceedings of the IEEE/CVF con-ference on computer vision and pattern recognition , pp. 3967–3976, 2019. Radford, A., Kim, J. W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., Krueger, G., and Sutskever, I. Learning transferable visual models from natural language supervision. In 
+
+Proceedings of the 38th International Conference on Ma-chine Learning , 2021. Raghu, M., Gilmer, J., Yosinski, J., and Sohl-Dickstein, J. SVCCA: singular vector canonical correlation anal-ysis for deep learning dynamics and interpretability. In 
+
+Advances in Neural Information Processing Systems 30: Annual Conference on Neural Information Processing Systems , 2017. R ¨ais ¨a, O., Van Breugel, B., and Van Der Schaar, M. Posi-tion: All current generative fidelity and diversity metrics are flawed. In Proceedings of the 42nd International Conference on Machine Learning , 2025. Reimers, N. and Gurevych, I. Sentence-bert: Sentence em-beddings using siamese bert-networks. In Proceedings of the 2019 Conference on Empirical Methods in Natu-ral Language Processing . Association for Computational Linguistics, 2019. Sch ¨olkopf, B. The kernel trick for distances. In Advances in Neural Information Processing Systems 13, Neural Information Processing Systems (NIPS) , 2000. 11 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Schroff, F., Kalenichenko, D., and Philbin, J. Facenet: A unified embedding for face recognition and clustering. In IEEE Conference on Computer Vision and Pattern Recognition, CVPR , 2015. Spearman, C. The proof and measurement of association between two things. In Studies in individual differences: The search for intelligence , pp. 45–58. Appleton-Century-Crofts, 1961. Sucholutsky, I., Muttenthaler, L., Weller, A., Peng, A., Bobu, A., Kim, B., Love, B. C., Cueva, C. J., Grant, E., Groen, I. I. A., Achterberg, J., Tenenbaum, J. B., Collins, K. M., Hermann, K. L., Oktar, K., Greff, K., Hebart, M. N., Cloos, N., Kriegeskorte, N., Jacoby, N., Zhang, Q., Mar-jieh, R., Geirhos, R., Chen, S., Kornblith, S., Rane, S., Konkle, T., O’Connell, T. P., Unterthiner, T., Lampinen, A. K., M ¨uller, K., Toneva, M., and Griffiths, T. L. Getting aligned on representational alignment. Transactions on Machine Learning Research , 2025. Tamuz, O., Liu, C., Belongie, S. J., Shamir, O., and Kalai, A. Adaptively learning the crowd kernel. In Proceedings of the 28th International Conference on Machine Learning, ICML , 2011. Van Der Maaten, L. and Weinberger, K. Stochastic triplet embedding. In 2012 IEEE International Workshop on Machine Learning for Signal Processing , 2012. Vankadara, L. C., Lohaus, M., Haghiri, S., Wahab, F. U., and von Luxburg, U. Insights into ordinal embedding algorithms: A systematic evaluation. Journal of Machine Learning Research , 24, 2023. Veit, A., Belongie, S. J., and Karaletsos, T. Conditional similarity networks. In IEEE Conference on Computer Vision and Pattern Recognition, CVPR , 2017. Virtanen, P., Gommers, R., Oliphant, T. E., Haberland, M., Reddy, T., Cournapeau, D., Burovski, E., Peterson, P., Weckesser, W., Bright, J., van der Walt, S. J., Brett, M., Wilson, J., Millman, K. J., Mayorov, N., Nelson, A. R. J., Jones, E., Kern, R., Larson, E., Carey, C. J., Polat, ˙I., Feng, Y., Moore, E. W., VanderPlas, J., Laxalde, D., Perktold, J., Cimrman, R., Henriksen, I., Quintero, E. A., Harris, C. R., Archibald, A. M., Ribeiro, A. H., Pedregosa, F., van Mulbregt, P., and SciPy 1.0 Contributors. SciPy 1.0: Fundamental Algorithms for Scientific Computing in Python. Nature Methods , 17:261–272, 2020. Williams, A. H., Kunz, E., Kornblith, S., and Linderman, S. Generalized shape metrics on neural representations. 
+
+Advances in neural information processing systems , 34: 4738–4750, 2021. Yao, J., Yang, B., and Wang, X. Reconstruction vs. gener-ation: Taming optimization dilemma in latent diffusion models. In IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR , 2025. Yu, S., Kwak, S., Jang, H., Jeong, J., Huang, J., Shin, J., and Xie, S. Representation alignment for generation: Training diffusion transformers is easier than you think. In The Thirteenth International Conference on Learning Representations, ICLR , 2025. 12 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+# Appendix 
+
+We organize the Appendix as follows: • Section A: We provide formal mathematical definitions for all similarity metrics evaluated in our experiments. • Section B: We analyze the invariance properties of TSI and QSI under various transformations in inner product spaces. • Section C: We show that the complementary distances 1 − TSI and 1 − QSI satisfy the metric axioms. • Section D: We provide a causal perspective on why statistical independence serves as a natural baseline for representa-tional dissimilarity. • Section E: We analyze the occurrence of low ordinal similarity scores for representations in R and compute practical lower bounds. • Section F: We establish a theoretical connection between TSI and Mutual Nearest Neighbors (MNN) by deriving a TSI upper bound consisting of a convex combination of MNN scores. • Section G: We explore the connection between our ordinal metrics and an adjusted version of the Kendall rank correlation coefficient. • Section H: We describe efficient algorithms for both exact and approximate computation of TSI and QSI. • Section I: We define population similarity and prove concentration bounds for empirical TSI and QSI as a function of dataset size. • Section J: We detail the experimental setup, including metric parameters and model training configurations. • Section K: We discuss the impact of distance proxy selection on the sensitivity of local neighborhood-based metrics to outliers; Additionally, we provide intuition for the numerical instability of SVCCA and PWCCA. • Section L: We describe the training procedure of a Vision Transformer used to generate CIFAR-10 latent representations for our experiments. • Section M: We present full derivations for the illustrative counterexamples summarized in the main text (local/global failure modes of baseline metrics, and TSI/QSI distinction). • Section N: We present the complete mathematical proofs for all lemmas and corollaries introduced in this manuscript. 
+
+# A. Similarity Metrics 
+
+This section provides a brief mathematical formulation of the similarity metrics considered in this paper. For notation purposes, we assume X and Y are ordered sets of N data points. When these are vectorial representations, they can be viewed as matrices X ∈ RN ×LX and Y ∈ RN ×LY . Similarity Metrics are functions of the form Mparameters (X, Y ) ∈ [0 , 1] ,where 1 indicates complete similarity and 0 indicates complete dissimilarity. Although, as shown in Section 6.1, it is often the case that the practical baseline dissimilarity is higher than 0. The CCA, SVCCA, and PWCCA metrics assume the representations are vectorial and operate directly on them, in contrast to other metrics that leverage either distance functions or kernel operators on the underlying representation spaces, denoted as dX ,dY , and kX ,kY respectively. 
+
+CCA Canonical correlation finds bases for two sets of representations, X and Y , such that, when the original matrices are projected onto these bases, the correlation is maximized. The overall similarity is the average of the correlations of multiple, mutually orthogonal pairs of such projections, known as canonical correlations. Let m = min( LX , L Y ) be the number of canonical components. For each component i from 1 to m, the canonical correlation ρi is found by solving: 13 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+ρi(X, Y ) = max    
+
+> wiX∈RLX,wiY∈RLY
+
+corr( XwiX , Y wiY )
+
+subject to ∀j < i cov( XwiX , X wjX ) = 0 
+
+∀j < i cov( Y wiY , Y wjY ) = 0 .
+
+The final CCA score is the unweighted mean of these correlations: CCA (X, Y ) = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+ρi(X, Y )
+
+SVCCA Singular Vector CCA (SVCCA) improves upon CCA by first performing a dimensionality reduction step. Instead of performing CCA on the raw representations, it first identifies and projects the data onto the most significant principal components, i.e., those that explain most of the variance. First, a Singular Value Decomposition (SVD) is performed on the centered data matrices, X = UX ΣX V TX and Y =
+
+UY ΣY V TY . The number of components to retain, kX and kY , is chosen to explain at least 99% of the variance in each space, based on the singular values ( σX,i , σY,i ): 
+
+kX = min 
+
+(
+
+k |
+
+Pki=1 σ2
+
+> X,i
+
+PLX 
+
+> i=1
+
+σ2
+
+> X,i
+
+≥ 0.99 
+
+)
+
+and kY = min 
+
+(
+
+k |
+
+Pki=1 σ2
+
+> Y,i
+
+PLY 
+
+> i=1
+
+σ2
+
+> Y,i
+
+≥ 0.99 
+
+)
+
+The original representations are then projected onto these principal directions: 
+
+X′ = XV 1: kX 
+
+> X
+
+and Y ′ = Y V 1: kY
+
+> Y
+
+where V 1: k denotes the matrix containing the first k columns of V . SVCCA is then defined as the CCA score between these dimensionality-reduced representations: SVCCA (X, Y ) = CCA (X′, Y ′)
+
+PWCCA Projection Weighted CCA (PWCCA) refines this approach by acknowledging that not all canonical directions equally reflect the underlying similarity of the original data. It computes a weighted average of the canonical correlations, where the weights are proportional to the amount of information explained by each of the CCA projection directions. The importance weight ˜αi for each normalized canonical direction wiX is calculated as the sum of the absolute projections of the original feature vectors (columns of the data matrix X) onto that direction: 
+
+˜αi(X, Y ) = 
+
+> LX
+
+X
+
+> j=1
+
+|⟨ Xw iX , X :,j ⟩| ∥Xw iX ∥
+
+The final PWCCA score is the weighted average of the canonical correlations using normalized weights: PWCCA (X, Y ) = 
+
+> m
+
+X
+
+> i=1
+
+˜αi(X, Y )
+
+Pmk=1 ˜αk(X, Y ) ρi(X, Y )
+
+where m is the number of canonical components. 
+
+CKA Centered Kernel Alignment (CKA) is a similarity metric based on the Hilbert-Schmidt Independence Criterion (HSIC) (Gretton et al., 2005), which measures the dependence between two kernel matrices derived from the representations. First, pairwise relationship matrices KX and KY are computed using a kernel function, k. Common choices include the Linear Kernel ( k(a, b ) = a⊤b) and the RBF Kernel ( k(a, b ) = exp( −∥ a − b∥2/2σ2)). These functions map pairs of vectors to a similarity score, but they do not satisfy the axioms of a distance metric. 14 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+The kernel matrices are defined as: 
+
+(KX )ij = kX (xi, x j ) and (KY )ij = kY (yi, y j )
+
+The HSIC statistic is then computed as HSIC (A, B ) = 1(N −1) 2 tr( AHBH ), where H = IN − 1 
+
+> N
+
+JN is a centering matrix. CKA normalizes the HSIC between the two representations’ kernel matrices by the HSIC of each kernel matrix with itself. This process ensures the resulting score is invariant to isotropic scaling and lies within the range [0 , 1] .CKA kX ,k Y (X, Y ) = HSIC (KX , K Y )
+
+pHSIC (KX , K X )HSIC (KY , K Y )
+
+MutualNN Mutual Nearest Neighbors (MutualNN) quantifies similarity by assessing the preservation of local neighbor-hoods. For a chosen hyperparameter k, the metric evaluates the overlap between the k-nearest neighbors of each point in the two representation spaces. Specifically, the set of shared neighbors for a point i is the intersection of its neighbor sets from space X and space Y:SharedNN k,d X ,d Y (i) := KNN k,d X (X \ { xi}, x i) ∩ KNN k,d Y (Y \ { yi}, y i)
+
+The final MutualNN score is the average fraction of shared neighbors across all data points, a value naturally normalized between 0 and 1. MutualNN k,d X ,d Y (X, Y ) = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+|SharedNN k,d X ,d Y (i)|
+
+k
+
+Here, | · | denotes the cardinality of the set, measuring the size of the intersection. 
+
+CKNNA Centered Kernel Nearest-Neighbor Alignment (CKNNA) integrates CKA’s global perspective with MutualNN’s focus on local structure. It achieves this by calculating a CKA-like score restricted only to the mutual nearest neighbors of each point. The process begins by constructing a binary mask matrix, M , based on the shared nearest neighbors (as defined in MutualNN) for a given k:
+
+M (k)ij = I[j ∈ SharedNN k,d X ,d Y (i)] 
+
+This mask is then applied element-wise to the kernel matrices, effectively zeroing out relationships between points that are not in the same local neighborhood. The masked HSIC is defined as: HSIC masked (A, B, M ) = HSIC (A ⊙ M, B ⊙ M )
+
+Finally, the CKNNA score uses the standard CKA normalization but with the masked HSIC, thus measuring alignment only within these corresponding local neighborhoods. CKNNA k,k X ,k Y ,d X ,d Y (X, Y ) = HSIC masked (KX , K Y , M (k)) 
+
+pHSIC masked (KX , K X , M (k)) HSIC masked (KY , K Y , M (k)) 
+
+This formulation is unique in that it requires both a distance function to construct the nearest-neighbor mask and a kernel function for the subsequent HSIC calculation. While these are treated as independent choices, it is worth noting that a distance function can be derived from a similarity kernel provided certain conditions are met (Sch¨ olkopf, 2000). 
+
+A.1. Batched Approximations 
+
+Due to the significant computational complexity of the aforementioned similarity metrics, which often scale quadratically with the number of samples N , their exact calculation on large datasets is frequently impractical. Consequently, batched approximation methods are widely used (Huh et al., 2024). A general approach employed in these works is to estimate similarity by examining the metric’s scores over a randomly sampled smaller mini-batch. Here, we expand this approach by averaging over B mini-batches. Let (Xb, Y b)Bb=1 denote the mini-batches sampled from the full datasets, then, the metric M can be approximated as: 
+
+cMparameters (X, Y ) = 1
+
+B
+
+> B
+
+X
+
+> b=1
+
+Mparameters (Xb, Y b)
+
+15 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+This approach can be readily applied to CKA, CKNNA, MutualNN, SVCCA and PWCCA. Although straightforward, directly averaging the final score of these metrics (like MutualNN and CKNNA) can result in biased estimates. For CKA, a more principled approximation was proposed by Nguyen et al. (2021), which avoids this source of bias by separately estimating the numerator and denominator of the CKA formula. This method relies on an unbiased HSIC estimator, denoted HSIC 1, which differs from the biased estimator used in the standard definition. The unbiased estimator is defined as: HSIC 1(K, L ) = 1
+
+n(n − 3) tr( ˜K ˜L) + 1⊤ ˜K11 ⊤ ˜L1
+
+(n − 1)( n − 2) − 2
+
+n − 2 1⊤ ˜K ˜L1
+
+!
+
+With KXb and KYb as the kernel matrices for a mini-batch b, the batched CKA estimator is constructed as the ratio of the averaged unbiased HSIC estimates: 
+
+[CKA kX ,k Y (X, Y ) = 
+
+> 1
+> B
+
+PBb=1 HSIC 1(KXb , K Yb )
+
+r 1
+
+> B
+
+PBb=1 HSIC 1(KXb , K Xb )
+
+  1
+
+> B
+
+PBb=1 HSIC 1(KYb , K Yb )
+
+
+
+Crucially, Nguyen et al. (2021) highlight that when sampling with replacement and as B → ∞ , the average of the batch-wise HSIC 1 terms converges to the ground-truth HSIC 1 value for the full dataset, ensuring that the overall CKA estimate converges to the true unbiased CKA score. 
+
+# B. Invariances in Inner Product Spaces 
+
+An important property of similarity metrics is their invariance to specific geometric transformations. In inner product spaces, metrics should be invariant to translations, isotropic scaling, and orthogonal transformations, but not to arbitrary linear transforms (Kornblith et al., 2019; Klabunde et al., 2025). In this section, we analyze whether ordinal similarities meet these requirements, starting with the definition of metric invariance in Definition 3. 
+
+Definition 3 (Metric Invariance) . For datasets X ⊂ X and Y ⊂ Y , the metric MdX ,d Y (X, Y ) is invariant in its first argument to a transformation T : X → X if MdX ,d Y (T (X), Y ) = MdX ,d Y (X, Y ), where T (X) = {T (x) | x ∈ X}. If 
+
+M is symmetric, this invariance extends to the second argument. Thus, we simply say that M is invariant to T .Following this definition, we consider an inner product space (X , ⟨· , ·⟩ ) and its induced metric dX (x1, x 2) =p⟨x1 − x2, x 1 − x2⟩. For such metrics, we derive the following invariance results: 
+
+Corollary 5 (Ordinal Similarity Metric Invariances in Inner Product Spaces) . Let (X , ⟨· , ·⟩ ) be an inner product space with its induced metric dX , then TSI and QSI are invariant to the following transformations: 1. Translation: T (x) = x + c, for any constant vector c ∈ X .2. Isotropic Scaling: T (x) = αx , for any non-zero scalar α ∈ R.3. Orthogonal Transformation: A linear map T that preserves the inner product, i.e., ⟨T (x1), T (x2)⟩ = ⟨x1, x 2⟩ for all 
+
+x1, x 2 ∈ X .Furthermore, TSI and QSI are not generally invariant to: 1. Invertible Linear Transformations: A transformation T (x) = Ax , where A is a linear operator for which an inverse 
+
+A−1 exists such that AA −1 = A−1A = I.
+
+These results, proven in Section N.5, have practical implications in common Machine Learning settings. For instance, when evaluating the continuous latent representations of neural networks, this means that rotating, translating, or isotropically scaling these representations does not affect the outcome of ordinal similarity metrics. 16 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+# C. TSI/QSI-based distances satisfy the metric axioms 
+
+The study of metric properties for representational similarity was first introduced by Williams et al. (2021), who motivated the importance of derived distances satisfying the metric axioms to offer theoretically grounded scores that can be reliably used for other applications. 
+
+Corollary 6 (Complementary TSI and QSI Distances Satisfy the Metric Axioms) . Let (X, d X ), (Y, d Y ), and (Z, d Z ) be sets of N representations equipped with their respective distance functions. For a similarity metric S ∈ { TSI , QSI }, define the distance function dS (( X, d X ), (Y, d Y )) = 1 − SdX ,d Y (X, Y ). Then, dS satisfies the following metric axioms, as originally defined in Williams et al. (2021): 1. Equivalence: dS (( X, d X ), (Y, d Y )) = 0 ⇐⇒ (X, d X ) ∼ (Y, d Y )
+
+2. Symmetry: dS (( X, d X ), (Y, d Y )) = dS (( Y, d Y ), (X, d X )) 
+
+3. Triangle inequality: dS (( X, d X ), (Z, d Z )) ≤ dS (( X, d X ), (Y, d Y )) + dS (( Y, d Y ), (Z, d Z )) 
+
+Therefore, these are proper metrics over the space of representation sets defined by the equivalence relation SdX ,d Y (X, Y ) = 1.
+
+This result, proven in Section N.6, has important practical implications. By establishing that 1 − TSI and 1 − QSI satisfy the metric axioms, we ensure they provide mathematically rigorous notions of distance between representation spaces. Consequently, these distance functions can be reliably employed in downstream applications that rely on formal metric properties, such as clustering, nearest-neighbor retrieval, and topological data analysis. 
+
+# D. Why do Statistically Independent Representations represent Dissimilarity? 
+
+An alternative perspective on similarity metrics can be achieved through the lens of causal analysis. Following the notation from Section 3, the sets of representations X = {f (zi)}Ni=1 and Y = {g(zi)}Ni=1 are generated from a common set of source samples Z = {zi}Ni=1 . The set Z can typically be interpreted as sampling N times from a probability distribution 
+
+DZ . In effect, this means that X and Y can be constructed from a two-step process of first sampling from DZ and then transforming the samples with f and g respectively. This process establishes the causal graph shown in Figure 9.           
+
+> Figure 9. Causal graph illustrating that the source concepts, Z, are a common cause for the two representation sets, Xand Y. The similarity between Xand Yis induced by this shared origin.
+
+This causal structure reveals that the relationship between X and Y is induced by Z acting as a common cause. This becomes apparent with the cats and dogs example from Figure 1. If zi represents the abstract concept of a ”grey cat,” its corresponding representations— xi as text and yi as an image—can be considered similar precisely because they originate from this shared source. Conversely, if this causal link were broken, xi and yi would become statistically independent. This scenario is equivalent to comparing representations of unrelated concepts, such as the text for an ”orange cat” and the image of a ”brown dog.” Even for well-defined embedding functions f and g, such a comparison between uncorrelated inputs is expected to yield dissimilarity. Therefore, statistical independence serves as a natural baseline for evaluating representational dissimilarity. 17 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+# E. Practical Lower Bounds for Ordinal Dissimilarity 
+
+Building on the expected similarity for independent representations (Lemma 1), we now investigate whether ordinal similarity can drop significantly below the 12 statistical baseline. While such scores are mathematically possible, we hypothesize that adversarial configurations become increasingly rare as N grows. To ground this intuition, we investigate the 1D Euclidean setting, where geometric constraints prohibit zero-similarity for even small N . We conjecture that as N increases, the consistency required for extreme misalignment becomes so restrictive that the range of achievable scores is pulled towards the statistical baseline, though we do not formally prove this convergence here. 
+
+Corollary 7 (Computability of Global Lower Bounds in R). For any number of considered representations N , the global lower bound of the ordinal similarity S ∈ { TSI , QSI } over sets of N distinct points in R is theoretically computable. Specifically, let smin = min X,Y ∈RN with distinct entries S(X, Y ). Then: 
+
+smin = min  
+
+> X,Y ∈X rep
+
+
+
+min   
+
+> σ∈Perm (N)
+
+S(X, Y σ )
+
+
+
+where Xrep denotes a representative set as defined in Definition 7. Note that Xrep is finite and we can computationally obtain at least one such set (specifically a Monotonically Ordered Representative Set via Algorithm 6). 
+
+This result, whose proof is provided in Section N.10, enables us to formally investigate the limits of dissimilarity by reducing the global search to a finite representative set. Crucially, this allows for the exact calculation of lower bounds for small N
+
+through a computer-assisted search, which can then be used to extrapolate conclusions for all N . In particular, we show in Corollary 8 that for any N beyond a small constant, complete misalignment in R is geometrically impossible, ensuring strictly positive similarity for all representation mappings. 
+
+Corollary 8 (Universal Strict Positivity of Representations in R). Let X, Y ⊂ R be ordered sets of N scalar representations equipped with the standard Euclidean distance dX (a, b ) = dY (a, b ) = |a − b|. For any configuration where both X and Y
+
+consist of distinct points ( xi̸ = xj and yi̸ = yj for i̸ = j) and N ≥ 5, it is impossible to obtain a similarity score of zero. In other words, the similarity is strictly positive for all such mappings: 
+
+∀X, Y ⊂ R with distinct entries , TSI dX ,d Y (X, Y ) > 0
+
+The same strict positivity holds for QSI if N ≥ 6:
+
+∀X, Y ⊂ R with distinct entries , QSI dX ,d Y (X, Y ) > 0
+
+Proof. The result follows by construction; it suffices to verify the base cases N = 5 for TSI and N = 6 for QSI. Since these metrics are expectations over triplets and quadruplets respectively, any dataset larger than these base cases necessarily contains sub-configurations with non-zero scores, ensuring the global metric is strictly positive. To show this statement for a particular N , we do so via a computer-assisted proof leveraging the computability of the global lower bound for TSI and QSI as shown in Corollary 7. In Table 1, we present the obtained global lower bounds for TSI and QSI for all N from 3 to 6, and observe that TSI is lower bounded by 0.13 for N = 5 and QSI is lower bounded by 0.11 for N = 6 .As shown in Table 1, the global lower bounds are non-decreasing with N , consistent with our hypothesis. For example, the TSI lower bound rises from 0.13 (N = 5 ) to 0.17 (N = 6 ). This behavior suggests that geometric constraints compound as the dataset grows, potentially pulling the minimum achievable similarity toward the statistical baseline. Computations are restricted to N ≤ 6 due to the rapid expansion of the representative search space. The increasing difficulty of constructing misaligned representations stems from the rigidity of geometric constraints. In 1D Euclidean space, the triangle identity d(i, k ) = d(i, j ) + d(j, k ) creates a dense network of dependencies; forcing misalignment in one triplet often necessitates alignment in another. As N grows, these interlocking rules make adversarial ”zero-similarity” configurations impossible and support our hypothesis that the global minimum is pulled toward the 12
+
+baseline. We expect this pattern to generalize to any distance satisfying the triangle inequality, reinforcing the statistical baseline as a practical lower bound for dissimilarity in real-world applications. 
+
+Reproducibility of Computed Practical Lower Bounds To compute the values in Table 1, we implemented and executed the procedures described in Algorithms 5 and 6. For the construction of the Monotonically Ordered Representative Sets 18 Scalable and Interpretable Representation Alignment with Ordinal Similarity          
+
+> Table 1. Global lower bounds for TSI and QSI for all X, Y ⊂Rconsisting of Ndistinct points. As Nincreases, the geometric constraints of the real line prevent the existence of perfectly misaligned (zero-similarity) configurations.
+
+Lower Bound Number of Points ( N ) TSI QSI 
+
+3 0.00 –4 0.00 0.00 5 0.13 0.00 6 0.17 0.11 (MORS), we utilized the linear programming solver from the scipy.optimize module (Virtanen et al., 2020), with a precision threshold of ∆ = 10 −6. The computational time varied significantly with N : while the evaluation for N ≤ 5 was completed in less than 2 minutes, the exhaustive search for N = 6 required approximately 7 days of computation time due to the combinatorial expansion of the representative space. These results provide a concrete validation of our theoretical framework and establish the practical lower bounds for ordinal similarity in one-dimensional spaces. 
+
+# F. TSI’s connection to Mutual Nearest Neighbors 
+
+In this section, we deepen the theoretical connection between TSI and Mutual Nearest Neighbors (MNN). We first clarify that the standard MNN coefficient (Section A) is fundamentally ill-defined in the presence of ties. Specifically, the set of 
+
+k-nearest neighbors becomes ambiguous when multiple points share the same distance to an anchor, such that the transition from k to k + 1 is not uniquely determined. To maintain mathematical rigor, both Corollaries 1 and 9 assume representations without ties. While Corollary 1 establishes a formal equivalence between TSI and MNN at perfect alignment (score = 1), it is natural to investigate whether a relationship persists for lower similarity values. In Corollary 9, we prove that TSI is upper-bounded by a convex combination of MNN coefficients across all possible scales k. Interestingly, the weights in this combination increase with k, suggesting that MNN descriptors at larger scales carry more information regarding the global ordinal structure captured by TSI. This result demonstrates that TSI and MNN are deeply intertwined even in regimes of partial alignment, positioning TSI as a robust proxy for multi-scale neighborhood consistency. 
+
+Corollary 9 (TSI alignment is upper-bounded by a convex combination of Mutual Nearest Neighbors coefficients) .
+
+Let (X, d X ) and (Y, d Y ) be two sets of N representations without ties, i.e., ∀i, j, k ∈ {1, . . . , N }, d X (xi, x j ) =
+
+dX (xi, x k) =⇒ j = k (same for Y ). Then, the TSI alignment is upper-bounded by a convex combination of Mu-tual Nearest Neighbors coefficients: TSI dX ,d Y (X, Y ) ≤ 1
+
+ N −12
+
+ 
+
+> N−2
+
+X
+
+> k=1
+
+k · MutualNN k,d X ,d Y (X, Y )
+
+where MutualNN k,d X ,d Y (X, Y ) is the Mutual Nearest Neighbors score for k neighbors as defined in Section A. 
+
+This bound, whose proof is detailed in Section N.2.2, formally bridges the gap between local compositional properties and global representational similarity, showing that high TSI alignment necessitates a strong preservation of neighborhood structures across multiple scales. 
+
+# G. Connection to Kendall Rank Correlation Coefficient 
+
+TSI and QSI can be intuitively understood through their connection to the Kendall rank correlation coefficient (Kendall, 1938), also known as Kendall’s τ . The Kendall-τ coefficient is a non-parametric statistic that measures the ordinal association between two quantities. Let A = {a1, . . . , a M } and B = {b1, . . . , b M } be two sequences of paired observations. The coefficient is defined as: Kendall-τ (A, B ) = 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+sign( aj − ak)sign( bj − bk) (3) 19 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+The product of sign functions captures agreement between non-tied pairs. To create a comprehensive similarity score that is equivalent to our ordinal metrics, we must also account for ties. We introduce an adjustment term, as specified in Equation (4), that rewards agreement on ties and penalizes disagreements involving ties. Adj-Ties (A, B ) = 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+
+
+Isign( aj − ak) = sign( bj − bk) = 0 
+
+− Isign( aj − ak) = 0 ∧ sign( bj − bk)̸ = 0 
+
+− Isign( aj − ak)̸ = 0 ∧ sign( bj − bk) = 0 
+
+(4) This allows us to define the Adjusted Kendall Tau Coefficient: Adj-Kendall-τ (A, B ) = Kendall-τ (A, B ) + Adj-Ties (A, B ) + 1 2 (5) Besides incorporating ties, this transformation also maps the standard correlation from the range [−1, 1] to [0 , 1] to ensure range consistency with similarity metrics. Equipped with this coefficient, we can provide an alternative formulation for TSI. As the following corollary shows, TSI can be interpreted as the average Adjusted Kendall Tau with respect to the distances from each anchor, a connection that grounds our metric in established statistical methods. 
+
+Corollary 10 (TSI as an Average of Anchor-based Kendall’s Tau) . For each anchor point i, let DiX = {dX (xi, x t)|t̸ = i}
+
+and DiY = {dY (yi, y t)|t̸ = i} denote the collections of distances from that anchor, treated as paired sequences ordered by the index t. Then TSI can be expressed as: TSI dX ,d Y (X, Y ) = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+Adj-Kendall-τ (DiX , D iY )
+
+where the Adjusted Kendall Tau is calculated according to Equation (5) .
+
+We provide a formal proof for this statement in Section N.7.2. Additionally, this perspective can be expanded to reveal a deeper relationship encompassing both TSI and QSI. The next corollary demonstrates that, assuming symmetric distance functions, the Adjusted Kendall Tau over all unique pairwise distances can be decomposed into a convex combination of TSI and QSI, directly reinforcing the connection between our proposed metrics and conventional statistical methods. 
+
+Corollary 11 (Unified Kendall’s Tau Formulation for TSI and QSI) . Let Dall  
+
+> X
+
+= {dX (xi, x t)|i < t } and Dall  
+
+> Y
+
+=
+
+{dY (yi, y t)|i < t } denote the collections of all unique pairwise distances, treated as paired sequences ordered lexi-cographically by (i, t ). Then, for distance functions dX and dY that satisfy the symmetry property, i.e., d(a, b ) = d(b, a ), a weighted sum of TSI and QSI can be expressed as a function of Kendall’s Tau coefficient: 
+
+4
+
+N + 1 TSI dX ,d Y (X, Y ) + N − 3
+
+N + 1 QSI dX ,d Y (X, Y ) = Adj-Kendall-τ (Dall  
+
+> X
+
+, D all  
+
+> Y
+
+)
+
+where the Adjusted Kendall Tau is calculated according to Equation (5) .
+
+Beyond the proof provided in Section N.7.3, we note to the advanced reader that the term Adj-Kendall-τ (Dall  
+
+> X
+
+, D all  
+
+> Y
+
+) is conceptually related to Representational Similarity Analysis (RSA) (Kriegeskorte et al., 2008) when computed using Kendall’s τ correlation between distance matrices. Since RSA provides a versatile framework for measuring similarity, of which the above formulation represents a specific instantiation, our analysis of the Kendall’s τ connection inherently captures these relationships. Additionally, as we show in the following sections, these alternative formulations provide additional benefits, as they lay the foundation for the efficient computation of TSI and QSI. 20 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+# H. Efficient Computation of Ordinal Similarity Metrics 
+
+In this section, we explore algorithms for the efficient computation of TSI and QSI, analyzing their respective asymptotic time and space complexities. We divide our analysis into two key approaches: exact computation, for scenarios where the precise value of the metric is required, and approximate computation, where a degree of precision is relinquished in exchange of significant gains in computational speed, making the metrics applicable to large-scale applications. 
+
+H.1. Exact Computation 
+
+Building upon the connection to the Kendall Tau Correlation coefficient explored in Section G, we can devise efficient algorithms for our metrics. The foundation of this approach is the efficient computation of the Adj-Kendall-τ coefficient. Inspired by algorithms for Kendall’s Tau (Knight, 1966), we define a fast computation procedure in Algorithm 1, with its corresponding asymptotic complexity analysis provided in Corollary 12. 
+
+Algorithm 1 Adjusted Kendall Tau Correlation Coefficient 
+
+Require: Two sequences of paired observations A, B  
+
+> 1:
+
+Let πA, π B be the rank orderings of points based on A, B . 
+
+> 2:
+
+TA ← CountTies (πA) 
+
+> 3:
+
+TB ← CountTies (πB ) 
+
+> 4:
+
+TAB ← CountJointTies (πA, π B ) 
+
+> 5:
+
+I ← CountInversions (πA, π B ) 
+
+> 6:
+
+C ← |A|× (|A|− 1) 2 − I − TA − TB + TAB  
+
+> 7:
+
+J ← 2 × (C + TAB ) 
+
+> 8:
+
+return J/ (|A| × (|A| − 1)) 
+
+Corollary 12 (Computational Complexity of Adj-Kendall-τ ). Let A = {a1, . . . , a M } and B = {b1, . . . , b M } be two sequences of paired observations. The Adj-Kendall-τ (A, B ), described in Equation (5) , can be computed in O(M log M )
+
+time and O(M ) space complexity. 
+
+Equipped with this efficient subroutine (proof in Section N.8), we leverage the anchor-based formulation from Corollary 10 to construct Algorithm 2. The overall asymptotic complexity analysis for TSI, as summarized in Corollary 3, is derived by applying the O(M log M ) procedure for each of the N anchor points ( M = N − 1), resulting in a total time complexity of 
+
+O(N 2 log N ) and a space complexity of O(N ).
+
+Algorithm 2 Efficient TSI 
+
+Require: Two sets of N representations X, Y , distance functions dX , d Y 
+
+> 1:
+
+Atotal ← 0 
+
+> 2:
+
+for i = 1 → N do  
+
+> 3:
+
+Let DiX ← { dX (xi, x j )}j̸ =i and DiY ← { dY (yi, y j )}j̸ =i 
+
+> 4:
+
+Atotal ← Atotal + Adj-Kendall-τ (DiX , D iY ) 
+
+> 5:
+
+end for  
+
+> 6:
+
+return Atotal /N 
+
+A similar approach, based on the joint formulation in Corollary 11, yields Algorithm 3 for the exact computation of QSI. This method, which requires a symmetric distance function, computes Adj-Kendall-τ over all M =  N
+
+> 2
+
+ unique pairwise distances. As formalized in the asymptotic complexity analysis in Corollary 3, this leads to a time complexity of 
+
+O(M log M ) = O(N 2 log N ) and a space complexity of O(M ) = O(N 2). While QSI calculation also requires TSI, the latter does not affect the overall asymptotic complexity of the combined procedure. 21 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Algorithm 3 Efficient QSI (for symmetric distances) 
+
+Require: Two sets of N representations X, Y , distance functions dX , d Y 
+
+> 1:
+
+Let Dall  
+
+> X
+
+= {dX (xi, x t)|i < t } and Dall  
+
+> Y
+
+= {dY (yi, y t)|i < t } 
+
+> 2:
+
+return  (N + 1) × Adj-Kendall-τ (Dall  
+
+> X
+
+, D all  
+
+> Y
+
+) − 4 × TSI dX ,d Y (X, Y )/(N − 3) 
+
+Corollary 3 (Computational Complexity of TSI and QSI) . TSI can be computed exactly in O(N 2 log N ) time and O(N )
+
+space. Assuming a symmetric distance function, QSI can be computed exactly in O(N 2 log N ) time and O(N 2) space. Proof. Algorithms 2 and 3 achieve the stated complexities by leveraging the O(M log M ) complexity of the Adjusted Kendall-τ subroutine (Corollary 12). For TSI, the subroutine is called N times with M = N − 1, yielding O(N 2 log N ).For QSI, it is called once with M =  N
+
+> 2
+
+ ≈ N 2/2, yielding O(N 2 log( N 2)) = O(N 2 log N ).
+
+H.2. Approximate Computation 
+
+To ensure scalability for modern large-scale datasets, we leverage the statistical structure of our metrics to enable fast approximation. Since TSI and QSI can be formulated as bounded U-statistics, they admit efficient approximation via Monte Carlo methods. By independently sampling a sufficient number of triplets or quadruplets, we can obtain an estimate that is arbitrarily close to the true value with high probability. This is formalized in Lemma 3. 
+
+Lemma 3 (Approximation Bounds for Ordinal Similarity Metrics) . Let cTSI n be the estimator for TSI obtained by sampling 
+
+n triplets uniformly at random with replacement from the set T and calculating the fraction of samples where the ordinal relationship is preserved. Similarly, let dQSI n be the analogous estimator for QSI from n random quadruplets. For any error tolerance ϵ > 0, the estimators are bounded as follows: 
+
+P
+
+ cTSI n − TSI dX ,d Y (X, Y ) ≥ ϵ
+
+
+
+≤ 2 exp  −2nϵ 2
+
+P
+
+ dQSI n − QSI dX ,d Y (X, Y ) ≥ ϵ
+
+
+
+≤ 2 exp  −2nϵ 2
+
+This lemma, whose proof is in Section N.4, has a direct practical consequence: by inverting the bound, we can determine the number of samples n required to guarantee an estimate with additive error ϵ with probability at least 1 − δ. This calculation, 
+
+n = ⌈ 12ϵ2 log( 2 
+
+> δ
+
+)⌉, is precisely what underpins the principled approximation method in Algorithm 4. 
+
+Algorithm 4 Approximate Ordinal Similarity (TSI or QSI) 
+
+Require: Two sets of representations X, Y , distance functions dX , d Y , metric type S ∈ { TSI , QSI }, maximum additive error ϵ > 0, and failure probability δ ∈ (0 , 1) . 
+
+> 1:
+
+n ← ⌈ 12ϵ2 log( 2 
+
+> δ
+
+)⌉ 
+
+> 2:
+
+Atotal ← 0 
+
+> 3:
+
+for i = 1 → n do  
+
+> 4:
+
+if S = TSI then  
+
+> 5:
+
+Sample a triplet of distinct indices (i, j, k ) uniformly at random from T . 
+
+> 6:
+
+Atotal ← Atotal + IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)]  
+
+> 7:
+
+else  
+
+> 8:
+
+Sample a quadruplet of distinct indices (i, j, k, l ) uniformly at random from Q. 
+
+> 9:
+
+Atotal ← Atotal + IOdX (xi, x j , x k, x l) = OdY (yi, y j , y k, y l) 
+
+> 10:
+
+end if  
+
+> 11:
+
+end for  
+
+> 12:
+
+return Atotal /n 
+
+It is straightforward to see that computing this algorithm requires O   1 
+
+> ϵ2
+
+log   1
+
+> δ
+
+ time complexity and O(1) auxiliary space complexity. 
+
+Corollary 4 (Computational Complexity of Approximate TSI and QSI) . By evaluating ⌈ 12ϵ2 log( 2 
+
+> δ
+
+)⌉ triplets or quadruplets sampled uniformly at random, we can estimate TSI or QSI with an additive error of at most ϵ with a probability of at least 
+
+1 − δ. This approximation has a time complexity of O   1 
+
+> ϵ2
+
+log   1
+
+> δ
+
+ and an auxiliary space complexity of O(1) .
+
+22 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Proof. Direct application of Lemma 3 by setting the number of samples n = ⌈ 12ϵ2 log( 2 
+
+> δ
+
+)⌉. The time complexity follows from evaluating the ordinal predicate for n samples, and space complexity is O(1) as only the running sum needs to be stored. Finally, it is possible to combine both the exact and approximate approaches by averaging the exact computation of TSI and QSI over a predetermined set of randomly selected batches. This approach can sometimes work well in practice, as it evaluates a much larger number of triplets/quadruplets for the same unit of computation. However, the theoretical guarantees are not as tight as the aforementioned approximation approaches due to the statistical dependence between the evaluated triplets/quadruplets. Therefore, we do not explore this in detail. 
+
+# I. Concentration Bounds of True Population Similarity as a Function of Dataset Size 
+
+As introduced in Section 3, representation sets X and Y are generated by applying mappings f and g to a common source set Z. In most practical applications, this set Z can be viewed as being sampled from a source distribution DZ .Ultimately, the goal is not merely to measure the similarity of specific finite sets, but to assess the alignment of the underlying data-generating process itself. We can formalize this by treating the pair generation as sampling from a joint distribution 
+
+DXY . This motivates the concept of population similarity : the expected metric value as the sample size grows to infinity, which directly quantifies the true alignment of the underlying generating processes. 
+
+Definition 4 (Population Similarity) . Let DXY be a joint probability distribution over pairs of representations (x, y ) in spaces equipped with distance functions dX and dY . For a similarity metric S evaluated on finite datasets of size N , we define the population similarity (or true similarity) as the expected value of the metric as the sample size approaches infinity: 
+
+S∗  
+
+> dX,d Y
+
+(DXY ) = lim   
+
+> N→+∞
+
+E(X,Y )∼D NXY [SdX ,d Y (X, Y )] 
+
+A fundamental question in practice is how reliably a similarity score computed on finite representation sets X and Y
+
+estimates this true population similarity. Strikingly, the mathematical structure of TSI and QSI allows us to derive tight concentration bounds that depend solely on the dataset size. 
+
+Lemma 4 (Concentration Bounds for Empirical TSI and QSI) . Let (X, Y ) ∼ D NXY be a finite dataset of N independent pairs sampled from the joint distribution DXY . Because TSI and QSI are U-Statistics with bounded indicator kernels in [0 , 1] (of degrees m = 3 and m = 4 , respectively), their empirical estimations tightly concentrate around their true population similarities S∗ ∈ { TSI ∗, QSI ∗}. For any ϵ > 0, the probabilities of deviation are bounded by: 
+
+P  TSI dX ,d Y (X, Y ) − TSI ∗  
+
+> dX,d Y
+
+(DXY ) ≥ ϵ ≤ 2 exp  −2⌊ N 
+
+> 3
+
+⌋ϵ2
+
+P  QSI dX ,d Y (X, Y ) − QSI ∗  
+
+> dX,d Y
+
+(DXY ) ≥ ϵ ≤ 2 exp  −2⌊ N 
+
+> 4
+
+⌋ϵ2
+
+This lemma has significant practical implications: it guarantees that empirical TSI and QSI scores predictably and rapidly converge to their true population values as the dataset grows, providing researchers with mathematically bounded confidence in their measurements. While a comprehensive convergence analysis of all existing similarity metrics is beyond the scope of this work, we anticipate that other metrics either exhibit slower convergence rates or possess bounds that depend on the specific geometry of the underlying distributions, in contrast to the distribution-free, purely sample-dependent bounds of TSI and QSI. 
+
+# J. Experimental Setting 
+
+In this section, we describe the parameters used to define each of the similarity metrics in our experiments. This parameter choice reflects the implementation in the corresponding original work, as summarized in Table 2. To run the external metrics, we utilized the code from their respective original work. This was achieved by utilizing the code repository proposed by Cloos et al. (2024), as this repository centralizes existing implementations of similarity metrics to facilitate comparisons across studies. For the approximate computations of these metrics, following the parameter selection of other works (Huh et al., 2024), we use a batch size of NB = 1000 for all external metrics, and sample B batches with replacement (typically B = 10 
+
+23 Scalable and Interpretable Representation Alignment with Ordinal Similarity          
+
+> Table 2. Parameter settings for the similarity metrics used in the experiments. Settings are chosen to align with the original implementations. The specified distance and kernel functions are the same for both representation spaces (i.e., dX=dYand kX=kY).
+
+Metric Distance Func. Kernel Func. Other Params Original Work 
+
+SVCCA - - Var. explained ≥ 0.99 (Raghu et al., 2017) PWCCA - - - (Morcos et al., 2018) CKA - z⊤ 
+
+> 1
+
+z2 - (Kornblith et al., 2019) MutualNN −z⊤ 
+
+> 1
+
+z2 - k = 10 (Huh et al., 2024) CKNNA −z⊤ 
+
+> 1
+
+z2 z⊤ 
+
+> 1
+
+z2 k = 10 (Huh et al., 2024) TSI (Ours) ∥z1 − z2∥2 - - This work QSI (Ours) ∥z1 − z2∥2 - - This work 
+
+unless specified otherwise). Specifically, when computing similarity metrics in the experiments of Sections 6.4 and 6.5, we utilized the custom CKA principled approximation from Nguyen et al. (2021) (see Section A.1), whereas for the other external metrics we simply use a default batch approach. For TSI and QSI, we do not use batches but rather sample B × N 2
+
+> B
+
+triplets/quadruplets and directly leverage Algorithm 4. This ensures a computationally comparable approximation to other similarity metrics that have quadratic time/space complexity. 
+
+# K. Comments on Experimental Outcomes of External Metrics 
+
+K.1. Instability of SVCCA and PWCCA Computation 
+
+SVCCA and PWCCA require solving a CCA problem between two matrices, which involves estimating batch covariances and computing inverses (or inverse square root) via eigendecomposition/SVD of the sample covariances. In our setting, this step is particularly fragile in the batched approximation regime used for scalability evaluation. For NB high-dimensional representations with dimension d, the covariance estimates can be rank-deficient if d > N B (noting that after centering, the rank is at most NB − 1), therefore SVCCA and PWCCA are not computed in this setting. However, even with 
+
+NB ≥ d, strong collinearity and low effective rank can lead to challenges where small perturbations in the batch produce disproportionate numerical effects when performing CCA analysis, a phenomenon most frequent when d is similar to 
+
+NB . Empirically, this shows up as non-deterministic behavior across random batches/seeds and occasional numerical failures (e.g., ”SVD did not converge”, ”NaNs/Inf”), which prevents reliable averaging across batches and consistent approximation-quality evaluation. We therefore do not offer comparisons with SVCCA and PWCCA in Sections 6.3 to 6.5. 
+
+K.2. Counter-Intuitive Sensitivity of MutualNN and CKNNA 
+
+The zero-like, low similarity scores of MutualNN and CKNNA reported in the outlier experiment (Section 6.2) may initially seem counter-intuitive. Since these metrics quantify alignment based on local neighborhood overlaps, perturbing a single point xi should theoretically have a bounded impact. Intuitively, this perturbation should only alter the neighborhood calculations for a constant number of points: xi itself, the set of points that lost xi as a neighbor, and the set of points that newly acquired xi as a neighbor. Typically, this is expected to constitute a constant number of points, resulting in a negligible expected score deviation of 1 
+
+> N
+
+× O (1) .However, this intuition fails because standard implementations of these metrics typically utilize the negative dot product as a proxy for distance. Unlike Euclidean distance, the negative dot product does not satisfy the triangle inequality and does not have a lower bound. When an outlier is introduced with a large magnitude (as defined in our robustness protocol), it produces extreme dot product values across the entire dataset that in the limit, for large magnitude values, either converge to 
+
+−∞ , 0 or +∞. Consequently, this single outlier can potentially create a Hubness effect, i.e., it invades the top-k nearest neighbor lists of a vast number of points (approaching O(N )), effectively displacing their true neighbors globally. This systemic disruption causes the similarity score to degrade disproportionately, resulting in a 1 
+
+> N
+
+× O (N ) impact. This observation is empirically validated in Figure 10, where we utilize the same experimental setup as in the original outlier experiment (see Section 6.2) to compare the robustness of CKNNA and MutualNN using both dot product and Euclidean distance. As the outlier strength σ increases, the similarity scores for the variants using dot product (standard in many 24 Scalable and Interpretable Representation Alignment with Ordinal Similarity          
+
+> Figure 10. Robustness of local metrics to outliers when using different distance proxies. a) Synthetic representations ( N= 1000 , D =50 , K = 20 ), b) Vision Transformer representations on CIFAR-10 ( N= 10000 , D = 512 , K = 200 ). While CKNNA and MutualNN implemented with the dot product (solid lines) drop to near-zero scores as outlier strength σincreases, their Euclidean counterparts (dashed lines) remain robust to these perturbations.
+
+implementations) drop sharply towards zero, reflecting the hubness-driven systemic disruption of local neighborhoods. In contrast, the versions of these metrics utilizing Euclidean distance remain robust, maintaining alignment scores near 1.0 even under severe perturbations. This confirms the aforementioned limitations associated with selecting distance proxies that do not satisfy the triangle inequality. While replacing the negative dot product addresses the issue in certain practical settings, it does not provide theoretical guarantees of robustness. There are still scenarios where MutualNN and CKNNA remain dramatically affected by outliers. Furthermore, even with proper metrics, these methods suffer from fundamental structural limitations: they are blind to the relative ordering of neighbors within the k-neighborhood, and they are inherently limited to a single neighborhood scale ( k). In contrast, unlike local metrics, the theoretical robustness bounds of TSI and QSI presented in Corollary 2 are applicable to all distance functions, even including the negative dot product, making them theoretically robust. 
+
+# L. Training Details of Vision Transformer on CIFAR-10 
+
+To evaluate the robustness and approximation qualities of the similarity metrics in a realistic setting, we utilized representa-tions derived from a Vision Transformer (ViT) (Dosovitskiy et al., 2021) trained on the CIFAR-10 dataset (Krizhevsky, 2009). All similarity evaluations described in Sections 6.2 to 6.4 were computed using the representations of the 10,000 images comprising the official CIFAR-10 validation set. The model architecture was adapted to accommodate the lower resolution of CIFAR-10 inputs ( 32 × 32 ) by reducing the patch size. The specific architectural hyperparameters used for the experiments are detailed in Table 3.  
+
+> Table 3. Architectural hyperparameters for the Vision Transformer trained on CIFAR-10.
+
+Parameter Value 
+
+Input Resolution 32 × 32 × 3
+
+Patch Size 4 × 4
+
+Latent Dimension ( D) 512 Depth (Transformer Layers) 6Attention Heads 8MLP Dimension 512 Dropout Rate 0.1 Output Classes 10 The model was trained for 200 epochs on a Tesla V100 GPU, requiring approximately 2 hours to complete. Figure 11 illustrates the validation accuracy progression over epochs, confirming that the representations used for analysis correspond to a well-optimized model capable of extracting semantic features. 25 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Figure 11. Epoch-wise Validation Accuracy of the ViT model trained on CIFAR-10. 
+
+L.1. Details of Representations Used for Each Experiment 
+
+In the following, we explicitly define the source of the representations ( X and Y ) used for the similarity computations in Sections 6.2 to 6.4. Crucially, for all experiments listed below, the representation sets are constructed by extracting the latent features, i.e., the corresponding [CLS] token representations, of the 10,000 images comprising the CIFAR-10 validation set. 
+
+Table 4. Configuration of representation sets used for each experimental evaluation.                   
+
+> Experiment Section Representation Set X Representation Set Y
+> Outlier Robustness (Section 6.2) Fully trained ViT (final epoch, Seed 0) Fully trained ViT (final epoch, Seed 0) with synthetic outliers Efficient Approximation (Section 6.3) Untrained ViT (initial weights, Seed 0) Fully trained ViT (final epoch, Seed 0) Representation Convergence (Section 6.4) Intermediate trained ViT (all epochs, Seed {0,1,2,3,4})Fully trained ViT (final epoch, Seed {0,1,2,3,4})
+
+# M. Illustrative Examples 
+
+Local Transformation Failure Mode of MutualNN and CKA Addressed by TSI and QSI To illustrate a setting where TSI and QSI successfully capture misalignment while MutualNN and CKA fail, we construct the following counterexample. Let X ⊂ Rd be a dataset of N = 2 k representations equipped with the standard Euclidean distance ( dX = ∥·∥ 2), partitioned into two distinct clusters C1 and C2, each containing k ≥ 5 points. We assume that all pairwise distances within each cluster are unique (no ties). Furthermore, let the distance between the two clusters be arbitrarily large; that is, the inter-cluster distance D = min x∈C1,y ∈C2 d(x, y ) satisfies D → +∞.Now, consider a transformed representation space X′ constructed by applying a permutation π to the elements of cluster 
+
+C1 (i.e., π(C1) = C1 with points locally shuffled). We make the technical assumption that for this cluster, π leaves at least one point unpermuted, i.e. π(i) = i, and permutes two pairs of points between them π(j1) = k1 ∧ π(k1) = j1 and 
+
+π(j2) = k2 ∧ π(k2) = j2. This transformation introduces a severe local structural deformation while perfectly preserving the global cluster assignments. We evaluate the impact of this local deformation on the respective metrics: • Mutual Nearest Neighbors ( MutualNN k−1,d X ,d X ): Because the inter-cluster distance D → +∞, the k − 1 nearest neighbors of any point x ∈ Ci are precisely the other k − 1 points in its own cluster Ci. Since the permutation π only shuffles points within C1, the set of intra-cluster nearest neighbors for each point is perfectly preserved. Therefore, the neighborhood overlap remains identical, yielding MutualNN k−1(X, X ) = MutualNN k−1(X, X ′) = 1 .• Centered Kernel Alignment ( CKA dX ,d X ): Following the definition from Section A, CKA first computes the pairwise distance matrices KX with (KX )ij = dX (xi, x j ) and KX′ analogously. It then computes the Hilbert-Schmidt Inde-pendence Criterion (HSIC) on the centered pairwise distance matrices: HSIC (KX , K X′ ) = 1(N −1) 2 tr( KX HK X′ H),where H = IN − 1 
+
+> N
+
+JN is the centering matrix. We show that as D → +∞, HSIC (KX , K X′ ) → HSIC (KX , K X )
+
+and HSIC (KX′ , K X′ ) → HSIC (KX , K X ), which implies CKA (X, X ′) → CKA (X, X ) = 1 .To see this, consider the centered matrix KX H. The right-centering operation effectively subtracts the row means from each entry. For any point, there are k intra-cluster distances dintra such that 0 ≤ dintra ≤ ϵ for some small 26 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+ϵ > 0, and k inter-cluster distances dinter such that D ≤ dinter ≤ D + ϵ. Thus, the mean distance μ from any point to all other points satisfies D/ 2 ≤ μ ≤ D/ 2 + ϵ. Consequently, after centering, the centered intra-cluster distances 
+
+dintra − μ satisfy −D/ 2 − ϵ ≤ dintra − μ ≤ − D/ 2 + ϵ, and the centered inter-cluster distances dinter − μ satisfy 
+
+D/ 2 − ϵ ≤ dinter − μ ≤ D/ 2 + ϵ. Because this asymptotic behavior depends exclusively on the global cluster assignments, which are invariant under the intra-cluster permutation π, the entries of the centered distance matrices 
+
+KX H and KX′ H are identical up to some entry deviation of at most 2ϵ. Let us define the deviation matrix ∆ such that KX′ H = KX H + ∆ , where the entries of ∆ are bounded by 2ϵ. Using the linearity of the trace operator, we can decompose HSIC (KX , K X′ ) and HSIC (KX′ , K X′ ) in terms of HSIC (KX , K X ):
+
+(N − 1) 2HSIC (KX , K X′ ) = tr( KX HK X′ H)= tr( KX H(KX H + ∆)) = tr( KX HK X H) + tr( KX H∆) = ( N − 1) 2HSIC (KX , K X ) + tr( KX H∆) 
+
+Similarly, since the right centered matrix can be written as KX′ H = KX H + ∆ , we have: 
+
+(N − 1) 2HSIC (KX′ , K X′ ) = tr(( KX′ H)2)= tr(( KX H + ∆) 2)= tr(( KX H)2) + 2 tr( KX H∆) + tr(∆ 2)= ( N − 1) 2HSIC (KX , K X ) + 2 tr( KX H∆) + tr(∆ 2)
+
+Since the entries of the centered distance matrix KX H grow linearly with the inter-cluster distance D, the term HSIC (KX , K X ) is of the order O(D2). In contrast, because the entries of ∆ are bounded by 2ϵ = O(1) , the cross-term tr( KX H∆) is O(D), and the residual term tr(∆ 2) is O(1) . Therefore, as D → +∞, the O(D2) terms dominate, causing both HSIC (KX , K X′ ) and HSIC (KX′ , K X′ ) to converge to HSIC (KX , K X ).• Triplet Similarity Index ( TSI dX ,d X ): Under our technical assumptions, we select the unpermuted anchor index i
+
+(i.e., π(i) = i) and the permuted pair j1 and k1. Because all intra-cluster distances are unique (no ties), the original ordinal relationship between j1 and k1 evaluates to either 1 or −1 (i.e., O∆ 
+
+> dX
+
+(xi, x j1 , x k1 ) ∈ { 1, −1}). Since the permutation swaps the points at indices j1 and k1, their distances from the unpermuted anchor i are strictly exchanged: 
+
+dX (x′
+
+> i
+
+, x ′ 
+
+> j1
+
+) = dX (xi, x k1 ) and dX (x′
+
+> i
+
+, x ′ 
+
+> k1
+
+) = dX (xi, x j1 ). This means the relative distance ordering from the anchor is inverted, so the new ordinal relationship must evaluate to the opposite sign. Because the ordinal value is necessarily different, we have O∆ 
+
+> dX
+
+(xi, x j1 , x k1 )̸ = O∆ 
+
+> dX
+
+(x′
+
+> i
+
+, x ′ 
+
+> j1
+
+, x ′ 
+
+> k1
+
+). The presence of this strictly discordant triplet guarantees that the expected agreement across all possible triplets is not perfect, thus TSI dX ,d X (X, X ′) < 1.• Quadruplet Similarity Index ( QSI dX ,d X ): To show a discordant quadruplet, we select the four indices involved in the two swapped pairs: j1, j 2, k 1, k 2. In the original space, the disjoint pairs (j1, j 2) and (k1, k 2) have unique distances, so their ordinal relationship evaluates to OdX (xj1 , x j2 , x k1 , x k2 ) ∈ { 1, −1}. After applying the permutation, the points at these indices are swapped: x′ 
+
+> j1
+
+= xk1 , x′ 
+
+> j2
+
+= xk2 , x′ 
+
+> k1
+
+= xj1 , and x′ 
+
+> k2
+
+= xj2 . Consequently, the new distance between indices j1 and j2 becomes the original distance between k1 and k2 (i.e., dX (x′ 
+
+> j1
+
+, x ′ 
+
+> j2
+
+) = dX (xk1 , x k2 )), and vice versa. This strictly flips the distance ordering between the two disjoint pairs, yielding a necessarily different opposite sign: 
+
+OdX (xj1 , x j2 , x k1 , x k2 )̸ = OdX (x′ 
+
+> j1
+
+, x ′ 
+
+> j2
+
+, x ′ 
+
+> k1
+
+, x ′ 
+
+> k2
+
+). This discordant quadruplet ensures that QSI dX ,d X (X, X ′) < 1.This example demonstrates a critical failure mode: MutualNN and CKA can be completely insensitive to intra-cluster permutations. Consequently, points within a cluster can be arbitrarily shuffled, destroying local alignment without affecting these metrics. In contrast, both TSI and QSI successfully detect that the representations are no longer locally aligned. 
+
+Global Transformation Failure Mode of MutualNN and CKNNA Addressed by TSI and QSI To illustrate a setting where TSI and QSI successfully capture misalignment while MutualNN and CKNNA fail to detect a massive global transformation, we construct the following counterexample. Let X ⊂ Rd be a dataset of N = 3 k representations equipped with the standard Euclidean distance ( dX = ∥·∥ 2), partitioned into three distinct clusters C1, C2, and C3, each containing k ≥ 2 points. Let c1, c 2, and c3 denote the respective centroids of these clusters. We assume the clusters are tightly packed such that intra-cluster distances are 27 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+arbitrarily small compared to inter-cluster distances. We define the inter-cluster distances as follows: ∥c1 − c2∥2 ≈ D and 
+
+∥c1 − c3∥2 ≈ R, with D ≫ R ≫ 1. Furthermore, we assume that the vector c1 − c2 is orthogonal to c1 − c3, which implies that ∥c2 − c3∥2 ≈ √D2 + R2.Now, consider a transformed representation space X′ constructed by simply translating the entire third cluster C3 by the vector c2 − c1, while leaving C1 and C2 unchanged. The new centroid for the third cluster becomes c′ 
+
+> 3
+
+= c3 + ( c2 − c1).Consequently, the new inter-cluster distances become ∥c′ 
+
+> 1
+
+− c′
+
+> 3
+
+∥2 = ∥c1 − (c3 + c2 − c1)∥2 = ∥(c1 − c3) + ( c1 − c2)∥2 ≈√D2 + R2 (due to orthogonality), and ∥c′ 
+
+> 2
+
+− c′
+
+> 3
+
+∥2 = ∥c2 − (c3 + c2 − c1)∥2 = ∥c1 − c3∥2 ≈ R. The distance between C1
+
+and C2 remains ≈ D. This transformation represents a severe global structural change, significantly altering the macroscopic layout of the clusters. We evaluate the impact of this global transformation on the respective metrics: • Mutual Nearest Neighbors ( MutualNN k−1,d X ,d X ): Because D ≫ R ≫ 1 and the clusters are tightly packed, 
+
+k − 1 nearest neighbors of any point x ∈ Ci are exclusively other points within its own cluster Ci. Since the transformation only translates the entire cluster C3 rigidly and preserves the large inter-cluster separations ( R ≫ 1), the intra-cluster nearest neighbors for all points remain perfectly intact. Thus, the neighborhood overlap is identical, yielding MutualNN k−1(X, X ′) = 1 .• Centered Kernel Nearest-Neighbor Alignmen ( CKNNA k−1,d X ,d X ): CKNNA relies on the adjacency matrices of the 
+
+k-nearest neighbor graphs. As established above, the k − 1-nearest neighbor graph connects only points within the same cluster. This local connectivity structure is completely invariant to the rigid translation of C3. Consequently, the local adjacency matrices for X and X′ are identical, leading to CKNNA k−1(X, X ′) = 1 (analogous to the self-similarity CKA (Z, Z ) = 1 when the underlying distance matrices are identical). • Triplet Similarity Index ( TSI dX ,d X ): We select an anchor point x1 ∈ C1, and two target points x2 ∈ C2 and x3 ∈ C3.In the original space X, the distances from the anchor are dX (x1, x 2) ≈ D and dX (x1, x 3) ≈ R. Since D > R , the ordinal relationship evaluates to O∆ 
+
+> dX
+
+(x1, x 2, x 3) = 1 . In the transformed space X′, the points map to x′
+
+> 1
+
+, x ′
+
+> 2
+
+, x ′
+
+> 3
+
+. The new distances from the anchor become dX (x′
+
+> 1
+
+, x ′
+
+> 2
+
+) ≈ D and dX (x′
+
+> 1
+
+, x ′
+
+> 3
+
+) ≈ √D2 + R2. Because D < √D2 + R2, the relative distance ordering is inverted, yielding the opposite sign: O∆ 
+
+> dX
+
+(x′
+
+> 1
+
+, x ′
+
+> 2
+
+, x ′
+
+> 3
+
+) = −1. The existence of this strictly discordant triplet implies that the expected agreement across all triplets is not perfect, hence TSI dX ,d X (X, X ′) < 1.• Quadruplet Similarity Index ( QSI dX ,d X ): We select two distinct points x1a, x 1b ∈ C1, one point x2 ∈ C2, and one point x3 ∈ C3. In the original space X, the distance between the disjoint pairs (x1a, x 2) and (x1b, x 3) are roughly D
+
+and R, respectively. Since D > R , the ordinal relationship is OdX (x1a, x 2, x 1b, x 3) = 1 . In the transformed space X′,the distances become approximately D and √D2 + R2. Since D < √D2 + R2, the distance ordering between the two pairs is flipped, yielding OdX (x′
+
+> 1a
+
+, x ′
+
+> 2
+
+, x ′
+
+> 1b
+
+, x ′
+
+> 3
+
+) = −1. This discordant quadruplet ensures that QSI dX ,d X (X, X ′) < 1.This example illustrates a fundamental limitation: metrics strictly based on k-nearest neighbor graphs, such as MutualNN and CKNNA, can be completely blind to massive global transformations as long as the local intra-cluster neighborhoods remain intact. In contrast, TSI and QSI evaluate distances at all scales and successfully identify the macroscopic misalignment. 
+
+Distinguishing the Scope of TSI and QSI To illustrate the difference in sensitivity between TSI and QSI, consider a 1-dimensional dataset containing N = 4 representations forming two distinct clusters: X = {x1, x 2, x 3, x 4} =
+
+{0, 1, D, D + 2 }, equipped with the standard Euclidean distance. Let D ≫ 1 be an arbitrarily large positive constant. The representations can be conceptually grouped into two remote clusters: {x1, x 2} and {x3, x 4}.Now, consider a transformed dataset X′ obtained by applying a local contraction to the second cluster, specifically mapping 
+
+x4 → x′ 
+
+> 4
+
+= D + 1 . Thus, X′ = {0, 1, D, D + 1 }.We can evaluate the impact of this local structural deformation on both metrics: • TSI: Because TSI relies strictly on triplets (a shared anchor point), it only measures distance rankings relative to each individual point. Since the inter-cluster distance ( ≈D) dominates any intra-cluster changes, the relative distance ordering from any single anchor point remains entirely unaffected. Therefore, TSI dX ,d X (X, X ′) = 1 .• QSI: QSI evaluates disjoint pairs of distances. In the original space X, the intra-cluster distance of the first cluster is smaller than the intra-cluster distance of the second cluster: dX (x1, x 2) = 1 < 2 = dX (x3, x 4). However, in the 28 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+contracted space X′, this relationship turns equal: dX (x′
+
+> 1
+
+, x ′
+
+> 2
+
+) = 1 = dX (x′
+
+> 3
+
+, x ′
+
+> 4
+
+). Because QSI captures this global relative scale variation between disjoint pairs, the metric penalizes the transformation, yielding QSI dX ,d X (X, X ′) = 13
+
+(the ordinal sign changes for (1 , 2, 3, 4) and (1 , 3, 2, 4) due to the contraction, but is preserved for (1 , 4, 2, 3) , where each tuple (i, j, k, l ) denotes the disjoint-pair comparison d(xi, x j ) vs. d(xk, x l)). This minimal example highlights that while TSI is highly robust to localized, non-isotropic scale variations provided the local ranking structure is preserved, QSI strictly enforces the preservation of global relative scale across disjoint regions of the representation space. 
+
+# N. Proofs 
+
+N.1. Expected Similarity for Independent Representations 
+
+This proof derives the expected value of TSI and QSI for independently sampled representations (Lemma 1). The key insight is that for i.i.d. samples, the probability of one distance being larger than another is, by symmetry, equal to the probability of it being smaller. 
+
+Lemma 1 (Expected Similarity for Independent Representations) . Let X = {xi}Ni=1 and Y = {yi}Ni=1 be two datasets, with points drawn i.i.d. from arbitrary and independent distributions, DX and DY , respectively, and equipped with distance functions dX and dY . This setting ensures that the ordinal comparisons in X and Y are independent. For TSI, let a, b, c be points drawn i.i.d. from DX . We define the probability of a tie as p0 
+
+> X
+
+= Pa,b,c ∼D X
+
+ dX (a, b ) = dX (a, c ). Similarly for 
+
+DY . The expected TSI is: 
+
+EX∼D NX 
+
+> Y∼D NY
+
+[TSI dX ,d Y (X, Y )] = p0 
+
+> X
+
+p0 
+
+> Y
+
++ 12 (1 − p0 
+
+> X
+
+)(1 − p0 
+
+> Y
+
+)
+
+For QSI, let a, b, c, d be points drawn i.i.d. from DX . We define the probability of a tie as p0 
+
+> X
+
+= Pa,b,c,d ∼D X
+
+ dX (a, b ) = 
+
+dX (c, d ). Similarly for DY . The expected QSI is: 
+
+EX∼D NX 
+
+> Y∼D NY
+
+QSI dX ,d Y (X, Y ) = p0 
+
+> X
+
+p0 
+
+> Y
+
++ 12 (1 − p0 
+
+> X
+
+)(1 − p0 
+
+> Y
+
+)
+
+Proof. The proof for TSI is presented here; the argument for QSI is identical, simply replacing triplets with quadruplets and 
+
+O∆ 
+
+> d
+
+with Od.From its probabilistic interpretation (Equation (1)), the TSI over two representation sets is the probability that the ordinal comparison agrees for a single random triplet drawn from the underlying distributions. Let OX = O∆ 
+
+> dX
+
+(xi, x j , x k) and 
+
+OY = O∆ 
+
+> dY
+
+(yi, y j , y k) for randomly drawn points. The TSI is P (OX = OY ).We can decompose this probability by conditioning on the possible outcomes {− 1, 0, 1} for the sign comparison in each space: 
+
+P (OX = OY ) = X
+
+> v∈{− 1,0,1}
+
+P (OX = v ∧ OY = v)
+
+Since the datasets X and Y are drawn from independent distributions, the outcomes of their ordinal comparisons are independent. Thus, we can factor the joint probabilities: 
+
+P (OX = OY ) = P (OX = −1) P (OY = −1) + P (OX = 0) P (OY = 0) + P (OX = 1) P (OY = 1) 
+
+Let’s analyze the probabilities for a single space, say X. We denote p− 
+
+> X
+
+= P (OX = −1) , p0 
+
+> X
+
+= P (OX = 0) , and 
+
+p+ 
+
+> X
+
+= P (OX = 1) . By definition, p0 
+
+> X
+
+is the probability of a tie, as defined in the lemma. Now, w.l.o.g consider the event OX = −1, which corresponds to dX (xi, x j ) < d X (xi, x k). Since the points xj and xk are drawn i.i.d. from the same distribution DX , their labels are interchangeable. Swapping the roles of xj and xk gives the event 
+
+dX (xi, x k) < d X (xi, x j ), which corresponds to OX = 1 . This means that for any arbitrary triplet, there exists an equally probable permutation that transforms OX = −1 to OX = 1 , therefore, the probabilities of these two events must be equal: 
+
+p− 
+
+> X
+
+= P  dX (xi, x j ) < d X (xi, x k) = P  dX (xi, x k) < d X (xi, x j ) = p+
+
+> X
+
+29 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Since the probabilities of all outcomes must sum to 1, we have p− 
+
+> X
+
++ p0 
+
+> X
+
++ p+ 
+
+> X
+
+= 1 . Substituting p− 
+
+> X
+
+= p+ 
+
+> X
+
+, we get 
+
+2p+ 
+
+> X
+
++ p0 
+
+> X
+
+= 1 , which implies: 
+
+p+ 
+
+> X
+
+= p− 
+
+> X
+
+= 1 − p0
+
+> X
+
+2
+
+The same logic applies to space Y , so p+ 
+
+> Y
+
+= p− 
+
+> Y
+
+= 1−p0 
+
+> Y
+> 2
+
+.Finally, we substitute these back into the expression for the expected TSI: 
+
+E[TSI ] = ( p− 
+
+> X
+
+)( p− 
+
+> Y
+
+) + ( p0 
+
+> X
+
+)( p0 
+
+> Y
+
+) + ( p+ 
+
+> X
+
+)( p+ 
+
+> Y
+
+)=
+
+ 1 − p0
+
+> X
+
+2
+
+  1 − p0
+
+> Y
+
+2
+
+
+
++ p0 
+
+> X
+
+p0 
+
+> Y
+
++
+
+ 1 − p0
+
+> X
+
+2
+
+  1 − p0
+
+> Y
+
+2
+
+
+
+= 2 · (1 − p0 
+
+> X
+
+)(1 − p0 
+
+> Y
+
+)4 + p0 
+
+> X
+
+p0
+
+> Y
+
+= (1 − p0 
+
+> X
+
+)(1 − p0 
+
+> Y
+
+)2 + p0 
+
+> X
+
+p0
+
+> Y
+
+This completes the proof. 
+
+N.2. Connection to Neighborhood Consistency 
+
+This section provides the formal proofs for the relationship between TSI and local neighborhood structures. We first establish the equivalence between perfect TSI alignment and joint Mutual Nearest Neighbors (MNN) consistency across all scales (Corollary 1). Subsequently, we prove that the TSI alignment score is upper-bounded by a convex combination of individual MNN coefficients (Corollary 9). The proof strategy relies on reducing these global relationships to independent point-wise comparisons for each anchor point, leveraging the shared ordinal structure between TSI and neighborhood-based similarity metrics. N.2.1. P ERFECT TSI ALIGNMENT IS EQUIVALENT TO JOINT MUTUAL NEAREST NEIGHBORS ALIGNMENT 
+
+Corollary 1 (Perfect TSI alignment is equivalent to joint Mutual Nearest Neighbors alignment) . Let (X, d X ) and (Y, d Y )
+
+be two sets of N representations without ties. Then, full alignment of the TSI is equivalent to joint alignment of Mutual Nearest Neighbors for all k-nearest neighbors with k ranging from 1 to N − 2:TSI dX ,d Y (X, Y ) = 1 ⇐⇒ ∀k ∈ { 1, . . . , N − 2} : MutualNN k,d X ,d Y (X, Y ) = 1 
+
+where MutualNN k,d X ,d Y (X, Y ) is the Mutual Nearest Neighbors score for k neighbors. Proof. The ( =⇒ ) direction is straightforward: TSI dX ,d Y (X, Y ) = 1 implies that for every anchor point i, the relative ordering of distances to all other points is identical in both spaces. This ensures that KNN k,d X (X\{ xi}, x i) = KNN k,d Y (Y \{yi}, y i) for any k, yielding MutualNN k,d X ,d Y (X, Y ) = 1 .For the ( ⇐= ) direction, if MutualNN k,d X ,d Y (X, Y ) = 1 for all k ∈ { 1, . . . , N − 2}, then |SharedNN k,d X ,d Y (i)| = k for all i and k, which implies KNN k,d X (X \ { xi}, x i) = KNN k,d Y (Y \ { yi}, y i). Let vdX 
+
+> k
+
+(i) and vdY 
+
+> k
+
+(i) be the unique k-th nearest neighbors of point i in each space. Since {vdX 
+
+> k
+
+(i)} = KNN k,d X (X \ { xi}, x i) \ KNN k−1,d X (X \ { xi}, x i) (and similarly for Y ), it follows that vdX 
+
+> k
+
+(i) = vdY 
+
+> k
+
+(i) for all k ∈ { 1, . . . , N − 1}. Thus, the distance rank-ordering from any anchor is preserved, which is equivalent to TSI dX ,d Y (X, Y ) = 1 .N.2.2. TSI ALIGNMENT IS UPPER -BOUNDED BY CONVEX COMBINATION OF MUTUAL NEAREST NEIGHBORS COEFFICIENTS 
+
+Corollary 9 (TSI alignment is upper-bounded by a convex combination of Mutual Nearest Neighbors coefficients) .
+
+Let (X, d X ) and (Y, d Y ) be two sets of N representations without ties, i.e., ∀i, j, k ∈ {1, . . . , N }, d X (xi, x j ) =
+
+30 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+dX (xi, x k) =⇒ j = k (same for Y ). Then, the TSI alignment is upper-bounded by a convex combination of Mu-tual Nearest Neighbors coefficients: TSI dX ,d Y (X, Y ) ≤ 1
+
+ N −12
+
+ 
+
+> N−2
+
+X
+
+> k=1
+
+k · MutualNN k,d X ,d Y (X, Y )
+
+where MutualNN k,d X ,d Y (X, Y ) is the Mutual Nearest Neighbors score for k neighbors as defined in Section A. Proof. The proof proceeds by showing that the global inequality, TSI dX ,d Y (X, Y ) ≤ 1
+
+ N −12
+
+ 
+
+> N−2
+
+X
+
+> k=1
+
+k · MutualNN k,d X ,d Y (X, Y ), (6) can be reduced to a simpler point-wise comparison. We first express both sides as averages over individual data points 
+
+i ∈ { 1, . . . , N }. Using the anchor-based formulation of TSI (Corollary 10) and the definition of Mutual Nearest Neighbors (Section A), the desired inequality is equivalent to: 
+
+1
+
+N
+
+> N
+
+X
+
+> i=1
+
+Adj-Kendall-τ (DiX , D iY ) ≤ 1
+
+ N −12
+
+ 
+
+> N−2
+
+X
+
+> k=1
+
+k · 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+|SharedNN k,d X ,d Y (i)|
+
+k
+
+!
+
+⇐⇒ 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+Adj-Kendall-τ (DiX , D iY ) ≤ 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+1
+
+ N −12
+
+ 
+
+> N−2
+
+X
+
+> k=1
+
+|SharedNN k,d X ,d Y (i)|
+
+!
+
+.
+
+By linearity of summation, this global condition holds if the following point-wise inequality is satisfied for every i:Adj-Kendall-τ (DiX , D iY ) ?
+
+≤ 1
+
+ N −12
+
+ 
+
+> N−2
+
+X
+
+> k=1
+
+|SharedNN k,d X ,d Y (i)|. (7) Establishing this point-wise comparison thus completes the reduction. To establish this, let σ be the permutation that sorts the distances in DiX increasingly, such that dX (xi, x σ(1) ) <dX (xi, x σ(2) ) < · · · < d X (xi, x σ(N −1) ). The existence of a unique such permutation is guaranteed by the no-ties assumption. We define the ordinal rank of a point j relative to i as r(j, D i) = N − 1 − t, where j is the t-th closest neighbor to i with respect to distances Di. By construction, r(σ(j), D iX ) = N − 1 − j.With these definitions, and leveraging the no-ties assumption to ensure the sets SharedNN k are well-defined as having exactly k elements, we can rewrite the weighted sum of shared neighbors as:  
+
+> N−2
+
+X
+
+> k=1
+
+|SharedNN k,d X ,d Y (i)| = 
+
+> N−2
+
+X 
+
+> k=1
+> N−1
+
+X
+
+> j=1
+
+I[j ∈ SharedNN k,d X ,d Y (i)] = 
+
+> N−1
+
+X
+
+> j=1
+
+min( r(j, D iX ), r (j, D iY )) = 
+
+> N−1
+
+X
+
+> j=1
+
+min( r(σ(j), D iX ), r (σ(j), D iY )) = 
+
+> N−2
+
+X
+
+> j=1
+
+min( r(σ(j), D iX ), r (σ(j), D iY )) 
+
+Observe that for j = N − 1, we have r(σ(N − 1) , D iX ) = 0 , so the (N − 1) -th term in this sum is always zero. Next, we simplify the Adjusted Kendall-τ using the identity from Lemma 6. By indexing the sum over the permutation σ
+
+31 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+and leveraging the symmetry of the sign function, we obtain: Adj-Kendall-τ (DiX , D iY ) = 1(N − 1)( N − 2) 
+
+X 
+
+> j̸=t
+
+Isign( dX (xi, x j ) − dX (xi, x t)) = sign( dY (yi, y j ) − dY (yi, y t)) 
+
+= 1(N − 1)( N − 2) 
+
+X 
+
+> j̸=t
+
+Isign( dX (xi, x σ(j)) − dX (xi, x σ(t))) = sign( dY (yi, y σ(j)) − dY (yi, y σ(t))) 
+
+= 1
+
+ N −12
+
+ 
+
+> N−2
+
+X 
+
+> j=1
+> N−1
+
+X
+
+> t=j+1
+
+Isign( dX (xi, x σ(j)) − dX (xi, x σ(t))) = sign( dY (yi, y σ(j)) − dY (yi, y σ(t))) 
+
+= 1
+
+ N −12
+
+ 
+
+> N−2
+
+X 
+
+> j=1
+> N−1
+
+X
+
+> t=j+1
+
+IdY (yi, y σ(j)) < d Y (yi, y σ(t)),
+
+where the last equality follows because dX (xi, x σ(j)) < d X (xi, x σ(t)) for all j < t by the definition of σ and the no-ties assumption. Substituting these reformulated terms into our point-wise comparison, we want to show that: 
+
+1
+
+ N −12
+
+ 
+
+> N−2
+
+X 
+
+> j=1
+> N−1
+
+X
+
+> t=j+1
+
+IdY (yi, y σ(j)) < d Y (yi, y σ(t)) ?
+
+≤ 1
+
+ N −12
+
+ 
+
+> N−2
+
+X
+
+> j=1
+
+min( r(σ(j), D iX ), r (σ(j), D iY )) . (8) Therefore, to prove the corollary, it suffices to show that for each j ∈ { 1, . . . , N − 2}: 
+
+> N−1
+
+X
+
+> t=j+1
+
+IdY (yi, y σ(j)) < d Y (yi, y σ(t)) ?
+
+≤ min( r(σ(j), D iX ), r (σ(j), D iY )) . (9) To do this, we establish two upper bounds on the sum. First, by the definition of the sum, we have:  
+
+> N−1
+
+X
+
+> t=j+1
+
+IdY (yi, y σ(j)) < d Y (yi, y σ(t)) ≤ 
+
+> N−1
+
+X
+
+> t=j+1
+
+1 = N − j − 1 = r(σ(j), D iX ).
+
+Second, we observe that the sum is also bounded by the total number of points yσ(t) that are further from yi than yσ(j): 
+
+> N−1
+
+X
+
+> t=j+1
+
+IdY (yi, y σ(j)) < d Y (yi, y σ(t)) ≤ 
+
+> N−1
+
+X
+
+> t=1 ,t ̸=j
+
+IdY (yi, y σ(j)) < d Y (yi, y σ(t)) = r(σ(j), D iY ).
+
+Since both bounds hold, the term-wise inequality in Equation (9) is satisfied for all j ∈ { 1, . . . , N − 2}. By summing over 
+
+j, this directly implies Equation (8), which establishes the point-wise comparison in Equation (7). Finally, by averaging over all anchor points i, we obtain the global inequality in Equation (6), completing the proof. 
+
+N.3. Outlier Robustness 
+
+This subsection establishes the theoretical guarantees for the robustness of TSI and QSI to both representation corruptions and outliers. We first derive tight bounds for ordinal similarity under partial transformations (Lemma 2) using a combinatorial approach that partitions comparisons based on their involvement with transformed points. We then leverage these bounds to formally prove the robustness of our metrics (Corollary 2), demonstrating that their sensitivity to arbitrary modifications or sparse outliers is inherently bounded. N.3.1. B OUNDS FOR ORDINAL SIMILARITY METRICS UNDER PARTIAL TRANSFORMATIONS 
+
+Lemma 2 (Bounds for Ordinal Similarity Metrics under Partial Transformations) . Let the set of indices {1, . . . , N } be partitioned into two disjoint subsets, U (unchanged) and V (transformed). Let T : X → X be a transformation, and define a new dataset X′ = {x′
+
+> i
+
+}Ni=1 where x′ 
+
+> i
+
+= xi for i ∈ U and x′ 
+
+> i
+
+= T (xi) for i ∈ V . For similarity scores S ∈ { TSI , QSI }, the score of the transformed dataset, S(X′, Y ), is bounded by the score on the unchanged subset, S(XU , Y U ), as follows: 
+
+cS · S(XU , Y U ) ≤ S(X′, Y ) ≤ cS · S(XU , Y U ) + (1 − cS )
+
+32 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+where cS is the proportion of comparisons drawn exclusively from the unchanged set U : cTSI = (|U |)3  
+
+> (N)3
+
+and cQSI = (|U |)4  
+
+> (N)4
+
+,where (n)k = n(n − 1) · · · (n − k + 1) denotes the falling factorial. Proof. Let’s first present the proof for TSI, as the argument for QSI follows the exact same structure. By definition, the TSI for the transformed dataset X′ is: TSI dX ,d Y (X′, Y ) = 1(N )3
+
+X
+
+> (i,j,k )∈T
+
+I
+
+h
+
+O∆ 
+
+> dX
+
+(x′
+
+> i
+
+, x ′ 
+
+> j
+
+, x ′
+
+> k
+
+) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+i
+
+We partition the sum based on whether all indices {i, j, k } belong to the untransformed set U . Let TU be the set of triplets where all indices are in U .
+
+(N )3 · TSI dX ,d Y (X′, Y ) = X
+
+> (i,j,k )∈T U
+
+I
+
+h
+
+. . . 
+
+i
+
++ X
+
+> (i,j,k )∈T \T U
+
+I
+
+h
+
+. . . 
+
+i
+
+For any triplet (i, j, k ) ∈ T U , the points are unchanged ( x′ 
+
+> i
+
+= xi, x′ 
+
+> j
+
+= xj , x′ 
+
+> k
+
+= xk). Therefore, the ordinal comparison is identical to that of the original dataset: 
+
+O∆ 
+
+> dX
+
+(x′
+
+> i
+
+, x ′ 
+
+> j
+
+, x ′
+
+> k
+
+) = O∆ 
+
+> dX
+
+(xi, x j , x k)
+
+The first sum is thus the number of aligned triplets within the subset U , which by definition is: 
+
+X
+
+> (i,j,k )∈T U
+
+I
+
+h
+
+O∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+i
+
+= ( |U |)3 · TSI dX ,d Y (XU , Y U )
+
+For the second sum over triplets with at least one transformed point, we can establish bounds. Since the indicator function 
+
+I[·] is always non-negative, a lower bound for this sum is 0. This gives us: 
+
+(N )3 · TSI dX ,d Y (X′, Y ) ≥ (|U |)3 · TSI dX ,d Y (XU , Y U )
+
+Dividing by (N )3 gives the lower bound of the lemma. For the upper bound, we use the fact that any indicator is at most 1. The second sum is therefore bounded by the number of triplets in its domain, which is |T \ T U | = ( N )3 − (|U |)3.
+
+(N )3 · TSI dX ,d Y (X′, Y ) ≤ (|U |)3 · TSI dX ,d Y (XU , Y U ) + (( N )3 − (|U |)3)
+
+Dividing by (N )3 yields the upper bound: TSI dX ,d Y (X′, Y ) ≤ (|U |)3
+
+(N )3
+
+TSI dX ,d Y (XU , Y U ) + 1 − (|U |)3
+
+(N )3
+
+= cTSI · TSI dX ,d Y (XU , Y U ) + (1 − cTSI )
+
+The same derivation holds for QSI by replacing the set of triplets T with the set of quadruplets Q, the falling factorial (n)3
+
+with (n)4 for both n = N and n = |U |, and the triplet comparison function O∆ 
+
+> d
+
+with the quadruplet comparison function 
+
+Od. This yields the stated bounds for QSI and completes the proof. N.3.2. TSI AND QSI ARE ROBUST TO CORRUPTIONS AND OUTLIERS 
+
+Corollary 2 (TSI and QSI are Robust to Corruptions and Outliers) . Consider the setup of Lemma 2 where U indices the subset of clean or unchanged points and V corresponds to the subset of corruptions/outliers. For any similarity metric 
+
+S ∈ { TSI , QSI }, the absolute deviation of the similarity score is bounded by: 
+
+|S(XU , Y U ) − S(X′, Y )| ≤ 1 − cS (Outliers) 
+
+|S(X, Y ) − S(X′, Y )| ≤ 1 − cS (Corruptions) 
+
+33 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Proof. Both inequalities follow from the bounds established in Lemma 2. Let I be the interval 
+
+[cS S(XU , Y U ), c S S(XU , Y U ) + (1 − cS )] , which has length ℓ(I) = 1 − cS .For the Corruptions bound, we observe that both the original dataset X and the corrupted dataset X′ result from a transformation of the subset V (where X uses the identity transformation). By Lemma 2, both scores must lie within I:
+
+S(X, Y ) ∈ [cS S(XU , Y U ), c S S(XU , Y U ) + (1 − cS )] 
+
+S(X′, Y ) ∈ [cS S(XU , Y U ), c S S(XU , Y U ) + (1 − cS )] 
+
+Since both values belong to the same interval of length 1 − cS , their absolute difference is bounded by the interval length: 
+
+|S(X, Y ) − S(X′, Y )| ≤ 1 − cS .
+
+For the Outliers bound, subtracting S(XU , Y U ) from the bounds in Lemma 2 yields: 
+
+(cS − 1) S(XU , Y U ) ≤ S(X′, Y ) − S(XU , Y U ) ≤ (cS − 1) S(XU , Y U ) + (1 − cS ).
+
+Since 0 ≤ S(XU , Y U ) ≤ 1 and (cS − 1) ≤ 0, we have (cS − 1) S(XU , Y U ) ≥ cS − 1 = −(1 − cS ) for the lower bound, and (cS − 1) S(XU , Y U ) + (1 − cS ) ≤ 1 − cS for the upper bound. This leads to: 
+
+−(1 − cS ) ≤ S(X′, Y ) − S(XU , Y U ) ≤ 1 − cS .
+
+As the deviation is contained within [−(1 − cS ), 1 − cS ], it follows that |S(XU , Y U ) − S(X′, Y )| ≤ 1 − cS .
+
+N.4. Approximation Bounds for Ordinal Similarity Metrics 
+
+This proof establishes the approximation bounds presented in Lemma 3 for both TSI and QSI. The key observation is that evaluating the predicate of TSI/QSI for a randomly sampled triplet/quadruplet is equivalent to sampling directly from a Bernoulli distribution with the underlying expectation equating to the true TSI and QSI outputs for the considered representations. 
+
+Lemma 3 (Approximation Bounds for Ordinal Similarity Metrics) . Let cTSI n be the estimator for TSI obtained by sampling 
+
+n triplets uniformly at random with replacement from the set T and calculating the fraction of samples where the ordinal relationship is preserved. Similarly, let dQSI n be the analogous estimator for QSI from n random quadruplets. For any error tolerance ϵ > 0, the estimators are bounded as follows: 
+
+P
+
+ cTSI n − TSI dX ,d Y (X, Y ) ≥ ϵ
+
+
+
+≤ 2 exp  −2nϵ 2
+
+P
+
+ dQSI n − QSI dX ,d Y (X, Y ) ≥ ϵ
+
+
+
+≤ 2 exp  −2nϵ 2
+
+Proof. The proof for TSI is presented here; the argument for QSI is identical. The TSI is defined as the expectation of an indicator function over all possible triplets, and our estimator, dTSI n, is the sample mean of n independent random draws from this set. To formalize this, we define a Bernoulli random variable Z for a single triplet (i, j, k ) sampled uniformly from T . Let 
+
+Z = 1 if the ordinal comparison agrees between the two spaces and Z = 0 otherwise: 
+
+Z = IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+By definition, Z is a Bernoulli random variable. Its expected value is the probability of success, which is precisely the true TSI: 
+
+E[Z] = P (Z = 1) = P(i,j,k )∈T 
+
+
+
+O∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+
+
+= TSI dX ,d Y (X, Y )
+
+Our estimator dTSI n is the sample mean of n independent and identically distributed random variables Z1, . . . , Z n drawn from the distribution of Z:
+
+dTSI n = 1
+
+n
+
+> n
+
+X
+
+> t=1
+
+Zt
+
+34 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+The expected value of the estimator is the true TSI: E[dTSI n] = 1
+
+> n
+
+Pnt=1 E[Zt] = E[Z] = TSI dX ,d Y (X, Y ).We can now apply Hoeffding’s inequality (Hoeffding, 1963), which provides a bound on the probability that a sum of bounded independent random variables deviates from its expected value. For a sample mean ¯Sn = 1
+
+> n
+
+P Zt where Zt ∈ [a, b ],the inequality states: 
+
+P (| ¯Sn − E[ ¯Sn]| ≥ ϵ) ≤ 2 exp 
+
+
+
+− 2nϵ 2
+
+(b − a)2
+
+
+
+In our case, the random variables are bounded between a = 0 and b = 1 , which means (b − a)2 = 1 . Substituting our estimator and its expected value into the inequality gives the desired result: 
+
+P
+
+ dTSI n − TSI dX ,d Y (X, Y ) ≥ ϵ
+
+
+
+≤ 2 exp  −2nϵ 2
+
+This completes the proof. 
+
+N.5. Invariant Transformations for Ordinal Similarity Metrics 
+
+This proof establishes the invariance properties of ordinal similarity metrics, as stated in Corollary 5. The invariances for translation, isotropic scaling, and orthogonal transformations are straightforward. The non-invariance to arbitrary invertible linear transforms is proven by a counterexample where a non-isotropic scaling alters an existing ordinal relationship. 
+
+Corollary 5 (Ordinal Similarity Metric Invariances in Inner Product Spaces) . Let (X , ⟨· , ·⟩ ) be an inner product space with its induced metric dX , then TSI and QSI are invariant to the following transformations: 1. Translation: T (x) = x + c, for any constant vector c ∈ X .2. Isotropic Scaling: T (x) = αx , for any non-zero scalar α ∈ R.3. Orthogonal Transformation: A linear map T that preserves the inner product, i.e., ⟨T (x1), T (x2)⟩ = ⟨x1, x 2⟩ for all 
+
+x1, x 2 ∈ X .Furthermore, TSI and QSI are not generally invariant to: 1. Invertible Linear Transformations: A transformation T (x) = Ax , where A is a linear operator for which an inverse 
+
+A−1 exists such that AA −1 = A−1A = I.Proof. We first establish an auxiliary lemma that provides sufficient conditions for a transformation to leave our ordinal similarity metrics unchanged. 
+
+Lemma 5 (Sufficient Conditions for Ordinal Similarity Invariance) . Let T : X → X be a transformation. If there exists a strictly increasing function S : R+0 → R+0 such that for all xi, x j ∈ X, the transformed distance is given by 
+
+dX (T (xi), T (xj )) = S(dX (xi, x j )) , then TSI and QSI are invariant to T .Proof. The calculation of both TSI and QSI depends on the sign of a difference between two distances, i.e., sign( d1 − d2).We show that this term remains unchanged after applying the transformation T . Since S is strictly increasing, for any 
+
+a, b ∈ R+0 , we have a > b ⇐⇒ S(a) > S (b). This implies that the sign of the difference is preserved: 
+
+sign( a − b) = sign( S(a) − S(b)) 
+
+For TSI, the comparison is sign  dX (xi, x j ) − dX (xi, x k). For QSI, it is sign  dX (xi, x j ) − dX (xk, x l). In both cases, applying the transformation T yields a comparison of the form sign  S(d1) − S(d2), which is equal to the original sign, 
+
+sign( d1 − d2).Since the predicate inside the expectation of the TSI and QSI definitions remains unchanged for every triplet or quadruplet, the expectation itself is unchanged. Thus, the metrics are invariant to T .We now use Lemma 5 to prove the specific invariances. For each transformation, we will identify the corresponding function 
+
+S and show that it is strictly increasing. 35 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Translation Let T (x) = x + c for a constant vector c ∈ X . The transformed distance is: 
+
+dX (T (xi), T (xj )) = 
+
+q
+
+⟨(xi + c) − (xj + c), (xi + c) − (xj + c)⟩
+
+=
+
+q
+
+⟨xi − xj , x i − xj ⟩
+
+= dX (xi, x j )
+
+Here, S(d) = d, which is the identity function and is strictly increasing. Therefore, by Lemma 5, TSI and QSI are invariant to translations. 
+
+Isotropic Scaling Let T (x) = αx for a non-zero scalar α ∈ R. The transformed distance is: 
+
+dX (T (xi), T (xj )) = 
+
+q
+
+⟨αx i − αx j , αx i − αx j ⟩
+
+=
+
+q
+
+α2⟨xi − xj , x i − xj ⟩
+
+= |α|dX (xi, x j )
+
+Here, S(d) = |α|d. Since α̸ = 0 , |α| is a positive constant, making S(d) a strictly increasing function. Therefore, by Lemma 5, TSI and QSI are invariant to isotropic scaling. 
+
+Orthogonal Transformation Let T be a linear map that preserves the inner product. The transformed distance is: 
+
+dX (T (xi), T (xj )) = 
+
+q
+
+⟨T (xi) − T (xj ), T (xi) − T (xj )⟩
+
+=
+
+q
+
+⟨T (xi − xj ), T (xi − xj )⟩ (by linearity of T) 
+
+=
+
+q
+
+⟨xi − xj , x i − xj ⟩
+
+= dX (xi, x j )
+
+Again, S(d) = d, which is strictly increasing. Therefore, by Lemma 5, TSI and QSI are invariant to orthogonal transforma-tions. 
+
+Non-Invariance to Invertible Linear Transformations Let T be an invertible linear transformation, T (x) = Ax . Using the Singular Value Decomposition (SVD), A can be written as A = U DV T , where U and V are orthogonal transformations and D = diag (σ1, . . . , σ n) is a diagonal matrix with positive singular values σi > 0. Since TSI and QSI are invariant to orthogonal transformations (as shown previously), their invariance to A is equivalent to their invariance to the diagonal scaling D. If the scaling is isotropic, i.e., D = αI for some scalar α > 0, then the metrics are invariant. We now show by counterexample that if the scaling is non-isotropic , TSI and QSI are not invariant. We will do this by constructing a dataset X and a non-isotropic scaling D such that the self-similarity score is no longer perfect. While it is trivially true that TSI dX ,d X (X, X ) = 1 , we will show that TSI dX ,d X (D(X), X ) < 1. This inequality directly proves that the metric has changed, i.e., TSI dX ,d X (D(X), X )̸ = TSI dX ,d X (X, X ).By definition, a non-isotropic scaling requires at least two singular values to be different. Let σa̸ = σb, with corresponding orthonormal basis vectors {ea, e b}.• For TSI , consider the triplet X = {xi, x j , x k} = {ea + eb, e b, e a}. In the original space, the distances from the anchor 
+
+xi are: 
+
+dX (xi, x j ) = ∥(ea + eb) − eb∥ = ∥ea∥ = 1 
+
+dX (xi, x k) = ∥(ea + eb) − ea∥ = ∥eb∥ = 1 
+
+The ordinal comparison in the original space is thus O∆ 
+
+> dX
+
+(xi, x j , x k) = sign(1 − 1) = 0 . After applying the scaling 
+
+D, the transformed points are D(xi) = σaea + σbeb, D(xj ) = σbeb, and D(xk) = σaea. The new distances in the 36 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+transformed space are: 
+
+dX (D(xi), D (xj )) = ∥(σaea + σbeb) − σbeb∥ = ∥σaea∥ = σa
+
+dX (D(xi), D (xk)) = ∥(σaea + σbeb) − σaea∥ = ∥σbeb∥ = σb
+
+Since σa̸ = σb, the ordinal comparison in the transformed space is O∆ 
+
+> dX
+
+(D(xi), D (xj ), D (xk)) = sign( σa − σb)̸ = 0 .For this triplet, the ordinal relationship in the original space ( 0) does not match the one in the transformed space ( ̸ = 0 ). Therefore, the indicator function for this triplet in the calculation of TSI dX ,d X (D(X), X ) is 0. Since at least one term in the expectation is 0, the final score must be less than 1. • For QSI , a similar argument holds. Consider the quadruplet X = {xi, x j , x k, x l} = {2ea, e a, 2eb, e b}. The initial distances are: 
+
+dX (xi, x j ) = ∥2ea − ea∥ = ∥ea∥ = 1 
+
+dX (xk, x l) = ∥2eb − eb∥ = ∥eb∥ = 1 
+
+This results in an ordinal comparison of OdX (xi, x j , x k, x l) = sign(1 − 1) = 0 . After applying D, the points become 
+
+D(xi) = 2 σaea, D(xj ) = σaea, D(xk) = 2 σbeb, and D(xl) = σbeb. The new distances are: 
+
+dX (D(xi), D (xj )) = ∥2σaea − σaea∥ = ∥σaea∥ = σa
+
+dX (D(xk), D (xl)) = ∥2σbeb − σbeb∥ = ∥σbeb∥ = σb
+
+The new ordinal comparison is OdX (D(xi), D (xj ), D (xk), D (xl)) = sign( σa − σb)̸ = 0 .In both cases, the ordinal relationship has changed for the chosen set of points. This guarantees that TSI dX ,d X (D(X), X ) < 1
+
+and QSI dX ,d X (D(X), X ) < 1, proving that the metrics are not generally invariant to non-isotropic scaling and thus not generally invariant to invertible linear transformations. 
+
+N.6. TSI/QSI-based distances satisfy the metric axioms Corollary 6 (Complementary TSI and QSI Distances Satisfy the Metric Axioms) . Let (X, d X ), (Y, d Y ), and (Z, d Z ) be sets of N representations equipped with their respective distance functions. For a similarity metric S ∈ { TSI , QSI }, define the distance function dS (( X, d X ), (Y, d Y )) = 1 − SdX ,d Y (X, Y ). Then, dS satisfies the following metric axioms, as originally defined in Williams et al. (2021): 1. Equivalence: dS (( X, d X ), (Y, d Y )) = 0 ⇐⇒ (X, d X ) ∼ (Y, d Y )
+
+2. Symmetry: dS (( X, d X ), (Y, d Y )) = dS (( Y, d Y ), (X, d X )) 
+
+3. Triangle inequality: dS (( X, d X ), (Z, d Z )) ≤ dS (( X, d X ), (Y, d Y )) + dS (( Y, d Y ), (Z, d Z )) 
+
+Therefore, these are proper metrics over the space of representation sets defined by the equivalence relation SdX ,d Y (X, Y ) = 1.Proof. We will provide the proof for TSI ( S = TSI ). The proof for QSI follows identically by replacing the set of triplets T
+
+with the set of quadruplets Q, and the triplet ordinal function O∆ 
+
+> d
+
+with the quadruplet ordinal function Od.Recall that TSI dX ,d Y (X, Y ) is defined as the expected agreement of the ordinal functions over all triplets: TSI dX ,d Y (X, Y ) = 1(N )3
+
+X
+
+> (i,j,k )∈T
+
+IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+To simplify notation, let the ordinal profile of a dataset (X, d X ) be denoted by the vector PX ∈ {− 1, 0, 1}(N )3 , where the elements correspond to the ordinal outcomes O∆ 
+
+> dX
+
+(xi, x j , x k) for all (i, j, k ) ∈ T .We can now prove each of the three metric axioms for the distance function dTSI (( X, d X ), (Y, d Y )) = 1 − TSI dX ,d Y (X, Y ):37 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+1. Equivalence: Two representation sets are equivalent in their corresponding spaces if their ordinal profiles match perfectly, meaning PX = PY .
+
+dTSI (( X, d X ), (Y, d Y )) = 0 ⇐⇒ TSI dX ,d Y (X, Y ) = 1 
+
+⇐⇒ ∀ (i, j, k ) ∈ T : O∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+⇐⇒ P X = PY
+
+2. Symmetry: Since the indicator function representing equality is commutative: 
+
+IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k) = IO∆ 
+
+> dY
+
+(yi, y j , y k) = O∆ 
+
+> dX
+
+(xi, x j , x k) ⇐⇒ 
+
+TSI dX ,d Y (X, Y ) = TSI dY ,d X (Y, X ) ⇐⇒ 
+
+1 − TSI dX ,d Y (X, Y ) = 1 − TSI dY ,d X (Y, X ) ⇐⇒ 
+
+dTSI (( X, d X ), (Y, d Y )) = dTSI (( Y, d Y ), (X, d X )) 
+
+3. Triangle inequality: Notice that the disagreement in the ordinal functions can be interpreted as the normalized Hamming distance between the ordinal profiles: 
+
+dTSI (( X, d X ), (Y, d Y )) = 1 − 1(N )3
+
+X
+
+> (i,j,k )∈T
+
+IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+= 1(N )3
+
+X
+
+> (i,j,k )∈T
+
+IO∆ 
+
+> dX
+
+(xi, x j , x k)̸ = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+= 1(N )3
+
+dhamming (PX , PY )
+
+Since the Hamming distance over vector spaces satisfies the triangle inequality, it directly follows that: 
+
+dhamming (PX , PZ ) ≤ dhamming (PX , PY ) + dhamming (PY , PZ ) ⇐⇒ 
+
+1(N )3
+
+dhamming (PX , PZ ) ≤ 1(N )3
+
+dhamming (PX , PY ) + 1(N )3
+
+dhamming (PY , PZ ) ⇐⇒ 
+
+dTSI (( X, d X ), (Z, d Z )) ≤ dTSI (( X, d X ), (Y, d Y )) + dTSI (( Y, d Y ), (Z, d Z )) 
+
+This concludes the proof. 
+
+N.7. Kendall Tau Based Formulations 
+
+This subsection derives the connection between ordinal similarity metrics and Kendall’s Tau correlation coefficient, as described in Corollary 10 and Corollary 11. To prove these statements, we first show that the Adjusted Kendall Tau coefficient described in Equation (5) is equivalent to a formulation that leverages a similar ordinal predicate to TSI and QSI. Next, we reformulate TSI as an average of anchor-based Adjusted Kendall’s Tau correlations. Finally, we establish that the TSI and QSI can be jointly expressed via a global Adjusted Kendall Tau Coefficient. N.7.1. A LTERNATIVE FORMULATION OF ADJUSTED KENDALL TAU 
+
+Lemma 6 (Adjusted Kendall Tau Equivalent Formulation) . Let A = {a1, . . . , a M } and B = {b1, . . . , b M } be two sequences of paired observations and let Adj-Kendall-τ (A, B ) denote the Adjusted Kendall Tau coefficient defined in Equation (5) .Then, the following identity holds: Adj-Kendall-τ (A, B ) = 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+Isign( aj − ak) = sign( bj − bk)
+
+Proof. Let sa = sign( aj − ak) and sb = sign( bj − bk) for any pair of indices j, k . The expression 2I[sa = sb] − 1 evaluates to 1 if the ordinal relationship is preserved ( sa = sb) and −1 otherwise. We can verify by cases that the term inside the 38 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+summation of Kendall-τ (A, B )+ Adj-Ties (A, B ), which is sasb +I[sa = sb = 0] −I[sa = 0 ∧sb̸ = 0] −I[sa̸ = 0 ∧sb = 0] ,also evaluates to 1 for agreement (concordant non-ties and joint ties) and −1 for disagreement (discordant non-ties, and ties in only one sequence). This implies that: Kendall-τ (A, B ) + Adj-Ties (A, B ) = 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+ 2Isign( aj − ak) = sign( bj − bk) − 1
+
+Thereby, enabling us to simplify the expression within the main summation of Adj-Kendall-τ (A, B ):Adj-Kendall-τ (A, B ) = Kendall-τ (A, B ) + Adj-Ties (A, B ) + 1 2= 12
+
+ 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+(2 I[. . . ] − 1) + 1 
+
+
+
+= 12
+
+ 2
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+I[. . . ] − M (M − 1) 
+
+M (M − 1) + 1 
+
+
+
+= 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+Isign( aj − ak) = sign( bj − bk)
+
+N.7.2. TSI AS AN AVERAGE OF ANCHOR -BASED KENDALL ’S TAU 
+
+Corollary 10 (TSI as an Average of Anchor-based Kendall’s Tau) . For each anchor point i, let DiX = {dX (xi, x t)|t̸ = i}
+
+and DiY = {dY (yi, y t)|t̸ = i} denote the collections of distances from that anchor, treated as paired sequences ordered by the index t. Then TSI can be expressed as: TSI dX ,d Y (X, Y ) = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+Adj-Kendall-τ (DiX , D iY )
+
+where the Adjusted Kendall Tau is calculated according to Equation (5) .Proof. The proof proceeds by reformulating the right-hand side (RHS) of the corollary’s equation. Let A = DiX and 
+
+B = DiY be the sequences of distances from an anchor i, each of length M = N − 1.First, we leverage Lemma 6 to simplify the Adjusted Kendall’s τ coefficient. Notably, we see that: Adj-Kendall-τ (A, B ) = 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+Isign( aj − ak) = sign( bj − bk)
+
+Now, we substitute this result back into the RHS of the corollary, with M = N − 1. Furthermore, note that DiX =
+
+{dX (xi, x t)|t̸ = i} is ordered by letting t range from 1 to N (excluding i). Therefore, for j′̸ = k′, j ′, k ′ ∈ { 1, . . . , N − 1},we can form j̸ = k, j, k ∈ { 1, . . . , N } \ { i} such that (DiX )j′ = dX (xi, x j ) and (DiY )j′ = dY (yi, y j ). Therefore, we can rewrite the RHS of the equation into: 39 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+RHS = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+ 1(N − 1)( N − 2) 
+
+X 
+
+> j′̸=k′
+
+Isign(( DiX )j′ − (DiX )k′ ) = sign(( DiY )j′ − (DiY )k′ )
+
+= 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+
+
+1(N − 1)( N − 2) 
+
+X  
+
+> j,k ̸=ij̸=k
+
+Isign( dX (xi, x j ) − dX (xi, x k)) = sign( dY (yi, y j ) − dY (yi, y k)) 
+
+= 1
+
+N (N − 1)( N − 2) 
+
+> N
+
+X
+
+> i=1
+
+X  
+
+> j,k ̸=ij̸=k
+
+I . . . 
+
+The double summation iterates over all triplets of distinct indices (i, j, k ), of which there are N (N − 1)( N − 2) = |T | . The expression is therefore the expectation over all such triplets, which is the definition of TSI: RHS = E(i,j,k )∈T 
+
+h
+
+Isign( dX (xi, x j ) − dX (xi, x k)) = sign( dY (yi, y j ) − dY (yi, y k)) i
+
+= E(i,j,k )∈T 
+
+h
+
+IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)i
+
+= TSI dX ,d Y (X, Y )
+
+N.7.3. U NIFIED KENDALL ’S TAU FORMULATION FOR TSI AND QSI 
+
+Corollary 11 (Unified Kendall’s Tau Formulation for TSI and QSI) . Let Dall  
+
+> X
+
+= {dX (xi, x t)|i < t } and Dall  
+
+> Y
+
+=
+
+{dY (yi, y t)|i < t } denote the collections of all unique pairwise distances, treated as paired sequences ordered lexi-cographically by (i, t ). Then, for distance functions dX and dY that satisfy the symmetry property, i.e., d(a, b ) = d(b, a ), a weighted sum of TSI and QSI can be expressed as a function of Kendall’s Tau coefficient: 
+
+4
+
+N + 1 TSI dX ,d Y (X, Y ) + N − 3
+
+N + 1 QSI dX ,d Y (X, Y ) = Adj-Kendall-τ (Dall  
+
+> X
+
+, D all  
+
+> Y
+
+)
+
+where the Adjusted Kendall Tau is calculated according to Equation (5) .Proof. The proof proceeds by reformulating the right-hand side (RHS) of the corollary’s equation. Firstly, we leverage the results from Lemma 6 to simplify the RHS of the corollary to: Adj-Kendall-τ (Dall  
+
+> X
+
+, D all  
+
+> Y
+
+) = 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+Isign(( Dall  
+
+> X
+
+)j − (Dall  
+
+> X
+
+)k) = sign(( Dall  
+
+> Y
+
+)j − (Dall  
+
+> Y
+
+)k)
+
+Furthermore, by noting that Dall  
+
+> X
+
+= {dX (xi, x t)|i < t } and Dall  
+
+> Y
+
+= {dY (yi, y t)|i < t }, we know that M = N (N −1) 2 .Additionally, we can also restructure the summation in terms of i and t:
+
+1
+
+M (M − 1) 
+
+X 
+
+> j′̸=k′
+
+Isign(( Dall  
+
+> X
+
+)j′ − (Dall  
+
+> X
+
+)k′ ) = sign(( Dall  
+
+> Y
+
+)j′ − (Dall  
+
+> Y
+
+)k′ ) = 1( N (N −1) 2 )2
+
+> N
+
+X
+
+> i=1
+> i<t N
+
+X
+
+> j=1
+> j<k
+> (i,t )̸=( j,k )
+
+Isign( dX (xi, x t) − dX (xj , x k)) = sign( dY (yi, y t) − dY (yj , y k))  =4(N + 1) 4
+
+> N
+
+X
+
+> i=1
+> i<t N
+
+X
+
+> j=1
+> j<k
+> (i,t )̸=( j,k )
+
+Isign( dX (xi, x t) − dX (xj , x k)) = sign( dY (yi, y t) − dY (yj , y k)) 
+
+40 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Here (n)k = n × (n − 1) × · · · × (n − k + 1) denotes the falling factorial. Further, since dX is symmetric, we have that 
+
+sign( dX (xi, x t) − dX (xj , x k)) is invariant to the permutation of i and t, as well as to the permutation of j and k. The same holds for dY . Therefore, we can equivalently consider all of the aforementioned permutations if we adjust our sum by a factor of 4, resulting in the following equation: 
+
+1(N + 1) 4
+
+> N
+
+X
+
+> i=1
+> i̸=tN
+
+X 
+
+> j=1
+> j̸=k
+> (i,t )̸=( j,k )(t,i )̸=( j,k )
+
+Isign( dX (xi, x t) − dX (xj , x k)) = sign( dY (yi, y t) − dY (yj , y k)) 
+
+Now, for clarity, we define the current indices of the summation as a set SO := {(i, t, j, k )|(i, t, j, k ) ∈ { 1, . . . N }4 : i̸ =
+
+t ∧ j̸ = k ∧ (i, t )̸ = ( j, k ) ∧ (t, i )̸ = ( j, k )}. This set can be decomposed into two disjoint sets ST := {(i, t, j, k )|(i, t, j, k ) ∈SO : i = j ∨ i = k ∨ t = j ∨ t = k} and SQ := {(i, t, j, k )|(i, t, j, k ) ∈ S O : i̸ = j ∧ i̸ = k ∧ t̸ = j ∧ t̸ = k}. This is trivially true, as one set’s predicate is the negation of the other. Further analyzing these sets, we can alternatively described them as: The set SQ corresponding to all possible quadruplets for which all elements are distinct and in {1, . . . N }, and the set ST corresponding to all possible quadruplets for which exactly two elements are identical and in {1, . . . N }.Therefore, we directly conclude that: 
+
+> N
+
+X
+
+> i=1
+> t̸=iN
+
+X 
+
+> j=1
+> k̸=j
+> (i,t )̸=( j,k )(t,i )̸=( j,k )
+
+I . . .  = X
+
+> (i,t,j,k )∈S O
+
+I . . .  = X
+
+> (i,t,j,k )∈S T
+
+I . . .  + X
+
+> (i,t,j,k )∈S Q
+
+I . . . 
+
+We now analyze the sums over the two disjoint sets SQ (where all four indices are distinct) and ST (where exactly two indices are identical) separately. 
+
+Analysis of Quadruplet Terms ( SQ) The set SQ consists of all ordered quadruplets (i, t, j, k ) with four distinct indices. This set is equivalent to Q, the set of quadruplets over which QSI is defined, and contains |Q| = ( N )4 elements. The sum over this set corresponds to the QSI metric: 
+
+X
+
+> (i,t,j,k )∈S Q
+
+Isign( dX (xi, x t) − dX (xj , x k)) = sign( dY (yi, y t) − dY (yj , y k)) 
+
+= X
+
+> (i,t,j,k )∈Q
+
+IOdX (xi, x t, x j , x k) = OdY (yi, y t, x j , x k)
+
+= ( N )4 · E(i,t,j,k )∈Q 
+
+h
+
+IOdX (xi, x t, x j , x k) = OdY (yi, y t, x j , x k)i
+
+= ( N )4 · QSI dX ,d Y (X, Y )
+
+Analysis of Triplet Terms ( ST ) The set ST consists of all quadruplets where exactly two indices are identical. This occurs in four disjoint and symmetric cases: (1) i = j, (2) i = k, (3) t = j, and (4) t = k. Each case contributes an equal amount to the sum. We analyze the case where i = j: the predicate becomes Isign( dX (xi, x t) − dX (xi, x k)) = sign( dY (yi, y t) − dY (yi, y k)) , where i, t, k are distinct. This is the predicate for TSI over the triplet (i, t, k ). The sum for this case is over all (N )3 distinct triplets: 
+
+X
+
+> i,t ̸=ki̸=t
+
+Isign( dX (xi, x t) − dX (xi, x k)) = sign( dY (yi, y t) − dY (yi, y k)) 
+
+= X
+
+> (i,t,k )∈T
+
+IO∆ 
+
+> dX
+
+(xi, x t, x k) = O∆ 
+
+> dY
+
+(yi, y t, y k)
+
+= ( N )3 · TSI dX ,d Y (X, Y )
+
+41 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Since there are four such symmetric cases, the total sum over ST is four times this value: 
+
+X
+
+> (i,t,j,k )∈S T
+
+I . . .  = 4( N )3 · TSI dX ,d Y (X, Y )
+
+We combine the results for the two partitions and substitute them back into the expression for the RHS of the corollary: RHS = 1(N + 1) 4
+
+ X
+
+> (i,t,j,k )∈S T
+
+I . . .  + X
+
+> (i,t,j,k )∈S Q
+
+I . . . 
+
+= 1(N + 1) 4
+
+ 4( N )3 · TSI dX ,d Y (X, Y ) + ( N )4 · QSI dX ,d Y (X, Y )
+
+= 4( N )3
+
+(N + 1)( N )3
+
+TSI dX ,d Y (X, Y ) + (N )4
+
+(N + 1)( N )3
+
+QSI dX ,d Y (X, Y )= 4
+
+N + 1 TSI dX ,d Y (X, Y ) + N − 3
+
+N + 1 QSI dX ,d Y (X, Y )
+
+N.8. Computational Complexity of Adjusted Kendall Tau 
+
+This proof establishes the computational complexity results presented in Corollary 12 for the computation of the Adjusted Kendall Tau coefficient using Algorithm 1. The approach is inspired by efficient algorithms for calculating Kendall’s Tau, such as the one proposed by Knight (1966), and relies on reformulating the metric in terms of concordant and tied pairs. 
+
+Corollary 12 (Computational Complexity of Adj-Kendall-τ ). Let A = {a1, . . . , a M } and B = {b1, . . . , b M } be two sequences of paired observations. The Adj-Kendall-τ (A, B ), described in Equation (5) , can be computed in O(M log M )
+
+time and O(M ) space complexity. Proof. We first prove that Algorithm 1 correctly computes the Adjusted Kendall Tau and then analyze its time and space complexity. 
+
+Correctness From Lemma 6, the Adjusted Kendall Tau is the fraction of ordered pairs of indices (j, k ) where the ordinal relationship agrees between sequences A and B:Adj-Kendall-τ (A, B ) = 1
+
+M (M − 1) 
+
+X 
+
+> j̸=k
+
+Isign( aj − ak) = sign( bj − bk)
+
+An agreement occurs if the unordered pair {j, k } is either strictly concordant (e.g., aj > a k and bj > b k) or jointly tied (aj = ak and bj = bk). Let C be the number of strictly concordant unordered pairs and TAB be the number of jointly tied unordered pairs. Each such unordered pair corresponds to two agreeing ordered pairs, (j, k ) and (k, j ). Therefore, the numerator of the expression—the total count of agreeing ordered pairs—is equal to 2( C + TAB ).Algorithm 1 correctly computes this value. The number of strictly concordant pairs, C, is calculated using the identity that the total number of unordered pairs, M (M −1) 2 , is the sum of concordant, discordant ( I), and tied pairs. By subtracting the number of inversions ( I) and ties in each sequence ( TA, TB ) from the total, and adding back the number of joint ties ( TAB )which were subtracted twice, we isolate C. The algorithm then computes the total number of agreeing ordered pairs as 
+
+J = 2( C + TAB ) (line 7) and normalizes by the total number of ordered pairs, M (M − 1) (line 8), thus correctly computing the Adjusted Kendall Tau. 
+
+Computational Time Complexity The time complexity of Algorithm 1 is determined by its most expensive steps. Let M
+
+be the length of the input sequences A and B.• Ranking (line 1): Computing the rank orderings πA and πB requires sorting, which takes O(M log M ) time. • Counting Ties (lines 2-4): After sorting, ties can be counted in a single pass, which takes O(M ) time. 42 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+• Counting Inversions (line 5): The number of inversions between two permutations can be computed efficiently using an approach similar to merge sort in O(M log M ) time. The remaining steps take constant time. Therefore, the dominant factor is the ranking and inversion counting, resulting in a total time complexity of O(M log M ).
+
+Computational Space Complexity The space complexity is determined by the storage required for the data structures used. • The input sequences A and B, along with their ranks πA and πB , require O(M ) space. • The merge sort-based algorithm for counting inversions requires O(M ) space complexity. Thus, the total space complexity of the algorithm is O(M ).
+
+N.9. Concentration Bounds for Empirical TSI and QSI Lemma 4 (Concentration Bounds for Empirical TSI and QSI) . Let (X, Y ) ∼ D NXY be a finite dataset of N independent pairs sampled from the joint distribution DXY . Because TSI and QSI are U-Statistics with bounded indicator kernels in [0 , 1] (of degrees m = 3 and m = 4 , respectively), their empirical estimations tightly concentrate around their true population similarities S∗ ∈ { TSI ∗, QSI ∗}. For any ϵ > 0, the probabilities of deviation are bounded by: 
+
+P  TSI dX ,d Y (X, Y ) − TSI ∗  
+
+> dX,d Y
+
+(DXY ) ≥ ϵ ≤ 2 exp  −2⌊ N 
+
+> 3
+
+⌋ϵ2
+
+P  QSI dX ,d Y (X, Y ) − QSI ∗  
+
+> dX,d Y
+
+(DXY ) ≥ ϵ ≤ 2 exp  −2⌊ N 
+
+> 4
+
+⌋ϵ2
+
+Proof. 1. Definition of U-Statistics. A U-Statistic provides a method for obtaining unbiased estimators of population parameters. Given a set of N independent observations Z = {z1, . . . , z N }, and a symmetric kernel function h(z1, . . . , z m)
+
+of degree m ≤ N , the corresponding U-Statistic is defined as the average of the kernel over all combinations of m items from the input set: 
+
+U (Z) = 1
+
+ Nm
+
+ X
+
+> 1≤i1<··· <i m≤N
+
+h(zi1 , . . . , z im )
+
+2. Hoeffding’s Bound Applied to U-Statistics. Because the terms in the sum of a U-Statistic share overlapping subsets of data, they are not independent. Consequently, the standard Hoeffding’s Inequality cannot be applied directly. However, Hoeffding (1963) derived a specific concentration inequality for U-statistics. For a kernel bounded in [0 , 1] , the bound is given by: 
+
+P [|U (Z) − E[U (Z)] | ≥ ϵ] ≤ 2 exp  −2⌊ Nm ⌋ϵ2
+
+3. Equivalence of Expectations. Because all subsets of size m are drawn from the same underlying distribution, the expected value of the kernel over any combination is identical. Using the linearity of expectation, the expected value of the U-Statistic over N samples collapses strictly to the expected value of its kernel over m samples: 
+
+E[U (Z)] = E
+
+ 1
+
+ Nm
+
+ X
+
+> 1≤i1<··· <i m≤N
+
+h(zi1 , . . . , z im )
+
+
+
+= 1
+
+ Nm
+
+ X
+
+> 1≤i1<··· <i m≤N
+
+E [h(zi1 , . . . , z im )] = 1
+
+ Nm
+
+Nm
+
+
+
+E[h(z1, . . . , z m)] = E[h(z1, . . . , z m)] 
+
+43 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+4. TSI and QSI as U-Statistics. Consider a sample of N joint pairs zi = ( xi, y i). To demonstrate that TSI is a U-Statistic, we begin with its original definition as an average over the set of all ordered triplets T , where |T | = ( N )3:TSI dX ,d Y (X, Y ) = 1(N )3
+
+X
+
+> (i,j,k )∈T
+
+IO∆ 
+
+> dX
+
+(xi, x j , x k) = O∆ 
+
+> dY
+
+(yi, y j , y k)
+
+Any ordered triplet (i, j, k ) can be formed by first selecting an unordered subset of 3 distinct indices, and then applying one of the 3! = 6 possible permutations π ∈ S3. We can rewrite the sum over ordered tuples as a double sum over unordered subsets and permutations: TSI dX ,d Y (X, Y ) = 1
+
+ N
+
+> 3
+
+3! 
+
+X
+
+> 1≤i1<i 2<i 3≤N
+
+X
+
+> π∈S3
+
+IO∆ 
+
+> dX
+
+(xπ(1) , x π(2) , x π(3) ) = O∆ 
+
+> dY
+
+(yπ(1) , y π(2) , y π(3) )
+
+= 1
+
+ N
+
+> 3
+
+ X
+
+> 1≤i1<i 2<i 3≤N
+
+16
+
+X
+
+> π∈S3
+
+IO∆ 
+
+> dX
+
+(xπ(1) , x π(2) , x π(3) ) = O∆ 
+
+> dY
+
+(yπ(1) , y π(2) , y π(3) )!
+
+By defining the term in parentheses as the permutation-symmetric kernel hTSI (z1, z 2, z 3), we perfectly recover the definition of a U-Statistic from Step 1. This demonstrates that TSI is strictly a U-Statistic of degree m = 3 . By an identical construction using subsets of size 4 and permutations π ∈ S4, QSI forms a symmetric kernel hQSI , proving it is a U-Statistic of degree 
+
+m = 4 . Because both kernels are simple averages of indicator functions, their values are strictly bounded in [0 , 1] .
+
+5. Obtaining the Population Equivalence and Concentration Bounds. Using the property from Step 3, the expected value of our U-Statistics for any sample size N ≥ 3 evaluates exactly to the expectation over a single kernel evaluation. Thus, we have: 
+
+E(X,Y )∼D NXY [TSI dX ,d Y (X, Y )] = E(X,Y )∼D 3 
+
+> XY
+
+[hTSI (( x1, y 1), (x2, y 2), (x3, y 3))] 
+
+Therefore, we can easily simplify the population similarity limit from Definition 4: TSI ∗  
+
+> dX,d Y
+
+(DXY ) = lim   
+
+> N→+∞
+
+E(X,Y )∼D NXY [TSI dX ,d Y (X, Y )] = lim   
+
+> N→+∞
+
+E(X,Y )∼D 3 
+
+> XY
+
+[hTSI (( x1, y 1), (x2, y 2), (x3, y 3))] = E(X,Y )∼D 3 
+
+> XY
+
+[hTSI (( x1, y 1), (x2, y 2), (x3, y 3))] 
+
+Finally, to compute the concentration bound, we apply the inequality from Step 2. We substitute U (Z) = TSI dX ,d Y (X, Y ),its expected value E[U (Z)] = E(X,Y )∼D NXY [TSI dX ,d Y (X, Y )] , and the kernel degree m = 3 :
+
+P
+
+h
+
+TSI dX ,d Y (X, Y ) − E(X,Y )∼D NXY [TSI dX ,d Y (X, Y )] ≥ ϵ
+
+i
+
+≤ 2 exp  −2⌊ N 
+
+> 3
+
+⌋ϵ2 ⇐⇒ 
+
+P
+
+h
+
+TSI dX ,d Y (X, Y ) − E(X,Y )∼D 3 
+
+> XY
+
+[hTSI (( x1, y 1), (x2, y 2), (x3, y 3))] ≥ ϵ
+
+i
+
+≤ 2 exp  −2⌊ N 
+
+> 3
+
+⌋ϵ2 ⇐⇒ 
+
+P  TSI dX ,d Y (X, Y ) − TSI ∗  
+
+> dX,d Y
+
+(DXY ) ≥ ϵ ≤ 2 exp  −2⌊ N 
+
+> 3
+
+⌋ϵ2
+
+Applying the same sequence of substitutions with m = 4 for QSI yields its respective bound, completing the proof for Lemma 4. 
+
+N.10. Computability of Global Lower Bounds for TSI and QSI in R
+
+This section provides the formal proof for Corollary 7. We demonstrate that the search for the global minimum similarity in 
+
+R can be reduced from a continuous problem over RN × RN to a finite combinatorial search over a specialized representative set. 
+
+Corollary 7 (Computability of Global Lower Bounds in R). For any number of considered representations N , the global lower bound of the ordinal similarity S ∈ { TSI , QSI } over sets of N distinct points in R is theoretically computable. Specifically, let smin = min X,Y ∈RN with distinct entries S(X, Y ). Then: 
+
+smin = min  
+
+> X,Y ∈X rep
+
+
+
+min   
+
+> σ∈Perm (N)
+
+S(X, Y σ )
+
+
+
+44 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+where Xrep denotes a representative set as defined in Definition 7. Note that Xrep is finite and we can computationally obtain at least one such set (specifically a Monotonically Ordered Representative Set via Algorithm 6). Proof. The proof is structured as follows: we first discretize the representation space into finite equivalence classes ( Ordinal Profiles ); then, we show that the global search can be restricted to a finite Representative Set ; finally, we leverage the geometric constraints of the real line to algorithmically construct this set ( MORS ). 
+
+Equivalence Classes and Discretization To analyze the global minimum, we partition the continuous space RN into finite regions of invariant ordinal behavior. 
+
+Definition 5 (Ordinal Profile) . To characterize the structure of X ∈ RN , we define the Ordinal Profile PS (X) as an ordered set of outcomes for all underlying comparisons in the metric S ∈ { TSI , QSI }. For a dataset X, the profile is a vector in {− 1, 0, 1}M (where M = |T | or |Q| ): • For TSI: PTSI (X) =  O∆ 
+
+> dX
+
+(xi, x j , x k)
+
+> (i,j,k )∈T
+
+• For QSI: PQSI (X) =  OdX (xi, x j , x k, x l)
+
+> (i,j,k,l )∈Q
+
+Definition 6 (Equivalent Classes/Cells) . We define the equivalence relation ∼S such that X ∼S Y ⇐⇒ P S (X) = PS (Y ).This relation partitions RN with distinct entries into disjoint equivalence classes (or cells) {E k}, where each Ek = {X ∈
+
+RN | P S (X) = pk} for a unique profile pk. By construction, for any X, Y ∈ E k, S(X, Y ) = 1 .• Conclusion 1 (Finiteness): The number of cells K is finite and bounded by 3M . Geometric constraints in R (e.g., 
+
+|xi − xk| = |xi − xj | + |xj − xk| for i < j < k ) further restricts the number of realizable profiles. • Conclusion 2 (Class Score Invariance): Since S depends only on the profiles, the similarity between any two points from cells Ea and Eb is identical. Formally: 
+
+∀X1, X 2 ∈ E a, ∀Y1, Y 2 ∈ E b : S(X1, Y 1) = S(X2, Y 2).
+
+Formal Definition of the Representative Set We define a permutation action on cells such that σ(Ea) = {Xσ | X ∈ E a}.We call Ea and Eb σ-equivalent if there exists a permutation σ ∈ Perm (N ) such that σ(Ea) = Eb.
+
+Definition 7 (Representative Set) . A Representative Set Xrep = {X1, . . . , X m} is a set of configurations constructed such that: 1. Distinct Orbits: ∀Xi, X j ∈ X rep , i ̸ = j =⇒ ∄σ ∈ Perm (N ) s.t. Xi ∼S Xσj .2. Full Coverage: For every equivalence class Ek ⊂ RN with distinct entries , there exists a representative Xi ∈ X rep and a permutation σ ∈ Perm (N ) such that Ek = {X | X ∼S Xσi }.The definition of Xrep implies the covering property : ∀X ∈ RN with distinct entries , ∃Xi ∈ X rep , σ ∈ Perm (N ) such that 
+
+X ∼S Xσi .
+
+Global Lower Bound Construction We now show that the search over Xrep and Perm (N ) is equivalent to the global minimum over RN × RN (with distinct entries). Let X, Y ∈ RN with distinct entries. By the covering property: 
+
+X ∼S Xσ1 
+
+> i
+
+and Y ∼S Xσ2 
+
+> j
+
+for some Xi, X j ∈ X rep and σ1, σ 2 ∈ Perm (N ).
+
+By Class Score Invariance and Permutation Invariance ( S(A, B ) = S(Aσ , B σ )): 
+
+S(X, Y ) = S(Xσ1 
+
+> i
+
+, X σ2 
+
+> j
+
+)= S(Xσ1σ−11 
+
+> i
+
+, X σ2σ−11 
+
+> j
+
+)= S(Xi, X σ∗ 
+
+> j
+
+) where σ∗ = σ2σ−11 ∈ Perm (N ).
+
+45 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Therefore, the global minimum for distinct entries smin = min X,Y ∈RN with distinct entries S(X, Y ) reduces to: 
+
+smin = min  
+
+> Xi,X j∈X rep
+
+
+
+min   
+
+> σ∈Perm (N)
+
+S(Xi, X σj )
+
+
+
+Finally, this procedure can be computed via Algorithm 5. However, this hinges on the ability to computationally obtain Xrep ,which we will cover next. 
+
+Algorithm 5 Computation of Global Lower Bound for Ordinal Similarity in R
+
+Require: Number of points N ; Similarity metric S ∈ { TSI , QSI }
+
+1: Xrep ← ObtainRepresentativeConfigs (N, S )
+
+2: smin ← 1.0
+
+3: d(a, b ) ← | a − b|
+
+4: for all X ∈ X rep do 
+
+5: for all Y ∈ X rep do 
+
+6: for all σ ∈ Permutations ({1, . . . , N }) do 
+
+7: s ← Sd,d (X, Y σ )
+
+8: if s < s min then 
+
+9: smin ← s
+
+10: end if 
+
+11: end for 
+
+12: end for 
+
+13: end for 
+
+14: return smin 
+
+Efficient Computation of Xrep While the number of ordinal profiles is finite, searching the entirety of RN is still non-trivial. However, for 1D representations, the geometric structure of the real line allows for a significant simplification. Since any set of distinct points can be sorted, every ordinal profile in RN is effectively a permuted version of a profile generated by a monotonically increasing sequence. We formalize this by restricting our search to the monotonic subset of the representation space. Let X< := {X ∈ RN | x1 < x 2 < · · · < x N } denote the set of all strictly increasing configurations in RN . We define a specialized representative set for this domain: 
+
+Definition 8 (Monotonically Ordered Representative Set) . A Monotonically Ordered Representative Set (MORS), denoted X M O  
+
+> rep
+
+, is a finite collection of configurations {X1, . . . , X m} such that: 1. Monotonicity: X M O  
+
+> rep
+
+⊂ X <.2. Distinct Cells: ∀Xi, X j ∈ X rep , i ̸ = j =⇒ Xi ≁S Xj (they represent distinct ordinal profiles). 3. Full Coverage of Ordered Cells: For every equivalence class Ek such that Ek ∩ X ≮ = ∅, there exists a representative 
+
+Xi ∈ X M O  
+
+> rep
+
+such that Ek = {X | X ∈ RN with distinct entries , X ∼S Xi}.The following corollary establishes that identifying these ordered representatives is sufficient to characterize the similarity behavior of all possible configurations in RN .
+
+Corollary 13 (MORS are Representative Sets) . Let X M O  
+
+> rep
+
+be a Monotonically Ordered Representative Set . Then X M O 
+
+> rep
+
+satisfies the requirements of a Representative Set (RS) for RN with distinct entries. Proof. To show that X M O  
+
+> rep
+
+is an RS, we must verify the Distinct Orbits and Full Coverage properties. 
+
+1. Distinct Orbits: Assume for contradiction that there exist Xi, X j ∈ X M O  
+
+> rep
+
+and a permutation σ ∈ Perm (N ) such that 
+
+Xi ∼S Xσj . Since Xi ∈ X <, its profile PS (Xi) satisfies specific monotonic distance constraints (e.g., d(xi, 1, x i, 2) <d(xi, 1, x i, 3)). Because Xj is also monotonically ordered, any non-identity permutation σ would reorder the indices such that 46 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+the resulting distances d(xj,σ (a), x j,σ (b)) would violate the unique ordering required to match PS (Xi). For 1D Euclidean distances, Xσj ∼S Xi implies σ must be the identity, which contradicts i̸ = j given the Distinct Cells property. 
+
+2. Full Coverage: Let Ek be an arbitrary equivalence class in RN with distinct entries and let Y ∈ E k. Since the entries of 
+
+Y are distinct, there exists a unique permutation σ ∈ Perm (N ) such that Y σ ∈ X <. By the Full Coverage of Ordered Cells 
+
+property, there exists Xi ∈ X M O  
+
+> rep
+
+such that Y σ ∼S Xi. Applying the inverse permutation, we find Y ∼S Xσ−1 
+
+> i
+
+. Thus, every equivalence class is represented by an element of X M O  
+
+> rep
+
+under some permutation. 
+
+Computation of X M O  
+
+> rep
+
+To algorithmically construct X M O  
+
+> rep
+
+, we observe that it is sufficient to identify a finite superset that spans all realizable ordinal profiles. The following properties guide this construction: 1. Filtering Property: If there exists a finite set X ∗ ⊂ X < such that X M O  
+
+> rep
+
+⊆ X ∗, then X M O  
+
+> rep
+
+can be obtained by iterating through X ∗ and retaining only one representative for each unique ordinal profile. 2. Coverage Condition: A set X ∗ contains a MORS if it is profile-exhaustive, i.e., {P S (X) | X ∈ X ∗} = {P S (X) |
+
+X ∈ X <}.Based on these properties, the problem reduces to computing a finite set X ∗ that produces every possible ordinal profile achievable by strictly increasing configurations in RN . Rather than operating on coordinates (x1, . . . , x N ), it is more efficient to parameterize the configurations using the vector of pairwise distances d = ( di,j )1≤i<j ≤N ∈ R(N 
+
+> 2
+
+), where 
+
+di,j = xj − xi.For any X ∈ X <, we let d ∈ RM 
+
+> +
+
+be the vector of its M =  N
+
+> 2
+
+ pairwise distances. We define the total rank ordering 
+
+Ω( X) as the sequence of distance pairs sorted by magnitude, along with the set of transitional operators {<, =} between adjacent elements in the sequence. For example, a possible rank ordering for N = 3 is (d1,2 = d2,3 < d 1,3). Since the ordinal profile PS (X) (Definition 5) is determined solely by the relative signs of distance comparisons, it is a deterministic function of the total rank ordering: PS (X) = Φ(Ω( X)) . It follows that by iterating through all geometrically feasible total rank orderings, we ensure that our exploration is profile-exhaustive over X<, as every realizable profile is captured by at least one such ordering. Formally, obtaining a configuration X that satisfies a candidate ordering Ω equates to finding a feasible solution d to a Linear Programming (LP) problem defined by the intersection of three constraint sets: C△ (geometric triangle equalities), 
+
+C̸ = (ensuring distinct points), and Cord (the specific rank ordering and transitional operators defined by Ω). Crucially, we do not need to search the entire combinatorial space of all possible distance orderings. Because X ∈ X <,the constraints C△ and C̸= imply that for any i < j < k , di,k = di,j + dj,k with di,j , d j,k > 0. This geometric necessity induces a mandatory partial order Cperm where di,k must be strictly greater than its constituent segments di,j and dj,k .Consequently, any valid Ω must be consistent with Cperm ; specifically, the underlying permutation of distances must be a 
+
+topological sort of the Directed Acyclic Graph (DAG) whose edges are defined by these transitional dependencies. Any ordering that violates Cperm is geometrically impossible in 1D space and can be pruned immediately. Algorithm 6 formalizes this procedure. It iterates through the set of valid topological sorts O derived from the partial order 
+
+Cperm . For each sort, it considers all valid operator configurations b ∈ { =, < }M −1 to construct a candidate Cord . By solving the resulting LP for d under C△ ∧ C ord ∧ C ̸ =, the algorithm ensures that the resulting set D (and its coordinate counterpart 
+
+RX ) is profile-exhaustive, allowing for the reliable extraction of the MORS (Definition 8). 47 Scalable and Interpretable Representation Alignment with Ordinal Similarity 
+
+Algorithm 6 Obtain a X M O 
+
+> rep
+
+Require: Number of points N ; Similarity metric S ∈ { TSI , QSI }; Precision ∆ > 0
+
+1: I ← { (i, j ) | 1 ≤ i < j ≤ N }
+
+2: C△ ← { di,j + dj,k = di,k | 1 ≤ i < j < k ≤ N }
+
+3: C̸= ← { di,j ≥ ∆ | 1 ≤ i < j ≤ N }
+
+4: Cperm ← { (di,j , d i,k ) | i < j < k } ∪ { (di,j , d t,j ) | t < i < j }
+
+5: O ← TopologicalSorts (Cperm )
+
+6: D ← ∅ 
+
+7: for all σ ∈ O do 
+
+8: for all b ∈ { =, < }|I|− 1 do 
+
+9: Cord ← { dσ(k) bk dσ(k+1) | k = 1 , . . . , |I| − 1}
+
+10: Solve LP: find d s.t. C△ ∧ C ord ∧ C ̸ =
+
+11: if LP is feasible then 
+
+12: D ← D ∪ { d}
+
+13: end if 
+
+14: end for 
+
+15: end for 
+
+16: RX ← [(0 , d 1,2, d 1,3, . . . , d 1,N ) | d ∈ D ]
+
+17: X M O  
+
+> rep
+
+← { RX [i] | ∄j > i : SdX ,d X (RX [i], R X [j]) = 1 }
+
+18: return X M O 
+
+> rep
+
+48

@@ -1,0 +1,2192 @@
+Title: The Information-Theoretic Benefit of Shared Representations under Orthogonality Constraints
+
+URL Source: https://arxiv.org/pdf/2606.16028v1
+
+Published Time: Tue, 16 Jun 2026 01:28:03 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+# The Information-Theoretic Benefit of Shared Representations under Orthogonality Constraints 
+
+Thomas Dittrich thomas.dittrich@oeaw.ac.at 
+
+Johann Radon Institute of Computational and Applied Mathematics, Austrian Academy of Sciences 
+
+Oliver Potocki oliver.potocki@univie.ac.at 
+
+Faculty of Mathematics, University of Vienna 
+
+Philipp Grohs philipp.grohs@univie.ac.at 
+
+Johann Radon Institute of Computational and Applied Mathematics, Austrian Academy of Sciences 
+
+and 
+
+Faculty of Mathematics, University of Vienna 
+
+Abstract 
+
+Modern deep learning architectures are increasingly multi-task and multi-modal, using a pretrained foundation model combined with task-specific, fine-tuned models. This mirrors the classical paradigm of multitask learning. Given a set of distinct regression problems, it is possible to solve each problem separately using scalar-valued models or solve them jointly with a single vector-valued model. Empirically, exploiting similarity across the dif-ferent problems can significantly improve overall performance. While the generalization and sample complexity properties of multitask learning have been widely studied, the rig-orous investigation of the parametric complexity of joint approximation in comparison to separate approximation remains less well understood. The question is particularly rele-vant in modern deep learning, where models are increasingly required to satisfy structural constraints such as equivariance, conservation laws, or orthogonality. We prove lower and upper bounds on the description-length for separate and joint ap-proximation classes, respectively, in the uniform norm. The key ingredient is a constructive rate separation. We build a class of orthogonal functions by composing a shared hard fea-ture, realized by a Rademacher-Haar wavelet series, with Sawtooth-Walsh readouts that enforce orthogonality of output coordinates. The dyadic tree structure of the Rademacher-Haar wavelet concentrates the approximation hardness in the common feature component, while the readouts act as task-specific heads. Using an information-theoretic framework, we obtain a sharp gap between the optimal approximation rates achievable by joint and sepa-rate coding. Finally, we realize this separation in a neural network model using Heaviside activations via reduction to triangle-wave approximation. Our results show that even under an orthogonality constraint joint approximation requires strictly fewer bits in compositional architectures, provided the tasks share a latent hard feature. This provides theoretical in-sight into the description-length-efficiency of compositional multi-output architectures and clarifies how neural networks can retain expressivity under geometric constraints. 
+
+Keywords: Multitask Learning, Approximation Theory, Haar Wavelet, Neural Networks, Orthogonality Constraints 
+
+1 Introduction 
+
+Modern neural networks are increasingly used as shared-representation models, for example, in foundational model pipelines (Bommasani et al., 2022), a large hidden representation is  
+
+> ©2026 Thomas Dittrich, Oliver Potocki, and Philipp Grohs. License: CC-BY 4.0, see https://creativecommons.org/licenses/by/4.0/ .
+> arXiv:2606.16028v1 [cs.LG] 14 Jun 2026 Dittrich, Potocki, and Grohs
+
+trained once and then used through task-specific heads and readout maps. This principle appears in language models, where broad pretraining is followed by task-specific fine tuning (see Brown et al., 2020; Touvron et al., 2023), and in scientific machine learning, where equivariant message passing architectures for machine-learned interatomic potentials con-struct shared atomic features from which energies, forces, and other quantities are derived (see for example the MACE model of Batatia et al., 2022). In particular, recent models utilize multi-head foundation models, where a single shared backbone maps the input to a latent representation, and several task specific heads turn the same representation into different task-specific readouts (see Batatia et al., 2025a,b). In scientific machine learning, constraints play an important role in ensuring the adherence to physical laws, giving rise to architectures that guarantee symmetry, equivariance, or orthogonality (Cohen and Welling, 2016; Bronstein et al., 2021). This then leads to the question of what the effect of such constraints is on the expressivity of multi-head models. A related phenomenon occurs in operator learning, where architectures such as the DeepONet (Lu et al., 2021), the PCA-Net (Bhattacharya et al., 2021), or the Fourier neural operator (Li et al., 2021) are designed to map between function spaces. These practical deep operator learning models use finite-dimensional shared output representations or implicit finite discretizations, for example, through shared basis or trunk functions. This naturally leads to the classical finite-mode view point of principal component analysis (PCA) (Jolliffe, 2002) and functional principal component analysis (fPCA) (Ramsay and Silverman, 2005) as well as model order reduction. The core of principal component analysis is built on the idea of selecting a finite dimensional subspace based on a variance criterion, where orthogo-nality of the basis reduces redundancy of directions and stabilizes coefficient representations. Orthogonality poses a geometric constraint, however, and makes no claim about statistical independence. It does not preclude modes from being generated by a shared underlying structure. Given the importance of these methods, it becomes a straightforward question to ask about the information-theoretic effect of constrained joint approximation, in our case en-coded via an orthogonal finite bit representation. We show that even for potentially non-linear readouts an underlying shared feature space assumption does not diminish the effec-tiveness of sharing information between coordinates, thereby also further shedding light on the effectiveness of deep learning. 
+
+1.1 Contributions 
+
+Our main focus for this work is on M -tuple of target functions 
+
+F = ( F1, . . . , F M ) ∈ L∞([0 , 1]; RM ) (1) and two general methods to approximate such functions. Namely, we consider separate approximation of each component individually and joint approximation of all components of the vector-valued map F combined. In the first case, information cannot be shared between different coordinates, while in the second case such a feature can be stored once and then reused in each mode. In our analysis of approximation errors, we work in the uniform norm, rather than in an averaged Lp-metric. The main reason for this choice is that in scientific machine learning 
+
+> 2The Information-Theoretic Benefit of Shared Representations
+
+and operator learning the learned surrogate represents a function on a physical domain and may be queried at arbitrary spatial or temporal locations. Using the L∞-metric makes the error guarantee independent of a prescribed sampling measure or computational mesh, which is particularly important when boundary conditions or structural constraints should not be discounted by averaging. The uniform norm is also the regime in which the theory-to-practice gap is most severe. For any sampling-based algorithm, the convergence rate in the Lp norm is bounded by the Monte-Carlo rate of order m−1/p (Grohs et al., 2025), so that in the uniform norm no nontrivial rate remains. Provable approximation rates can then no longer be realized from point samples (Grohs and Voigtlaender, 2024). High accuracy comes at the cost of a sample size that grows exponentially in the architecture, for ReLU as well as tanh networks (Berner et al., 2023; Grohs and Tr¨ odler, 2026). In this regime, the only remaining measure of cost is the description complexity of the representation itself. We therefore compare joint and separate approximation in terms of this complexity. Aseparation for an orthogonal target is especially informative, because it shows that the ad-vantage of joint approximation is not an artifact of distributional averaging, mesh-dependent evaluation or linearly redundant output coordinates, but solely caused by the reduction in information-complexity produced by encoding the shared latent feature once. In view of pipelines for foundational models, the question we aim to answer is whether there exists a class of compositional orthogonal M -tuples of the form 
+
+Fg = ( f1 ◦ g, . . . , f M ◦ g), (2) which are generated by one scalar hidden representation g and orthogonal heads fi, such that each coordinate fi ◦ g is individually hard to approximate, for i̸ = j the coordinates 
+
+fi ◦ g are pairwise orthogonal, and the vector Fg can still be more efficiently approximated by a joint method. This is a non-obvious existence question as the multiple requirements are competing. Orthogonality demands non-redundant coordinates, while a shared feature is redundancy by design. Indeed, the most direct way to enforce it, coordinates with disjoint supports, eliminates all shared information and admits no gap. A similar tension arises for other output constraints such as equivariance or conservation laws, since any such constraint couples the output coordinates. Among these orthogonality is the natural test case as the constraint is exactly verifiable by inner products. We resolve it by moving the orthogonality constraint into the heads; the readouts are non-linear, not linear projections, and they decorrelate the outputs while hardness remains in the shared feature. We realize this with a function class combining Rademacher-Haar wavelet series with Sawtooth-Walsh readouts. The Rademacher-Haar series was chosen because it provides a transparently hard target for uniform approximation as its coefficients form a dyadic tree of independent signs. Our main result from Theorem 8 can be informally stated as follows: 
+
+Theorem 1 (Informal) Let M ∈ N and L := ⌈ld( M )⌉. Then there exists a class 
+
+F = {(f1 ◦ g, . . . , f M ◦ g) : g ∈ G} ⊂ L∞([0 , 1]; RM ),
+
+where G is a class of Rademacher-Haar wavelets and fi are Walsh-sawtooth functions of order L, such that each coordinate is orthogonal. Furthermore, with δ(S) being an optimal separate n-bit codec for F and δ(J) being the optimal joint n-bit codec, the gap between 
+
+> 3Dittrich, Potocki, and Grohs
+
+separate and joint codecs is 
+
+F − δ(S) 
+
+> D
+
+◦ δ(S) 
+
+> E
+
+(F ) ∞
+
+F − δ(J) 
+
+> D
+
+◦ δ(J) 
+
+> E
+
+(F ) ∞
+
+≥ M
+
+4 · 1 + 1
+
+> n
+
+1 + 2M 2
+
+> n
+
+for every F ∈ F if n = M (2 K − 2L) for some K ∈ N. In case that n̸ = M (2 K − 2L) for all 
+
+K ∈ N, then there exists an F ∈ F for which the gap holds. In particular, this joint codec dominates the best separate codec with asymptotic improvement of order M/ 4.
+
+The order of this gap reflects that a separate code must encode the shared feature anew for each of the M coordinates, while a joint code encodes it only once. To provide this information-theoretic treatment of orthogonal multitask targets, we con-sider the class of joint codecs simply as the encoder/decoder pairs acting on L∞([0 , 1]; RM )directly. We then introduce the class of separate codecs as a class of M independent en-coder/decoder pairs acting on L∞([0 , 1]; R) and show the existence of a class of orthogonal feature maps generated from one scalar Rademacher-Haar feature through fixed Sawtooth-Walsh readouts. A compositional approach ensures that the full approximation hardness of the class is concentrated in the common feature. This avoids the degenerate case where orthogonality carries no information-theoretic content that would arise from constructing this constraint via disjoint domains or a product approach. We furthermore provide a precise treatment of the underlying Rademacher-Haar class in uniform norm. First, we show that the truncation of the series represents an optimal finite-bit discretization at the respective bit-level. Extending this to arbitrary bit budgets yields explicit upper and lower rate bounds. This is superior to an approach based solely on metric entropy estimates, as we get exact constants that allow us to give a sharp separation between separate and joint encodings of this class. Finally we return from the information theory based construction to neural network the-ory. Here, Heaviside activations are the natural network model for realizing the Rademacher-Haar wavelet series in uniform norm due to the piecewise constant nature of the truncated series. We then realize the composition with Sawtooth-Walsh functions via an approxi-mation by triangle-waves and furthermore utilizing the construction of Yarotsky (2017) in order to realize pointwise multiplications. We construct an explicit Heaviside architecture with a shared trunk and M fixed readouts. We provide a proof of the separation of one joint Heaviside architecture compared to M separate architectures in Corollary 19. This will show that the joint-separate approximation gap is not an artifact of a peculiar finite-bit discretization of one codec construction, but directly holds for an explicit neural network architecture. Practically, this is the same principle that underlies shared trunks and foun-dation models, the expensive feature extractor is paid for once, while the heads implement task-specific readouts. From the viewpoint of machine learning, these results give a rigorous treatment of a familiar but often informal heuristic. It is widely observed that joint regression algorithms on vector-valued problems yield superior performance, a phenomenon usually attributed to tasks that share information. Said phenomenon has gained particular prominence with the rise of deep learning, where internal latent representations are integral to the abil-ity of neural networks to approximate complex targets. To the best of our knowledge, 
+
+> 4The Information-Theoretic Benefit of Shared Representations
+
+our work provides the first rigorous mathematical treatment of this phenomenon from an approximation-theoretic perspective. 
+
+1.2 Related work 
+
+The present work is situated at the intersection of nonlinear approximation theory, mul-titask learning, random wavelet constructions, and orthogonal subspace methods. Our contribution combines these viewpoints in an information-theoretic approximation model. In particular, we construct an orthogonal vector-valued function class whose coordinates are individually hard to approximate, while a joint codec can still exploit a shared latent feature and thereby achieve a strictly better approximation rate. B¨ olcskei et al. (2019) and Elbr¨ achter et al. (2021) derive lower bounds on memory re-quirements and connectivity for approximating arbitrary function classes in L2, uniformly over the class, and show that sparsely connected neural networks can optimally approximate broad classes of representation systems, including wavelets and central systems from har-monic analysis. With our Rademacher-Haar wavelet series we show that the representation system itself might contain a shared source of complexity depending on the encoding. Simi-larly, Petersen and Voigtlaender (2018) and Yarotsky (2017) study the approximation rates of deep ReLU networks for piecewise and smooth Sobolev-smooth functions, respectively. In particular Petersen and Voigtlaender (2018) show that for functions factorizing through a lower-dimensional feature map, the approximation rate is dominated by the dimension of the feature space, not the dimension of the ambient space. Their results, however, concern the expressivity of a function class, whereas our work in contrast is based on an information-theoretic codec framework to isolate the finite-bit gain of joint approximation. Grohs et al. (2023) study rate-distortion theory in connection with approximation-theoretic phase transitions, compression rates, and generic sharpness of approximation re-sults. Their work provides a natural theoretical background for finite-bit discretizations, minimax approximation rates, and optimal coding. However, their work focused on the gen-eral approximation complexity of a given function class for general representation systems. In contrast, our work differs in that, in addition to deriving a rate for a specific class of functions, we also study the effect of imposing a restriction on the structure of the encoder. Multitask learning, as formulated by Caruana (1997), aims to learn several tasks in parallel to utilize a shared latent representation so that different tasks can share information. This naturally leads to the formulation of multitask learning as the approximation of a structured class sharing a latent feature, thus motivating a compositional model of multitask learning where each singular task is precisely a different readout of the same feature. The statistical theory of learning shared representations across tasks goes back to Bax-ter (2000), who formalized multitask learning as learning an inductive bias from a family of related tasks. Maurer et al. (2016) study the benefit of multitask representation learn-ing from a statistical learning perspective and show that shared representations improve learning when all tasks are generated by a common feature and the number of tasks is large. More recent work establishes provable sample complexity gains of learning a low-dimensional shared representation (Tripuraneni et al., 2021; Du et al., 2021). Ruder (2017) provides an overview of multitask learning in deep learning and discusses common mech-anisms by which neural architectures share information such as hard and soft parameter 
+
+> 5Dittrich, Potocki, and Grohs
+
+sharing and representation-based transfer over tasks. These works already elucidate the core principle of multitask learning, in that shared latent features improve multiple learn-ing tasks. More recently, Shenouda et al. (2024) studied multi-output through vector-valued vari-ation spaces and showed that the corresponding regularization structure promotes shared features across outputs. Their analysis explains feature sharing as a consequence of the induced variation norm, which, for homogeneous activations, is closely related to weight de-cay and favors atoms that simultaneously contribute to multiple outputs. Our contribution is distinct: we isolate feature-sharing at the level of minimax finite-bit approximation, even before training or generalization enter the picture. In this setting the separation is not a statement about which atoms a regularizer prefers, but a sharp statement about the addi-tional cost a separate model must pay for repeatedly encoding a shared latent feature that a joint description only pays for once. Weihs and Schaeffer (2026) established near-optimal approximation rates and a curse of parametric complexity lower bound for Lipschitz classes of multiple-operator maps. They conclude that multi-task operator learning follows the same scaling laws as single operator learning. In particular, they show that the exponential blow-up in constructive bounds for this setting is an artifact of the analysis and not an intrinsic feature of the multi-operator construction. Their classes do not enforce a shared latent feature, as the classes are related solely through the Lipschitz dependence on the operator descriptor. The hard instances behind their lower-bound are obtained by lifting scalar functionals that already exhibit the curse of rank-one multiple-operator maps. Our work asks a different question. Rather than bounding the complexity of a class, we describe two regimes of describing the same object and quantify what separates them. For this, we perform an information-theoretic treatment of an explicit constructive function class and explore the effective boundary for hard tasks. In particular, we demonstrate that orthogonality as a geometric constraint on that constructive class is not a prohibitive factor for the effectiveness of multitask learning. Random wavelet series provide the specific constructive tool used in this paper. Opti-mal finite-bit encoding of deterministic wavelet expansions goes back to Cohen et al. (2001), who construct tree-based encoders matching the Kolmogorov entropy of Besov balls. Esser et al. (2024) study regularity properties of random wavelets series obtained by multiply-ing deterministic wavelet coefficients by unbounded i.i.d. random variables, in particular, they show that for almost every continuous function this randomization is almost surely nowhere locally bounded. Horst et al. (2024) study Besov regularity of random wavelet series, motivated by the Bayesian practice to use random stochastic processes as priors in inverse problems. These works are mainly concerned with regularity properties of random harmonic analysis representation systems without deriving approximation bounds or rates. Randomizing wavelet coefficients gives rise to function classes with interesting microscale behavior, making them a natural fit for scale-based complexity studies. Based on this, we, in contrast to previous works, construct a Rademacher distributed Haar-wavelet series whose unresolved tail has the same uniform norm on every dyadic subset, at every scale. Thus, the unresolved tail therefore carries the majority of the approximation hardness. Similar finite-scale packing arguments appear in the entropy and minimax lower bounds of Parhi and Nowak (2023) and Siegel and Xu (2024), where a critical resolution is used to certify a rate. The class of Rademacher-Haar wavelets may be read as the extremal object of the 
+
+> 6The Information-Theoretic Benefit of Shared Representations
+
+first-order analogue of the Radon-BV geometry that Parhi and Nowak (2021) associate with shallow neural networks trained with weight-decay. In this comparison, the corresponding elementary atoms are the Heaviside neurons in Section 4. At level k, the Rademacher-Haar feature has 2 k coefficients all of magnitude 2 −k−1. Hence the ℓ1 budget of the coefficients at this level is 1 /2, independent of signs. In this limited sense, our class is then best under-stood as a boundary-type model for the corresponding variation geometry, not as a bounded subset of the associated variation space in the sense of Siegel and Xu (2023). Approximation by linear subspaces is one of the most common problems in machine learning. It is straightforward to see that a linear approximation has benefits such as inter-pretability or ease of computation. Perhaps the most popular technique in dimensionality reduction is principal component analysis (PCA) (Jolliffe, 2002), which aims to reduce the complexity of data by finding the exact n-dimensional subspace that explains the most vari-ance. A functional extension of this idea has become popular in recent years by functional principal component analysis (fPCA) (Ramsay and Silverman, 2005). In both approaches, orthogonality is key to ensure optimality of the finite-dimensional reduction and stability of the coefficients of the representation. 
+
+2 Preliminaries and Notation 
+
+A central element of our analysis is discretization to n ∈ N bits, that is, to an element in {0, 1}n. This is a natural setting in information theory and can be formalized via the following classes of encoder/decoder pairs and the corresponding distortion measure: 
+
+Definition 2 ( n-Bit Codecs and Distortion) Let X be a Banach space, S ⊂ X , n ∈ N.We define the classes of n-bit encoding/decoding pairs as 
+
+C n 
+
+> S,X
+
+:= {(δnE , δ nD)|δnE : S → { 0, 1}n, δ nD : {0, 1}n → X } (3) 
+
+and the set of all codecs as the sequences of encoder/decoder pairs over n ∈ N
+
+CS,X := ą
+
+> n∈N
+
+C n 
+
+> S,X
+
+. (4) 
+
+Furthermore, define the best distortion with encoder/decoder pairs from C n 
+
+> S,X
+
+as 
+
+Dn (S, X ) := inf    
+
+> (δE,δ D)∈Cn
+> S,X
+
+sup 
+
+> x∈S
+
+∥x − δD ◦ δE (x)∥X . (5) Although the formulation in encoder/decoder pairs is natural in information theory, our work is not focused on the actual representation in terms of bits. Rather, we are interested in the composition of the encoder and decoder as a map from S to X , where the number of bits n corresponds to the cardinality of the image of the decoder. We can therefore equivalently consider B-bit discretization maps, which are defined via the image set C of the decoder as follows. 
+
+Definition 3 (Discretization Maps) Let X be a Banach space. A map ∆ : X → X is called a B-bit discretization map if card (range(∆)) = 2 B for some B ∈ N0. For a fixed 
+
+> 7Dittrich, Potocki, and Grohs
+
+B ∈ N0 and C ⊂ X with card ( C) = 2 B we define the projective B-bit discretization map 
+
+∆C : X → X as 
+
+∆C (x) := argmin 
+
+> y∈C
+
+∥x − y∥X . (6) Note that the argmin can in general result in ties, which have to be resolved in some way. The precise way of resolving ties is not important for the following statements and we will omit further discussions. For our results on the Rademacher-Haar wavelet series, we often require to partition the domain into a family of 2 L disjoint intervals for any L ∈ N. Specifically, we use the following notation for two types of these dyadic sets. 
+
+Definition 4 (Dyadic Subsets) For L ∈ N0 and i ∈ [2 L] we introduce the notation 
+
+U(L) 
+
+> i
+
+:= 2 −L[i, i + 1) , V(L) 
+
+> i
+
+:= 2 −L+1 [i, i + 1) − 1 (7) 
+
+as the dyadic subsets of U := [0 , 1) and V := [ −1, 1) .
+
+Throughout this work, we write ld := log 2 for the binary logarithm, use the index set 
+
+N−1 := {− 1, 0, 1, 2, . . . }, and consider orthogonality in the L2-sense. Finally, in order to simplify notation for indices, we use the notation [M ] := {0, . . . , M − 1}. (8) 
+
+3 Information-Theoretic Approximation Gap 
+
+The main theorem of the present paper is on the existence of a function class, which has a non-trivial complexity and a corresponding orthogonal feature map for which we show a gap between joint and separate coding. In this section, we first introduce the two coding schemes in detail, the initial class of Rademacher-Haar wavelets and Sawtooth-Walsh functions as our orthogonal feature maps. Based on these definitions, we present our main result in Theorem 8. In Section 3.1 we then show tight upper and lower bounds on the minimax discretization rates for the Rademacher-Haar wavelet series and some properties of the Sawtooth-Walsh orthogonal feature maps. We then use these properties in Section 3.2 in order to prove a lower bound for separate discretization and an upper bound for joint discretization. In Section 3.3 we combine the previous result and prove Theorem 8. We distinguish between joint and separate coding. The main idea here is that joint coding can access all output dimensions of a multivariate function class when discretizing, whereas separate coding can only access a single output dimension at a time and needs to discretize the dimensions independently without any cross-information. 
+
+Definition 5 (Joint and Separate Coding) Let M ∈ N, H ⊂ L∞([0 , 1]; RM ), and for 
+
+i ∈ [M ] define the marginal sets 
+
+Hi := {hi|(h0, . . . , h M −1) ∈ H} . (9) 
+
+> 8
+
+The Information-Theoretic Benefit of Shared Representations 
+
+For every n ∈ NM and i ∈ [M ], we then consider the marginal encoder/decoder pairs 
+
+C n 
+
+> Hi,L ∞([0 ,1])
+
+as in Definition 2 and define the class of separate encoder/decoder pairs as 
+
+C n 
+
+> sep
+
+:= 
+
+n 
+
+(δn0
+
+> E, 0
+
+, . . . , δ nM −1 
+
+> E,M −1
+
+), (δn0
+
+> D, 0
+
+, . . . , δ nM −1 
+
+> D,M −1
+
+)
+
+
+
+(δnE,j , δ nD,j ) ∈ C n 
+
+> Hj,L ∞([0 ,1])
+
+o
+
+. (10) 
+
+For every N ∈ N, the class of joint encoder/decoder pairs is defined via Definition 2 as 
+
+C N 
+
+> joint
+
+:= CH,L ∞([0 ,1]; RM ). (11) Note that with this definition we consider 
+
+δnE, S = ( δn0
+
+> E, 0
+
+, . . . , δ nM −1 
+
+> E,M −1
+
+) and δnD, S = ( δn0
+
+> D, 0
+
+, . . . , δ nM −1 
+
+> D,M −1
+
+) (12) as maps 
+
+δnE, S : ą 
+
+> i∈[M]
+
+Hi → { 0, 1}PM −1  
+
+> i=0 ni
+
+and δnD, S : {0, 1}PM −1  
+
+> i=0 ni
+
+→ L∞([0 , 1]) M , (13) respectively. For our initial function class that represents the shared feature, we consider random wavelet series that are based on the Haar wavelet and use Rademacher random variables as weights. Note that we consider minimax rates, which means that our later results are not in expectation and we therefore do not require a definition for a probability measure on the function class. 
+
+Definition 6 (Rademacher-Haar Wavelet Series) Let k, L ∈ N0 and i ∈ [2 k]. The mother wavelet of the Haar wavelet is given by φ = χ[0 ,1/2) − χ[1 /2,1) and its i-th child wavelet on level k is given by φ(k) 
+
+> i
+
+= 2 −k−1φ 2k · − i. We denote the parameter space of the Rademacher-Haar wavelet series as B = ×∞
+
+> l=0
+
+{± 1}2l
+
+and for any b ∈ B we consider the realization functions 
+
+hk(·; b) :=  
+
+> 2k−1
+
+X
+
+> m=0
+
+b(k) 
+
+> m
+
+φ(k) 
+
+> m
+
+(·) , gL(·; b) := 
+
+> L
+
+X
+
+> l=0
+
+hl(·; b), and g(·; b) := lim  
+
+> L→∞
+
+gL(·; b).
+
+(14) 
+
+The class of Rademacher-Haar wavelet series is then given by 
+
+G := {g(·; b)|b ∈ B} (15) 
+
+and the class of L-level truncated Rademacher-Haar wavelet series with L ∈ N−1 by 
+
+GL := 
+
+n
+
+gL(·; b) b ∈ B(L)o
+
+. (16) 
+
+For an arbitrary g ∈ G we use the notation gL ∈ G L to denote the corresponding L-level truncation. 
+
+9Dittrich, Potocki, and Grohs 0 0.25 0.5 0.75 1    
+
+> −1
+> −0.5
+> 0
+> 0.5
+> 100.25 0.50.75 1
+> −0.25
+> −0.125
+> 0
+> 0.125
+> 0.25
+
+Figure 1: An example of the Rademacher-Haar wavelet series (left) together with the tail starting from index L = 2 (right). Random wavelet series have a very interesting property: the random behavior on each dyadic subset is similar to all the other subsets. That is, if we look at dyadic subsets of length 2 −L
+
+and only look at the tail of the series starting from index L, then the random behavior on different subsets is indistinguishable and requires the same complexity for discretization. This can be seen in Fig. 1. Another observation from Fig. 1 for the Rademacher-Haar wavelet series is that restricting the function to a dyadic subset also restricts the image of the function to a dyadic subset. That is, composing the wavelet series with a sawtooth function is essentially the same as multiplying with a characteristic function and restricting to the tail of the wavelet. A simple idea for orthogonalization would therefore be to apply this transformation for an appropriate number of subsets and obtain orthogonality by having non-overlapping supports. However, this approach would result in the same discretization performance in the joint and the separate approaches as there is no shared information between the orthogonal features. Instead, we resort to the following combination of Sawtooth waves and Walsh functions. This construction keeps the complexity of the full tail on every dyadic subset, while strictly enforcing orthogonality. 
+
+Definition 7 (Sawtooth-Walsh functions) Let L ∈ N0 and W (L) ∈ {± 1}2L×2L
+
+be a fixed Hadamard matrix and denote its columns by {υ(L) 
+
+> i
+
+∈ {± 1}2L
+
+|i ∈ [2 L]}. We define the sawtooth function as 
+
+ψ0 : R → R, ψ0(x) := x − ⌊ x⌋ − 1/2, (17) 
+
+φ(L) : R → R, φ(L)(x) := 2 √3ψ0(2 L(x + 1) /2) , (18) 
+
+and the Walsh functions of order L that are induced by W (L) as 
+
+¯ω(L) 
+
+> i
+
+: U(0) 0 → {± 1}, ¯ω(L) 
+
+> i
+
+(x) = υ(L) 
+
+> i,j
+
+for all x ∈ U (L) 
+
+> j
+
+and i, j ∈ [2 L]. (19) 
+
+> 10
+
+The Information-Theoretic Benefit of Shared Representations 
+
+We furthermore define the stretched Walsh functions induced by W (L) as 
+
+ω(L) 
+
+> i
+
+: V(0) 0 → {± 1}, ω(L) 
+
+> i
+
+(x) := ¯ ω(L) 
+
+> i
+
+(( x + 1) /2) for all i ∈ [2 L]. (20) 
+
+Finally, for M ∈ N with 2L−1 < M ≤ 2L, we define the Walsh-Sawtooth functions of order 
+
+L as (φ(L) · ω(L)0 , . . . , φ (L) · ω(L) 
+
+> M−1
+
+).
+
+Based on the class of Rademacher-Haar wavelet series and the Walsh-Sawtooth func-tions, we can now state our main theorem as follows. 
+
+Theorem 8 (Multitask-Gap) Let G ⊂ L∞([0 , 1]) be the class of Rademacher-Haar wavelets, 
+
+M ∈ N be the number of orthogonal features, n ∈ NM with ni ≥ 2 be the number of bits in separate coding, N = M min i∈[M ] ni be the number of bits in joint coding, (f0, . . . , f M −1) : 
+
+R → R be the Sawtooth-Walsh functions of order L:= ⌈ld( M )⌉, and F := {(f0 ◦g, . . . , f M −1 ◦
+
+g)|g ∈ G} be the class of orthogonal target functions. Then, for any n ∈ NM and N =
+
+M min i∈[M ] ni, the optimal joint coding scheme 
+
+CN 
+
+> joint
+
+= ( δNE, J, δ ND, J) = argmin    
+
+> (δE,δ D)∈CN
+> joint
+
+sup 
+
+> h∈F
+
+∥h − δD ◦ δE (h)∥L∞([0 ,1]; RM ) , (21) 
+
+and the optimal separate coding scheme 
+
+Cn 
+
+> sep
+
+= ( δnE, S, δ nD, S) = argmin    
+
+> (δE,δ D)∈Cn
+> sep
+
+sup 
+
+> h∈F
+
+∥h − δD ◦ δE (h)∥L∞([0 ,1]; RM ) , (22) 
+
+exhibit the gap 
+
+h − (δnD, S ◦ δnE, S)( h) L∞([0 ,1]) 
+
+h − (δND, J ◦ δNE, J)( h) L∞([0 ,1]) 
+
+≥ M
+
+4 · 1 + 1
+
+> N
+
+1 + 2M 2
+
+> N
+
+, (23) 
+
+for all h ∈ F if N/M = 2 K − 2L for some K ∈ N and for some h ∈ F if N/M ̸ = 2 K − 2L
+
+for all K ∈ N.
+
+Note that by choosing N = M min i∈[M ] ni bits for joint coding, we indeed allocate at least as many bits to separate coding as to joint coding, while still obtaining a better performance in joint coding. In order to prove this theorem, we first develop some properties of the Rademacher-Haar wavelet series in Section 3.1, Second, we derive a lower bound on the distortion for separate coding and an upper bound for the distortion in joint coding in Section 3.2. As the third and last step, we then combine these bounds to prove Theorem 8 in Section 3.3. 
+
+3.1 Properties of the Rademacher-Haar Wavelets and Sawtooth-Walsh Functions 
+
+A major component in the analysis of the Rademacher-Haar wavelet is the geometric struc-ture of the tails of the series. In our first lemma we show that these tails have exactly the same supremum on every dyadic set of level L+1 for every member of the class of functions. 
+
+11 Dittrich, Potocki, and Grohs 
+
+Lemma 9 (Tail Supremum) Let L ∈ N−1 and j ∈ [2 L+1 ]. Then for any g ∈ G and the corresponding L-level truncation gL, with g−1 considered to be the zero function, we get 
+
+ess sup 
+
+> x∈U (L+1)
+> j
+
+g(x) − gL(x) = ess sup 
+
+> x∈U (L+1)
+> j
+
+gL(x) − g(x) = 2 −L−1. (24) The idea for the proof is that each element of the series has a positive contribution on half of its support. Depending on the sign of the corresponding coefficient, this is either the first half or the second half. By following the indices of subsets where the contribution is positive, we construct a sequence that converges to the supremum and by the convergence of the lower bound to the upper bound we then show the precise value of the supremum. 
+
+Proof Let b ∈ B and define the sequence {ˆil}∞ 
+
+> l=L+1
+
+of “up-indices” recursively, starting with ˆ iL+1 := j and iterating ˆil := 
+
+
+
+2ˆ il−1, b(l−1) ˆil−1
+
+= 1 ,
+
+2ˆ il−1 + 1 , b(l−1) ˆil−1
+
+= −1 (25) for every l ≥ L + 2. We then observe for all k, l ∈ N with k > l ≥ L + 2 that 
+
+b(l−1) ˆil−1
+
+φ(l−1) ˆil−1
+
+ˆil2−l
+
+= 2 −l and U(k)ˆik
+
+⊆ U (l)ˆil+1 
+
+⊂ U (l)ˆil
+
+⊆ U (L+1)  
+
+> j
+
+. (26) Furthermore, the l-th level of the Haar wavelet is constant on U(l+1) ˆil+1 
+
+, thus, 
+
+hl
+
+ˆik2−k
+
+= b(l)ˆik
+
+φ(l)ˆik
+
+ˆik2−k
+
+= b(l)ˆik
+
+φ(l)ˆil
+
+ˆil+1 2−l−1
+
+= 2 −l−1. (27) With the above considerations it follows for all k > L + 2 that 
+
+g(ˆ ik2−k) − gL(ˆ ik2−k) = 
+
+> ∞
+
+X
+
+> l=L+1
+
+hl(ˆ ik2−k) = 
+
+> k−1
+
+X
+
+> l=L+1
+
+2−l−1 +
+
+> ∞
+
+X
+
+> l=k
+
+hl(ˆ ik2−k) ≥ 2−L−1 − 2−k+1 
+
+(28) and trivially also the uniform upper bound g(y) − gL(y) = P∞ 
+
+> l=L+1
+
+hl(y) ≤ 2−L−1 for all 
+
+y ∈ U (L+1)  
+
+> j
+
+. Therefore, 2−L−1 ≥ sup 
+
+> y∈U (L+1)
+> j
+
+g(y) − gL(y) ≥ lim  
+
+> k→∞
+
+g(ˆ ik2−k) − gL(ˆ ik2−k) = 2 −L−1. (29) The supremum for −(g − gL) follows analogously with ˇil := 
+
+
+
+2ˇ il−1 + 1 , b(l−1) ˇil−1
+
+= 1 ,
+
+2ˇ il−1, b(l−1) ˇil−1
+
+= −1. (30) 
+
+12 The Information-Theoretic Benefit of Shared Representations 
+
+For the essential supremum we observe that for all l > L and all x ∈ U (l)ˆil
+
+that inf 
+
+> y∈U (l)ˆil
+
+g(y) − gL(y) = −gL(x) + gl−1(x) − sup 
+
+> y∈U (l)ˆil
+
+gl−1(y) − g(y) (31) = −gL(x) + sup 
+
+> y∈U (l)ˆil
+
+ g(y) − 2−l − sup 
+
+> y∈U (l)ˆil
+
+(gl−1(y) − g(y)) (32) = sup 
+
+> y∈U (L+1)
+> j
+
+g(y) − gL(y) − 2−l+1 . (33) That is, for every ε > 0 we can find a half-open neighborhood of the supremum with non-zero volume such that g(x) − gL(x) is within ε of the supremum. Next we show a lower bound on the distance between two realizations of the wavelet series. Essentially, this lower bound just depends on the first level of the wavelet series on which the coefficients differ. 
+
+Lemma 10 (Minimum Distance of Wavelet Series) Let L0 ∈ N0, j ∈ [2 L0 ], and b, c ∈
+
+B be arbitrary but fixed and set 1 L := min {l ∈ N0|∃ x ∈ U (L0) 
+
+> j
+
+: gl(x; b)̸ = gl(x; c)}, then 
+
+∥g(·; b) − g(·; c)∥L∞ 
+
+> 
+> U(L0)
+> j
+> 
+
+≥ 2− max {L,L 0−1}. (34) 
+
+Proof In case L = ∞ we see that the right-hand side is 0 and therefore the statement is trivially true. For L ≥ L0 there is an i ∈ { j2L−L0 , . . . , (j + 1)2 L−L0 − 1} such that 
+
+b(L)
+
+> i
+
+̸ = c(L) 
+
+> i
+
+. We define 
+
+k := 
+
+(
+
+2i, L ≥ L0,j, L < L 0, and K := max {L, L 0 − 1}. (35) In both cases we see that hl(x; b) and hl(x; c) are constant over U(K+1)  
+
+> k
+
+for all l ≤ K (note that this includes l = L). W.l.o.g. we assume that hL(x; b) = −hL(x; c) = 2 −L−1 for 
+
+x ∈ U (K+1)  
+
+> k
+
+(the sign-reversed case follows analogously). By using Lemma 9 and bounding the remaining sum with the case of all coefficients being −1 we get sup 
+
+> x∈U (K+1)
+> k
+
+g(x; b) − gL−1(x; b) = sup 
+
+> x∈U (K+1)
+> k
+
+g(x; b) − gK (x; b) + hL(x; b) + 
+
+> K
+
+X
+
+> l=L+1
+
+hl(x; b) (36) 
+
+≥ 2−K−1 + 2 −L−1 −
+
+> K
+
+X
+
+> l=L+1
+
+2−l−1 = 2 −K (37) and by the initial assumption hL(x; c) = −2−L−1 and bounding the tail we get sup 
+
+> x∈U (K+1)
+> k
+
+g(x; c) − gL−1(x; c) = sup 
+
+> x∈U (K+1)
+> k
+> ∞
+
+X
+
+> l=L
+
+hl(x; c) ≤ − 2−L−1 +
+
+> ∞
+
+X
+
+> l=L+1
+
+2−l−1 = 0 . (38)        
+
+> 1. Note that we use the convention min ∅=−max ∅=∞.
+
+13 Dittrich, Potocki, and Grohs 
+
+Combined, this results in 
+
+∥g(·; b) − g(·; c)∥L∞ 
+
+> 
+> U(L0)
+> j
+> 
+
+≥ ∥ g(·; b) − g(·; c)∥L∞(U(K+1)   
+
+> k)
+
+= sup 
+
+> x∈U (K+1)
+> k
+
+g(x; b) − g(x; c) (39) = sup 
+
+> x∈U (K+1)
+> k
+
+g(x; b) − gL−1(x; b) − (g(x; c) − gL−1(x; c)) 
+
+| {z }
+
+> ≤0
+
+(40) 
+
+≥ sup 
+
+> x∈U (K+1)
+> k
+
+g(x; b) − gL−1(x; b) = 2 −K . (41) Initially, we claimed that the class G is non-trivial. As a first step towards this claim, we now show a lower bound for all possible discretization schemes. 
+
+Lemma 11 (General Discretization Bound) Let L, L 0 ∈ N0, j ∈ [2 L0 ], and C ⊂ L∞(U(L0) 
+
+> j
+
+)
+
+with card ( C) ≤ 22max {L−L0,0}+1 +min {L,L 0}− 1, then 
+
+sup 
+
+> g∈G
+
+∥g − ∆C (g)∥L∞(U(L0)  
+
+> j)
+
+≥ 2− max {L,L 0−1}− 1. (42) 
+
+Proof Let L, L 0 ∈ N0 and C ⊂ L∞(U(L0)0 ) with card ( C) < ∞ such that 
+
+ε := sup 
+
+> g∈G
+
+∥g − ∆C (g)∥L∞(U(L0)0 ) < 2− max {L,L 0−1}− 1. (43) We show that the assumption ε < 2− max {L,L 0−1}− 1 implies card ( C) > 22max {L−L0,0}+1 +min {L,L 0}− 1.The generalization to the domain U(L0) 
+
+> j
+
+for an arbitrary j ∈ [2 L0 ] follows immediately. For L0 > 0 we observe that the realization map g(·; b) results in the identical function for some different elements b ∈ B when restricting the domain to U(L0)0 = [0 , 2−L0 ). We see that supp {φ(l) 
+
+> m
+
+} ∩ U (L0)0 = U(l) 
+
+> m
+
+∩ U (L0)0̸ = ∅ iff l < L 0 and m = 0 or l ≥ L0 and sup U(l) 
+
+> m
+
+= ( m + 1)2 −l ≤ 2−L0 = sup U(L0)0 . For all L0 ∈ N0 and x ∈ U (L0)0 we can thereby reduce the inner sum in the wavelet series and get 
+
+g(x; b) = 
+
+> ∞
+
+X 
+
+> l=0 max {0,2l−L0−1}
+
+X
+
+> m=0
+
+b(l) 
+
+> m
+
+φ(l) 
+
+> m
+
+(x) , (44) which results in the reduced coefficient sets 
+
+BL0 := ×∞
+
+> l=0
+
+{± 1}max {1,2l−L0 } and B(L) 
+
+> L0
+
+:= ×Ll=0 {± 1}max {1,2l−L0 }. (45) The space B(L) 
+
+> L0
+
+can then be identified with {± 1}d where 
+
+d =
+
+> L
+
+X
+
+> l=0
+
+max {1, 2l−L0 } = min {L, L 0} + 2 max {L−L0,0}+1 − 1. (46) 
+
+14 The Information-Theoretic Benefit of Shared Representations 
+
+That is, it contains 2 d elements. Let ¯bk, k ∈ [2 d] be an enumeration of B(L) 
+
+> L0
+
+. For each 
+
+k ∈ [2 d] we select an extension bk ∈ BL0 such that b(l) 
+
+> k,i
+
+= ¯b(l) 
+
+> k,i
+
+for l ∈ [L + 1] , i ∈
+
+[max {1, 2l−L0 }] and b(l) 
+
+> k,i
+
+= 1 for l > L, i ∈ [max {1, 2l−L0 }]. Then with Lemma 10, 
+
+∥g(·, bk1 ) − g(·, bk2 )∥L∞(U(L0)0 ) ≥ 2− max {L,L 0−1} > 2ε for k1, k 2 ∈ [2 d] with k1̸ = k2. Further-more, we select c0 ∈ BL0 such that c(l)0,i = b(l)0,i for l ∈ [L + 1] , i ∈ [max {1, 2l−L0 }] and c(l)0,i =
+
+−1 for l > L, i ∈ [max {1, 2l−L0 }]. Then again with Lemma 10, ∥g(·; bk) − g(·; c0)∥L∞(U(L0)0 ) ≥
+
+2− max {L,L 0−1} > 2ε for k̸ = 0 and additionally 
+
+∥g(·; b0) − g(·; c0)∥L∞(U(L0)0 ) ≥ | g(0; b0) − g(0; c0)| =
+
+> ∞
+
+X
+
+> l=0
+
+
+
+b(l)0,0 − c(l)0,0
+
+
+
+2−l−1 (47) =
+
+> ∞
+
+X
+
+> l=L+1
+
+(1 − (−1))2 −l−1 =
+
+> ∞
+
+X
+
+> l=L+1
+
+2−l = 2 −L > 2ε. (48) This means that ∆ C (bk1 )̸ = ∆ C (bk2 ) for k1, k 2 ∈ [2 d], k 1̸ = k2 and ∆ C (c)̸ = ∆ C (bk) for any 
+
+k ∈ [2 d]. Consequently card ( C) ≥ card (range(∆ C |G )) ≥ 2d + 1 > 2d.Based on the lower bound we next show that truncation of the series is indeed the opti-mal discretization map among all possible discretization maps in L∞([0 , 1)) for a specific sequence of bits. We show this optimality by showing that truncation achieves the lower bound from before. 
+
+Theorem 12 (Truncation Optimality) Let L0 ∈ N0, L ∈ N−1 with L ≥ L0 − 1, j ∈
+
+[2 L0 ], and B = 2 max {L−L0,0}+1 + min {L, L 0} − 1. Then the L-term truncation ∆GL is an optimal B-bit discretization map for the class of Rademacher-Haar wavelet series w.r.t. 
+
+L∞(U(L0) 
+
+> j
+
+) in the sense that it achieves the lower bound in Lemma 11, that is, 
+
+sup 
+
+> g∈G
+
+∥g − ∆GL ∥L∞(U(L0)  
+
+> j)
+
+= 2 − max {L,L 0−1}− 1. (49) 
+
+Proof As in Lemma 11 we restrict to U(L0) 
+
+> j
+
+with j = 0 and only consider the reduced coefficient sets BL0 and B(L) 
+
+> L0
+
+For an arbitrary b ∈ BL0 it follows immediately from Lemma 9 for L ≥ L0 − 1 that 
+
+∥g(·; b) − gL(·; b)∥L∞(U(L0)0 ) = max 
+
+> i∈[2 L−L0+1 ]
+
+∥g(·; b) − gL(·; b)∥L∞(U(L+1)   
+
+> i)
+
+= 2 −L−1. (50) Note that this optimality only holds if the number of bits is a certain power of two. In the next result we extend this to arbitrary B ∈ N and also develop a purely polynomial rate bound. 
+
+15 Dittrich, Potocki, and Grohs 
+
+Theorem 13 (General Rate Bounds) Let L0 ∈ N0 and j ∈ [2 L0 ]. Then, for any B ≥
+
+L0
+
+2−L0−1
+
+B − L0 + 1 ≤ inf  
+
+> C⊂ L∞(U(L0)
+> j)card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥g − ∆C (g)∥L∞(U(L0)  
+
+> j)
+
+≤ 2−L0+1 
+
+B − L0 + 1 , (51) 
+
+and furthermore for any B ≥ max {1, L 0}
+
+2−L0−1
+
+max {2 − L0, 1}
+
+1
+
+B ≤ inf  
+
+> C⊂ L∞(U(L0)
+> j)card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥g − ∆C (g)∥L∞(U(L0)  
+
+> j)
+
+≤ max {1, L 0}2−L0+1 
+
+B . (52) 
+
+Proof Let L ∈ N0, L ≥ L0 − 1, j ∈ [2 L0 ] arbitrary and set X := L∞(U(L0) 
+
+> j
+
+). From Theorem 12 we know the precise error for L-level truncation as a B-bit discretization map with B = 2 max {L−L0,0}+1 + min {L, L 0} − 1 bits. We first unify the notation: For L ≥ L0
+
+B = 2 L−L0+1 + L0 − 1 (53) and for L = L0 − 1
+
+B = 2 1 + L0 − 1 − 1 = L0 = 2 L−L0+1 + L0 − 1. (54) Therefore, for L ≥ L0 − 1 we can use the same expression for B as a function of L and also get the inverse L = ld( B − L0 + 1) + L0 − 1. For every B ∈ N such that L ∈ N−1 with 
+
+L ≥ L0 − 1 we can then insert this into the expression for the error of Theorem 12 and get sup 
+
+> g∈G
+
+∥g − ∆GL ∥X = 2 −L−1 = 2 − ld( B−L0+1) −L0 = 2−L0
+
+B − L0 + 1 . (55) The smallest possible B to fulfill the above criteria is B = L0. For general B ≥ L0, we know that the approximation error is a positive and monotonically decreasing sequence. For 
+
+B such that the corresponding L is non-integer, we can therefore upper bound the error of the unknown optimal discretization map ∆ C by rounding down to the next smaller integer 
+
+L and taking the error of the L-level truncation as upper bound. For general B ∈ N with 
+
+B ≥ L0, this is then 
+
+L := ⌊ld( B − L0 + 1) + L0 − 1⌋ and B := 2 L−L0+1 + L0 − 1. (56) With monotonicity we get inf 
+
+> C⊂X
+> card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥g − ∆C ∥X ≤ inf 
+
+> C⊂X
+> card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥g − ∆C ∥X (57) = sup 
+
+> g∈G
+
+g − ∆GL X = 2 −L−1 = 2 −⌊ ld( B−L0+1)+ L0−1⌋− 1 (58) 
+
+≤ 2−(ld( B−L0+1)+ L0−2) −1 = 2−L0+1 
+
+B − L0 + 1 . (59) 
+
+16 The Information-Theoretic Benefit of Shared Representations 
+
+Similarly, with 
+
+L := ⌈ld( B − L0 + 1) + L0 − 1⌉, and B := 2 L−L0+1 + L0 − 1, (60) and monotonicity we get inf 
+
+> C⊂X
+> card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥g − ∆C ∥X ≥ inf 
+
+> C⊂X
+> card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥g − ∆C ∥X (61) = sup 
+
+> g∈G
+
+g − ∆GL X = 2 −L−1 = 2 −⌈ ld( B−L0+1)+ L0−1⌉− 1 (62) 
+
+≥ 2−(ld( B−L0+1)+ L0)−1 = 2−L0−1
+
+B − L0 + 1 . (63) By excluding the possibility of B = 0, we can further develop (loosen) the bounds by using 1max {2 − L0, 1}
+
+1
+
+B ≤ 1
+
+B − L0 + 1 ≤ max {1, L 0}
+
+B (64) for all B ≥ max {1, L 0}.Next, we show that the Sawtooth-Walsh functions form an orthogonal feature map for the Rademacher-Haar wavelet series and that the composition can be equivalently written as a multiplicative structure. 
+
+Lemma 14 Let L ∈ N0, g ∈ G , and define fi := φ(L) · ω(L) 
+
+> i
+
+for all i ∈ [2 L]. Then for 
+
+i, j ∈ [2 L] we get a simplification of the composition with Walsh functions 
+
+ω(L) 
+
+> i
+
+◦ g − ω(L) 
+
+> i
+
+◦ gL−1 L∞(U(0) 0 ) = 0 , (65) 
+
+the equivalent multiplicative representation 
+
+fi ◦ g −
+
+
+
+2L√3( g − gL−1)
+
+
+
+· (ωi ◦ gL−1) L∞(U(0) 0 ) = 0 , (66) 
+
+and the orthogonality ⟨fi ◦ g, f j ◦ g⟩ = δi=j .
+
+Proof We first show that any realization of the Rademacher-Haar wavelet series is essen-tially a permutation of dyadic sets. For every i ∈ [2 L] we get that gL−1|U(L)
+
+> i
+
+is constant and overall range( gL−1) = 
+
+(L−1X
+
+> l=0
+
+±2−l−1
+
+)
+
+= {− 1 + (2 j + 1)2 −L|j ∈ [2 L]}. (67) As a property of the Rademacher-Haar wavelet series, we get that gL−1(x) = gL−1(y) for 
+
+x ∈ U (L) 
+
+> i
+
+and y ∈ U (L) 
+
+> j
+
+only if i = j. That is, there is a permutation σi of [2 L] such that for 
+
+17 Dittrich, Potocki, and Grohs 
+
+all i ∈ [2 L] and x ∈ U (L) 
+
+> i
+
+we have gL−1(x) = −1 + (2 σi + 1)2 −L. Lemma 9 then implies 2
+
+g(x) ∈ gL−1(x) − 2−L, g L−1(x) + 2 −L (68) = −1 + 2 σi2−L, −1 + (2 σi + 2)2 −L = 2 −L+1 [σi, σ i + 1] − 1 (69) = V(L) 
+
+> σi
+
+. (70) Note that g(x) = sup V(L) 
+
+> σi
+
+= g(y) only if x = y and therefore g only attains the supremum on a null-set. As the (stretched) Walsh functions ω(L) 
+
+> i
+
+are constant on every dyadic set V(L) 
+
+> j
+
+this means 
+
+ω(L) 
+
+> i
+
+(g(x)) − ω(L) 
+
+> i
+
+(gL−1(x)) L∞(U(L)  
+
+> j)
+
+= 0 (71) for all i, j ∈ [2 L], which proves the first result. Now let j ∈ [2 L]. For any y ∈ V (L) 
+
+> j
+
+we then see with M := 2 L that ⌊M (y + 1) /2⌋ = j
+
+and therefore for x ∈ U (L) 
+
+> i
+
+such that g(x) ∈ V (L) 
+
+> j
+
+we have 
+
+φ(L)(g(x)) = 2 √3( M (g(x) + 1) /2 − ⌊ M (g(x) + 1) /2⌋ − 1/2) (72) = 2 √3( M g (x)/2 + M/ 2 − j − 1/2) (73) = 2 L√3( g(x) − (−1 + (2 j + 1)2 −L)) (74) = 2 L√3( g(x) − gL−1(x)) . (75) For x ∈ U (0) 0 such that g(x) ∈ V (L) 
+
+> j
+
+for some j ∈ [M ], the composition Fi = fi ◦ g is then Fi(x) = (2 L√3( g(x) − gL−1(x))) · (ωi ◦ gL−1). Note that the assumption g(x) ∈ V (L)
+
+> j
+
+excludes the points x for which g(x) − gL−1(x) = 2 −L from our analysis, however, as this is only a finite set, it does not influence the essential supremum and thereby also not the approximation bounds in L∞.For the orthogonality, we first observe that for x ∈ U (L)
+
+> i
+
+ω(L) 
+
+> j
+
+(gL−1(x)) = ω(L)
+
+> j
+
+ 2−L+1 σi − 1 = υ(L) 
+
+> j,σ i
+
+. (76) 
+
+2. Note that Lemma 9 does not tell us whether g(x) − gL−1(x) or gL−1(x) − g(x) actually attain the supremum. As the effects of φ(L) and ω(L) 
+
+> j
+
+are limited to the half-open intervals V(L) 
+
+> j
+
+, we have to exclude points x for which g(x) − gL−1(x) attains the supremum from our analysis. As an example, consider the realization with all coefficients being +1 and the realization with all coefficients being −1. In the former case, the resulting function is 1 − 2x and in the latter 2 x − 1. On each U(L) 
+
+> i
+
+, the former attains only the supremum of gL−1(x) − g(x), whereas the latter attains the supremum of g(x) − gL−1(x). 
+
+18 The Information-Theoretic Benefit of Shared Representations 
+
+We can now use the almost everywhere equivalence from above and the orthogonality of the elements of the wavelet series and get 
+
+⟨fi ◦ g, f j ◦ g⟩ =
+
+D
+
+2L√3( g − gL−1) · (ω(L) 
+
+> i
+
+◦ gL−1), 2L√3( g − gL−1) · (ω(L) 
+
+> j
+
+◦ gL−1)
+
+E
+
+(77) = 3 · 22L D
+
+(g − gL−1)2 · (ω(L) 
+
+> i
+
+◦ gL−1), ω (L) 
+
+> j
+
+◦ gL−1
+
+E
+
+(78) = 3 · 22L
+
+> 2L−1
+
+X
+
+> m=0
+
+υ(L) 
+
+> i,σ m
+
+υ(L)
+
+> j,σ m
+
+Z
+
+> U(L)
+> m
+
+
+
+> ∞
+
+X
+
+> l=L
+> 2l−1
+
+X
+
+> k=0
+
+2−l−1b(l) 
+
+> k
+
+φ
+
+
+
+2lx − k
+
+
+
+> 2
+
+dx (79) = 3 · 22L
+
+> 2L−1
+
+X
+
+> m=0
+
+υ(L) 
+
+> i,σ m
+
+υ(L)
+
+> j,σ m
+
+Z
+
+> U(L)
+> m
+> ∞
+
+X
+
+> l=L
+> 2l−1
+
+X
+
+> k=0
+
+
+
+2−l−12
+
+χU(l)
+
+> k
+
+(x) d x (80) = 3 · 22L
+
+> 2L−1
+
+X
+
+> m=0
+
+υ(L) 
+
+> i,σ m
+
+υ(L) 
+
+> j,σ m
+
+U(L) 
+
+> m
+
+2−2L−2
+
+> ∞
+
+X
+
+> l=0
+
+4−l (81) = δij . (82) 
+
+3.2 Bounds for Separate and Joint Approximation Theorem 15 (Complexity of Separate Approximation) Let G be the class of Rademacher-Haar wavelets, M ∈ N, n ∈ NM , L = ⌈ld( M )⌉, (f0, . . . , f M −1) be the first M Walsh-Sawtooth functions of order L, and F := {(f0 ◦ g, . . . , f M −1 ◦ g)|g ∈ G} . Then, with 
+
+N = min i∈[M ] ni,
+
+inf    
+
+> (δE,δ D)∈Cn
+> sep
+
+sup 
+
+> h∈F
+
+∥h − δD ◦ δE (h)∥L∞([0 ,1]; RM ) ≥ √32 L−⌈ ld( N +2 L)⌉ ≥ 2L−1√3
+
+N + 2 L . (83) 
+
+Proof In separated approximation, we discretize each element of the M -tuple F ∈ F 
+
+individually. Instead of considering the class C n 
+
+> sep
+
+of encoder/decoder pairs directly for the full tuple, we first consider element-wise discretization maps ∆ C with C ⊂ L∞([0 , 1]) and then combine the element-wise distortion, measured in L∞([0 , 1]), into the distortion of the full tuple, measured in L∞([0 , 1]; RM ). We then have the equivalent formulation inf    
+
+> (δE,δ D)∈Cn
+> sep
+
+sup 
+
+> g∈G
+
+∥g − δD ◦ δE (g)∥L∞([0 ,1]; RM ) (84) = inf   
+
+> Ci⊂L∞([0 ,1]) ,
+> card( C)=2 ni,i∈[M]
+
+sup 
+
+> h∈F
+
+max   
+
+> j∈[M]
+
+hj − ∆Cj (hj ) L∞([0 ,1]) (85) = inf   
+
+> Ci⊂L∞([0 ,1]) ,
+> card( C)=2 ni,i∈[M]
+
+max   
+
+> j∈[M]
+
+sup 
+
+> g∈G
+
+fj ◦ g − ∆Cj (fj ◦ g) L∞([0 ,1]) (86) = max   
+
+> j∈[M]
+
+inf  
+
+> Cj⊂L∞([0 ,1]) ,
+> card( C)=2 nj
+
+sup 
+
+> g∈G
+
+fj ◦ g − ∆Cj (fj ◦ g) L∞([0 ,1]) . (87) 
+
+19 Dittrich, Potocki, and Grohs 
+
+Here, we first simply swap the supremum and the maximum (that is, two suprema) and simplify the expression. Second, we see that the infimum is over a Cartesian product of families of sets and the argument of the maximum only depends on a single element in the Cartesian product. Therefore, we can also swap the infimum and the maximum. We now continue with the analysis for a single index i ∈ [M ]. Let b ∈ B be fixed, and choose c ∈ B such that 
+
+c(l) 
+
+> j
+
+= b(l) 
+
+> j
+
+· ω(L)
+
+> i
+
+
+
+gL−1(j2−l; b)
+
+
+
+for l ≥ L, j ∈ [2 l]. (88) Then for all x ∈ [0 , 1) we get (2 L√3) −1 · fi ◦ g(x; b) = ( g(x; b) − gL−1(x; b))( ωi ◦ gL−1(x; b)) (89) =
+
+> ∞
+
+X
+
+> l=L
+> 2l−1
+
+X
+
+> j=0
+
+b(l) 
+
+> j
+
+φ(l) 
+
+> j
+
+(x) ω(L) 
+
+> i
+
+(gL−1(x; b)) (90) =
+
+> ∞
+
+X
+
+> l=L
+> 2l−1
+
+X
+
+> j=0
+
+
+
+b(l) 
+
+> j
+
+ω(L)
+
+> i
+
+
+
+gL−1(j2−l; b)
+
+ 
+
+φ(l) 
+
+> j
+
+(x) (91) =
+
+> ∞
+
+X
+
+> l=L
+> 2l−1
+
+X
+
+> j=0
+
+c(l) 
+
+> j
+
+φ(l) 
+
+> j
+
+(x) (92) = g(x; c) − gL−1(x; c). (93) Here we used that the wavelets φ(l) 
+
+> j
+
+are only supported on U(l) 
+
+> j
+
+and gL−1 is piecewise con-stant such that gL−1(x; b) = gL−1(j2−l; b) holds for all x ∈ U (l) 
+
+> j
+
+. As such an equivalent construction exists for every element of B, the discretization with B ∈ N bits reduces to inf  
+
+> C⊂ L∞(U(0) 0)card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥fi ◦ g − ∆C (fi ◦ g)∥L∞(U(0) 0 ) (94) = 2 L√3 inf  
+
+> C⊂ L∞(U(0) 0)card( C)=2 B
+
+sup 
+
+> c∈B
+
+∥g(·; c) − gL−1(·; c) − ∆C (g(·; c) − gL−1(·; c)) ∥L∞(U(0) 0 ) . (95) We now show for an arbitrary L1 ≥ L that if C forms an ε-cover of {g(·; b)−gL−1(·; b)|b ∈
+
+B} with ε < 2−L1−1 then ld(card ( C)) > 2L1+2 − 2L+1 .Let 
+
+B(L:L1) := {b ∈ B(L1)|∀ l < L : b(l) = 1 }, (96) 
+
+N := card 
+
+
+
+B(L:L1)
+
+= 2 PL1 
+
+> l=L2l
+
+= 2 2L1+1 −2L
+
+, (97) and consider an enumeration 
+
+B(L:L1) = {¯bk|k ∈ [N ]}. (98) 
+
+20 The Information-Theoretic Benefit of Shared Representations 
+
+We then construct bk, ck ∈ B for k ∈ [N ] such that 
+
+b(l) 
+
+> k,j
+
+= c(l) 
+
+> k,j
+
+= ¯b(l) 
+
+> k,j
+
+for l ≤ L1, j ∈ [2 l], (99) 
+
+b(l) 
+
+> k,j
+
+= −c(l) 
+
+> k,j
+
+= 1 for l > L 1, j ∈ [2 l]. (100) We see for k1, k 2 ∈ [N ] with k1̸ = k2 that there exist x ∈ U (0) 0 and L2 ∈ [L1 + 1] with 
+
+gL2 (x; bk1 ) = gL2 (x; ck1 )̸ = gL2 (x; bk2 ) = gL2 (x; ck2 ). From Lemma 10 we then get 
+
+∥g(·; bk1 ) − g(·; bk2 )∥L∞(U(0) 0 ) ≥ 2−L2 ≥ 2−L1 (101) 
+
+∥g(·; bk1 ) − g(·; ck2 )∥L∞(U(0) 0 ) ≥ 2−L2 ≥ 2−L1 (102) 
+
+∥g(·; ck1 ) − g(·; bk2 )∥L∞(U(0) 0 ) ≥ 2−L2 ≥ 2−L1 (103) 
+
+∥g(·; ck1 ) − g(·; ck2 )∥L∞(U(0) 0 ) ≥ 2−L2 ≥ 2−L1 . (104) Furthermore, for any k ∈ [N ] we get 
+
+g(0; bk) − g(0; ck) = 
+
+> ∞
+
+X
+
+> l=L1+1
+
+2−l−1(1 − (−1)) = 
+
+> ∞
+
+X
+
+> l=L1+1
+
+2−l = 2 −L1 . (105) For an ε-cover with ε < 2−L1−1 and center points C we get that no pair of elements in 
+
+{bk, ck|k ∈ [N ]} (106) can be in the same ball of radius ε and therefore card ( C) ≥ 2N > N = 2 2L1+1 −2L
+
+. From the reverse implication we see for an arbitrary B ∈ N with B ≤ 2L1+1 − 2L for some L1 ≥ L
+
+that inf  
+
+> C⊂ L∞(U(0) 0)card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥fi ◦ g − ∆C (fi ◦ g)∥L∞(U(0) 0 ) ≥ √32 L−L1−1. (107) Specifically, for any B ∈ N we can choose L1 := ⌈ld( B + 2 L)⌉ − 1 ≤ ld( B + 2 L) and get 
+
+B ≤ 2L1+1 − 2L, thus, inf  
+
+> C⊂ L∞(U(0) 0)card( C)=2 B
+
+sup 
+
+> g∈G
+
+∥fi ◦ g − ∆C (fi ◦ g)∥L∞(U(0) 0 ) (108) 
+
+≥ √32 L−L1−1 ≥ √32 L−ld( B+2 L)−1 ≥ √3 2L−1
+
+B + 2 L (109) Overall, with N = min i∈[M ] ni, we get inf    
+
+> (δE,δ D)∈Cn
+> sep
+
+sup 
+
+> h∈F
+
+∥h − δD ◦ δE (h)∥L∞([0 ,1]; RM ) (110) = max   
+
+> j∈[M]
+
+inf 
+
+> C⊂ L∞([0 ,1]) card( C)=2 nj
+
+sup 
+
+> g∈G
+
+∥fj ◦ g − ∆C (fj ◦ g)∥L∞([0 ,1]) (111) 
+
+≥ √32 L−⌈ ld( N +2 L)⌉ ≥ 2L−1√3
+
+N + 2 L . (112) 
+
+21 Dittrich, Potocki, and Grohs 
+
+Theorem 16 (Complexity of Joint Approximation) Let G be the class of Rademacher-Haar wavelets, M ∈ N, L = ⌈ld( M )⌉, N ∈ N with N ≥ 2L, (f0, . . . , f M −1) be the first M
+
+Walsh-Sawtooth functions of order L, and F := {(f0 ◦ g, . . . , f M −1 ◦ g)|g ∈ G} . Then, 
+
+inf    
+
+> (δE,δ D)∈CN
+> joint
+
+sup 
+
+> h∈F
+
+∥h − δD ◦ δE (h)∥L∞([0 ,1]; RM ) ≤ 2L+1 √3
+
+N + 1 . (113) 
+
+Proof For the joint approach, we observe from the decomposition in Lemma 14 that for an arbitrary realization g ∈ G it is sufficient to separately approximate g − gL−1 using Bg ∈ N
+
+bits and all compositions ω(L) 
+
+> i
+
+(gL−1) using a total of Bf ∈ N bits. In Lemma 14 we observed that ω(L) 
+
+> i
+
+(g) ≡ ω(L) 
+
+> i
+
+(gL−1). As the functions ω(L) 
+
+> i
+
+, i ∈ [M ]are fixed and uniquely identified by the index i, it is therefore sufficient, to discretize gL−1
+
+in order to get all ω(L) 
+
+> i
+
+(gL−1) for all i ∈ [M ]. To do so, a total number of 
+
+Bf =
+
+> L−1
+
+X
+
+> l=0
+
+2l = 2 L − 1 (114) bits is sufficient. For the remainder we again approximate g − gL−1 by gL1 − gL−1 and take an upper bound by rounding each Bg ∈ N down to the next largest full level L1 := ⌊ld( Bg + 2 L) − 1⌋.This leads to the error bound inf   
+
+> C⊂ L∞(U(0) 0)card( C)=2 Bg +Bf
+
+sup 
+
+> g∈G
+
+∥fi ◦ g − ∆C (fi ◦ g)∥L∞(U(0) 0 ) (115) 
+
+≤ 2L√3 inf  
+
+> C⊂ L∞(U(0) 0)card( C)=2 Bg
+
+sup 
+
+> g∈G
+
+∥(g − gL−1 − ∆C (g − gL−1)) · ωi(g)∥L∞([0 ,1]) (116) 
+
+≤ 2L√3 sup 
+
+> g∈G
+
+g − gL−1 − gL1 − gL−1 L∞(U(0) 0 ) (117) = 2 L√3 sup 
+
+> g∈G
+
+g − gL1 L∞(U(0) 0 ) (118) = 2 L√32 −L1−1 ≤ 2L√32 − ld( Bg +2 L)+1 = 2L+1 √3
+
+Bg + 2 L . (119) For N ≥ 2L we can allocate Bf = 2 L − 1 and Bg = N − 2L + 1. We then get perfect discretization of ω(L) 
+
+> i
+
+(gL−1) for all i ∈ [M ] and inf    
+
+> (δE,δ D)∈CN
+> joint
+
+sup 
+
+> h∈F
+
+∥h − δD ◦ δE (h)∥L∞([0 ,1]; RM ) ≤ 2L+1 √3
+
+Bg + 2 L ≤ 2L+1 √3
+
+N + 1 . (120) 
+
+22 The Information-Theoretic Benefit of Shared Representations 
+
+3.3 Proof of Theorem 8 
+
+We can now finally combine the results from above in order to prove Theorem 8. 
+
+Proof Let n ∈ NM with ni ≥ 2 and N = M min i∈[M ] ni. With ni ≥ 2, we get N ≥
+
+2M = 2 ld( M )+1 ≥ 2⌈ld( M )⌉ = 2 L. Therefore, N is a valid number of bits for Theorem 16 and 
+
+N/M = min i∈[M ] ni is valid for Theorem 15. Due to the optimality of truncation codes for the Rademacher-Haar wavelet series of Theorem 12, we know that the infima in Theorem 15 and Theorem 16 are indeed attained. We denote CNJ as the optimal joint discretization set and CnS as the optimal separate dis-cretization set. The upper bound on the supremum for joint discretization in Theorem 16 then imme-diately translates to a for-all statement over F. For separate discretization we first observe in case N/M = 2 K − 2L for some K ∈ N that the left side in the lower bound 
+
+√32 L−⌈ ld( N/M +2 L)⌉ = √32 L−K ≥ 2L−1√3
+
+N/M + 2 L (121) is indeed attained by a truncation (compare Theorem 12) and that each realization has the same distance to the truncation (see Lemma 9). Therefore, the supremum in Theorem 15 is indeed attained for all elements in F and the lower bound holds for all h ∈ F . Second we observe that if N/M ̸ = 2 K − 2L for all K ∈ N the inequality 
+
+√32 L−⌈ ld( N/M +2 L)⌉ > 2L−1√3
+
+N/M + 2 L (122) is strict. Therefore, there exists an h ∈ F for which the right side is still a valid lower bound. Overall, we can combine the upper bound for joint discretization 
+
+h − ∆CNJ (h) L∞([0 ,1]; RM ) ≤ 2L+1 √3
+
+N + 1 (123) and the lower bound for separate discretization 
+
+h − ∆CnS (h) L∞([0 ,1]; RM ) ≥ 2L−1√3
+
+N/M + 2 L , (124) which results in 
+
+h − ∆CnS (h) L∞([0 ,1]; RM )
+
+h − ∆CNJ (h) L∞([0 ,1]; RM )
+
+≥ M
+
+41 + 1
+
+> N
+
+1 + 2LMN
+
+≥ M
+
+41 + 1
+
+> N
+
+1 + 2M 2
+
+> N
+
+. (125) 
+
+23 Dittrich, Potocki, and Grohs 
+
+4 Approximation by Heaviside Neural Networks 
+
+We now realize the codec separation in a neural network model. The choice of activation is dictated by the function class itself. Generic members of G have jump discontinuities of constant height at dyadic points, and the uniform distance from a function with jump height 2h to any continuous function is at least h. Consequently no network with a continuous activation, in particular no ReLU network, can uniformly approximate F below a constant error, independently of width and depth. For this we construct a neural network with Heaviside activation function that indeed approximates fi ◦ g efficiently. From the equivalent representation in Lemma 14, we see that fi ◦ g decomposes into a product of two functions that can be discretized to piecewise constant functions, which then can trivially be represented by Heaviside neural networks. On the one hand, we have the function ω(L) 
+
+> i
+
+◦ gL−1 which has 2 L ≤ 2M constant pieces and can therefore be represented by a Heaviside neural network with a single hidden layer of width 2 L. On the other hand, we have the tail of the wavelet series g − gL−1. For this function, we can look at the truncation g − gL−1 to a level L1 ≥ L as in Theorem 16 which results in the given bound. We see that these truncations are again piecewise constant with 2L1+1 pieces. In order to realize a joint approximation, we now require a neural network that can represent or approximate a pointwise multiplication. A well-known approximation of pointwise multiplication by neural networks is given by Yarotsky (2017), where a composition of triangle functions is used in order to approx-imate a square function. Based on the square function, it is then possible to approximate multiplication via 2 a · b = ( a + b)2 − a2 − b2. With the construction of Yarotsky (2017), this approximation can be carried out in logarithmic complexity in terms of the error ε.That is, if we can approximate a triangle function or equivalently the absolute value on the domain [ −1, 1] in logarithmic complexity, which implies exponential convergence, then the overall approximation of multiplication is sufficiently efficient so that the dominating term in approximating ( g − gL−1) · (ω(L) 
+
+> i
+
+◦ gL−1) is the approximation of g − gL−1.In our approach, we restrict ourselves to combinations of affine transformations, a single type of nonlinear function, namely the Heaviside function, and skip connections. Note that under these restrictions we cannot simply consider x · χ[0 ,∞)(x) − x · χ(−∞ ,0) (x). In order to achieve exponential convergence towards a piecewise linear function, we require a construction where the number of constant pieces increases exponentially with the number of parameters. For neural networks, this can be achieved by keeping a constant width throughout the network and just letting the depth grow. As the absolute value is an even function, we aim to build an ever finer and symmetric partition of the domain and the corresponding characteristic functions. As a first step, we consider the function 
+
+σ1 : [ −1, 1] → R, σ1(x) := −χ(−∞ ,−0.5) (x) + χ[0 .5,∞)(x). (126) We then recursively build odd sawtooth functions for which the number of segments in-creases exponentially in the number of levels K ∈ N via the recursion 
+
+φ0 : [ −1, 1] → R, φ0(x) := x, (127) 
+
+φi : [ −1, 1] → R, φi(x) := 2 φi−1(x) − σ1(φi−1(x)) , for 1 ≤ i ≤ L. (128)         
+
+> 24 The Information-Theoretic Benefit of Shared Representations −101
+> −1
+> 0
+> 1φ0
+> φ1
+> φ2−101
+> 0
+> 0.2
+> 0.4
+> ψ0/2
+> ψ1/4
+> ψ2/8−101
+> 0
+> 0.5
+> 1|·|
+> Ψ2
+
+Figure 2: Intermediate steps of approximating the absolute value by neural networks with Heaviside activation function. The input is recursively turned into an odd saw-tooth function (left), which is then transformed into characteristic functions of certain dyadic sets (middle), and finally summed up to an approximation of the absolute value (right). The recursive construction of sawtooth functions with exponentially many segments follows the mechanism underlying the depth-separation results of Telgarsky (2016). The result-ing functions are shown in Fig. 2 (left) for i ∈ { 0, 1, 2}. From this we can then build characteristic functions of symmetric dyadic sets via 
+
+σ2 : [ −1, 1] → R, σ2(x) := χ(−∞ ,−0.5) (x) + χ[0 .5,∞)(x) (129) and 
+
+ψi : [ −1, 1] → R, ψi(x) := σ2(φi(x)) , (130) which results in the functions shown in Fig. 2 (middle). Multiplication with appropriate powers of two and summation then finally leads to the approximation ΨK : [ −1, 1] → R, ΨK (x) = 
+
+> K−1
+
+X
+
+> l=0
+
+2−l−1ψl(x) (131) of the absolute value by a step function, which is shown in Fig. 2 (right). The corresponding feedforward network structure with skip connections is depicted in Fig. 3. Overall the resulting function has 2 K+1 constant pieces with equal length, which results in the function ΨK (x) = 
+
+(
+
+2−K ⌊2K |x|⌋ , |x| < 1,
+
+1 − 2−K , |x| = 1 , (132) and reaches a uniform error of ε ∈ O (2 −K ). 
+
+Lemma 17 (Approximation of Pointwise Product) Let S ∈ N. There exists a Heav-iside neural network ˆ×S : [0 , 1] 2 → [0 , 1] of width 12 and depth O(S2), that achieves for any 
+
+a, b ∈ [0 , 1] 
+
+a · b − ˆ×S (a, b ) ≲ S2−S . (133) 
+
+> 25
+
+Dittrich, Potocki, and Grohs x φ0(x) −σ1(·)
+
+×2
+
++ φ1(x) −σ1(·)
+
+×2
+
++ φ2(x) · · · −σ1(·)
+
+×2
+
++ φK (x)
+
+2−1σ2(·) 2−2σ2(·) 2−3σ2(·) 2−K−1σ2(·)
+
++ + + ΨK (x)
+
+· · · 
+
+· · · 
+
+Figure 3: Recursive network structure for approximating the absolute value by neural net-works with Heaviside activation function. Each layer consists of four neurons with Heaviside activation function (two for σ1 and two for σ2) and two skip con-nections (one to the next layer and one to the last layer). 
+
+Proof The proof of our statement is based on the composition of triangle functions of Yarotsky (2017). In order to get a final error estimate for the square function, we first have to track, how the error of our approximation of the absolute value propagates through the composition. Let δ : [0 , 1] → [0 , 1] with δ(x) := 1 − 2 |x − 1/2|, ˆδ : [0 , 1] → [0 , 1] with ˆδ(x) := 1 −
+
+2Ψ K (x − 1/2), and for T ≥ 2 define 
+
+δ1 := δ, ˆδ1 := ˆδ (134) 
+
+δT := δ ◦ δT −1, ˆδT := ˆδ ◦ ˆδT −1 (135) 
+
+εT := δT − ˆδT L∞([0 ,1]) . (136) We show that εT ≤ (2 T − 1) ε1, for which we use three major steps. First, an error decompo-sition with triangle inequality, second, the Lipschitz-continuity of δ with Lipschitz constant 2, and third, dropping the first layer in a compositional structure bounds the L∞-norm if the image of the first layer is a subset of the domain of the norm. That is, for an arbitrary 
+
+T we get 
+
+δT − ˆδT L∞([0 ,1]) = δT − δ ◦ ˆδT −1 + δ ◦ ˆδT −1 − ˆδT L∞([0 ,1]) (137) 
+
+≤ δT − δ ◦ ˆδT −1 L∞([0 ,1]) + δ ◦ ˆδT −1 − ˆδT L∞([0 ,1]) (138) 
+
+≤ 2 δT −1 − ˆδT −1 L∞([0 ,1]) + δ − ˆδ L∞([0 ,1]) (139) = 2 εT −1 + ε1 (140) 
+
+≤ 2(2 T −1 − 1) ε1 + ε1 = (2 T − 1) ε1. (141) 
+
+26 The Information-Theoretic Benefit of Shared Representations 
+
+Furthermore, |·| − ΨK (·) attains the maximal error for x ∈ {± 1} which leads to 
+
+ε1 = δ − ˆδ L∞([0 ,1]) (142) = 2 ∥|·| − ΨK (·)∥L∞([ −1,1]) (143) = 2( |1| − ΨK (1)) = 2(1 − 1 + 2 −K−1) = 2 −K (144) and consequently, 
+
+εT ≤ (2 T − 1)2 −K . (145) For a fixed T ∈ N we now choose K = 2 T and can approximate δT with a Heaviside neural network of depth 2 T 2 and width 4 at an error of O(2 −T ). The construction for the product structure of Yarotsky (2017) is based on linear combinations of δ1, . . . , δ S for S ∈ N and results in an error of O(2 −2S−2). For T = S, the final error bound is then 
+
+a · b − ˆ×S (a, b ) ≲ 2−2S−2 + S2−S ≲ S2−S , (146) where we get the additional S2−S from the error in each δi, i ∈ [M ]. Due to the formulation of the product via the formula 2 ab = ( a + b)2 − a2 − b2, we need to repeat the same network three times in width, while the depth stays at O(2 T 2) = 
+
+O(2 S2) = O(S2). 
+
+Theorem 18 (Joint Approximation by Heaviside Networks) Let M ∈ N, L = ⌈ld( M )⌉,and let F be the class of orthogonal target functions of Theorem 8. For N, S ∈ N with 
+
+N ≥ 2L+1 −1, there exists a composition of a shallow neural network Φ(I) of width N +2 M 2
+
+and M + 1 outputs and a deep neural network Φ(O) of width 12 M and depth O(S2) such that for each h ∈ F only the parameters of Φ(I) need to be adapted to get 
+
+Φ(O) ◦ Φ(I) − h L∞([0 ,1]; RM ) ≲ M (N −1 + S2−S ), (147) 
+
+where the hidden constant is independent of M .
+
+Proof For L1 ≥ L the truncation gL1 is a piecewise constant function with 2 L1+1 pieces. It can therefore be realized exactly by a shallow Heaviside network Φ N of width N = 2 L1+1 −1. For an arbitrary N ∈ N we now choose L1 = ⌊ld( N + 1) ⌋ − 1 and by using Lemma 9, we get 
+
+∥g − gL1 ∥L∞([0 ,1]) = ∥g − ΦN ∥L∞([0 ,1]) = 2 −L1−1 ≤ 2− ld( N +1)+1 = 2
+
+N + 1 . (148) Furthermore, for every i ∈ [M ], ω(L) 
+
+> i
+
+(gL−1) is a piecewise constant function with 2 L pieces and can therefore be realized exactly by a shallow Heaviside network of width 2 L ≤ 2M .
+
+27 Dittrich, Potocki, and Grohs 
+
+Performing an error decomposition and using the result from Lemma 17 for S ∈ N, we get 3
+
+(g − gL−1) · ω(L) 
+
+> i
+
+(gL−1) − ˆ×S (Φ N − gL−1, ω (L) 
+
+> i
+
+(gL−1)) L∞([0 ,1]) (149) = (g − gL−1) · ω(L) 
+
+> i
+
+(gL−1) − (Φ N − gL−1) · ω(L) 
+
+> i
+
+(gL−1) (150) + (Φ N − gL−1) · ω(L) 
+
+> i
+
+(gL−1) − ˆ×S (Φ N − gL−1, ω (L) 
+
+> i
+
+(gL−1)) L∞([0 ,1]) (151) 
+
+≤ (g − ΦN ) · ω(L) 
+
+> i
+
+(gL−1) − (Φ N − gL−1) · ω(L) 
+
+> i
+
+(gL−1) L∞([0 ,1]) (152) + (Φ N − gL−1) · ω(L) 
+
+> i
+
+(gL−1) − ˆ×S (Φ N − gL−1, ω (L) 
+
+> i
+
+(gL−1)) L∞([0 ,1]) (153) 
+
+≲ N −1 + S2−S , (154) where the hidden constant is independent of M and i, however, as this approximates 
+
+hi/(√32 L), the final error in the approximation of hi is bounded by M (N −1 + S2−S ). Finally, we require one shallow network with N neurons to realize Φ N , one shallow net-work with 2 L ≤ 2M neurons for the realization of each ω(L) 
+
+> i
+
+(gL−1), and M realizations of the product network of width 12 and depth O(S2) in order to achieve an overall error of 
+
+O(M (N −1 + S2−S )). 
+
+Corollary 19 (Parametric Separation for Quantized Networks) Let M, L, F be as in Theorem 18 and let N ∈ N. For i ∈ [M ], let Φi be any family of neural networks of arbitrary architecture and activation function, with W weights each quantized to w bits, where wW ≤ N/M. Then 
+
+sup 
+
+> h∈F
+
+max   
+
+> i∈[M]
+
+min 
+
+> ϕi∈Φi
+
+∥hi − ϕi∥L∞([0 ,1]) ≥ 2L−1√3
+
+N/M + 2 L ≥ M √3/2
+
+N/M + 2 M , (155) 
+
+whereas the joint architecture of Theorem 18, quantizable in at most N bits, achieves 
+
+sup 
+
+> h∈F
+
+∥h − Φ( h)∥L∞([0 ,1]; RM ) ≲ MN . (156) 
+
+In particular, the multitask gap of Theorem 8 is realized by neural networks of matched description length. 
+
+Proof A fixed architecture with W weights, each quantized to w bits, realizes at most 2wW distinct functions and is therefore a B-bit discretization map with B = wW ≤ N/M 
+
+in the sense of Definition 3. The lower bound is then given by Theorem 15. The upper bound is Theorem 18 with S = 2 ⌈ld( N )⌉. Furthermore, we observe on the one hand, that the output network Φ (O) has fixed weights, therefore no dependence on the function h. On the other hand, the input network encodes the truncation gL1 for L1 = ⌊ld( N + 1) ⌋ − 1,   
+
+> 3. Note that the factors in the approximation of the product do not adhere to the domain [0 ,1] but are in [−1,1]. As the approximation of the product is realized by a neural network, we can simply modify the affine transformation at the input and the output to adapt to the proper domain.
+
+28 The Information-Theoretic Benefit of Shared Representations 
+
+thus, the weights are quantizable to 2 L1+1 − 1 ≤ N bits. For real weights the counting argument breaks down entirely, as a single real parameter already carries infinitely many bits, so we restrict to encodable networks, as is standard in the rate-distortion analysis of neural networks (B¨ olcskei et al., 2019; Elbr¨ achter et al., 2021). 
+
+5 Conclusion 
+
+We have shown that joint approximation retains its parametric advantage over separate approximation even for orthogonality-constrained multi-head models. For the compositional class 
+
+Fg = ( f0 ◦ g, . . . , f M −1 ◦ g),
+
+the optimal joint codec, using a no larger total bit budget, improves over the best separate codec by an asymptotic factor of M/ 4 in the uniform norm. This gap persists under orthogonality of the coordinates and on the level of finite-bit approximation rates, leaving shared latent approximation complexity as the main source of the gain. Our construction makes this source explicit. The coefficients of the Rademacher-Haar feature g form a dyadic tree whose unresolved tail fixes the approximation rate, and the truncation estimates give matching finite-bit bounds with explicit constants. The Sawtooth-Walsh maps turn this feature into M orthogonal readouts, so that orthogonality is imposed on the outputs while the hard information remains shared. Thus, each marginal problem contains the same unresolved tail, whereas the vector-valued problem contains it only once. The resulting M/ 4 gap is thus a quantitative rate separation, obtained through a fully constructive comparison of the optimal finite-bit rates. In this sense, our main result gives an approximation-theoretic version of the principle behind shared representations, namely that the dominant cost lies in the latent feature rather than the heads. The Heaviside construction translates the codec separation into a concrete neural net-work realization. The relevant truncations of g and the Walsh factors are piecewise con-stant and, therefore, are naturally represented by the Heaviside subnetworks. Through the triangle-wave construction, the network realizes the product structure. The architecture realizes the same bit-economy as the codec, with a shared trunk for the Rademacher-Haar feature and heads that impose the Sawtooth-Walsh readouts. Viewed from the perspective of foundation models, the construction supports a simple design principle. Structural requirements may be imposed in the heads without forcing the latent representation to be learned or encoded separately for each output. This points to a more central question: which structural constraints can be carried by the readouts, and which ones force additional complexity into the shared representation? The open problem is to identify when this mechanism persists for broader classes of neural networks, including smoother features, operator-valued maps, learned latent representations, and constraints arising from equivariance, conservation laws or boundary conditions. Within any such setting, one would want to identify the function classes that play the role of the Rademacher-Haar wavelet series, whose coefficients carry equal information at every scale, for those we expect the same factor-M separation. 
+
+> 29 Dittrich, Potocki, and Grohs
+
+References 
+
+Ilyes Batatia, David P Kovacs, Gregor Simm, Christoph Ortner, and Gabor Csanyi. MACE: Higher order equivariant message passing neural networks for fast and accurate force fields. In S. Koyejo, S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, and A. Oh, edi-tors, Advances in neural information processing systems , volume 35, pages 11423–11436. Curran Associates, Inc., 2022. URL https://proceedings.neurips.cc/paper_files/ paper/2022/file/4a36c3c51af11ed9f34615b81edb5bbc-Paper-Conference.pdf .Ilyes Batatia, Philipp Benner, Yuan Chiang, Alin M. Elena, D´ avid P. Kov´ acs, Janosh Riebesell, Xavier R. Advincula, Mark Asta, Matthew Avaylon, William J. Baldwin, Fabian Berger, Noam Bernstein, Arghya Bhowmik, Filippo Bigi, Samuel M. Blau, Vlad C˘ arare, Michele Ceriotti, Sanggyu Chong, James P. Darby, Sandip De, Flaviano Della Pia, Volker L. Deringer, Rokas Elijoˇ sius, Zakariya El-Machachi, Edvin Fako, Fabio Falcioni, Andrea C. Ferrari, John L. A. Gardner, Mikolaj J. Gawkowski, Annalena Genreith-Schriever, Janine George, Rhys E. A. Goodall, Jonas Grandel, Clare P. Grey, Petr Grig-orev, Shuang Han, Will Handley, Hendrik H. Heenen, Kersti Hermansson, Cheuk Hin Ho, Stephan Hofmann, Christian Holm, Jad Jaafar, Konstantin S. Jakob, Hyunwook Jung, Venkat Kapil, Aaron D. Kaplan, Nima Karimitari, James R. Kermode, Pana-giotis Kourtis, Namu Kroupa, Jolla Kullgren, Matthew C. Kuner, Domantas Kuryla, Guoda Liepuoniute, Chen Lin, Johannes T. Margraf, Ioan-Bogdan Magd˘ au, Angelos Michaelides, J. Harry Moore, Aakash A. Naik, Samuel P. Niblett, Sam Walton Nor-wood, Niamh O’Neill, Christoph Ortner, Kristin A. Persson, Karsten Reuter, Andrew S. Rosen, Louise A. M. Rosset, Lars L. Schaaf, Christoph Schran, Benjamin X. Shi, Eric Sivonxay, Tam´ as K. Stenczel, Christopher Sutton, Viktor Svahn, Thomas D. Swinburne, Jules Tilly, Cas Van Der Oord, Santiago Vargas, Eszter Varga-Umbrich, Tejs Vegge, Martin Vondr´ ak, Yangshuai Wang, William C. Witt, Thomas Wolf, Fabian Zills, and G´ abor Cs´ anyi. A foundation model for atomistic materials chemistry. The Journal of Chemical Physics , 163(18):184110, November 2025a. ISSN 0021-9606, 1089-7690. doi: 10.1063/5.0297006. URL https://pubs.aip.org/jcp/article/163/18/184110/ 3372267/A-foundation-model-for-atomistic-materials .Ilyes Batatia, Chen Lin, Joseph Hart, Elliott Kasoar, Alin M. Elena, Sam Walton Norwood, Thomas Wolf, and G´ abor Cs´ anyi. Cross Learning between Electronic Structure Theories for Unifying Molecular, Surface, and Inorganic Crystal Foundation Force Fields, October 2025b. URL http://arxiv.org/abs/2510.25380 . arXiv:2510.25380 [physics.chem-ph]. Jonathan Baxter. A model of inductive bias learning. Journal of Artificial Intelligence Research , 12:149–198, 2000. Julius Berner, Philipp Grohs, and Felix Voigtlaender. Learning ReLU networks to high uniform accuracy is intractable. In The Eleventh International Conference on Learning Representations , 2023. URL https://openreview.net/forum?id=nchvKfvNeX0 .Kaushik Bhattacharya, Bamdad Hosseini, Nikola Borislavov Kovachki, and Andrew M. Stuart. Model Reduction and Neural Networks for Parametric PDEs. The SMAI journal of computational mathematics , 7:121–157, July 2021. ISSN 2426-8399. doi: 
+
+> 30 The Information-Theoretic Benefit of Shared Representations
+
+10.5802/smai-jcm.74. URL https://smai-jcm.centre-mersenne.org/articles/10. 5802/smai-jcm.74/ .Helmut B¨ olcskei, Philipp Grohs, Gitta Kutyniok, and Philipp Petersen. Optimal Approxi-mation with Sparsely Connected Deep Neural Networks. SIAM Journal on Mathematics of Data Science , 1(1):8–45, January 2019. ISSN 2577-0187. doi: 10.1137/18M118709X. URL https://epubs.siam.org/doi/10.1137/18M118709X .Rishi Bommasani, Drew A. Hudson, Ehsan Adeli, Russ Altman, Simran Arora, Sydney von Arx, Michael S. Bernstein, Jeannette Bohg, Antoine Bosselut, Emma Brunskill, Erik Brynjolfsson, Shyamal Buch, Dallas Card, Rodrigo Castellon, Niladri Chatterji, An-nie Chen, Kathleen Creel, Jared Quincy Davis, Dora Demszky, Chris Donahue, Moussa Doumbouya, Esin Durmus, Stefano Ermon, John Etchemendy, Kawin Ethayarajh, Li Fei-Fei, Chelsea Finn, Trevor Gale, Lauren Gillespie, Karan Goel, Noah Goodman, Shelby Grossman, Neel Guha, Tatsunori Hashimoto, Peter Henderson, John Hewitt, Daniel E. Ho, Jenny Hong, Kyle Hsu, Jing Huang, Thomas Icard, Saahil Jain, Dan Jurafsky, Pratyusha Kalluri, Siddharth Karamcheti, Geoff Keeling, Fereshte Khani, Omar Khattab, Pang Wei Koh, Mark Krass, Ranjay Krishna, Rohith Kuditipudi, Ananya Kumar, Faisal Ladhak, Mina Lee, Tony Lee, Jure Leskovec, Isabelle Levent, Xiang Lisa Li, Xuechen Li, Tengyu Ma, Ali Malik, Christopher D. Manning, Suvir Mirchandani, Eric Mitchell, Zanele Munyikwa, Suraj Nair, Avanika Narayan, Deepak Narayanan, Ben Newman, Allen Nie, Juan Carlos Niebles, Hamed Nilforoshan, Julian Nyarko, Giray Ogut, Laurel Orr, Isabel Papadimitriou, Joon Sung Park, Chris Piech, Eva Portelance, Christopher Potts, Aditi Raghunathan, Rob Reich, Hongyu Ren, Frieda Rong, Yusuf Roohani, Camilo Ruiz, Jack Ryan, Christopher R´ e, Dorsa Sadigh, Shiori Sagawa, Keshav Santhanam, Andy Shih, Krishnan Srinivasan, Alex Tamkin, Rohan Taori, Armin W. Thomas, Florian Tram` er, Rose E. Wang, William Wang, Bohan Wu, Jiajun Wu, Yuhuai Wu, Sang Michael Xie, Michihiro Yasunaga, Jiaxuan You, Matei Zaharia, Michael Zhang, Tianyi Zhang, Xikun Zhang, Yuhui Zhang, Lucia Zheng, Kaitlyn Zhou, and Percy Liang. On the Opportunities and Risks of Foundation Models, July 2022. URL http://arxiv.org/abs/2108.07258 .arXiv:2108.07258 [cs.LG]. Michael M. Bronstein, Joan Bruna, Taco Cohen, and Petar Veliˇ ckovi´ c. Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges, May 2021. URL http:// arxiv.org/abs/2104.13478 . arXiv:2104.13478 [cs, stat]. Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, Sandhini Agarwal, Ariel Herbert-Voss, Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh, Daniel Ziegler, Jeffrey Wu, Clemens Winter, Chris Hesse, Mark Chen, Eric Sigler, Mateusz Litwin, Scott Gray, Benjamin Chess, Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford, Ilya Sutskever, and Dario Amodei. Language models are few-shot learners. In H. Larochelle, M. Ranzato, R. Hadsell, M.F. Balcan, and H. Lin, editors, Advances in neural information processing systems , volume 33, pages 1877–1901. Curran Associates, Inc., 2020. URL https://proceedings.neurips.cc/paper_files/ paper/2020/file/1457c0d6bfcb4967418bfb8ac142f64a-Paper.pdf .
+
+> 31 Dittrich, Potocki, and Grohs
+
+Rich Caruana. Multitask Learning. Machine Learning , 28(1):41–75, July 1997. ISSN 0885-6125, 1573-0565. doi: 10.1023/A:1007379606734. URL https://link.springer.com/ 10.1023/A:1007379606734 .Albert Cohen, Wolfgang Dahmen, Ingrid Daubechies, and Ronald DeVore. Tree Ap-proximation and Optimal Encoding. Applied and Computational Harmonic Analysis ,11(2):192–226, September 2001. ISSN 10635203. doi: 10.1006/acha.2001.0336. URL 
+
+https://linkinghub.elsevier.com/retrieve/pii/S1063520301903367 .Taco Cohen and Max Welling. Group equivariant convolutional networks. In Maria Florina Balcan and Kilian Q. Weinberger, editors, Proceedings of the 33rd international conference on machine learning , volume 48 of Proceedings of machine learning research , pages 2990– 2999, New York, New York, USA, June 2016. PMLR. URL https://proceedings.mlr. press/v48/cohenc16.html .Simon Shaolei Du, Wei Hu, Sham M. Kakade, Jason D. Lee, and Qi Lei. Few-Shot Learning via Learning the Representation, Provably. In International Conference on Learning Representations , 2021. URL https://openreview.net/forum?id=pW2Q2xLwIMD .Dennis Elbr¨ achter, Dmytro Perekrestenko, Philipp Grohs, and Helmut B¨ olcskei. Deep neural network approximation theory. IEEE Transactions on Information Theory , 67(5):2581– 2623, 2021. C´ eline Esser, St´ ephane Jaffard, and B´ eatrice Vedel. Regularity properties of random wavelet series. Theory of Probability and Mathematical Statistics , 110(0):31–53, May 2024. ISSN 1547-7363, 0094-9000. doi: 10.1090/tpms/1205. URL https://www.ams.org/tpms/ 2024-110-00/S0094-9000-2024-01205-0/ .Philipp Grohs and Matˇ ej Tr¨ odler. Limitations of Learning Tanh Neural Networks with Fi-nite Precision, June 2026. URL http://arxiv.org/abs/2606.11104 . arXiv:2606.11104 [cs.LG]. Philipp Grohs and Felix Voigtlaender. Proof of the Theory-to-Practice Gap in Deep Learn-ing via Sampling Complexity bounds for Neural Network Approximation Spaces. Foun-dations of Computational Mathematics , 24(4):1085–1143, August 2024. ISSN 1615-3375, 1615-3383. doi: 10.1007/s10208-023-09607-w. URL https://link.springer.com/10. 1007/s10208-023-09607-w .Philipp Grohs, Andreas Klotz, and Felix Voigtlaender. Phase Transitions in Rate Distortion Theory and Deep Learning. Foundations of Computational Mathematics , 23(1):329–392, February 2023. ISSN 1615-3375, 1615-3383. doi: 10.1007/s10208-021-09546-4. URL 
+
+https://link.springer.com/10.1007/s10208-021-09546-4 .Philipp Grohs, Samuel Lanthaler, and Margaret Trautner. Theory-to-Practice Gap for Neural Networks and Neural Operators, March 2025. URL http://arxiv.org/abs/ 2503.18219 . arXiv:2503.18219 [cs]. Andreas Horst, Thomas Jahn, and Felix Voigtlaender. Besov regularity of random wavelet series, November 2024. URL http://arxiv.org/abs/2411.18155 . arXiv:2411.18155 [math]. 
+
+> 32 The Information-Theoretic Benefit of Shared Representations
+
+Ian T. Jolliffe. Principal Component Analysis . Springer Series in Statistics. Springer-Verlag, New York, 2002. ISBN 978-0-387-95442-4. doi: 10.1007/b98835. URL http: //link.springer.com/10.1007/b98835 .Zongyi Li, Nikola Borislavov Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Fourier Neural Operator for Parametric Partial Differential Equations. In International Conference on Learning Rep-resentations , 2021. Lu Lu, Pengzhan Jin, Guofei Pang, Zhongqiang Zhang, and George Em Karniadakis. Learn-ing Nonlinear Operators Via DeepONet Based on the Universal Approximation Theorem of Operators. Nature Machine Intelligence , 3(3):218–229, March 2021. ISSN 2522-5839. doi: 10.1038/s42256-021-00302-5. Andreas Maurer, Massimiliano Pontil, and Bernardino Romera-Paredes. The benefit of multitask representation learning. Journal of Machine Learning Research , 17(1):2853– 2884, January 2016. ISSN 1532-4435. Rahul Parhi and Robert D. Nowak. Banach space representer theorems for neural networks and ridge splines. Journal of Machine Learning Research , 22(43):1–40, 2021. URL http: //jmlr.org/papers/v22/20-583.html .Rahul Parhi and Robert D. Nowak. Near-Minimax Optimal Estimation With Shallow ReLU Neural Networks. IEEE Transactions on Information Theory , 69(2):1125–1140, February 2023. ISSN 0018-9448, 1557-9654. doi: 10.1109/TIT.2022.3208653. URL https: //ieeexplore.ieee.org/document/9899453/ .Philipp Petersen and Felix Voigtlaender. Optimal approximation of piecewise smooth functions using deep ReLU neural networks. Neural Networks , 108:296–330, December 2018. ISSN 08936080. doi: 10.1016/j.neunet.2018.08.019. URL https://linkinghub. elsevier.com/retrieve/pii/S0893608018302454 .James O. Ramsay and Bernard W. Silverman. Functional Data Analysis . Springer Series in Statistics. Springer New York, New York, NY, 2005. ISBN 978-0-387-40080-8 978-0-387-22751-1. doi: 10.1007/b98888. URL http://link.springer.com/10.1007/b98888 .Sebastian Ruder. An Overview of Multi-Task Learning in Deep Neural Networks, 2017. URL https://arxiv.org/abs/1706.05098 .Joseph Shenouda, Rahul Parhi, Kangwook Lee, and Robert D. Nowak. Variation spaces for multi-output neural networks: insights on multi-task learning and network compression. 
+
+Journal of Machine Learning Research , 25(1), January 2024. ISSN 1532-4435. Jonathan W. Siegel and Jinchao Xu. Characterization of the Variation Spaces Corre-sponding to Shallow Neural Networks. Constructive Approximation , 57(3):1109–1132, June 2023. ISSN 0176-4276, 1432-0940. doi: 10.1007/s00365-023-09626-4. URL 
+
+https://link.springer.com/10.1007/s00365-023-09626-4 .
+
+> 33 Dittrich, Potocki, and Grohs
+
+Jonathan W. Siegel and Jinchao Xu. Sharp Bounds on the Approximation Rates, Metric Entropy, and n-Widths of Shallow Neural Networks. Foundations of Computational Mathematics , 24(2):481–537, April 2024. ISSN 1615-3375, 1615-3383. doi: 10.1007/s10208-022-09595-3. URL https://link.springer.com/10.1007/ s10208-022-09595-3 .Matus Telgarsky. benefits of depth in neural networks. In Vitaly Feldman, Alexander Rakhlin, and Ohad Shamir, editors, 29th annual conference on learning theory , volume 49 of Proceedings of machine learning research , pages 1517–1539, Columbia University, New York, New York, USA, June 2016. PMLR. URL https://proceedings.mlr.press/v49/ telgarsky16.html .Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, Dan Bikel, Lukas Blecher, Cristian Canton Ferrer, Moya Chen, Guillem Cucurull, David Esiobu, Jude Fernandes, Jeremy Fu, Wenyin Fu, Brian Fuller, Cynthia Gao, Vedanuj Goswami, Naman Goyal, Anthony Hartshorn, Saghar Hosseini, Rui Hou, Hakan Inan, Marcin Kardas, Viktor Kerkez, Madian Khabsa, Isabel Kloumann, Artem Korenev, Punit Singh Koura, Marie-Anne Lachaux, Thibaut Lavril, Jenya Lee, Diana Liskovich, Yinghai Lu, Yuning Mao, Xavier Martinet, Todor Mihaylov, Pushkar Mishra, Igor Moly-bog, Yixin Nie, Andrew Poulton, Jeremy Reizenstein, Rashi Rungta, Kalyan Saladi, Alan Schelten, Ruan Silva, Eric Michael Smith, Ranjan Subramanian, Xiaoqing Ellen Tan, Binh Tang, Ross Taylor, Adina Williams, Jian Xiang Kuan, Puxin Xu, Zheng Yan, Iliyan Zarov, Yuchen Zhang, Angela Fan, Melanie Kambadur, Sharan Narang, Aurelien Rodriguez, Robert Stojnic, Sergey Edunov, and Thomas Scialom. Llama 2: Open Founda-tion and Fine-Tuned Chat Models, July 2023. URL http://arxiv.org/abs/2307.09288 .arXiv:2307.09288 [cs.CL]. Nilesh Tripuraneni, Chi Jin, and Michael Jordan. Provable Meta-Learning of Linear Rep-resentations. In Marina Meila and Tong Zhang, editors, Proceedings of the 38th Inter-national Conference on Machine Learning , volume 139 of Proceedings of Machine Learn-ing Research , pages 10434–10443. PMLR, July 2021. URL https://proceedings.mlr. press/v139/tripuraneni21a.html .Adrien Weihs and Hayden Schaeffer. Multiple Neural Operators Achieve Near-Optimal Rates for Multi-Task Learning, May 2026. URL http://arxiv.org/abs/2605.22724 .arXiv:2605.22724 [cs.LG]. Dmitry Yarotsky. Error Bounds for Approximations with Deep ReLU Networks. Neural Networks , 94:103–114, October 2017. ISSN 08936080. doi: 10.1016/j.neunet.2017.07.002.
