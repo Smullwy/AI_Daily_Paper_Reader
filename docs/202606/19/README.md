@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-19</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-19 05:38 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,8 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日从单神经元“叙说”视觉语义到检索式大脑解码，实探脑科学与AI的表征对齐。</p>
-<p>最亮眼结论：视觉信息可在单细胞分辨率获得语义叙事，而大脑解码依靠对齐比依靠模型复杂度更有效。</p>
-<p>想跟上这波脑启发的智能变革，不妨从精读那两篇9分论文入手，再留意连接基序对皮层模型的加速。</p>
+      <p>从单细胞神经元“讲述”视觉故事，到用检索而非复杂度破解大脑解码，今日前沿正将脑科学与AI深度融合。最值得关注的是：视觉皮层神经元竟能生成语义叙事，而脑解码新范式证明对齐比增加模型复杂度更关键。若你对智能的本质好奇，不妨从这些跨越生物与人工边界的研究读起。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/19/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -114,3 +111,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
