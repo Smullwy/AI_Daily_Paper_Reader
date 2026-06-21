@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-22</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-22 04:19 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读6篇、速读9篇，从猕猴共享电影fMRI模式到婴儿脑发育模块一致性，全面扫描脑科学与医学图像最新进展。</p>
-<p>最值得关注：超对齐揭示了猕猴特异神经动态中隐藏的共享信息，而婴儿脑发育的结构-功能耦合可用鲁棒概率测量。</p>
-<p>建议先从这两篇高分论文入手，再结合最优传输驱动的医学图像对齐，把握跨物种解码与发育影像的融合趋势。</p>
+      <p>今日精读6篇论文，速读9篇，聚焦跨物种脑功能对齐与发育神经影像。</p>
+<p>最值得关注：猕猴fMRI与人类共享的细粒度电影模式，以及婴儿发育中结构-功能模块的稳健概率度量方法。</p>
+<p>想要了解大脑如何组织复杂信息？不妨从这两项突破性工作入手。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/22/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -159,3 +158,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
