@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-23</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-23 05:58 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读2篇高分论文，从结构连接约束脑内在时间尺度，到搜索光优化实现个体化情绪状态解码，速读还涉及光泵磁力计分析流程和脑卒中患者手指级机械手实时控制。</p>
-<p>最值得关注的方向：结构网络通过图平滑神经活动选择性约束皮层BOLD时间尺度，以及表征相似性搜索光优化能显著提升情绪解码的受试者级体素选择效果。</p>
-<p>下一步建议：普通读者可重点阅读这两篇精读，它们为理解大脑功能组织与优化脑机情感接口提供了可落地的新视角。</p>
+      <p>今日精读两篇高分脑科学论文并速览三项前沿工具与临床突破。</p>
+<p>最值得关注：结构连接通过图平滑活动选择性约束大脑内在时间尺度，以及用表征相似性优化搜索光可精准解码情绪状态。</p>
+<p>建议读者将图平滑分析迁移到你的功能连接数据，并上手探索 OPM-FLUX 流程处理新一代 MEG 信号。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/23/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -96,3 +95,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
