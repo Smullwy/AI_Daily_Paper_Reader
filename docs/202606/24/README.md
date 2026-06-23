@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-24</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-24 05:32 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦灵长类视觉皮层与深度网络的功能组织对比，最高分论文揭示IT区朝向编码重现与功能枢纽的涌现机制。</p>
-<p>值得关注的方向：视觉系统中抽象表征几何如何支撑大模型推理，以及高时间分辨率fMRI揭示的自发神经活动新规律。</p>
-<p>建议普通读者跟进“脑启发AI”与“无创脑信号解码”这两条主线，它们正快速靠近实用化。</p>
+      <p>今日聚焦15项前沿研究，从视觉皮层深层编码机制到脑电解码3D感知，直击大脑与AI的交叉前沿。</p>
+<p>最值得看：灵长类视觉皮层方向编码再发现与双流脑电3D解码，揭示功能枢纽与感知新通路。</p>
+<p>下步建议：若关注脑机接口落地，可从脑电3D解码切入；若迷恋基础机理，不妨深读视觉功能枢纽论文。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/24/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -159,3 +158,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
