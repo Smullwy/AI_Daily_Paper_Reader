@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-25</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-25 04:44 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日扫读 16 篇脑科学/神经工程论文，重点精读 EEG-to-Speech 重建与跨眼跳时程表征两篇高分研究。</p>
-<p>最值得关注：条件流匹配让脑电语音重建逼近自然声纹，而皮层群读出一举揭示眼跳前后时间表征是“平滑且偏倚”的复现。</p>
-<p>建议动手读者从 ComCat（抗协变量工具）和 EPSTE（传递熵估计新框架）入手快速复现 baseline。</p>
+      <p>今日精选16篇预印本，重点解读了用条件流匹配从脑电图直接合成语音、以及跨眼动时间表征的神经群体编码机制。</p>
+<p>最值得关注的是《NeuroSonic》的高分突破：它从非侵入脑电信号中重建出自然语音，展示了一条低损伤脑机接口的实用路径；另一项研究则发现视觉皮层在眼球快速运动中会主动平滑时间信息，纠正了我们对跨眼动感知连续性的认知。</p>
+<p>建议普通读者把目光锁定在脑信号解码的落地化趋势上，尤其是非侵入式语音重建与感知流形学习，这些方向正在重塑人机交互的边界。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/25/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
