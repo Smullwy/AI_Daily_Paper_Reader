@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-26</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-26 05:55 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日脑视觉对齐与动态系统建模领衔，13篇论文中精读占比近半，高亮揭示了神经表征与贝叶斯融合的新突破。</p>
-<p>最值得看：多视图神经表示如何解密大脑的视觉世界，层次贝叶斯方法如何让稀疏数据学会动态系统。</p>
-<p>下一步，不妨用这些思路去优化脑机接口解码或多模态模型的对齐效率。</p>
+      <p>大脑如何理解视觉世界？今天精读的神经表征研究揭示了多视角对齐机制，速读同时关注了拓扑对齐与脑机接口解码。</p>
+<p>多视角神经表征与拓扑对齐两大方向值得深挖，它们正重塑我们对大脑-模型对齐与多模态LLM的理解。</p>
+<p>想跟上节奏的读者，不妨从“表征对齐”切入——这是连接神经科学与AI的高价值地带。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/26/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -141,3 +140,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
