@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-29</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-29 04:51 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日研读16篇前沿论文，精筛出多源任务迁移与稀疏认知原型两篇高分研究。</p>
-<p>最值得关注：多源fMRI迁移学习打破单任务认知划分，稀疏分布式原型揭示可压缩的大脑网络模体。</p>
-<p>进阶阅读可从这两项方法切入，理解跨任务脑表征与自然认知的压缩机制。</p>
+      <p>今日从16篇认知科学前沿中精读2项高分研究，聚焦多源任务关系迁移与脑网络基元的可压缩性。</p>
+<p>最值得关注的是：功能磁共振迁移学习揭示跨任务认知架构的共享表征，以及稀疏原型发现自然认知背后的压缩网络模体。</p>
+<p>建议读者深入理解任务间关系如何通过脑数据迁移学习泛化，并关注压缩感知在解码大脑认知回路中的潜力。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/29/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
