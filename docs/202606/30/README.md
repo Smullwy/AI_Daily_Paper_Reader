@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-06-30</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-06-30 05:42 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读两篇高分研究，聚焦轻量级脑机接口模型与视点稳健的3D场景理解，速读则覆盖颜色感知、多任务脑网络和语义类别变化检测。</p>
-<p>最值得关注：极简CNN注意力架构让EEG眼态分类既快又准，且变换解耦策略大幅提升了3D关系预测的视点鲁棒性。</p>
-<p>普通读者可先体验你的脑电信号如何被阅读：试着连续眨眼或熬夜后，想象模型正从微弱波动中读出你的状态。</p>
+      <p>今日聚焦脑科学×轻量级AI：精读16篇中，两篇9分论文分别用微型注意力网络解码睡眠剥夺下的脑电，以及教3D场景图“换个角度”理解关系。</p>
+<p>最值得关注：深度学习正从庞杂模型转向可解释的轻量化结构，且开始对齐人类色彩感知与任务特异性脑响应，人机认知鸿沟在缩小。</p>
+<p>建议读者跟随“注意力机制+脑信号”交叉线，关注后续可实时部署的睡眠监测与场景理解新应用。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202606/30/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
