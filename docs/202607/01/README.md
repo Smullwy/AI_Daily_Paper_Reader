@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-01</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-01 05:33 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦脑信号理解与生成统一模型 BrainJanus，并严防神经解码数据泄露，两篇精读均获 9 分高分。</p>
-<p>跨模态统一与隐私安全是今日双核亮点：BrainJanus 打通脑、视觉、语言三大模态；另一文揭示解码实验中的数据泄漏陷阱。</p>
-<p>若你对脑机接口或跨模态 AI 感兴趣，不妨从这两篇切入，再结合果蝇视觉系统的表征几何与脑电时序特征提取器，构建更稳健的认知计算视野。</p>
+      <p>今日精读两篇9分论文，聚焦大脑信号与AI的融合及神经解码的安全隐患。</p>
+<p>最值得关注的是统一脑-视觉-语言模型的新架构，以及如何防止解码实验中的数据泄露。</p>
+<p>下一步可追踪脑机接口的数据治理规范，或了解多模态模型的实际应用案例。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/01/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
