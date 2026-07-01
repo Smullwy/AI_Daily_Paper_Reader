@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-02</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-02 04:55 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日深度解析了生成式视觉语言模型如何重塑人脑神经影像分析，以及共享AI-大脑控制让脑机接口在动态环境中更可靠。</p>
-<p>最值得关注的方向是：多模态大模型正与神经科学、脑机接口深度融合，实现从理解大脑到协同控制的关键突破。</p>
-<p>建议读者重点关注“感知-决策-执行”闭环在医疗和机器人中的应用，这两篇精读论文提供了清晰的落地路径。</p>
+      <p>今日精读神经影像生成模型与脑机接口共享控制，速览视觉语言模型适应、4D重建等前沿成果。</p>
+<p>NeuroVLM用生成式视觉语言解码大脑活动，而共享AI-脑控制让脑机接口在动态场景中稳定导航。</p>
+<p>不妨关注多模态AI如何桥接神经科学与机器感知，以及让模型实时适应环境变化的高效策略。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/02/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -132,3 +131,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

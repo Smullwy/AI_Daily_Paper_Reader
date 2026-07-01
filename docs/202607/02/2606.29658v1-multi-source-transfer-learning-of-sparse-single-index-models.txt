@@ -1,0 +1,1891 @@
+Title: Multi-Source Transfer Learning of Sparse Single-Index Models
+
+URL Source: https://arxiv.org/pdf/2606.29658v1
+
+Published Time: Tue, 30 Jun 2026 01:32:35 GMT
+
+Number of Pages: 37
+
+Markdown Content:
+# Multi-Source Transfer Learning of Sparse Single-Index Models 
+
+Ye Tian ∗
+
+June 30, 2026 
+
+Abstract 
+
+Transfer learning leverages knowledge from related source domains to improve learning in a target domain. Recent theoretical advances cover a broad range of regression settings within (generalized) linear models. Despite their diversity, these methods share two common constraints: they assume a known link function or linear structure and require direct access to raw source data. To move beyond these constraints, we propose a source -data -free transfer learning framework based on the single-index model (SIM). Instead of requiring raw source data, our method transfers only summary statistics derived from a generalized Stein’s lemma in a one-time communication. This design preserves privacy and avoids side effects caused by dissimilarities of unknown nonlinear link functions across domains. To capture flexible, unknown nonlinearity, we employ a multilayer perceptron guided by the pre -estimated index from the transferred statistics, which significantly mitigates overfitting. Extensive experiments on synthetic data and a real -world application demonstrate consistent improvements over existing (generalized) linear model -based approaches. The proposed framework thus offers a practical, privacy-preserving, and nonlinear-adaptive solution for transfer learning. 
+
+Keywords: transfer learning, source-data-free, single index model, Stein’s lemma, nonlinearity 
+
+> ∗
+
+Key Laboratory of Applied Statistics of MOE, Key Laboratory of Big Data Analysis of Jilin Province, School of Mathematics and Statistics, Northeast Normal University, Changchun, Jilin 130024, P. R. China (Email:tianye@nenu.edu.cn) 
+
+1
+
+> arXiv:2606.29658v1 [stat.ME] 28 Jun 2026
+
+# 1 Introduction 
+
+Transfer learning, leveraging knowledge from related sources to improve learning in a target domain, has a rich history in statistical learning (Pan and Yang, 2010). Recent statistical work has established rigorous theoretical foundations across a variety of regression settings. For linear models, Bastani (2021) consider a single -source transfer task where the bias between the source and target parameters is assumed sparse. They propose a two -step joint estimator and provide both ℓ1 and ℓ2 error bounds, showing that the required gold sample size can be exponentially smaller (in the dimension of the parameter) than that of naive methods. Li et al. (2023) consider a multi -source transfer problem under the assumption that a subset of source parameters are close to the target parameter in ℓq norm. They propose Oracle Trans -Lasso (when the informative set is known) and Trans -Lasso (when it is unknown), and demonstrate that their estimators are minimax optimal for both cases. Both works require that each informative source parameter be individually close to the target parameter in a sparse sense. In contrast, Lin et al. (2024) handle a multi -source setup under a more flexible condition: they only require that a weighted combination of the source parameters is close to the target parameter, without demanding closeness of any individual source. They develop a profiled transfer learning method and prove its minimax optimality under their assumption. Tian and Feng (2023) extend transfer learning to high -dimensional generalized linear models (GLMs), covering logistic, Poisson, and other families. In addition to a GLM transfer algorithm with improved estimation and prediction error bounds, they propose an algorithm -free trans-ferable source detection method based on cross -validation and prove its detection consistency. For multiple response regression, Park et al. (2025) study transfer learning under a low -rank structure, assuming small nuclear norms for both the target coefficient matrix and the contrasts with informative sources. Their nuclear -norm -penalized estimator achieves faster convergence than the single -task reduced -rank regression estimator. They propose a forward 2source detection method selecting transferable sources sequentially. Beyond independent data, Li et al. (2022) study transfer learning for functional linear regression under a reproducing kernel Hilbert space framework. They propose TL -FLR (when informative sources are known) and an aggregation -based variant, ATL -FLR (when informative sources are unknown), mitigating negative transfer. They further extend the results to functional generalized linear models. Zeng et al. (2026) propose a transfer learning framework for spatial autoregressive models to handle spatially dependent data. They develop a tranSAR algorithm and introduce a transferable source detection method based on spatial residual bootstrap preserving spatial dependence. Theoretical convergence rates and detection consistency are established. Despite the significant theoretical progress, two major limitations persist in the existing statistical literature on regression-oriented transfer learning. First, linear models have been extensively analyzed (Bastani, 2021; Li et al., 2022; Lin et al., 2024), and beyond linearity, generalized linear models (GLMs) represent the primary extension studied in transfer learning (Tian and Feng, 2023). However, GLMs impose known link functions. While this captures certain nonlinearities, it does not handle the more general setting where the nonlinear transformation is completely unknown and must be learned from data. Consequently, existing theoretical work lacks a treatment of flexible, unknown nonlinearity, especially when different domains pose various nonlinear link functions, a situation that arises naturally in many real-world applications. Transferring knowledge under such a setup introduces at least two problems that differ from the linear case. First, how to handle the unknown nonlinearity; second, how to define transferability in this context. Moreover, nearly all existing statistical methods assume direct and simultaneous access to both source and target data. This assumption is increasingly impractical, as source domain data may be inaccessible due to various real -world constraints, for example, data protection regulations, 3proprietary restrictions, logistical costs, or the simple fact that the source model has already been trained and the raw data can no longer be shared. Consequently, existing methods offer little guidance for transfer learning when only summary information or pre -trained models are accessible. In this work, we address both limitations via the single -index model (SIM). We exploit similarity among indices across domains, which in fact reflects similarity in the one -dimensional embedding spaces defined by those indices. To avoid accessing raw source data, we transfer only the estimated source indices derived from a generalized Stein’s lemma, a one -time communication of summary statistics that requires no direct exposure to the raw source data. This is particularly advantageous when the raw source data cannot be shared due to practical constraints. To capture flexible, unknown nonlinearity, we then employ a multilayer perceptron (MLP) guided by the pre -estimated indices obtained from these transferred statistics, which significantly mitigates overfitting. This dual design ensures both nonlinear flexibility and practical viability under common data-sharing limitations. 
+
+Notations. Vectors are denoted by bold lowercase letters (e.g., a, b). Matrices are denoted by bold uppercase letters. For a vector a ∈ Rd and j ∈ [d]+, let [a]j denote the j-th coordinate; 
+
+am:n denote the contiguous slice from index m to n (1 ≤ m ≤ n ≤ d); [a]I denote the slice over an index set I ⊆ [d]+; Sc denote the complement of a set S within [d]+, i.e., 
+
+Sc ≜ [d]+ \ S ; supp (a) ≜ {j ∈ [d]+ : [ a]j̸ = 0 } denote the support of a. A vector is s-sparse 
+
+if |supp (a)| = s. For k ∈ N+, [k]+ ≜ {1, . . . , k }. For k ∈ N, [k] ≜ {0, 1, . . . , k }. Given a set of samples S = {zi}ni=1 ⊂ Z and a function f : Z → R, the empirical average is 
+
+> ˜
+
+ES [f (z)] ≜ (1 /n ) ∑ni=1 f (zi). When f is the identity, we write ˜ES [z]. The subscript S may be omitted if clear. For two sequences {an} and {bn}, an = o(bn) iff lim n→∞ (an/b n) = 0 ; an ≍ bn
+
+iff there exist constants C1, C 2 > 0 such that C1|bn| ≤ | an| ≤ C2|bn| for all sufficiently large n.For a scalar τ > 0 and a vector a ∈ Rd, the element-wise hard thresholding operator HT (a, τ )
+
+is defined as HT (a, τ ) = {H([ a]1, τ ), . . . , H([ a]d, τ )}⊤, where the scalar hard thresholding 4function is H( c, τ ) = c, if |c| > τ ; and 0, otherwise. 
+
+# 2 Preliminaries 
+
+2.1 the Model 
+
+In this work, we consider the following multi-source transfer learning framework of the SIM. Specifically, we have K source domains demoted by i ∈ [K]+ and one target domain denoted by i = 0 . Suppose i.i.d. observations from the i-th domain, {(x(i) 
+
+> j
+
+, y(i) 
+
+> j
+
+)}ni 
+
+> j=1
+
+satisfy the SIM of the corresponding domain: 
+
+y(i) = fi(α⊤ 
+
+> i
+
+x(i)) + ϵi. (1) In Model (1) , α0 is the target index of interest and αi (i ∈ [K]+) are source indices encoding transferable information. They share the same dimension d. The model is flexible: covariates 
+
+x(i)’s may be distributed differently; noises ϵi’s independent from covariates could follow distinct distributions; the unknown nonlinear link functions fi’s can also vary across domains. Without further constraints, αi is not identifiable given an arbitrary fi. Following the standard SIM convention, we assume ∥αi∥2 = 1 for all i ∈ [K], so that αi is identifiable up to the sign. We further fix the sign by requiring E{∇ fi(α⊤ 
+
+> i
+
+x(i))} to be positive. Moreover, we assume αi’s are si-sparse, respectively. For αi, we define the corresponding scale and scaled parameter as μi = E{∇ fi(α⊤ 
+
+> i
+
+x(i))} and ˜αi = μiαi. In general, to estimate the normalized parameters 
+
+αi’s, we first need to estimate their scaled correspondences ˜αi’s. For each source domain 
+
+i ∈ [K]+, the contrast vector is defined by δi = αi − α0. To enable knowledge transfer, δi’s are required to satisfy certain sparse conditions formally stated in Section 4. 
+
+2.2 the Stein’s Score and Generalized Stein’s Lemma 
+
+Our estimators of ˜αi will be constructed by Stein’s score and a generalized Stein’s lemma. We first introduce these technical tools below. 5Definition 1 (Stein’s Score) . Let x ∈ Rd be a random vector with density P(x). If P(x) is differentiable, the first-order score function, denoted by s(x) : Rd → Rd, is defined as 
+
+s(x) := −∇ x[ln {P(x)}] = −∇ xP(x)/P(x). (2) 
+
+Lemma 1 (Generalized Stein’s Lemma) . Suppose Model (1) holds. Assume that the expec-tations E{y(i)s(x(i))} and E{∇ fi(α⊤ 
+
+> i
+
+x(i))} both exist and well-defined for i ∈ [K]. Further assume that lim ∥x(i)∥→∞ fi(α⊤ 
+
+> i
+
+x(i))P(x(i)) → 0. Then, E{y(i)s(x(i))} = ˜αi holds. 
+
+Given the true score function s(x(i)), the moment estimator for the scaled parameter ˜αi is defined as Mi = ˜E{y(i)s(x(i))}, per Lemma 1. 
+
+2.3 Score Estimators 
+
+In the literature on Stein’s method, the distributions of inputs are conventionally assumed to be known (Yang et al., 2017; Balasubramanian et al., 2018; Na et al., 2019); consequently, the score functions are available and often analytically tractable. In recent years, with the rise of deep learning and diffusion models in generative AI, deep neural networks (DNN) have been widely used to estimate Stein’s scores. Despite their powerful approximation capabilities, existing error analyses focus primarily on the mean squared error (Chen et al., 2023; Shen et al., 2024), the approximation error (Yakovlev and Puchkin, 2025b), or on the divergence of distributions (Oko et al., 2023; Yakovlev and Puchkin, 2025a). To our knowledge, there is no relevant analysis of pointwise error bounds for neural network score estimators that would facilitate end-to-end error analysis when these estimators are used as an intermediate step. In contrast, kernel methods previously prevalent in score function estimation (Strathmann et al., 2015; Li and Turner, 2018; Shi et al., 2018; Zhou et al., 2020) can provide such bounds under certain regularity conditions. Since point evaluation functionals in the RKHS are bounded linear functionals, pointwise errors can be uniformly bounded by the RKHS norm. 6Zhou et al. (2020) provide an error bound in terms of the RKHS norm, and we derive the corresponding pointwise error rate as a corollary of their Theorem B.1. The details are deferred to Section I.2 of the supplement. Roughly speaking, for their non-parametric method on the input domain X , we have 
+
+sup 
+
+> x∈X
+
+∥̂s(x) − s(x)∥2 = O{
+
+M − r
+
+> 2( r+1)
+> }
+
+,
+
+where M is the sample size used to estimate the score function and r is the source condition index that measures how well the true score function’s smoothness aligns with the RKHS of the kernel. Compared with DNN methods, kernel methods are theoretically clean but computationally heavy for large sample sizes. We will demonstrate the performance of the former in Section 5 with large samples, and that of the latter in Section 6 with relatively small ones. In this work, we make the following assumption about the score estimator, which holds for several non-parametric score estimators (Zhou et al., 2020) as well as DNN estimators such as those in Chen et al. (2023) and Shen et al. (2024). 
+
+Assumption 1. For any i ∈ [K], suppose ̂ si(·) is estimated on ns,i i.i.d. samples on the i-th domain, there exists a decreasing function ϕ(·) going to 0 as ns,i goes to infinity, such that 
+
+(E[{̂si(x(i)) − s(x(i))}2]) 1/2 ≤ ϕ(ns,i ).
+
+Moreover, given a score estimator ̂ si(·) for a specific domain i, we use ̂ Mi to denote 
+
+> ˜
+
+E{y(i)̂ si(x(i))} in the following. 
+
+# 3 Methodology 
+
+In this section, we introduce the proposed methods of the transfer learning framework. We introduce the normalized hard -thresholding estimator of αi and the baseline estimator of 
+
+α0 as the intermediate estimators in Sections 3.1 and 3.2, respectively. The simple average estimator (SAE) and the optimal convex combination estimator (OCCE) of α0 are introduced 7in Section 3.3. In Section 3.4, we present a procedure for informative source selection. Finally, an MLP with a single hidden layer estimating the target link function is described in Section 3.5. Theoretical values of all tuning parameters are given in Section 4, and in practice they are chosen by cross-validation; details are deferred to Section II .2 of the supplement. 
+
+3.1 Estimates of Source Parameters 
+
+After obtaining the moment estimator ̂ Mi, the scaled parameter ˜αi is estimated on the i-th source domain by solving the following optimization problem: 
+
+α† 
+
+> i
+
+= argmin 
+
+> α∈Rd
+
+∥α −̂ Mi∥22 + λ2 
+
+> i
+
+∥α∥0. (3) The solution to Problem (3) is the hard-thresholding estimator, 
+
+α† 
+
+> i
+
+= HT[ ̂ Mi, λ i],
+
+i.e., each component of ̂ Mi is kept if its absolute value exceeds λi and set to zero otherwise. The final estimator of αi is then the normalized hard-thresholding estimator ̂ αi = α† 
+
+> i
+
+/∥α† 
+
+> i
+
+∥2,which serves as the only information shared from the i-th source domain in the entire transfer learning process. 
+
+3.2 Baseline Estimator of the Target Parameters 
+
+On the target domain, due to its limited observations, a more robust estimator is favored. Therefore, we propose to estimate ˜α0 via Lasso: 
+
+α† 
+
+> 0
+
+= argmin 
+
+> α∈Rd
+
+12∥̂ M0 − α0∥22 + λ0∥α0∥1. (4) The solution to Problem (4) is simply the soft-thresholding estimator: 
+
+α† 
+
+> 0
+
+= ST[ ̂ M0, λ 0],
+
+and the normalized soft-thresholding estimator ̂ αbase  
+
+> 0
+
+= α†
+
+> 0
+
+/∥α†
+
+> 0
+
+∥2 would serve as the baseline estimator of α0.83.3 Estimates of the Target Parameters 
+
+Let ¯δ = (1 /K ) ∑Ki=1 δi, if K is relatively small or the supports of δi’s overlap sufficiently, then, 
+
+¯δ remains sufficiently sparse. In this case, we propose to use the following simple average estimator. 
+
+3.3.1 the Simple Average Estimator 
+
+Let αs = (1 /K ) ∑Ki=1 αi, then, it can be estimated by ̂ αs = (1 /K ) ∑Ki=1 ̂ αi. And ¯δ can be estimated by Lasso: ̂
+
+δ = argmin 
+
+> δ∈Rd
+
+12∥̂ αs −̂ αbase  
+
+> 0
+
+− δ∥22 + γ¯δ∥δ∥1. (5) Similar to Problem (4), the solution to Problem (5) is the soft thresholding estimator: ̂
+
+δ = ST[ ̂ αs −̂ αbase  
+
+> 0
+
+, γ ¯δ]
+
+Let α† 
+
+> 0,s
+
+=̂ αs −̂ δ, then, α0 can be estimated by normalizing α†
+
+> 0,s
+
+:̂
+
+αsae  
+
+> 0
+
+= α†
+
+> 0,s
+
+∥α†
+
+> 0,s
+
+∥2
+
+.
+
+We refer to ̂ αsae  
+
+> 0
+
+as simple average estimator (SAE), since it originates from a simple average of source estimators. The procedure is outlined in Algorithm 1. 
+
+Algorithm 1 Simple Average Estimator of α0
+
+Require: Normalized hard-thresholding estimators, {̂ αi}Ki=1 , baseline estimator ̂ αbase  
+
+> 0
+
+and the hyper-parameter γ¯δ.
+
+Ensure: Simple average estimator ̂ αsae  
+
+> 0
+
+. 
+
+> 1: ̂
+
+αs ← (1 /K ) ∑Ki=1 ̂ αi 
+
+> 2: ̂
+
+δ ← ST[ ̂ αs −̂ αbase  
+
+> 0
+
+, γ ¯δ] 
+
+> 3:
+
+α† 
+
+> 0,s
+
+←̂ αs −̂ δ 
+
+> 4: ̂
+
+αsae  
+
+> 0
+
+← α†
+
+> 0,s
+
+/∥α†
+
+> 0,s
+
+∥2
+
+If K is relatively large or the sources are not similar enough, ¯δ may lack sufficient sparsity. In such scenarios, we propose the following optimal convex combination estimator. 93.3.2 the Optimal Convex Combination Estimator 
+
+Similar to ¯δ, for i ∈ [K]+, δi can be estimated by Lasso: ̂
+
+δi = argmin 
+
+> δ∈Rd
+
+12∥̂αi −̂ αbase  
+
+> 0
+
+− δ∥22 + λδi ∥δ∥1,
+
+and ̂ δi = ST[ ̂ αi −̂ αbase  
+
+> 0
+
+, λ δi ]. Consequently, α0 can be estimated by: ̂
+
+α0,i = α†
+
+> 0,i
+
+∥α†
+
+> 0,i
+
+∥2
+
+,
+
+where α† 
+
+> 0,i
+
+=̂ αi −̂ δi.The collection H = {̂α0,1, . . . , ̂ α0,K } thus forms a dictionary for estimating α0.For any weight vector γ = ([ γ]1, . . . , [γ]K )⊤ in the (K − 1) -dimensional simplex ∆K−1 := {γ ∈
+
+RK : γi ≥ 0, ∑Ki=1 γi = 1 }, let α† 
+
+> 0,γ
+
+= ∑Ki=1 [˜γ]î α0,i , define the convex combination estimator as ̂ α0,γ = ∑Ki=1 γiα† 
+
+> 0,γ
+
+/ ∥∥∥α†
+
+> 0,γ
+
+∥∥∥2. Then, the optimal weight ˜γ can be obtained by solving: 
+
+˜γ = argmin 
+
+> γ∈∆K−1
+
+∥∥∥̂ α0,γ −̂ αbase 
+
+> 0
+
+∥∥∥22 .
+
+We then define the optimal convex combination estimator (OCCE) as ̂ αocc  
+
+> 0
+
+=̂ α0,˜γ . The complete procedure is summarized in Algorithm 2. 
+
+Algorithm 2 Optimal Convex Combination Estimator of α0
+
+Require: Normalized hard-thresholding estimators {̂ αi}Ki=1 , hyper-parameters {γδi }Ki=1 , and the base estimator ̂ αbase  
+
+> 0
+
+.
+
+Ensure: Optimal convex combination estimator ̂ αocc  
+
+> 0
+
+.
+
+1: for i = 1 to K do 
+
+2: ̂ δi ← ST[ ̂ αi −̂ αbase  
+
+> 0
+
+, γ δi ]
+
+3: α† 
+
+> 0,i
+
+←̂ αi −̂ δi
+
+4: ̂ α0,i ← α†
+
+> 0,i
+
+/∥α†
+
+> 0,i
+
+∥2
+
+5: end for 
+
+6: Solve for optimal weights: 
+
+˜γ = argmin 
+
+> γ∈∆K−1
+
+F (γ)
+
+7: α†
+
+> 0,
+
+˜γ ← ∑Kk=1 ˜γk̂ α0,k 
+
+8: ̂ αocc  
+
+> 0
+
+← α†
+
+> 0,
+
+˜γ /∥α†
+
+> 0,
+
+˜γ ∥2
+
+Since both ̂ αbase  
+
+> 0
+
+and ̂ α0,γ are unit vectors, minimizing ∥∥∥̂ α0,γ −̂ αbase 
+
+> 0
+
+∥∥∥22 is equivalent to 10 maximizing their correlation: 
+
+F (γ) = ( ̂ αbase  
+
+> 0
+
+)⊤̂ α0,γ = (̂αbase  
+
+> 0
+
+)⊤ ∑Ki=1 γî α0,i  
+
+> ∥∥∥∑Kk=1
+
+γî α0,i 
+
+> ∥∥∥2
+
+.
+
+Defining the vector b ∈ RK with bi = ( ̂αbase  
+
+> 0
+
+)⊤̂ α0,i and the Gram Matrix A ∈ RK×K with 
+
+Ai,j =̂ α⊤ 
+
+> 0,i ̂
+
+α0,j , we can rewrite F (γ) as F (γ) = b⊤γ/
+
+> √
+
+γ⊤Aγ . Therefore, the optimization problem reduces to ˜γ = argmax γ∈∆K−1 F (γ), which can be efficiently solved by the Frank-Wolfe algorithm, as detailed in Algorithm 1 in Section II .1 of Supplement. 
+
+3.4 the Source Selection Procedure 
+
+Algorithms 1 and 2 require prior knowledge of which sources are informative (this concept is defined in Section 4.1). In practice, however, this information is often unavailable. Transferring uninformative sources may be unhelpful or even degrade performance compared to using the target data alone, a phenomenon known as negative transfer (Pan and Yang, 2010; Torrey and Shavlik, 2010; Weiss et al., 2016; Li et al., 2022; Tian and Feng, 2023). To avoid this problem, we propose a source selection procedure (Algorithm 3) based on estimated contrasts. Under certain assumptions, this procedure correctly identifies informative versus non -informative sources with high probability; its consistency of selection is formally established in Proposition 5. 
+
+Algorithm 3 Selection of Informative Sources by Infinity Norm Ranking 
+
+Require: Baseline estimator ̂ αbase  
+
+> 0
+
+, normalized hard-thresholding estimators {̂αi}Ki=1 , number of desired informative sources k.
+
+Ensure: The set of informative sources I (size k) 
+
+> 1:
+
+for i = 1 to K do  
+
+> 2:
+
+δ† 
+
+> i
+
+←̂ αi −̂ αbase  
+
+> 0
+> 3:
+
+ri ← ∥ δ† 
+
+> i
+
+∥∞ 
+
+> 4:
+
+end for  
+
+> 5:
+
+Sort indices by ri in ascending order to obtain rank (1) , . . . , rank (K) 
+
+> 6:
+
+I ← { rank (1) , . . . , rank (k) }
+
+In our setting, two factors necessitate prior knowledge of the number of informative sources or the use of conservative source - selection strategies. First, methods such as that of Tian 11 and Feng (2023) rely on access to source data, which is unavailable in our source -data -free framework; their detection procedure therefore cannot be applied. Second, due to the presence of unknown nonlinear link functions in the target domain, simple surrogate losses like MSE, which are friendly to small sample sizes under linear models, cannot reliably guide automatic threshold selection via cross -validation. We illustrate this second issue using the method of Tian and Feng (2023) as an example in Section 5.2. 
+
+3.5 the Estimate of f0
+
+We estimate f0 with a single-hidden-layer neural network: ̂ fθ(x) = w⊤ 
+
+> o
+
+ϕ(whx + bh) + bo, where 
+
+θ = ( bo, b⊤ 
+
+> h
+
+, w⊤ 
+
+> o
+
+, w⊤ 
+
+> h
+
+)⊤ comprises all learnable parameters and ϕ is an almost-everywhere differentiable activation function. Given an estimator ̂ α0 of α0, we fit θ by solving ̂
+
+θe(̂α0) = argmin 
+
+> θ∈Θ
+> ˜
+
+ETf0 [{y −̂ fθ(̂α⊤ 
+
+> 0
+
+x)}2],
+
+where Θ ⊂ Rd is the parameter space and Tf0 is the training set. While Tf0 could be a subset of T0 for theoretical convenience, we use Tf0 = T0 to maximize data efficiency, which does not affect the analysis in Section 4.7. For notational convenience, we abbreviate ̂ θe(̂α0) as ̂ θe when no confusion arises. Correspond-ingly, we denote the estimated link function based on ̂ α0 as ̂ f̂α 0 :=̂ f̂ θe . Finally, the composed estimator of the target function f0{α⊤ 
+
+> 0
+
+(·)} is denoted by ĝα 0 := ̂ f̂α 0 {̂α⊤ 
+
+> 0
+
+(·)}.
+
+# 4 Theoretical Analysis 
+
+This section provides theoretical analyses of the proposed methods. We begin by outlining the fundamental definition and assumptions in Section 4.1. Section 4.2 establishes the convergence properties of the normalized hard-thresholding estimators, and Section 4.3 does the same for the baseline estimator. Under the assumption that all sources are informative, we then derive the convergence rate of the simple average estimator (Section 4.4) and analyze the optimal convex combination estimator (Section 4.5). Furthermore, Section 4.6 proves the 12 selection consistency of our informative-source selection procedure under mild conditions. Finally, Section 4.7 provides an error decomposition of the composed estimator when both the target index and the link function are estimated. All proofs are deferred to the supplementary materials. 
+
+4.1 Fundamental definiton and Assumptions 
+
+We begin by stating the fundamental definition and assumptions governing our setup and underpinning the possibility of positive knowledge transfer. 
+
+Definition 2 (Informative Source) . Let hi = ∥δi∥1, we say the i-th source is informative if 
+
+s0 ≍ si and hi = o {√ 
+
+s0 ln(2 n20)/n 0 + √s0ϕ(n0)}
+
+.
+
+Our requirements for informative sources are two -fold. First, the source indices should be as sparse as the target index, so that the two are similar in sparsity pattern. Second, their contrasts need to be small enough to allow the proposed methods to exploit the similarity (this is where the ϕ(n0) term arises). Here we impose constraints on ∥δi∥1 rather than ∥δi∥0,since this is more realistic: in practice, small differences may exist in certain coordinates. In the following, unless stated otherwise, we assume that all sources in [K]+ are informative. 
+
+Assumption 2. For all j, k ∈ [K]+, sj ≍ sk, hj ≍ hk and nj ≍ nk. Furthermore, n0 = o(nj ),and s0/
+
+> √
+
+n0/ ln(2 n20) = o(1) .
+
+Assumption 3. As n0 → ∞ , d/ (n20) → 0.
+
+Assumption 2 specifies a common transfer setting: sample-rich source domains contrasted with a data-scarce target domain, as often encountered with underrepresented groups or new system users. Moreover, it requires the level of information from all sources to be the similar; otherwise, the less informative sources can be eliminated. It further requires the indices to be sufficiently sparse and to scale appropriately with the sample sizes. Assumption 3 controls the regime of dimensionality we consider for the target domain. Since μi’s are no longer treated as fixed, to ensure that Model (1) remains well-defined, we introduce the following assumption. 13 Assumption 4. For any i ∈ [K], ∃ ci, 0 > 0. such that |μi| > c i, 0 as n0 → ∞ .
+
+4.2 Properties of the Normalized Hard Thresholding Estimators 
+
+The derivation of the hard thresholding estimator’s properties requires a set of assumptions on the underlying score and link functions, which we specify below. 
+
+Assumption 5. For any i ∈ [K], and any j ∈ [d]+, [̂ si(x(i))] j is sub-Gaussian, i.e., ∃ ci, 1 > 0
+
+a constant, s.t. sup ℓ∈N+ ℓ−1/2[E{| [̂ si(x(i))] j |ℓ}]1/ℓ ≤ ci, 1.
+
+Assumption 5 requires the score estimators to be element-wise sub-Gaussian, a condition commonly imposed on the true score function in the related literature (Babichev and Bach, 2018). For kernel score estimators with point-wise convergence guarantees (Zhou et al., 2020), sub-Gaussianity is preserved if the true score function is sub-Gaussian. However, whether DNN score estimators preserve sub-Gaussianity is case -dependent and may require further constraints. Nevertheless, in principle, the sub-Gaussian assumption can be relaxed to finite moment conditions, which is sufficient for applying Stein’s identity. Yang et al. (2017), for instance, required a finite fourth moment via truncation. While this suggests a viable approach to handle heavy-tailed scores, such extensions are not central to the current analysis. 
+
+Assumption 6. For any i ∈ [K], fi(α⊤ 
+
+> i
+
+x(i)) is sub-Gaussian, i.e., ∃ ci, 2 > 0 a constant, s.t. 
+
+sup ℓ∈N+ ℓ−1/2[E{fi(α⊤ 
+
+> i
+
+x(i))ℓ}]1/ℓ ≤ ci, 2 .
+
+Assumption 6 further constrains the behavior of the link functions, a condition satisfied by many common function classes including Lipschitz functions. Under these assumptions, we establish Lemma 2, which characterizes the convergence rate of the moment estimator. 
+
+Lemma 2. Under the condition of Lemma 1, Assumptions 1, 5, and 6. For any i ∈ [K], if ϵi
+
+in model (1) follows sub-gaussian distributions with mean 0, then, ∃ ci, 3’s depending on the 
+
+14 sources of data, such that for any j ∈ [d]+, with probability at most δ,
+
+|[̂ Mi]j − [ ˜αi]j | ≥ ci, 3
+
+√
+
+ln(2 /δ )/n i + √2ci, 2ϕ(ni). (6) In the following, let Ei,j denote the event {| [̂ Mi]j − [ ˜αi]j | > λi}, where λi =
+
+· {
+
+ci, 3
+
+√
+
+ln(2 n2 
+
+> i
+
+)/n i + √2ci, 2ϕ(ni)}
+
+for i ∈ [K]+ and λ0 = 2 · {
+
+c0,3
+
+√
+
+ln(2 n20)/n 0 + √2c0,2ϕ(n0)}
+
+.Apparently, P(Ei,j ) ≤ δ.Building on Lemma 2, we can derive the following properties of the normalized hard thresh-olding estimator ̂ αi.
+
+Proposition 1. Under the conditions of Lemma 2, for any i ∈ [K]+, for large enough ni, on the event (
+
+∪j∈[d]+ Ei,j 
+
+)c
+
+, the following holds: 
+
+∥̂ αi − αi∥1 ≤ 4siλi
+
+ci, 0 − 2√siλi
+
+, (7a) 
+
+∥̂ αi − αi∥2 ≤ 4√siλi
+
+ci, 0 − 2√siλi
+
+, (7b) 
+
+and 
+
+∥̂ αi − αi∥∞ ≤ 2λi
+
+ci, 0 − 2√siλi
+
++ 2√siλi
+
+ci, 0 − 2√siλi
+
+. (7c) In the following, for i ∈ [K]+, let γi = 2 λi/(ci, 0 − 2√siλi) + 2 √siλi/(ci, 0 − 2√siλi).
+
+4.3 Properties of the Baseline Estimator 
+
+By Lemma 2, we can derive the following properties of the baseline estimator. 
+
+Proposition 2. Under the conditions of Lemma 2, for large enough n0 so that 3√s0λ0 < 2c0,0,on the event (
+
+∪j∈[d]+ E0,j 
+
+)c
+
+, the following holds: 
+
+∥∥∥α† 
+
+> 0
+
+− ˜α0
+
+∥∥∥1 ≤ 6s0λ0 and ∥∥∥α† 
+
+> 0
+
+− ˜α0
+
+∥∥∥2 ≤ 32
+
+√s0λ0. (8) 
+
+Moreover, 
+
+∥∥∥̂ αbase  
+
+> 0
+
+− α0
+
+∥∥∥1 ≤ 15 s0λ0
+
+2c0,0 − 3√s0λ0
+
+, (9a) 15 ∥∥∥̂ αbase  
+
+> 0
+
+− α0
+
+∥∥∥2 ≤ 6√s0λ0
+
+2c0,0 − 3√s0λ0
+
+, (9b) 
+
+and 
+
+∥∥∥̂ αbase  
+
+> 0
+
+− α0
+
+∥∥∥∞ ≤ 6√s0λ0
+
+2c0,0 − 3√s0λ0
+
+. (9c) Henceforth, let γ0 = 6 √s0λ0/(2 c0,0 − 3√s0λ0).
+
+4.4 Properties of the Simple Average Estimator 
+
+Let ∥¯δ∥0 = s¯δ and ∥¯δ∥1 = h. Apparently, h ≤ ∥ ¯δ∥0 · ∥ ¯δ∥∞ ≤ s¯δ∥¯δ∥∞. Furthermore, let γ¯δ = 2 {(1 /K ) ∑Ki=1 γi + γ0}, σ1 = (1 /K ) ∑Ki=1 4siλi/(ci, 0 − 2√siλi) + 4 √
+
+2s¯δhγ ¯δ, and 
+
+σ2 = (1 /K ) ∑Ki=1 4√siλi/(ci, 0 − 2√siλi) + √
+
+2hγ ¯δ. Then, we can obtain the following convergence rates of the SAE. 
+
+Theorem 1. Under the conditions of Proposition 1 and Assumption 3, ∃Ni, i ∈ [K] large enough, so that if ni > N i jointly hold, then, on the event (
+
+∪i∈[K] ∪j∈[d]+ Ei,j 
+
+)c
+
+, we obtain the following: 
+
+∥̂ αsae  
+
+> 0
+
+− α0∥2 ≤ 2σ2
+
+c0,0 − σ2
+
+(10a) 
+
+and 
+
+∥̂ αsae  
+
+> 0
+
+− α0∥1 ≤ σ1 + √s0σ2
+
+c0,0 − σ2
+
+. (10b) 
+
+Remark 1. Let bbase  
+
+> 2
+
+, bbase  
+
+> 1
+
+, bsae  
+
+> 2
+
+and bsae  
+
+> 1
+
+be the upper bounds in Inequalities 9a, 9b, 10a and 10b, respectively. Combining Proposition 1 and Theorem 1, we obtain that for n0 large enough, 
+
+∃ ni, i ∈ [K]+ large enough such that on the event (
+
+∪i∈[K] ∪j∈[d]+ Ei,j 
+
+)c
+
+, bsae  
+
+> 2
+
+≍ √√s0hλ 0
+
+and bsae  
+
+> 1
+
+≍ √√s0s¯δhλ 0, while bbase  
+
+> 2
+
+≍ √s0λ0, bbase  
+
+> 1
+
+≍ s0λ0. If h = o(√s0λ0), especially, if 
+
+s¯δ∥¯δ∥∞ = o(√s0λ0), then bsae  
+
+> 2
+
+= o(bbase  
+
+> 2
+
+). Furthermore, if s¯δ = O(s0) holds, bsae  
+
+> 1
+
+= o(bbase  
+
+> 1
+
+).The potential improvement in convergence rates demonstrates the advantage of the SAE over the baseline estimator. This gain arises from two sources: first, the positive transfer of knowledge from the source data, which relies on the sparser structure of the contrast; second, the more accurate estimation of score functions in the source domain, which renders the 
+
+16 estimation error of ¯δ negligible. 
+
+4.5 Properties of the Optimal-Convex-Combination Estimator 
+
+For any i ∈ [K]+, let ∥δi∥0 = sδi and ∥δi∥1 = hi. Then, hi ≤ ∥ δi∥0 · ∥ δi∥∞ ≤ sδi ∥δi∥∞.Moreover, let γδi = 2( γi + γ0), σi, 1 = 4siλi/(ci, 0 − 2√siλi) + 4 √
+
+2sδi hiγδi and σi, 2 =4√siλi/(ci, 0 − 2√siλi) + √
+
+2hiγδi .For the source estimators, we establish the following high-probability error bounds. 
+
+Proposition 3. Under the conditions of Lemma 2 and Assumptions 2 to 4, for any i ∈ [K]+,
+
+∃Ni large enough, so that if ni > N i, then, on the event (
+
+∪k∈{ 0,i } ∪j∈[d]+ Ek,j 
+
+> )c
+
+, we obtain the following: 
+
+∥̂ α0,i − α0∥2 ≤ 2σi, 2
+
+ci, 0 − 2√siλi
+
+, (11a) 
+
+and 
+
+∥̂ α0,k − α0∥1 ≤ σi, 1 + √s0σi, 2
+
+ci, 0 − 2√siλi
+
+. (11b) For any estimator ̂ α0 of α0, define its empirical MSE and population MSE respectively as 
+
+[MSE (̂α0) = 
+
+> ∥∥∥̂
+
+αbase  
+
+> 0
+
+−̂ α0 
+
+> ∥∥∥22
+
+and MSE (̂ α0) = ∥̂α0 − α0∥22 .
+
+Now consider a non-stochastic dictionary of ℓ estimates of α0, denoted by H = {̂ α0,1, . . . , ̂ α0,ℓ },and let r∗H = sup i∈[ℓ]+ ∥̂ α0,i − α0∥2.Proposition 4 provides a high -probability upper bound for the MSE of the optimal convex combination estimator of the dictionary . 
+
+Proposition 4. Under the conditions of Proposition 1 and Assumption 4, further assume that for the non-stochastic dictionary H, r∗H < 1, for large enough n0, on the event (
+
+∪j∈[d]+ E0,j 
+
+> )c
+
+,MSE (̂ α0,˜γ ) ≤ inf  
+
+> γ∈∆ℓ
+
+MSE (̂α0,γ ) + 24 √s0r∗Hλ0
+
+(1 − r∗H)(2 c0,0 − 3√s0λ0). (12) We now derive explicit convergence guarantee for the optimal convex combination estimator ̂
+
+α0,˜γ . This result follows from Proposition 4 and is stated below. 17 Theorem 2. Under the conditions of Proposition 4 and Assumption 2, for any n0 ∈ N+,
+
+∃Nk(c0,0, n 0) for k ∈ [K]+ and some constants c1,6, c 2,6 > 0 w.r.t ni, so that for any 
+
+nk > N k(c0,0, n 0), with probability at least 1 − ∑Ki=0 d/n 2 
+
+> i
+
+, the estimator ̂ α0,˜γ obtained from Algorithm 2 satisfies MSE (̂ α0,˜γ ) ≤ inf 
+
+> i∈[K]+
+
+4σ2
+
+> i, 2
+
+(ci, 0 − 2√siλi)2 + 24 √s0λ0
+
+(1 − c)(2 c0,0 − 3√s0λ0) sup 
+
+> i∈[K]+
+
+2σi, 2
+
+ci, 0 − 2√siλi
+
+. (13) 
+
+Remark 2. Let bbase  
+
+> 2
+
+, and bocc  
+
+> 2
+
+be the upper bounds in Inequalities 9a and 13, respectively. Combining Proposition 1 and Theorem 1, we obtain that for n0 large enough, and any 
+
+i ∈ [K]+, ∃ Ni > 0, such that for any ni > N i, on the event (
+
+∪k∈{ 0,i } ∪j∈[d]+ Ek,j 
+
+> )c
+
+, bocc  
+
+> 2
+
+≍{√s0hiλ0 + ( √siλi + √√s0hiλ0)√s0λ0}, while (bbase  
+
+> 2
+
+)2 ≍ s0λ20. Similar to the discussion in Remark 1, by Definition 2, if all sources are informative, bocc  
+
+> 2
+
+= o{(bbase  
+
+> 2
+
+)2}.
+
+Comparing the error bounds of SAE and OCCE in Inequalities (10a) and (13) , respectively, we obtain the following corollary regarding their relationship. 
+
+Corollary 1. Let κSAE denote the square of the error bound in Inequality (10a) and κOCCE 
+
+denote the error bound in Inequality (13) . Under the conditions of Theorem 1 and Theorem 2, we have the following relationship between κSAE and κOCCE :1. If {
+
+s1/2 
+
+> i
+
+λi + s1/40 (hiλ0)1/2}
+
+= o(h), κOCCE = o(κSAE ).2. If {
+
+s1/2 
+
+> i
+
+λi + s1/40 (hiλ0)1/2}
+
+≍ h, κOCCE ≍ κSAE .3. If h = o {
+
+s1/2 
+
+> i
+
+λi + s1/40 (hiλ0)1/2}
+
+, κSAE = o(κOCCE ).
+
+Remark 3. The result in Corollary 1 aligns with intuition: if the source indices are comple-mentary such that ¯δ remains sufficiently sparse, the SAE can accelerate convergence by pooling more samples across similar sources. Conversely, if the source indices are so heterogeneous that the sparsity of ¯δ is violated, then, under the assumption that all sources are informative, the combined sources, even if individually informative, may jointly perform worse than a single worst source. In the latter case, the OCCE is preferable. 
+
+18 4.6 Properties of Informative-Source Selection Procedure 
+
+To distinguish between non-informative and informative sources, some extra assumptions are necessary. 
+
+Assumption 7. For large enough n0, ∃δ(n0) > 0, such that for any informative source i,and any j ∈ { j ∈ [d]+|[δi]j̸ = 0 }, |[δi]j | < {1 + δ(n0)}γ0, while for non-informative source i′,exists j′ ∈ { j ∈ [d]+|[δi′ ]j̸ = 0 }, such that γ0 = o(|[δi′ ]j′ |).
+
+To distinguish informative from non-informative sources, Assumption 7 requires that for the former, all non-zero entries of their contrast (relative to the source domain) be sufficiently small, while for the latter, at least one such entry exceed a detectable threshold. Under Assumption 7, we establish the following “consistency” result for the informative-source selection procedure. 
+
+Proposition 5. Suppose Assumptions 1 to 7 hold, for ∀ξ > 0, ∃N0(ξ) ∈ N+ such that for 
+
+n0 > N 0(ξ), ∃N (ξ, n 0) ∈ N+, if min i∈[K]+ ni > N (ξ, n 0), then, if k equals to the true number of informative sources, with probability at least 1 − ξ, sources in I are all informative while sources not in are all non-informative. 
+
+Remark 4. Proposition 5 guarantees that, as n0 and ni tend to infinity in a sequential manner, the selection procedure is “consistent” with high probability. However, it requires strong prior knowledge to know the true number of informative sources or users need to take conservative strategies, i.e, select a small number of source domains to avoid negative transfer. 
+
+4.7 Error Decomposition of the Composed Estimator 
+
+This subsection presents an error decomposition analysis for the composed estimator. We first state the following regularity conditions required for the analysis. 
+
+Assumption 8. For x(0) = ([ x(0) ]1, . . . , [x(0) ]d)⊤, [x(0) ]1, . . . , [x(0) ]d are i.i.d sub-Gaussian with mean 0. 
+
+Assumption 9. ϵ0 follows a symmetric sub-Gaussian distribution with mean 0 and variance 
+
+19 σ2.
+
+Assumption 10. f0 is L0-Lipschitz. 
+
+Assumption 11. The function class ̂ f(·) is defined on a compact parameter space Θ ⊂
+
+[−B, B ]⊗(3 w+1) , and the activation function ϕ is ReLU. 
+
+Assumption 8 is commonly used in both theoretical analysis and simulations in literature on Stein’s methods (Yang et al., 2017; Balasubramanian et al., 2018; Na et al., 2019). Assumption 9 is similarly mild and holds for standard zero-centered error distributions such as Gaussian and symmetric uniform. Assumption 10 ensures boundedness of the gradient of f0,a condition that could be relaxed to hold locally on the input domain. Finally, Assumption 11 specifies a widely adopted single-layer MLP architecture. The parameter B, which bounds the parameters, is not fixed but allowed to grow with the network width w. Moreover, for the generalization error to vanish, B must indeed increase with w, a condition formally established in Proposition 6 below. In practice, such boundedness is often enforced via parameter clipping. Under the stated assumptions, we derive the following upper bound for the expected mean squared error. 
+
+Proposition 6. Under the conditions of Theorem 2 and Assumptions 8 to 11, for an estimator ̂
+
+α0 of α0 with ∥̂ α0∥2 = 1 , the following upper bound on the expected mean squared error holds: 
+
+E[{f0(α⊤ 
+
+> 0
+
+x(0) ) −̂ f̂ θe (̂α⊤ 
+
+> 0
+
+x(0) )}2]=O(d∥α0 −̂ α0∥22) + O 
+
+> (
+
+w5/2B4 ln n
+
+√n
+
+> )
+
++ O 
+
+> {
+
+B2
+
+w2 + B2 exp  
+
+> (
+
+−B2
+
+C
+
+> )}
+
++ σ2,
+
+for some constant C > 0 depending on x(0) and f0.
+
+Remark 5. The upper bound in Proposition 6 consists of four components. The first term arises from the error in estimating the index α0 by ̂ α0. It scales linearly with the dimension dd due to the i.i.d. covariate assumption; this dependence can be reduced by imposing sparsity or correlation structures. The second and third terms together represent the generalization error of the neural network ap-
+
+20 proximating f0, evaluated under the data distribution induced by ̂ α0, i.e., on {̂α⊤ 
+
+> 0
+
+x, f 0(̂α⊤ 
+
+> 0
+
+x) + 
+
+ϵ}.The second term arises from fitting the network to n samples. Its order is O (
+
+w5/2B4 ln n/ √n)
+
+,showing high-order dependence on width w and parameter bound B. This stems from the squared loss analysis: the Lipschitz constant of the loss is proportional to that of the ReLU network class, which scales as wB 2; squaring it gives B4and the higher width dependence. The third term reflects the ability of a finite-width ReLU network to approximate f0 over the relevant domain. A trade-off arises: for the approximation error to vanish, B must tend to infinity, but slower than w. This is because without a bounded input assumption, finite-width ReLU networks grow linearly outside a compact set; controlling the expected MSE requires expanding the effective domain, forcing B → ∞ . In practice, inputs can be bounded (e.g., via normalization), so B need not diverge and can even decrease with w, alleviating the high-order dependence (Bartlett et al., 2017). However, this practical observation is beyond our core theoretical focus; we present the general bounds without assuming input boundedness. Finally, the fourth term stems from the irreducible error of the random noise ϵ.
+
+# 5 Simulation Studies 
+
+The simulation study comprises two main components. First, we evaluate the performances of the SAE and OCCE in recovering the index α0, as well as the performance of the composite estimators in estimating the function f0{α⊤ 
+
+> 0
+
+(·)}. Second, we demonstrate the efficacy of the proposed informative-source selection algorithm. Throughout the experiments, the covariates 
+
+x(i), for i ∈ [K] are generated from N (0, Σ), where Σi,j = ρ|i−j|, for i, j ∈ [d]+. We set an equal sample size across all sources, i.e., ni = n for each i ∈ [K]+. In the study, we use a deep neural network with denoise score matching as the score function. All details of the design of the experiments and extensions are deferred to Section II .3 of the supplement. 21 5.1 Performances of Proposed Estimators 
+
+In this part, the observations are generated in the following procedure. 
+
+5.1.1 the Data Generating Process 
+
+1. Generate α0.
+
+(i) Generate s0 i.i.d samples from Pp, denoted as a = ([ a]1, . . . , [a]s0 )⊤.
+
+(ii ) Let [α‡
+
+> 0
+
+]1: s0 = a and [α‡
+
+> 0
+
+](s0+1): d = 0.
+
+(iii ) Let α0 = α‡
+
+> 0
+
+/∥α‡
+
+> 0
+
+∥2.2. For i ∈ [K]+, generate αi.
+
+(i) For any i ∈ [K]+, sample Iio = {pi,o 1 , . . . , p i,o di } uniformly from [s0]+ without replacement. 
+
+(ii ) Sample Iit = {pi,t 1 , . . . , p i,t di } uniformly from [d]+ \ [s0]+ without replacement. 
+
+(iii ) Let [α‡ 
+
+> i
+
+]Iit = [ α‡
+
+> 0
+
+]Iio and [α‡
+
+> 0
+
+]Iio = ζi · [α‡ 
+
+> i
+
+]Iio .
+
+(iv ) Let αi = α‡ 
+
+> i
+
+/∥α‡ 
+
+> i
+
+∥2.3. For i ∈ [K]+, generate ni i.i.d. training samples from the i-th source and n0 i.i.d. training samples as well as the testings set Stest consisting of ntest i.i.d. samples from the target based on Model (1). 
+
+5.1.2 Competing Methods 
+
+We compare the proposed methods with several competing approaches: a baseline estimator, a target -domain -only neural network (NN) method, and a target -domain -only lasso estimator. Because our setup assumes no access to source data, very few existing transfer learning methods in the literature can be fairly compared. Nevertheless, we include the transfer learning method A-Trans-GLM introduced by Tian and Feng (2023), which reduces to a linear method under our setting. 22 We aim to demonstrate three key points. First, even when only estimated indices are accessible, combining a larger and more diverse set of informative indices yields more accurate estimation of the target index, approaching the performance of the pooling estimators in Tian and Feng (2023). Second, although individual indices can be helpful, the performance of pooling estimators may deteriorate as more informative sources are added, due to the influence of varying link functions. Third, guidance from pre -trained indices helps mitigate the overfitting problem of MLP when target samples are scarce, enabling it to generalize better than linear methods ( A-Trans-GLM). For the NN method, we first obtain α† 
+
+> 0,n
+
+and ̂ θe(α†
+
+> 0,n
+
+) by solving 
+
+α†
+
+> 0,n
+
+,̂ θe(α†
+
+> 0,n
+
+) = argmin 
+
+> α∈Rd,θ∈Θ
+> (˜
+
+E
+
+> [
+
+y −̂ fθ(α⊤x)2]
+
++ λ∥α∥1
+
+> )
+
+,
+
+where λ is a tuning parameter. The target index is estimated by ̂ α0,n = α†
+
+> 0,n
+
+/∥α†
+
+> 0,n
+
+∥2, and the composed estimator is itself, i.e., ĝα 0,n := ̂ f̂ θe(α†
+
+> 0,n )
+> {
+
+(α†
+
+> 0,n
+
+)⊤(·)}
+
+.For the target-domain-only lasso estimator, let α† 
+
+> 0,ℓ
+
+= {α†
+
+> b
+
+, (α†
+
+> w
+
+)⊤}⊤ denote the lasso estimator on the target domain. Then, α0 is estimated by ̂ α0,ℓ = α†
+
+> w
+
+/∥α†
+
+> w
+
+∥2 and f0{α⊤ 
+
+> 0
+
+(·)} is estimated by the linear model, i.e., ĝα 0,ℓ := α† 
+
+> b
+
++ ( α†
+
+> w
+
+)⊤(·). For A-Trans-GLM, the index estimator ̂ α0,tℓ 
+
+and corresponding composed estimator ĝα 0,tℓ are obtained in the same way. 
+
+5.1.3 Comparison 
+
+In this part, we first evaluate the performance of proposed methods in estimating the target index α0. For an estimator ̂ α0, we provide ∥̂ α0 − α0∥1, ∥̂α0 − α0∥2 and the angle between ̂
+
+α0 and α0 denoted by ϵL1 , ϵL2 and ϵA, respectively. Due to the inherent unidentifiability of the sign, we align the estimator’s orientation with that of the true α0 before computing these distances. Then, the performances of the composite estimators are evaluated by the out-of-sample R-squared on the test set, which is defined as 
+
+R2 
+
+> oos
+
+= 1 − ˜EStest 
+
+> {
+
+ĝα 0 (x(0) ) − y(0) }2
+
+> ˜
+
+EStest 
+
+> {
+
+y(0) − ˜EStest (y(0) )}2 .
+
+23 In this study, we consider K = 1 , 4, 7 and three different combinations of link functions: 
+
+Case 1. All domains share the same link function f (x) = erf (x).
+
+Case 2. For i ∈ [K], the link function of the i-th domain is fi(x) = tanh (x − 0.25 i).
+
+Case 3. In this case, we explore link functions in a more diversified way. Specifically, we let f0(x) = tanh (x), f1(x) = erf (x − 0.25) , f2(x) = sin (x − 0.25) , f3(x) = sigmoid (x −
+
+0.25) , f4(x) = tanh (x − 0.25) , f5(x) = erf (x + 0 .5) , f6(x) = sin (x + 0 .5) , and f7(x) = 
+
+sigmoid (x + 0 .5) .Table 1: Comparison of performances of competing methods in Case 1 over 100 repetitions. 
+
+K = 1 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2803 ±0.0286 1.8902 ±0.2057 16.1 ±1.7 ĝα 0,ℓ 
+
+0.5581 ±0.0167 ̂
+
+α 0,tℓ 0.1473 ±0.0256 0.7867 ±0.1714 8.5 ±1.5 ĝα 0,tℓ 
+
+0.5790 ±0.0138 ̂
+
+α 0,n 0.3253 ±0.0282 2.5983 ±0.2245 8.7 ±1.6 ĝα 0,n 
+
+0.5871 ±0.0233 ̂
+
+α base  
+
+> 0
+
+1.0062 ±0.1115 7.9553 ±0.8838 60.6 ±7.5 ĝα base 
+
+> 0
+
+0.2086 ±0.0788 ̂
+
+α sae  
+
+> 0
+
+0.3781 ±0.0479 2.8427 ±0.5670 21.8 ±2.8 ĝα sae 
+
+> 0
+
+0.5518 ±0.0304 ̂
+
+α occ  
+
+> 0
+
+0.3781 ±0.0479 2.8427 ±0.5670 21.8 ±2.8 ĝα occ 
+
+> 0
+
+0.5505 ±0.0303 
+
+K = 4 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2766 ±0.0347 1.8649 ±0.2447 15.9 ±2.0 ĝα 0,ℓ 
+
+0.5596 ±0.0162 ̂
+
+α 0,tℓ 0.0987 ±0.0216 0.5270 ±0.1533 5.7 ±1.2 ĝα 0,tℓ 
+
+0.5854 ±0.0140 ̂
+
+α 0,n 0.3210 ±0.0271 2.5752 ±0.2392 18.5 ±1.6 ĝα 0,n 
+
+0.5885 ±0.0233 ̂
+
+α base  
+
+> 0
+
+0.9957 ±0.1191 7.8634 ±0.9288 59.9 ±8.1 ĝα base 
+
+> 0
+
+0.2101 ±0.0787 ̂
+
+α sae  
+
+> 0
+
+0.2113 ±0.0375 1.6572 ±0.2928 12.1 ±2.2 ĝα sae 
+
+> 0
+
+0.6134 ±0.0217 ̂
+
+α occ  
+
+> 0
+
+0.2632 ±0.1213 2.0421 ±0.9523 15.2 ±7.4 ĝα occ 
+
+> 0
+
+0.5930 ±0.0691 
+
+K = 7 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2744 ±0.0299 1.8370 ±0.2186 15.8 ±1.7 ĝα 0,ℓ 
+
+0.5612 ±0.0138 ̂
+
+α 0,tℓ 0.0770 ±0.0219 0.4309 ±0.1432 4.4 ±1.3 ĝα 0,tℓ 
+
+0.5890 ±0.0121 ̂
+
+α 0,n 0.3216 ±0.0338 2.5619 ±0.2894 18.5 ±2.0 ĝα 0,n 
+
+0.5896 ±0.0200 ̂
+
+α base  
+
+> 0
+
+0.9891 ±0.1180 7.8458 ±0.9442 59.4 ±8.0 ĝα base 
+
+> 0
+
+0.2141 ±0.0796 ̂
+
+α sae  
+
+> 0
+
+0.1632 ±0.0169 1.2877 ±0.1417 9.4 ±1.0 ĝα sae 
+
+> 0
+
+0.6275 ±0.0185 ̂
+
+α occ  
+
+> 0
+
+0.2386 ±0.1152 1.8590 ±0.9173 13.8 ±7.2 ĝα occ 
+
+> 0
+
+0.6045 ±0.0634 
+
+Note: Data are presented as mean ±std. 
+
+Tables 1 to 3 summarize the outcomes of the three cases, respectively. We first analyze the estimates of the target index. For the non - transfer method, ̂ α0,ℓ performs best, because the 24 Table 2: Comparison of performances of competing methods in Case 2 over 100 repetitions. 
+
+K = 1 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2951 ±0.0289 1.9901 ±0.2154 17.0 ±1.7 ĝα 0,ℓ 
+
+0.5320 ±0.0188 ̂
+
+α 0,tℓ 0.1610 ±0.0253 0.8547 ±0.1621 9.2 ±1.5 ĝα 0,tℓ 
+
+0.5523 ±0.0157 ̂
+
+α 0,n 0.3566 ±0.0305 2.8507 ±0.2432 20.5 ±1.8 ĝα 0,n 
+
+0.5424 ±0.0264 ̂
+
+α base  
+
+> 0
+
+1.0091 ±0.1100 7.9764 ±0.8785 60.7 ±7.4 ĝα base 
+
+> 0
+
+0.1986 ±0.0739 ̂
+
+α sae  
+
+> 0
+
+0.3841 ±0.0465 2.8979 ±0.5398 22.1 ±2.7 ĝα sae 
+
+> 0
+
+0.5199 ±0.0298 ̂
+
+α occ  
+
+> 0
+
+0.3841 ±0.0465 2.8979 ±0.5398 22.1 ±2.7 ĝα occ 
+
+> 0
+
+0.5191 ±0.0298 
+
+K = 4 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2917 ±0.0356 1.9667 ±0.2571 16.8 ±2.1 ĝα 0,ℓ 
+
+0.5332 ±0.0180 ̂
+
+α 0,tℓ 0.1265 ±0.0336 0.7095 ±0.2499 7.3 ±1.9 ĝα 0,tℓ 
+
+0.5521 ±0.0155 ̂
+
+α 0,n 0.3518 ±0.0307 2.8203 ±0.2697 20.3 ±1.8 ĝα 0,n 
+
+0.5443 ±0.0257 ̂
+
+α base  
+
+> 0
+
+0.9980 ±0.1183 7.8802 ±0.9239 60.0 ±8.0 ĝα base 
+
+> 0
+
+0.1991 ±0.0748 ̂
+
+α sae  
+
+> 0
+
+0.2206 ±0.0409 1.7380 ±0.3232 12.7 ±2.4 ĝα sae 
+
+> 0
+
+0.5747 ±0.0255 ̂
+
+α occ  
+
+> 0
+
+0.2727 ±0.1285 2.1194 ±1.0118 15.7 ±7.8 ĝα occ 
+
+> 0
+
+0.5549 ±0.0691 
+
+K = 7 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2896 ±0.0304 1.9392 ±0.2248 16.7 ±1.8 ĝα 0,ℓ 
+
+0.5347 ±0.0161 ̂
+
+α 0,tℓ 0.2084 ±0.0322 1.2918 ±0.2830 12.0 ±1.9 ĝα 0,tℓ 
+
+0.5429 ±0.0170 ̂
+
+α 0,n 0.3536 ±0.0381 2.8165 ±0.3171 20.4 ±2.2 ĝα 0,n 
+
+0.5448 ±0.0232 ̂
+
+α base  
+
+> 0
+
+0.9912 ±0.1175 7.8641 ±0.9402 59.6 ±7.9 ĝα base 
+
+> 0
+
+0.2025 ±0.0762 ̂
+
+α sae  
+
+> 0
+
+0.1803 ±0.0158 1.4334 ±0.1252 10.3 ±0.9 ĝα sae 
+
+> 0
+
+0.5886 ±0.0205 ̂
+
+α occ  
+
+> 0
+
+0.2889 ±0.1174 2.2789 ±0.9348 16.7 ±7.3 ĝα occ 
+
+> 0
+
+0.5551 ±0.0623 
+
+Note: Data are presented as mean ±std. 
+
+25 Table 3: Comparison of performances of competing methods in Case 3 over 100 repetitions. 
+
+K = 1 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2951 ±0.0289 1.9901 ±0.2154 17.0 ±1.7 ĝα 0,ℓ 
+
+0.5320 ±0.0188 ̂
+
+α 0,tℓ 0.1504 ±0.0246 0.7875 ±0.1389 8.6 ±1.4 ĝα 0,tℓ 
+
+0.5552 ±0.0153 ̂
+
+α 0,n 0.3566 ±0.0305 0.3566 ±0.0305 20.5 ±1.8 ĝα 0,n 
+
+0.5424 ±0.0264 ̂
+
+α base  
+
+> 0
+
+1.0091 ±0.1100 7.9764 ±0.8785 60.7 ±7.4 ĝα base 
+
+> 0
+
+0.1986 ±0.0739 ̂
+
+α sae  
+
+> 0
+
+0.3797 ±0.0501 2.8383 ±0.6086 21.9 ±2.9 ĝα sae 
+
+> 0
+
+0.5202 ±0.0311 ̂
+
+α occ  
+
+> 0
+
+0.3797 ±0.0501 2.8383 ±0.6086 21.9 ±2.9 ĝα occ 
+
+> 0
+
+0.5202 ±0.0311 
+
+K = 4 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2917 ±0.0356 1.9667 ±0.2571 16.8 ±2.1 ĝα 0,ℓ 
+
+0.5332 ±0.0180 ̂
+
+α 0,tℓ 0.1859 ±0.0420 1.1232 ±0.3406 10.7 ±2.4 ĝα 0,tℓ 
+
+0.5435 ±0.0156 ̂
+
+α 0,n 0.3524 ±0.0315 2.8257 ±0.2677 20.3 ±1.8 ĝα 0,n 
+
+0.5439 ±0.0260 ̂
+
+α base  
+
+> 0
+
+0.9979 ±0.1178 7.8772 ±0.9161 60.0 ±8.0 ĝα base 
+
+> 0
+
+0.1994 ±0.0733 ̂
+
+α sae  
+
+> 0
+
+0.2360 ±0.0419 1.8654 ±0.3340 13.6 ±2.4 ĝα sae 
+
+> 0
+
+0.5717 ±0.0251 ̂
+
+α occ  
+
+> 0
+
+0.3037 ±0.1019 2.3357 ±0.8009 17.5 ±6.1 ĝα occ 
+
+> 0
+
+0.5462 ±0.0540 
+
+K = 7 
+
+Index Estimators ϵL2 ϵL1 ϵA Composed Estimators R2
+
+> oos
+
+̂
+
+α 0,ℓ 0.2896 ±0.0304 1.9392 ±0.2248 16.7 ±1.8 ĝα 0,ℓ 
+
+0.5347 ±0.0161 ̂
+
+α 0,tℓ 0.1977 ±0.0338 1.2096 ±0.2857 11.3 ±1.9 ĝα 0,tℓ 
+
+0.5442 ±0.0156 ̂
+
+α 0,n 0.3536 ±0.0381 2.8165 ±0.3171 20.4 ±2.2 ĝα 0,n 
+
+0.5448 ±0.0232 ̂
+
+α base  
+
+> 0
+
+0.9912 ±0.1175 7.8641 ±0.9402 59.6 ±7.9 ĝα base 
+
+> 0
+
+0.2025 ±0.0762 ̂
+
+α sae  
+
+> 0
+
+0.1830 ±0.0158 1.4544 ±0.1294 10.5 ±0.9 ĝα sae 
+
+> 0
+
+0.5879 ±0.0206 ̂
+
+α occ  
+
+> 0
+
+0.2867 ±0.1156 2.2457 ±0.9228 16.6 ±7.3 ĝα occ 
+
+> 0
+
+0.5559 ±0.0628 
+
+Note: Data are presented as mean ±std. 
+
+26 underlying link functions are locally close to linear; hence the Lasso estimator suffers little model misspecification and achieves good accuracy. In contrast, ̂ αbase  
+
+> 0
+
+converges more slowly as a moment estimator, and the neural network is designed for the whole function rather than for the index itself. As anticipated, only when the link functions are identical across domains does the pooled 
+
+A-Trans -GLM estimator improve consistently as more informative sources are added (Table 1), since this is a trivial case for the method: with identical link functions, adding more informative sources simply increases the total sample size by pooling the source data. In other cases, the performance of ̂ α0,tℓ degrades as more sources are added, even though each source is individually informative; this is due to the effects of diverse link functions. That ̂ α0,tℓ always achieves the smallest ϵL1 is not surprising, as it is the objective it directly minimizes. In contrast, the proposed ̂ αsae  
+
+> 0
+
+becomes increasingly accurate as more informative sources are added, approaching and even surpassing the best performance of ̂ α0,tℓ when link functions vary across domains, even without access to the source data. The proposed ̂ αsae  
+
+> 0
+
+acts as a safeguard, performing no worse than the worst informative source individually. However, it relies more heavily on the accuracy of the base estimator, which determines the optimal weights. The benefit of the nonlinear link functions is significant, and it is also clear that, with guidance from an accurate estimate of the index, the composed estimator can generalize better. 
+
+5.2 the Effectiveness of the Source Selection Algorithm 
+
+In this section, we assess the performance of the proposed source selection algorithm. After obtaining the target index α0, we create non-informative source indices by a spike perturbation mechanism: 1. Randomly select ns dimensions (without replacement) from all d dimensions with equal probabilities; 27 2. For each selected dimension, add a large spike of magnitude ms, whose sign matches the sign of the corresponding component of α0;3. Normalize the vector to unit length. We consider three different combinations of link functions. In the first case, all domains share the same link function f (x) = tanh (x). To test the robustness of the proposed method, in the other two cases we fix f0(x) = tanh (x), and shift the link functions for the source domains to the right by 0.25 and 0.5 units, respectively, i.e., we set f (x) = tanh (x − 0.25) 
+
+and f (x) = tanh (x − 0.5) .Two informative and two non -informative sources are considered. After the indices and link functions are determined, observations from informative and non -informative sources can be generated from Model (1). We compare our source -selection procedure with the method of Tian and Feng (2023), which provides a built -in mechanism (Trans-GLM) that automatically decides which source domains should be transferred. For each source domain, the algorithm computes a cross -validation loss when that source is combined with the target. An internal cross -validation then determines a threshold; all source domains with a loss below this threshold are selected as beneficial. The selection mechanism of Trans-GLM provides a natural ordering, whereby a smaller loss indicates a more helpful source. Accordingly, a ranking -based variant (denoted as Trans-GLM Ranking) is also considered, in which source domains are sorted by their loss in ascending order. Each source selection method is repeated 100 times. The classification accuracies for in-formative and non -informative sources are then calculated. The results are summarised in Table 4. The built -in thresholding method fails due to non -linearity. Although the loss is reliable when the source and target models are sufficiently similar, its performance degrades 28 substantially when the models are more dissimilar. Nevertheless, the results presented in Table 2 demonstrate that correctly specified informative sources can still improve the target estimator. By contrast, the proposed ordering is considerably more robust to differences in the link functions between the source and target domains, particularly when those differences involve non-linearity. Although comparing the proposed method with the two methods above is inherently unfair, as the latter rely on cross -validation applied to the source domains, which is inapplicable in our setup, we wish to demonstrate that even with access to source data, the diversity of nonlinear link functions renders linear surrogate losses, friendly to small samples, unreliable, leading automatic threshold selection to fail. In contrast, when the model is correctly specified, a sparsity -based ranking method is more robust. Provided that sufficient prior knowledge of the number of informative sources is available, or that a conservative strategy is adopted (e.g., selecting only a few informative sources), negative transfer can be avoided with high probability. Table 4: Classification accuracy of source selection methods over 100 repetitions. 
+
+Case Algorithm 1 Trans-GLM Ranking Trans-GLM 
+
+1 93 % 100 % 38 %2 88 % 100 % 40 %3 80 % 26 % 2%
+
+# 6 Real Data Analysis 
+
+In this section, we apply the proposed methods to the Communities and Crime dataset (Red-mond, 2002) from the UC Irvine Machine Learning Repository. 
+
+6.1 Dataset Description 
+
+The Communities and Crime dataset combines socio -economic data from the 1990 US Census, law enforcement data from the 1990 Law Enforcement Management and Administrative 29 Statistics survey, and crime data from the 1995 FBI Uniform Crime Reporting program. The data contain 2215 observations and 125 predictive features, including community -level characteristics such as the percentage of urban population, median family income, per -capita number of police officers, etc. The response variable is the per -capita violent crime rate (per 100,000 population), which is defined as the sum of reported murders, rapes, robberies, and aggravated assaults. The dataset also includes a state identifier used to define domain partitions for transfer learning experiments. To mimic sparsity of the indices, after a pre -processing procedure (deferred to Section II .4.1 of the supplement), we select 50 predictive features: the 20 with the highest mutual information and the 30 with the lowest mutual information, similar to the setup in Section 5. We then obtain two informative source domains and one target domain, with roughly equal sample sizes across the three. On the target domain, 50% of the observations are randomly partitioned into the training set and the remaining 50% into the test set. The proposed methods and the competing methods defined in Section 5.1.2 are applied to the data. The simulation is repeated 500 times. 
+
+6.2 Performances 
+
+The outcomes are summarized in Table 5, where we display the 25%, 50%, and 75% quantiles of R2 
+
+> oos
+
+across competing methods. We observe that although the target-only lasso method and Trans-GLM perform reasonably well, they are still inferior to our proposed methods due to the non-linearity. Furthermore, the number of observations is insufficient to train a randomly initialized neural network, resulting in small or even negative R2 
+
+> oos
+
+values, indicating that the estimate is worse than the sample mean. In contrast, with modest guidance on the direction of the index, ĝα base  
+
+> 0
+
+performs substantially better than the previous methods. Moreover, when more precise directions are derived from information transferred from source domains, the estimate can be further improved, not only becoming more precise, but also 30 more robust. The proposed OCCE method works better than SAE for two reasons: first, the base estimator can provide relatively reliable information; second, since due to the generating procedure, the sources tend to be homogeneous. Estimators 25% 50% 75% 
+
+ĝα 0,ℓ 0.6793 0.7618 0.8125 
+
+ĝα 0,tℓ 0.7423 0.8040 0.8366 
+
+ĝα 0,n -0.0676 0.2135 0.4183 
+
+ĝα base  
+
+> 0
+
+0.7908 0.8475 0.8828 
+
+ĝα sae  
+
+> 0
+
+0.7965 0.8525 0.8847 
+
+ĝα occ  
+
+> 0
+
+0.8004 0.8575 0.8863 
+
+Table 5: The 25%, 50%, and 75% quantiles of R2 
+
+> oos
+
+across competing methods. 
+
+# 7 Discussions 
+
+This work proposes a source-data-free transfer learning framework for the SIM. By employing moment estimators derived from a generalized Stein’s lemma and a multilayer perceptron (MLP), our method mitigates the dual challenges of model expressivity and source-data accessibility in statistical transfer learning. 
+
+7.1 On the Notion of Transferability 
+
+We seek to clarify and extend the notion of transferability. Specifically, even when entire models are not directly comparable across domains, the similarity between certain components of the source model and those of the target model can still be leveraged to improve estimation on the target domain. Similar to our work, Tian and Feng (2023) note that their methods also apply to cases where different domains have their own link functions; however, they work within the framework of generalized linear models and impose more restrictive conditions on those link functions. Unlike their GLM-based framework, our work adopts SIM, in which we exploit similarity among indices while abstracting away variations in link functions. The similarity we exploit lies not in the parameter values themselves, but in the one-dimensional embedding space defined by the index. This is the key insight of our work. Consequently, a 31 natural extension of this work is to generalize the proposed framework to the multi-index model, which would encode a higher-dimensional latent space and thereby broaden its applicability to more complex, nonlinear learning problems. 
+
+7.2 Choices of Methods on Source Domains 
+
+On the source domains, we adopt a moment-based estimator derived from Stein’s lemma. Compared with classical sufficient dimension reduction methods such as sliced inverse regres-sion (SIR) (Li, 1991) and minimum average variance estimation (MAVE) (Xia et al., 2002), the Stein -type estimator imposes weaker conditions on both the covariate distribution and the link function. In particular, it does not require the linearity condition (needed by SIR) nor the second-order smoothness of the link function (needed by MAVE). An alternative approach on the target domain is to train a deep neural network (DNN) directly using target data. Once the DNN is obtained, the index can be estimated using the method described in Section 5.1.2. However, even when the DNN approximates the conditional expectation accurately, this estimated index can be inaccurate (Tian et al., 2025). For an SIM, the gradient of the conditional expectation is proportional to the index. One might therefore consider using the normalized gradient of the fitted DNN as an alternative index estimator. This gradient -based estimator is supervised, while Stein’s score is unsupervised; thus, the former could be more efficient. However, the theoretical analysis of DNN -based gradient estimation is considerably more involved, and establishing its finite sample error rates remains challenging. The moment -based Stein estimator also enables straightforward incorporation of ℓ1 or even ℓ0
+
+sparse regularizations, which is particularly useful for high - dimensional variable selection on the index coefficients. We leverage the hard-thresholding estimator for the source domains, since the source data are assumed to be sufficiently ample and the estimator is unbiased. 32 Feasibility of the proposed method hinges on the accuracy of the estimated score functions, which may require a sufficiently large sample size. When labeled source data are limited, unlabeled data can be incorporated to improve score estimation, as this is a purely unsupervised problem. 
+
+7.3 Choices of Methods on the Target Domain 
+
+The theoretical and practical bottleneck of the proposed target index estimators lies in the difficulty of estimating Stein’s scores in ultra-high-dimensional problems of the target domain, where d is much larger than n0 (e.g., d/n 0 → ∞ ). Although the current framework possesses the ability to handle high-dimensional problems, it is more suitable for regimes where d
+
+and n0 are of the same order, i.e., d/n 0 → c for some constant c > 1. In such settings, the score estimator can be sufficiently accurate to provide a reasonably informative direction for the target index. Several methods could mitigate the issue of dimensionality. First, if prior knowledge suggests that the link function is “close” to linear, the Lasso estimator can serve as an alternative to the score -based estimator. Second, more advanced neural score estimators, such as NDSM (Birrell et al., 2025), could be employed. However, theoretical analyses of their convergence properties would be much more complicated. 
+
+7.4 About Privacy 
+
+As a natural extension of the proposed framework, one may consider integrating differential privacy (DP) guarantees. In the current work, we do not explicitly inject noise to achieve DP, as our primary focus is on statistical accuracy of transfer learning under data inaccessibility rather than on formal privacy preservation. However, it is worth noting that if the estimated source indices are perturbed with appropriately calibrated noise, differential privacy can be readily attained. This direction would yield a differentially private version of our transfer learning procedure, allowing for rigorous privacy guarantees while retaining the benefits of index-based transfer. We leave this investigation to future work. 33 Disclosure statement 
+
+The authors report there are no competing interests to declare. 
+
+# Data Availability Statement 
+
+All numerical studies were conducted using Python code. The data and Python code are available at https://gitee.com/yetnenu/multi-source-transfer-learning-of-sparse-single-index-models. 34 References 
+
+Babichev, D. and Bach, F. (2018). Slice inverse regression with score functions. Electronic Journal of Statistics , 12:1507 – 1543. Balasubramanian, K., Fan, J., and Yang, Z. (2018). Tensor methods for additive index models under discordance and heterogeneity. arXiv preprint arXiv:1807.06693 .Bartlett, P. L., Foster, D. J., and Telgarsky, M. J. (2017). Spectrally-normalized margin bounds for neural networks. Advances in Neural Information Processing Systems , 30. Bastani, H. (2021). Predicting with proxies: Transfer learning in high dimension. Management Science , 67:2964–2984. Birrell, J., Katsoulakis, M. A., Rey-Bellet, L., Zhang, B. J., and Zhu, W. (2025). Nonlinear denoising score matching for enhanced learning of structured distributions. arXiv preprint arXiv:2405.15625 .Chen, M., Huang, K., Zhao, T., and Wang, M. (2023). Score approximation, estimation and distribution recovery of diffusion models on low-dimensional data. In International Conference on Machine Learning , pages 4672–4712. PMLR. Li, K.-C. (1991). Sliced inverse regression for dimension reduction. Journal of the American Statistical Association , 86(414):316–327. Li, S., Cai, T. T., and Li, H. (2022). Transfer learning for high-dimensional linear regression: Prediction, estimation and minimax optimality. Journal of the Royal Statistical Society Series B: Statistical Methodology , 84:149–173. Li, S., Cai, T. T., and Li, H. (2023). Transfer learning in large-scale gaussian graphical models with false discovery rate control. Journal of the American Statistical Association ,118:2171–2183. 35 Li, Y. and Turner, R. E. (2018). Gradient estimators for implicit models. In International Conference on Learning Representations .Lin, Z., Zhao, J., Wang, F., and Wang, H. (2024). Profiled transfer learning for high dimensional linear model. arXiv preprint arXiv:2406.00701 .Na, S., Yang, Z., Wang, Z., and Kolar, M. (2019). High-dimensional varying index coefficient models via stein’s identity. Journal of Machine Learning Research , 20:1–44. Oko, K., Akiyama, S., and Suzuki, T. (2023). Diffusion models are minimax optimal distribution estimators. In International Conference on Machine Learning , pages 26517– 26582. PMLR. Pan, S. J. and Yang, Q. (2010). A survey on transfer learning. IEEE Transactions on Knowledge and Data Engineering , 22:1345–1359. Park, S., Lee, E. R., Kim, H., and Zhao, H. (2025). Transfer learning under large-scale low-rank regression models. Journal of the American Statistical Association , 0(0):1–13. Redmond, M. (2002). Communities and Crime. UCI Machine Learning Repository. DOI: https://doi.org/10.24432/C53W3X. Shen, G., Jiao, Y., Lin, Y., and Huang, J. (2024). Differentiable neural networks with repu activation: with applications to score estimation and isotonic regression. arXiv preprint arXiv:2305.00608 .Shi, J., Sun, S., and Zhu, J. (2018). A spectral approach to gradient estimation for implicit distributions. In International Conference on Machine Learning , pages 4644–4653. Strathmann, H., Sejdinovic, D., Livingstone, S., Szabo, Z., and Gretton, A. (2015). Gradient-free hamiltonian monte carlo with efficient kernel exponential families. Advances in Neural Information Processing Systems , 28:955–963. 36 Tian, Y. and Feng, Y. (2023). Transfer learning under high-dimensional generalized linear models. Journal of the American Statistical Association , 118:2684–2697. Tian, Y., Wu, S., and Feng, L. (2025). Nonlinear multiple response regression and learning of latent spaces. arXiv preprint arXiv:2503.21608 .Torrey, L. and Shavlik, J. (2010). Transfer learning. In Handbook of research on machine learning applications and trends: algorithms, methods, and techniques , pages 242–264. IGI Global Scientific Publishing. Weiss, K., Khoshgoftaar, T. M., and Wang, D. (2016). A survey of transfer learning. Journal of Big data , 3:1–40. Xia, Y., Tong, H., Li, W. K., and Zhu, L.-X. (2002). An adaptive estimation of dimension reduction space. Journal of the Royal Statistical Society Series B: Statistical Methodology ,64(3):363–410. Yakovlev, K. and Puchkin, N. (2025a). Generalization error bound for denoising score matching under relaxed manifold assumption. arXiv preprint arXiv:2502.13662 .Yakovlev, K. and Puchkin, N. (2025b). Simultaneous approximation of the score function and its derivatives by deep neural networks. Yang, Z., Balasubramanian, K., Wang, Z., and Liu, H. (2017). Estimating high-dimensional non-gaussian multiple index models via stein’s lemma. In Advances in Neural Information Processing Systems , volume 30. Zeng, H., Zhong, W., and Xu, X. (2026). Transfer learning for spatial autoregressive models with application to us presidential election prediction. Journal of Business & Economic Statistics , pages 1–25. Zhou, Y., Shi, J., and Zhu, J. (2020). Nonparametric score estimators. In International Conference on Machine Learning , pages 11513–11522. 37

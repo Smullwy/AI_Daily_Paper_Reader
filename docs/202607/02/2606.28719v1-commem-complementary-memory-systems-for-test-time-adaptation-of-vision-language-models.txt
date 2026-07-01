@@ -1,0 +1,783 @@
+Title: ComMem: Complementary Memory Systems for Test-Time Adaptation of Vision-Language Models
+
+URL Source: https://arxiv.org/pdf/2606.28719v1
+
+Published Time: Tue, 30 Jun 2026 00:24:12 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 
+
+# COM MEM : C OMPLEMENTARY MEMORY SYSTEMS FOR 
+
+# TEST -T IME ADAPTATION OF VISION -L ANGUAGE MODELS 
+
+Guanglong Sun 1,6 Shuang Cui 2,6 Bo Lei 3,6 Liyuan Wang 4
+
+Zihan Zhai 1 Hongwei Yan 1 Hang Su 5 Jun Zhu 5,∗ Yi Zhong 1,∗
+
+> 1
+
+School of Life Sciences, IDG/McGovern Institute for Brain Research, Tsinghua University, Beijing, China 
+
+> 2
+
+Institute of Software Chinese Academy of Sciences, Beijing, China 
+
+> 3
+
+Beijing Academy of Artificial Intelligence, Beijing, China 
+
+> 4
+
+Department of Psychological and Cognitive Sciences, Tsinghua University, Beijing, China 
+
+> 5
+
+Dept. of Comp. Sci. and Tech., Institute for AI, Tsinghua-Bosch Joint ML Center, THBI Lab, BNRist Center, Tsinghua University, Beijing, China 
+
+> 6
+
+These authors contributed equally 
+
+> ∗
+
+Correspondence:dcszj@tsinghua.edu.cn, zhongyithu@tsinghua.edu.cn 
+
+ABSTRACT 
+
+Test-time adaptation (TTA) of vision-language models (VLMs) is essential for their robust deploy-ment in dynamic, real-world environments. However, existing TTA methods often adapt locally without accumulating knowledge over time, or operating within a single modality without exploit-ing VLMs’ inherently multi-modal nature. Inspired by the Com plementary Mem ory systems of the biological brain, we propose ComMem , an innovative approach that mimics the distinct but cooper-ative roles of the hippocampus and neocortex to enable effective TTA for VLMs. ComMem consists of two key components: a fast-adapting detailed memory, akin to the hippocampus, that forms a dynamic visual cache from high-confidence test samples; and a slow-integrating abstract memory, akin to the neocortex, that continually refines global textual prototypes. For each test instance, ComMem jointly optimizes both memory systems to ensure cross-modal consistency. Extensive ex-periments on 15 benchmark datasets show that ComMem significantly outperforms state-of-the-art methods under both natural distribution shifts and cross-dataset generalization, offering a promising direction for enhancing VLMs’ practical adaptability. 
+
+1 INTRODUCTION 
+
+The advent of pioneering vision-language models (VLMs), such as CLIP (Radford et al., 2021), has transformed computer vision by enabling strong zero-shot generalization through learning from vast image-text corpora. Despite their impressive capabilities, these models often suffer significant performance degradation when deployed in real-world environments where the test-time data distribution diverges from their pre-training data distribution (Agarwal et al., 2021; Menon et al., 2024). To address this challenge, test-time adaptation (TTA) has emerged as a powerful paradigm, allowing pre-trained models to adapt to different target domains using only a stream of unlabeled test samples (Liang et al., 2025; Dong et al., 2025). Recent TTA efforts for VLMs have evolved from memoryless schemes, in which models are optimized indepen-dently for each sample or mini-batch, to more advanced memory-based approaches 1. Early methods, exemplified by TPT (Shu et al., 2022) and its variants such as DiffTPT (Feng et al., 2023) and SwapPrompt (Ma et al., 2023), operate in an “amnesic” manner by adapting to each test instance in isolation without retaining experience over time (Fig. 1A). Recognizing this limitation, subsequent studies introduced memory mechanisms, which can be broadly cat-egorized by their adaptive component: some accumulate knowledge at the textual level through prompt tuning, such as HisTPT (Zhang et al., 2024b) and DynaPrompt (Xiao et al., 2025) (Fig. 1B), whereas others maintain dynamic caches at the visual representation level, such as TDA (Karmanov et al., 2024) and DMN-ZS (Zhang et al., 2024c) (Fig. 1C). 
+
+> 1
+
+Due to the page limit, we present a more comprehensive summary of related work in Appendix A. 
+
+1
+
+> arXiv:2606.28719v1 [cs.AI] 27 Jun 2026
+
+Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 (A ) TPT            
+
+> (w/o memory)
+> (B) DynaPrompt
+> (one system with one memory)
+> (C) DMN -ZS
+> (one system with two memory)
+> T
+> V
+> Learnable
+> prompt
+> +
+> {class}
+> Prediction
+> Entropy
+> minimization
+> (D) ComTTA
+> (two systems with two memory)
+> Slow learning Fast learning Memory updating Frozen
+> T
+> V
+> Handcraft
+> prompt
+> +
+> {class} Text
+> feature
+> Visual
+> feature Detailed
+> memory
+> Abstract
+> memory
+> Norm.
+> Con. Recon.
+> T
+> V
+> Handcraft
+> prompt
+> +
+> {class} Text
+> feature
+> Visual
+> feature Dynamic
+> memory
+> Static
+> memory
+> (E) Comparison
+> T
+> V
+> Learnable
+> prompt
+> +
+> {class}
+> Prediction
+> Entropy
+> minimization lmageNet-A lmageNet-R lmageNet-S EuroSAT DTD Flower 010 20 30 40
+> Performance Improvement over CLIP (%)
+> TPT DynaPrompt DMN-ZS ComTTA
+
+Figure 1: Comparison of ComMem with recent TTA methods. Norm., Normalization; Con., Consolidation; and Recon., Reconsolidation. Neocortex                              
+
+> HPC
+> HPC : Hippocampus
+> Semantic memory
+> Abstract representation
+> Slow learning
+> Perceptual process
+> HPC
+> PFC
+> New Input X 0
+> (B) Learning and Systems Consolidation (C) Memory Reconsolidation and Updating
+> ①
+> ②
+> ③
+> HPC
+> PFC
+> Input X 1
+> ④
+> ⑤
+> ⑥
+> ⑦
+> (A) Complementary Memory System
+> Abstract memory Abstract memory
+> SC : Sensory cortex
+> PFC : prefrontal cortex Episodic memory
+> Detailed representation
+> Fast learning
+> Detailed memory
+> ①Perceptual representation embedding SC(X 0)
+> ②Detailed memory learning D(X 0)
+> ③Transformation to abstract memory A(X 0)
+> Detailed memory
+> ④Perceptual representation embedding SC(X 1)
+> ⑤New learning detailed memory learning D(X 1)
+> ⑥Retrieval abstract memory A(X 1)
+> ⑦Consistency modulates learning between D(X 1) and A(X 1)
+
+Figure 2: Overview of the complementary memory systems theory (McClelland et al., 1995; Tonegawa et al., 2018; Lei et al., 2025) in neuroscience. However, restricting adaptation to single modality limits the model’s ability to align visual and textual representations effectively. Without coordinated cross-modal updates, these methods fail to balance the complementary fast (plastic) and slow (stable) learning dynamics, thereby limiting the ability to rapidly adapt to new domain-specific cues while preserving the robustness of pre-trained knowledge under distribution shifts (Fig. 1D-E). In neuroscience, complementary memory systems theory (McClelland et al., 1995; Tonegawa et al., 2018; Lei et al., 2025), also known as complementary learning systems , has been widely acknowledged to achieve an integration of new experience into prior knowledge for optimal behavioral output. This theory posits a functional synergy between two distinct memory systems (Fig. 2A): the hippocampus (HPC) rapidly encodes episodic and detailed memories; the neocortex (NC) slowly forms semantic and generalizable knowledge. Over time, memory traces are gradually transferred from the HPC to the NC through systems consolidation (Fig. 2B) (Golbabaei & Frankland, 2025) process. More importantly, a recent work revealed that recalled of an NC-dependent memory can induce memory reconsolida-tion phase in HPC (Fig. 2C), allowing the HPC to incorporate new information and reconstruct an memory trace (Lei et al., 2025). Motivated by this well-established biological mechanism, we introduce ComMem , an innovative TTA approach that instantiates the dynamics of complementary memory systems for robust VLMs adaptation (Fig. 3, see pseudo-code in Appendix Alg. 1). ComMem models the fast, plastic learning of the HPC as a detailed memory cache that rapidly stores and updates visual features from high-confidence test samples. In parallel, it models the NC’s slow, stable learning as an abstract memory composed of global textual prototypes, which evolve gradually through a process analogous to memory consolidation. For each incoming test sample, ComMem simulates memory reconsolidation by retrieving from both memory systems and jointly optimizing them via learnable residuals to enforce cross-modal consistency. This enables the model not only to adapt to individual samples but also to progressively accumulate and refine domain knowledge across the test data stream. We evaluate ComMem with extensive experiments across 15 challenging benchmark datasets. Our results demonstrate that ComMem consistently and significantly outperforms current state-of-the-art methods in both robustness to natural distribution shifts (e.g., ImageNet-A/R/S) and broad cross-dataset generalization scenarios. ComMem achieves a new state-of-the-art average accuracy of 48.84% on ImageNet-OOD variants with ResNet-50 (He et al., 2016) and 2Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 65.36% with ViT-B/16 (Dosovitskiy et al., 2020). Furthermore, our approach ensures both strong performance and efficiency, incurring substantially less computational overhead than prominent prompt-tuning methods like TPT (Shu et al., 2022). Detailed ablation studies confirm that the synergistic combination of the fast-adapting detailed memory and the slow-integrating abstract memory, alongside our reconsolidation process, is critical to its success. Our main contributions are as follows: • We introduce ComMem, a brain-inspired approach to TTA of VLMs that, for the first time, operationalizes the distinct fast and slow learning dynamics underlying the brain’s complementary memory systems. • We design a synergistic mechanism involving a fast-updating detailed cache and a slow-consolidating abstract memory, which are jointly optimized through a reconsolidation process for cross-modal consistency. • We conduct extensive experiments on 15 benchmark datasets, demonstrating that ComMem significantly outperforms state-of-the-art TTA methods under distribution shifts and cross-dataset generalization. 
+
+2 PRELIMINARIES 
+
+In this section, we describe the problem formulation of zero-shot VLMs classification, test-time adaptation in VLMs, and our brain-inspired motivations. 2.1 FORMULATION 
+
+Zero-Shot VLMs Classification Representative VLMs such as CLIP (Radford et al., 2021) consist of a visual encoder Ev (·) and a textual encoder Et(·) that project images and text into a shared, high-dimensional embedding space RD . For a C-way classification task, the class names {yc}Cc=1 are embedded into textual features using prompt ensembling, e.g., “a photo of a {CLASS }”, yielding a text prototype matrix Pt ∈ RD×C .For an input image x, its visual feature fv = Ev (x) is compared with the text features using cosine similarity, producing the zero-shot class posterior: 
+
+p(y = c|x) = exp( sim (fv , ptc)/τ )
+
+PCj=1 exp( sim (fv , ptj )/τ ) , (1) where ptc is the c-th text prototype, sim (·, ·) denotes cosine similarity, and τ is the temperature hyperparameter. 
+
+Test-Time Adaptation in VLMs We consider an online streaming test-time adaptation (TTA) scenario, where a pre-trained VLM (Ev , Et) is deployed in a target domain with unlabeled test samples {xs}Ss=1 arriving sequentially. No ground-truth labels are available, and the target distribution Ptgt (x) differs from the source distribution Psrc (x).The objective is to adapt the model on-the-fly to minimize the expected target error: 
+
+min  
+
+> θ
+
+Ex∼P tgt 
+
+ℓ(ˆ y(x; θ), y ), (2) where θ denotes the parameters of the model and its auxiliary adaptation modules, ℓ(·) is the classification loss, and ˆy
+
+represents the model’s prediction. Unlike regular domain adaptation, TTA operates without access to labeled target data. In the online streaming set-ting, test samples arrive sequentially in a continuous stream. Accordingly, the adaptation algorithm must satisfy the following dynamics: 
+
+xs ∼ P tgt , (3) 
+
+θs = Update (θs−1, xs), (4) 
+
+ˆys = f (xs; θs), (5) where s indexes the time step, Update (·) denotes an unsupervised adaptation rule based on model confidence, entropy, or consistency. A central challenge lies in rapidly adapting to domain-specific variations to mitigate error accumulation from self-training noise, while simultaneously maintaining stability to prevent catastrophic forgetting. To address this trade-off, we draw inspirations from the robust biological brain, especially the complementary memory systems theory. 3Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 Augmented          
+
+> images Augmented
+> feature
+> Normalization
+> Text encoder
+> Image encoder
+> A photo of
+> {dog, cat, bird …}
+> Entropy
+> select
+> Lconsistency
+> Lentropy
+> Lsparsity Lsparsity
+> Hippocampus (HPC)
+> Neocortex (NC)
+> HPC
+> classifier
+> NC
+> classifier +Final
+> classifier
+> =
+> Frozen pre -trained memory
+> PFC
+> SC
+> Fast -adapting detailed memory
+> Slow -integrating abstract memory
+> High -confidence sample
+
+Figure 3: The proposed ComMem framework for test-time adaptation of vision-language models. 2.2 BRAIN -I NSPIRED MOTIVATION 
+
+The remarkable adaptability of the biological brain arises from the interaction between the following two memory systems (Fig. 2A) (McClelland et al., 1995; Tonegawa et al., 2018; Lei et al., 2025): • Neocortex (NC): The NC encodes semantic, abstract knowledge (e.g., the concept of a “dog”) through slow and integrative learning , ensuring knowledge stability and generalization across experiences. • Hippocampus (HPC): The HPC rapidly captures specific, episodic experiences (e.g., “the particular dog I saw in the park”), supporting fast, instance-based learning with high plasticity. The key mechanisms underlying interactions of the two memory systems are systems consolidation and systems recon-solidation . During systems consolidation (Fig. 2B), episodic traces encoded in the HPC are gradually integrated into cortical representations within the NC, enabling the abstraction of long-term generalizable knowledge. Conversely, during systems reconsolidation (Fig. 2C), when novel stimuli are encountered, the NC retrieves existing abstract rep-resentation memory to interpret new episodic inputs from the HPC. Both memory traces are then jointly updated, allowing the brain to maintain coherent and adaptive representations over time. Motivated by this effective synergy between fast and slow learning systems, our proposed ComMem framework (Fig. 3) computationally instantiates these dynamics for TTA in VLMs. Specifically, we model a detailed memory cache , analogous to the HPC, that rapidly stores and updates high-confidence visual features from the test data stream to enable quick adaptation; and an abstract memory systems , analogous to the NC, represented by slowly evolving textual prototypes that accumulate stable, generalizable knowledge. For each incoming test sample, ComMem per-forms a computational analogue of memory consolidation and memory reconsolidation, where information from both memories is retrieved and jointly optimized to ensure cross-modal alignment, followed by gradual consolidation of reliable updates into the abstract memory. 
+
+3 METHOD 
+
+The ComMem framework is illustrated in Fig. 3 (see pseudo-code in Appendix Alg. 1). We first introduce the two complementary memory components and their distinct update mechanisms, then detail the joint optimization process that computationally simulates complementary memory systems. 3.1 VISUAL REPRESENTATION ENCODING 
+
+To facilitate rapid, instance-based adaptation, ComMem maintains an episodic memory cache M that stores class-conditional visual instances as feature–entropy pairs {(fi, Hi)}|M c| 
+
+> i=1
+
+, where each class c retains up to K entries ranked by confidence (i.e., inverse entropy). This cache serves as the HPC-like memory, corresponding to precise, high-certainty visual representations from the target domain. 
+
+Entropy-Guided Encoding. For each test image xt, we generate a set of N randomly augmented views {x(i) 
+
+> t
+
+}Ni=1 
+
+and extract their visual embeddings f (i) 
+
+> v
+
+= Ev (x(i) 
+
+> t
+
+) using the frozen visual encoder Ev . Each embedding is passed 4Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 through the classifier (Eq. 1) to obtain the predicted probability distribution p(i) = p(y|f (i) 
+
+> v
+
+). The prediction entropy 
+
+H(i) of each view is then computed as: 
+
+H(i) = −
+
+> C
+
+X
+
+> c=1
+
+p(i) 
+
+> c
+
+log p(i) 
+
+> c
+
+, (6) where C is the number of classes and lower entropy indicates higher prediction confidence. To ensure that only reliable representations contribute to adaptation, we perform a confidence-weighted aggregation of these augmented views: 
+
+w(i) = exp( −H (i)/τ e)
+
+PNj=1 exp( −H (j)/τ e) , f ∗ 
+
+> v
+
+=
+
+> N
+
+X
+
+> i=1
+
+w(i)f (i) 
+
+> v
+
+, (7) where τe is an entropy temperature controlling the sharpness of the weighting distribution. The resulting f ∗ 
+
+> v
+
+represents an entropy-refined, confidence-weighted embedding of the target instance, while its pseudo-label ˆy = arg max p(·| f ∗ 
+
+> v
+
+)
+
+is subsequently used to update the detailed memory cache. 3.2 HPC D ETAILED MEMORY FAST ADAPTATION 
+
+For an incoming feature f ∗ 
+
+> v
+
+with pseudo-label ˆy and entropy H, the episodic cache M is updated as follows: • If the cache is not full ( |M ˆy | < K ): The new feature–entropy pair (f ∗ 
+
+> v
+
+, H) is directly added to the cache of class ˆy.• If the cache is full ( |M ˆy | = K): The cache entries for class ˆy are sorted by their entropy. Let (fmax , Hmax )
+
+denote the entry with the highest entropy (i.e., lowest confidence). If the new feature is less confident ( H >
+
+Hmax ), the cache remains unchanged. Otherwise, it replaces this entry through an instance-level evolution 
+
+step. 
+
+HPC Memory Update Rule. Before replacing the least confident entry (fmax , Hmax ), the incoming high-confidence feature f ∗ 
+
+> v
+
+is evolved to form a more robust representation. In this step, only the pair with Hmax is updated, and the prototype of its pseudo-label class is computed as pv 
+
+> ˆy
+
+= mean ({fi ∈ M ˆy }). The final stored representation f ′ 
+
+> v
+
+is obtained via a weighted fusion of the class prototype and the new instance: 
+
+f ′ 
+
+> v
+
+= (1 − λhpc )pv 
+
+> ˆy
+
++ λhpc f ∗ 
+
+> v
+
+, (8) where λhpc controls the update plasticity. A larger λhpc corresponds to a fast, instance-dominant update , while a smaller value leads to a slow, prototype-dominant integration . The updated pair (f ′ 
+
+> v
+
+, H) then replaces (fmax , Hmax ) in 
+
+Mˆy .
+
+Detailed Memory Classifier Generation. After each update, the complete set of visual prototypes Pv =[pv 
+
+> 1
+
+, . . . , pvCactive ] ∈ RD×Cactive is re-computed by averaging all features currently stored in each active class. This matrix Pv serves as the base classifier for the detailed (HPC-like) memory and is subsequently refined by a learnable residual term δv during the test-time optimization stage (see Sec. 3.4). 3.3 NC A BSTRACT MEMORY SLOW INTEGRATION 
+
+To model the stable, semantic knowledge of the neocortex, the Abstract Memory is represented by a set of global textual prototypes Pt ∈ RD×C . This component reflects the model’s pre-trained, generalized knowledge and undergoes a 
+
+slow integration process during test time. 
+
+NC Memory Update Rule. This gradual update mechanism integrates newly acquired task-specific knowledge back into the stable abstract memory, analogous to systems consolidation in neuroscience. The update is triggered after the test-time optimization step (Sec. 3.4) for each test instance xt. If the final prediction is sufficiently confident (i.e., prediction entropy is below a threshold τconf ), the locally optimized prototype ˆPt 
+
+> local
+
+(defined in Eq. 11) is used to update the global abstract memory Pt. The update follows a weighted fusion controlled by the rate λnc :
+
+Pt ← (1 − λnc )Pt + λnc ˆPt
+
+> local
+
+, (9) where λnc is the update rate. A value approaching 0 results in a slow, stable integration that preserves the stability of pre-trained knowledge (an NC trait). Conversely, a value approaching 1 leads to a fast, unstable update , risking catastrophic forgetting. This ensures Pt evolves gradually while slowly absorbing new, high-confidence information from the target domain. 5Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 3.4 TEST -T IME OPTIMIZATION 
+
+For each test sample, ComMem retrieves and integrates both memory systems, performing a single-step optimization over a small set of learnable parameters to achieve adaptive yet stable prediction. These parameters correspond to distinct brain-inspired modules with fast and slow learning rates: • Visual Residuals ( δv ∈ RD×Cactive ): A learnable residual term added to the visual prototypes Pv (retrieved from the hippocampal-like cache) to construct a sample-specific visual classifier: 
+
+ˆPv = Normalize (Pv + δv ). (10) This component belongs to the fast-learning HPC system, responsible for adapting episodic visual details, and is updated with a learning rate lr v .• Textual Residuals ( δt ∈ RD×C ): A learnable residual added to the global textual prototypes Pt to yield a context-adaptive local classifier: 
+
+ˆPt 
+
+> local
+
+= Normalize (Pt + δt). (11) This component is associated with the slow-learning NC system, which encodes abstract, semantic knowl-edge, and is updated with a learning rate lr t.• Normalization Layers: The parameters of layer normalization (LN) or batch normalization (BN) layers, denoted θn, within the visual encoder are fine-tuned to enhance low-level feature adaptation: 
+
+ˆfv = LN θn (fv ) or BN θn (fv ). (12) These parameters belong to the NC system, capturing slower cortical adaptation of perceptual representations, and are updated with a learning rate lr n.
+
+Prediction Integration. Given a visual feature fv , ComMem integrates predictions from both the abstract (NC) and detailed (HPC) systems: 
+
+zfinal = f ⊤ 
+
+> v
+
+ˆPt 
+
+> local
+
++ A(f ⊤ 
+
+> v
+
+ˆPv ), (13) where A(s) = α exp( −β(1 − s)) is an affinity function that adaptively weights the contribution of the detailed memory, following (Zhang et al., 2024a). This integration mimics biological memory reconsolidation, where episodic and semantic traces jointly determine the final perception or decision. 
+
+Joint Optimization Objective. The learnable parameters (δt, δ v , θ n) are optimized in a single gradient step by minimizing a composite loss function: 
+
+Ltotal = Lent + λalign Lalign + λsparse Lsparse . (14) Each term is framed with neuro-computational analogues: • Entropy Minimization ( Lent ): Reduces the prediction uncertainty by minimizing the entropy of the final logits, promoting confident, stable decisions: 
+
+Lent = H(Softmax (zfinal /τ )) . (15) This mirrors the neural process of uncertainty resolution during memory updating (Mason et al., 2017; Rad-vansky et al., 1995). • Inter-Memory Consistency ( Lalign ): Encourages coherence between the visual and textual representations by aligning their respective prototypes via a symmetric InfoNCE loss (Oord et al., 2018): 
+
+Lalign = − 1
+
+Cactive 
+
+> Cactive
+
+X
+
+> c=1
+
+log exp(ˆ p⊤ 
+
+> t,c
+
+ˆpv,c /τ c)
+
+PCactive  
+
+> j=1
+
+exp(ˆ p⊤ 
+
+> t,c
+
+ˆpv,j /τ c)+ log exp(ˆ p⊤ 
+
+> v,c
+
+ˆpt,c /τ c)
+
+PCactive  
+
+> j=1
+
+exp(ˆ p⊤ 
+
+> v,c
+
+ˆpt,j /τ c)
+
+!
+
+.
+
+(16) This term maintains consistency between abstract (NC) and detailed (HPC) representations, ensuring coherent reconsolidation (Colyer & Kahana, 2025). 6Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 Table 1: Performance comparison under natural distribution shifts. Top-1 accuracy (%) of all evaluated methods using ResNet-50 and ViT-B/16 as CLIP vision backbones. The best and second-best results are marked in bold and underlined, respectively.                                                                                                                                                                                                         
+
+> Method Venue Buffer ImageNet ImageNet-A ImageNet-V2 ImageNet-R ImageNet-S Average OOD Average CLIP-ResNet-50 (Radford et al., 2021) ICML21 ×58.16 21.83 51.41 56.15 33.37 44.18 40.69 Ensemble -×59.81 23.24 52.91 60.72 35.48 46.43 43.09 CoOp (Zhou et al., 2022) IJCV22 ×63.33 23.06 55.40 56.60 34.67 46.61 42.43 TPT (Shu et al., 2022) NeurIPS22 ×60.74 26.67 54.70 59.11 35.09 47.26 43.89 DiffTPT (Feng et al., 2023) ICCV23 ×60.80 31.06 55.80 58.80 37.10 48.71 45.69 DynaPrompt (Xiao et al., 2025) ICLR25 ✓61.56 27.84 55.12 60.63 35.64 48.16 44.81 TDA (Karmanov et al., 2024) CVPR24 ✓61.35 30.29 55.54 62.58 38.12 49.58 46.63 TPS (Sui et al., 2025) WACV25 ✓61.47 30.48 54.96 62.87 37.14 49.38 46.36 DPE (Zhang et al., 2024a) NeurIPS24 ✓63.41 30.15 56.72 63.72 40.03 50.81 47.66 DMN-ZS (Zhang et al., 2024c) CVPR24 ✓63.87 28.57 56.12 61.44 39.84 49.97 46.49
+> ComMem Ours ✓64.05 32.21 56.95 65.10 41.09 51.88 48.84
+> CLIP-ViT-B/16 (Radford et al., 2021) ICML21 ×66.73 47.87 60.86 73.98 46.09 59.11 57.20 Ensemble -×68.34 49.89 61.88 77.65 48.24 61.20 59.42 CoOp (Zhou et al., 2022) IJCV22 ×71.51 49.71 64.20 75.21 47.99 61.72 59.28 TPT (Shu et al., 2022) NeurIPS22 ×68.98 54.77 63.45 77.06 47.94 62.44 60.81 DiffTPT (Feng et al., 2023) ICCV23 ×70.30 55.68 65.10 75.00 46.80 62.28 60.52 DynaPrompt (Xiao et al., 2025) ICLR25 ✓69.61 56.17 64.67 78.17 48.22 63.37 61.81 TDA (Karmanov et al., 2024) CVPR24 ✓69.51 60.11 64.67 80.24 50.54 65.01 63.89 TPS (Sui et al., 2025) WACV25 ✓70.19 60.08 64.73 80.27 49.95 65.04 63.76 DPE (Zhang et al., 2024a) NeurIPS24 ✓71.91 59.63 65.44 80.40 52.26 65.93 64.43 DMN-ZS (Zhang et al., 2024c) CVPR24 ✓72.25 58.28 65.17 78.55 53.20 65.49 63.80
+> ComMem Ours ✓72.16 61.32 65.38 81.52 53.21 66.72 65.36
+
+• Intra-Memory Sparse Coding ( Lsparse ): Inspired by sparse neural coding (Wixted et al., 2014; Palm, 2013), which minimizes representational overlap across memory traces, this term penalizes prototype redundancy within each memory system. For a prototype matrix P ∈ { ˆPt
+
+> local
+
+, ˆPv }:
+
+Lsparse (P) = 1
+
+C(C − 1) 
+
+X
+
+> i̸=j
+
+(p⊤ 
+
+> i
+
+pj )2. (17) The optimization is executed with a single-step update using the AdamW optimizer (Loshchilov & Hutter, 2017). After adaptation, the refined residuals yield the final prediction for the current sample. If the prediction confidence surpasses a predefined threshold, the global semantic prototypes Pt are further updated via Eq. 9, preparing the system for subsequent samples in the test data stream. 
+
+4 EXPERIMENTS 
+
+In this section, we describe the experimental setups (further detailed in Appendix Sec. B.1), including datasets, imple-mentation details and baselines, and then present the experimental results with an in-depth analysis. 4.1 PERFORMANCE EVALUATION 
+
+Robustness to Natural Distribution Shifts. In Table 1, we present the performance comparison on ImageNet and its variants. Our proposed ComMem consistently achieves state-of-the-art performance across both CLIP (Radford et al., 2021) backbones. With the ResNet-50 (He et al., 2016) backbone, ComMem attains an average Out-of-Distribution (OOD) accuracy of 48.84%, surpassing the next-best method, DPE (Zhang et al., 2024a), which scores 47.66%. A similar trend is observed with the ViT-B/16 (Dosovitskiy et al., 2020) backbone, where ComMem achieves an average OOD accuracy of 65.36%, outperforming all other competing methods. These results underscore ComMem’s superior ability to generalize to unseen domains throughout training. 
+
+Cross-Dataset Generalization. We further assess the generalization of ComMem on 10 diverse datasets, with re-sults summarized in Table 2. The significant distributional differences across these datasets pose a substantial chal-lenge for adaptation methods. Nevertheless, ComMem demonstrates remarkable robustness. With the ResNet-50 (He et al., 2016) backbone, ComMem again leads with an average accuracy of 64.60%, outperforming the strong base-lines DMN-ZS (Zhang et al., 2024c) of 63.32% and DPE (Zhang et al., 2024a) of 61.93%. Similarly, with the ViT-B/16 (Dosovitskiy et al., 2020) backbone, ComMem achieves the highest average accuracy of 70.74%. The consistent performance gains highlight the adaptability and effectiveness of our brain-inspired framework. 7Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 Table 2: Performance comparisons on cross-dataset generalization. Top-1 accuracy (%) of all evaluated methods using two CLIP vision backbones. The best and second-best results are marked in bold and underlined, respectively. Results for DynaPrompt (Xiao et al., 2025) on Cars (Krause et al., 2013) and SUN397 (Xiao et al., 2010) are marked as “–” due to out-of-memory errors during reproduction. 
+
+Method Aircraft Caltech Cars DTD EuroSAT Flower Food101 Pets SUN397 UCF101 Average CLIP-ResNet-50 (Radford et al., 2021) 15.66 85.88 55.70 40.37 23.69 61.75 73.97 83.57 58.80 58.84 55.82 Ensemble 16.11 87.26 55.89 40.37 25.79 62.77 74.82 82.97 60.85 59.48 56.63 CoOp (Zhou et al., 2022) 15.12 86.53 55.32 37.29 26.20 61.55 75.59 87.00 58.15 59.05 56.18 TPT (Shu et al., 2022) 17.58 87.02 58.46 40.84 28.33 62.69 74.88 84.49 61.46 60.82 57.66 DiffTPT (Feng et al., 2023) 17.60 86.89 60.71 40.72 41.04 63.53 79.21 83.40 62.72 62.67 59.85 DynaPrompt (Xiao et al., 2025) 16.44 88.07 - 41.19 23.41 61.84 75.73 83.07 - 59.87 -TDA (Karmanov et al., 2024) 17.61 89.70 57.78 43.74 42.11 68.74 77.75 86.18 62.53 64.18 61.03 DPE (Zhang et al., 2024a) 19.80 90.83 59.26 50.18 41.67 67.60 77.83 85.97 64.23 61.98 61.93 DMN-ZS (Zhang et al., 2024c) 22.77 90.14 60.02 50.41 48.75 67.93 76.70 86.78 64.39 65.34 63.32 
+
+ComMem (Ours) 21.33 91.32 60.19 53.43 58.05 69.31 78.04 86.59 65.11 62.62 64.60 
+
+CLIP-ViT-B/16 (Radford et al., 2021) 23.67 93.35 65.48 44.27 42.01 67.44 83.65 88.25 62.59 65.13 63.58 Ensemble 23.22 93.55 66.11 45.04 50.42 66.99 82.86 86.92 65.63 65.16 64.59 CoOp (Zhou et al., 2022) 18.47 93.70 64.51 41.92 46.39 68.71 85.30 89.14 64.15 66.55 63.88 TPT (Shu et al., 2022) 24.78 94.16 66.87 47.75 42.44 68.98 84.67 87.79 65.50 68.04 65.10 DiffTPT (Feng et al., 2023) 25.60 92.49 67.01 47.00 43.13 70.10 87.23 88.22 65.74 62.67 65.47 DynaPrompt (Xiao et al., 2025) 24.33 94.32 67.65 47.96 42.28 69.95 85.42 88.28 66.32 68.72 65.52 TDA (Karmanov et al., 2024) 23.91 94.24 67.28 47.40 58.00 71.42 86.14 88.63 67.62 70.66 67.53 TPS (Sui et al., 2025) 26.34 95.05 69.09 50.47 44.48 71.54 85.23 87.35 69.98 71.00 66.96 DPE (Zhang et al., 2024a) 28.95 94.81 67.31 54.20 55.79 75.07 86.17 91.14 70.07 70.44 69.40 DMN-ZS (Zhang et al., 2024c) 30.03 95.38 67.96 55.85 59.43 74.49 85.08 92.04 70.18 72.51 70.30 
+
+ComMem (Ours) 30.45 95.21 67.89 55.50 61.80 75.56 86.48 92.29 70.48 71.74 70.74 Imagenet-A Imagenet-R DTD Cars 0510 15                                       
+
+> Performance Improvement over CLIP (%)
+> + w/ Dual memory + w/ Consistency + w/ Sparsity + w/ Normalization
+> 30.76 31.38 31.26 31.49 31.16 30.27 29.60 30.81 31.29 31.99 31.97 31.77 31.23 30.62 30.87 31.36 31.77 32.21 31.96 31.81 31.19 30.73 31.73 32.09 32.13 32.05 32.13 31.64 30.53 31.30 31.71 31.87 32.09 31.62 31.61
+> 2.00E-06 6.00E-06 1.00E-05 1.40E-05 1.00E-04 2.00E-04 3.00E-04 4.00E-04 5.00E-04
+> Slow learning of normalization layers Fast learning of residuals layers Performance  （%）
+> 30 31 32
+> (A) Ablation (B) Learning rate (C) Shot capacity
+> 010 20 30 02468
+> Shot capacity Performance Improvement over CLIP (%)
+> Aircraft_RN50 Aircraft_ViT16 Cars_RN50 Cars_ViT16 Caltech_RN50 Caltech_ViT16
+
+Figure 4: Ablation and hyperparameter analysis of ComMem. (A) Effects of learnable modules. (B) Comparison of learning rates for residuals layers ( lr t and lr v ) and normalization layers ( lr n). (C) Influence of HPC-like memory cache capacity K. RN50 and ViT16 denote CLIP-ResNet-50 (He et al., 2016) and CLIP-ViT-B/16 (Dosovitskiy et al., 2020) backbones, respectively. 4.2 ABLATION STUDIES 
+
+Effects of Learnable Modules. Fig. 4A presents a progressive ablation of the learnable components in our dual-memory architecture. Starting from the base CLIP-ResNet-50 (Radford et al., 2021) model, we incrementally enable three modules: inter-memory consistency, intra-memory sparsity, and normalization adaptation. Each additional com-ponent leads to a consistent improvement across all datasets, demonstrating their complementary contributions. 
+
+Learning Rate of Complementary Memory Systems. As shown in Fig. 4B, we examine the interaction between the learning rates of the residual layers ( lr v for δv and lr t for δt, with lr v = lr t) and the normalization layers ( lr n
+
+for θn) using CLIP-ResNet-50 (Radford et al., 2021) backbone. The results reveal distinct optimal learning-rate regimes for these two components. The normalization layers achieve peak performance at relatively small learning rates (e.g., 10 −6 ∼ 10 −5), aligning with their role in slow and stable integration of visual representation knowledge. In contrast, the residual layers perform best with larger learning rates (on the order of 10 −4), supporting rapid adaptation to episodic inputs. This clear difference in optimal magnitude reflects the complementary dynamics between the neocortical and hippocampal memory systems. 
+
+HPC-like Memory Capacity. Fig. 4C analyzes the effect of HPC-like memory capacity K across different datasets and backbones. We observe that performance consistently peaks when K is between 3 and 5. Smaller capacities limit the diversity of stored instances, while larger ones introduce redundancy and noise. This moderate optimal capacity 8Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 suggests that a compact but selective detailed memory is most effective for balancing flexibility and stability during test-time adaptation. 4.3 EXTENDED ANALYSIS 
+
+Table 3: Efficiency comparison on ImageNet (Deng et al., 2009) . We report the testing time, the achieved ac-curacy, and the performance gains compared to zero-shot CLIP. Method Testing Time Parameter Accuracy Gain CLIP (Radford et al., 2021) 7 min 0.00 M 59.81 -TPT (Shu et al., 2022) 7 h 33 min 0.01 M 60.74 +0.93 DiffTPT (Feng et al., 2023) > 15 h - 60.80 +0.99 TDA (Karmanov et al., 2024) 53 min 0.00 M 61.35 +1.54 DPE (Zhang et al., 2024a) 1 h 30 min 3.91 M 63.41 +3.60     
+
+> ComMem (Ours) 1 h 32 min 4.08 M 64.05 +4.24
+
+Efficiency Comparison. In Table 3, we analyze the computational efficiency of ComMem by measuring the total time required to process the 50,000 test samples of ImageNet (Deng et al., 2009). ComMem achieves its state-of-the-art accuracy in around 1.5 hours. This is substantially more efficient than prompt-tuning methods like TPT (Shu et al., 2022) and DiffTPT (Feng et al., 2023) ( > 15 hours), which require computationally intensive backpropagation through the text encoder for every sam-ple. While training-free methods like TDA (Karmanov et al., 2024) (53 minutes) are faster, ComMem offers a far greater performance gain (a +4.24% accuracy gain for ComMem vs. +1.54% for TDA (Karmanov et al., 2024)). With only 4.08M learnable parameters, ComMem strikes an excellent balance between high accuracy and practical test-time efficiency. Table 4: Comparison of different memory update rules for the HPC-like and NC-like memory systems on the StanfordCars (Krause et al., 2013). Each rule determines how a new feature f ∗ 
+
+> v
+
+(for HPC, Sec 3.2) or a locally opti-mized prototype ˆPt 
+
+> local
+
+(for NC, Sec 3.3) is integrated with the existing memory representation ( pv 
+
+> ˆy
+
+or Pt). Results are reported using CLIP-ResNet-50 (Radford et al., 2021) with a memory capacity of 5 entries per class.                                         
+
+> Update Rule Formula HPC Acc. NC Acc.
+> Cumulative Avg. (slow) p←(k−1) p+f∗
+> k58.16 60.19
+> Cumulative Avg. (fast) p←p+( k−1) f∗
+> k59.71 44.31 Exponential Avg. (slow) p←0.99 p+ 0 .01 f∗56.62 60.08 Exponential Avg. (fast) p←0.01 p+ 0 .99 f∗60.07 44.55 Prototype Update (slow) p←p56.75 58.28 Full Update (fast) p←f∗60.19 44.31
+
+Different Memory Update Rules. As described in Sec. 3.2 and 3.3, we evaluate different memory update rules between two memory systems. As shown in Ta-ble 4, the HPC-like detailed memory Pv achieves op-timal performance under fast update rules , such as full updates or fast exponential averaging, confirming its role as a rapidly adapting, high-plasticity system. In con-trast, the NC-like abstract memory Pt performs best with slow update rules (e.g., cumulative or exponential averaging with small λnc ), which promote gradual and stable integration. These complementary findings val-idate our dual-memory design: the HPC benefits from fast learning for flexible adaptation, whereas the NC evolves slowly to maintain semantic stability. 
+
+Visualization of cache features using t-SNE. Fig. 5 and Appendix Fig. 6 provides t-SNE visualizations of the HPC-like detailed memory P v as it evolves. Compared to DPE (Zhang et al., 2024a), the feature clusters of ComMem become significantly more compact and more clearly separated by iteration 7000. This indicates that our ComMem successfully learns more discriminative class representations over time, validating our complementary memory mech-anism. 1000  7000  
+
+> Iteration
+> DPE
+> 1000 7000
+> Iteration
+> ComMem
+
+Figure 5: t-SNE visualizations of the HPC-like detailed memory (with cache size K = 20) over time using CLIP-ResNet-50 (Radford et al., 2021) on EuroSAT (Helber et al., 2019). 
+
+5 CONCLUSION 
+
+In this paper, we introduced ComMem, a versatile and effective test-time adaptation framework for VLMs inspired by the brain’s complementary memory systems. By modeling a fast-adapting HPC-like detailed memory and a slow-consolidating NC-like abstract memory, our approach successfully accumulates and refines multi-modal knowledge 9Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 from an unlabeled test data stream. The core of our method lies in mimicking systems consolidation and systems reconsolidation, where both memory systems are jointly optimized for each sample to enforce consistency and produce robust predictions. Extensive evaluations on 15 diverse benchmarks demonstrate that ComMem sets a new state-of-the-art, consistently outperforming existing methods in handling natural distribution shifts and generalizing across datasets. Despite its strong performance, our work has limitations. The use of dynamic memory cache and per-sample op-timization slightly increases the computational and memory overhead compared to zero-shot inference, a trade-off for improved accuracy. Future work could explore more efficient implementations of the memory systems, perhaps through sparse or quantized representations. Furthermore, delving deeper into more nuanced brain-inspired mecha-nisms, such as the process of memory forgetting to prune irrelevant information, could pave the way for even more robust and intelligent adaptation systems. 
+
+Acknowledgment This work is supported by the Beijing Major Science and Technology Project (No. Z251100008425003), the STI2030-Major Projects (No. 2022ZD0204900), the NSFC Projects (Nos. 62406160, 92370124, U25B6003, 62350080, 62595773), the Fundamental and Interdisciplinary Disciplines Breakthrough Plan of the Ministry of Education of China (No. JYB2025XDXM101), Beijing Natural Science Foundation (No. L247011), the Shandong Provincial Natural Science Foundation (No. ZR2022ZD01), and the High Performance Computing Cen-ter, Tsinghua University. 10 Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 
+
+REFERENCES 
+
+Jameel Abdul Samadh, Mohammad Hanan Gani, Noor Hussein, Muhammad Uzair Khattak, Muhammad Muzammal Naseer, Fahad Shahbaz Khan, and Salman H Khan. Align your prompts: Test-time prompting with distribution alignment for zero-shot generalization. Advances in Neural Information Processing Systems , 36:80396–80413, 2023. Sandhini Agarwal, Gretchen Krueger, Jack Clark, Alec Radford, Jong Wook Kim, and Miles Brundage. Eval-uating clip: towards characterization of broader capabilities and downstream implications. arXiv preprint arXiv:2108.02818 , 2021. Lukas Bossard, Matthieu Guillaumin, and Luc Van Gool. Food-101–mining discriminative components with random forests. In European Conference on Computer Vision , pp. 446–461. Springer, 2014. Mircea Cimpoi, Subhransu Maji, Iasonas Kokkinos, Sammy Mohamed, and Andrea Vedaldi. Describing textures in the wild. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 3606–3613, 2014. Ryan A Colyer and Michael J Kahana. Phase consistency dynamics of memory encoding. Journal of Neuroscience ,45(35), 2025. Shuang Cui, Jinglin Xu, Yi Li, Xiongxin Tang, Jiangmeng Li, Jiahuan Zhou, Fanjiang Xu, Fuchun Sun, and Hui Xiong. Bayestta: Continual-temporal test-time adaptation for vision-language models via gaussian discriminant analysis. arXiv preprint arXiv:2507.08607 , 2025. Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical image database. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 248–255, 2009. Hao Dong, Lijun Sheng, Jian Liang, Ran He, Eleni Chatzi, and Olga Fink. Adapting vision-language models without labels: A comprehensive survey. arXiv preprint arXiv:2508.05547 , 2025. Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 , 2020. Li Fei-Fei, Rob Fergus, and Pietro Perona. Learning generative visual models from few training examples: An incremental bayesian approach tested on 101 object categories. Computer Vision and Image Understanding , 106 (1):59–70, 2007. Chun-Mei Feng, Kai Yu, Yong Liu, Salman Khan, and Wangmeng Zuo. Diverse data augmentation with diffusions for effective test-time prompt tuning. In Proceedings of the IEEE/CVF International Conference on Computer Vision ,pp. 2704–2714, 2023. Ali Golbabaei and Paul W Frankland. The post-“standard model” age: Updating theories of systems consolidation. 
+
+Neuron , 113(3):339–341, 2025. Yves Grandvalet and Yoshua Bengio. Semi-supervised learning by entropy minimization. Advances in neural infor-mation processing systems , 17, 2004. Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceed-ings of the IEEE Conference on Computer Vision and Pattern Recognition , pp. 770–778, 2016. Patrick Helber, Benjamin Bischke, Andreas Dengel, and Damian Borth. Eurosat: A novel dataset and deep learning benchmark for land use and land cover classification. IEEE Journal of Selected Topics in Applied Earth Observa-tions and Remote Sensing , 12(7):2217–2226, 2019. Dan Hendrycks, Steven Basart, Norman Mu, Saurav Kadavath, Frank Wang, Evan Dorundo, Rahul Desai, Tyler Zhu, Samyak Parajuli, Mike Guo, et al. The many faces of robustness: A critical analysis of out-of-distribution generalization. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pp. 8340–8349, 2021a. Dan Hendrycks, Kevin Zhao, Steven Basart, Jacob Steinhardt, and Dawn Song. Natural adversarial examples. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 15262–15271, 2021b. 11 Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 Sergey Ioffe and Christian Szegedy. Batch normalization: Accelerating deep network training by reducing internal covariate shift. In International conference on machine learning , pp. 448–456. pmlr, 2015. Chao Jia, Yinfei Yang, Ye Xia, Yi-Ting Chen, Zarana Parekh, Hieu Pham, Quoc Le, Yun-Hsuan Sung, Zhen Li, and Tom Duerig. Scaling up visual and vision-language representation learning with noisy text supervision. In 
+
+International conference on machine learning , pp. 4904–4916. PMLR, 2021. Adilbek Karmanov, Dayan Guan, Shijian Lu, Abdulmotaleb El Saddik, and Eric Xing. Efficient test-time adaptation of vision-language models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,2024. Jonathan Krause, Michael Stark, Jia Deng, and Li Fei-Fei. 3d object representations for fine-grained categorization. In Proceedings of the IEEE/CVF International Conference on Computer Vision Workshops , pp. 554–561, 2013. Bo Lei, Bilin Kang, Yuejun Hao, Haoyu Yang, Zihan Zhong, Zihan Zhai, and Yi Zhong. Reconstructing a new hippocampal engram for systems reconsolidation and remote memory updating. Neuron , 113(3):471–485, 2025. Jian Liang, Ran He, and Tieniu Tan. A comprehensive survey on test-time adaptation under distribution shifts. Inter-national Journal of Computer Vision , 133(1):31–64, 2025. Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. arXiv preprint arXiv:1711.05101 , 2017. Xiaosong Ma, Jie Zhang, Song Guo, and Wenchao Xu. Swapprompt: Test-time prompt adaptation for vision-language models. Advances in Neural Information Processing Systems , 36:65252–65264, 2023. Subhransu Maji, Esa Rahtu, Juho Kannala, Matthew Blaschko, and Andrea Vedaldi. Fine-grained visual classification of aircraft. arXiv preprint arXiv:1306.5151 , 2013. Alice Mason, Simon Farrell, Paul Howard-Jones, and Casimir JH Ludwig. The role of reward and reward uncertainty in episodic memory. Journal of memory and language , 96:62–77, 2017. James L McClelland, Bruce L McNaughton, and Randall C O’Reilly. Why there are complementary learning systems in the hippocampus and neocortex: insights from the successes and failures of connectionist models of learning and memory. Psychological review , 102(3):419, 1995. Sachit Menon, Ishaan Preetam Chandratreya, and Carl Vondrick. Task bias in contrastive vision-language models. 
+
+International Journal of Computer Vision , 132(6):2026–2040, 2024. Maria-Elena Nilsback and Andrew Zisserman. Automated flower classification over a large number of classes. In 
+
+Indian Conference on Computer Vision, Graphics and Image Processing , pp. 722–729. IEEE, 2008. Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Representation learning with contrastive predictive coding. arXiv preprint arXiv:1807.03748 , 2018. G¨ unther Palm. Neural associative memories and sparse coding. Neural Networks , 37:165–171, 2013. Omkar M Parkhi, Andrea Vedaldi, Andrew Zisserman, and CV Jawahar. Cats and dogs. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 3498–3505, 2012. Sarah Pratt, Ian Covert, Rosanne Liu, and Ali Farhadi. What does a platypus look like? generating customized prompts for zero-shot image classification. In Proceedings of the IEEE/CVF international conference on computer vision ,pp. 15691–15701, 2023. Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from natural language supervision. In International Conference on Machine Learning , pp. 8748–8763. PMLR, 2021. Gabriel A Radvansky, Laura A Carlson-Radvansky, and David E Irwin. Uncertainty in estimating distances from memory. Memory & Cognition , 23(5):596–606, 1995. Benjamin Recht, Rebecca Roelofs, Ludwig Schmidt, and Vaishaal Shankar. Do imagenet classifiers generalize to imagenet? In International Conference on Machine Learning , pp. 5389–5400. PMLR, 2019. 12 Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 Manli Shu, Weili Nie, De-An Huang, Zhiding Yu, Tom Goldstein, Anima Anandkumar, and Chaowei Xiao. Test-time prompt tuning for zero-shot generalization in vision-language models. Advances in Neural Information Processing Systems , 35:14274–14289, 2022. Khurram Soomro, Amir Roshan Zamir, and Mubarak Shah. Ucf101: A dataset of 101 human actions classes from videos in the wild. arXiv preprint arXiv:1212.0402 , 2012. Elaine Sui, Xiaohan Wang, and Serena Yeung-Levy. Just shift it: Test-time prototype shifting for zero-shot general-ization with vision-language models. In 2025 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) , pp. 825–835. IEEE, 2025. Susumu Tonegawa, Mark D Morrissey, and Takashi Kitamura. The role of engram cells in the systems consolidation of memory. Nature Reviews Neuroscience , 19(8):485–498, 2018. Haohan Wang, Songwei Ge, Zachary Lipton, and Eric P Xing. Learning robust global representations by penalizing local predictive power. In Advances in Neural Information Processing Systems , volume 32, pp. 10506–10518, 2019. John T Wixted, Larry R Squire, Yoonhee Jang, Megan H Papesh, Stephen D Goldinger, Joel R Kuhn, Kris A Smith, David M Treiman, and Peter N Steinmetz. Sparse and distributed coding of episodic memory in neurons of the human hippocampus. Proceedings of the National Academy of Sciences , 111(26):9621–9626, 2014. Jianxiong Xiao, James Hays, Krista A Ehinger, Aude Oliva, and Antonio Torralba. Sun database: Large-scale scene recognition from abbey to zoo. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 3485–3492, 2010. Zehao Xiao, Shilin Yan, Jack Hong, Jiayin Cai, Xiaolong Jiang, Yao Hu, Jiayi Shen, Qi Wang, and Cees GM Snoek. Dynaprompt: Dynamic test-time prompt tuning. arXiv preprint arXiv:2501.16404 , 2025. Longhui Yuan, Binhui Xie, and Shuang Li. Robust test-time adaptation in dynamic scenarios. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 15922–15932, 2023. Ce Zhang, Simon Stepputtis, Katia Sycara, and Yaqi Xie. Dual prototype evolving for test-time generalization of vision-language models, 2024a. URL https://arxiv.org/abs/2410.12790 .Jingyi Zhang, Jiaxing Huang, Xiaoqin Zhang, Ling Shao, and Shijian Lu. Historical test-time prompt tuning for vision foundation models. Advances in Neural Information Processing Systems , 37:12872–12896, 2024b. Renrui Zhang, Wei Zhang, Rongyao Fang, Peng Gao, Kunchang Li, Jifeng Dai, Yu Qiao, and Hongsheng Li. Tip-adapter: Training-free adaption of clip for few-shot classification. In European conference on computer vision , pp. 493–510. Springer, 2022. Yabin Zhang, Wenjie Zhu, Hui Tang, Zhiyuan Ma, Kaiyang Zhou, and Lei Zhang. Dual memory networks: A versatile adaptation approach for vision-language models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 28718–28728, 2024c. Kaiyang Zhou, Jingkang Yang, Chen Change Loy, and Ziwei Liu. Learning to prompt for vision-language models. 
+
+International Journal of Computer Vision , 130(9):2337–2348, 2022. Lihua Zhou, Mao Ye, Shuaifeng Li, Nianxin Li, Xiatian Zhu, Lei Deng, Hongbin Liu, and Zhen Lei. Bayesian test-time adaptation for vision-language models, 2025. URL https://arxiv.org/abs/2503.09248 .13 Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 
+
+A RELATED WORK 
+
+Vision-Language Models (VLMs). Recent years have witnessed the emergence of powerful VLMs, such as CLIP (Radford et al., 2021) and ALIGN (Jia et al., 2021), trained on large-scale image-text pairs. These models learn a joint embedding space that aligns visual and textual representations, enabling strong zero-shot generalization across a wide range of downstream tasks (Liang et al., 2025; Dong et al., 2025). To further enhance VLMs’ perfor-mance, various adaptation strategies have been proposed, most notably in few-shot settings. For example, prompt tuning methods like CoOp (Zhou et al., 2022) learn continuous prompt vectors to steer model predictions, while adapter-based methods like Tip-Adapter (Zhang et al., 2022) introduce lightweight modules to adapt features with minimal supervision. While effective, these methods require labeled data, a constraint that our work aims to overcome by operating in a purely test-time setting. 
+
+Test Time Adaptation (TTA). TTA aims to adapt a model pretrained on a source domain to an unlabeled target domain during inference (Liang et al., 2025; Dong et al., 2025). Early methods primarily focused on updating batch normalization statistics or minimizing prediction entropy to encourage confident outputs (Ioffe & Szegedy, 2015; Grandvalet & Bengio, 2004; Yuan et al., 2023). Subsequently, Bayesian inference-based methods such as BCA (Zhou et al., 2025) and BayesTTA (Cui et al., 2025) leverage information from previous test batches for model refinement. Prompt-based methods such as TPT (Fig. 1A) (Shu et al., 2022) and its variants (Feng et al., 2023; Abdul Samadh et al., 2023; Ma et al., 2023) learn a tailored prompt for each test sample. However, these methods are inherently amnesic, adapting in isolation without accumulating knowledge over time. More recent efforts, such as HisTPT (Zhang et al., 2024b) and DynaPrompt (Xiao et al., 2025) (Fig. 2B), attempt to address this by dynamically selecting prompts across the test stream, but still operate at the prompt-tuning level, limiting long-term adaptation. To overcome these limitations, memory-based methods have been introduced. TDA (Karmanov et al., 2024) maintains a dynamic visual cache to enhance adaptation, while DMN-ZS (Zhang et al., 2024c) and DPE (Zhang et al., 2024a) extend this idea to dual memory systems. DPE evolves visual and textual prototypes jointly, and DMN-ZS incorporates both dynamic test-time and optional static few-shot memories (Fig. 2C). However, these methods generally treat memory updates as symmetric and fast across modalities, lacking a principled separation of roles. This design leads to overfitting recent examples or under-adapting to novel domains, failing to strike a balance between plasticity (rapid adaptation) and stability (retention of generalizable knowledge). In contrast, our proposed ComMem framework introduces a brain-inspired architecture that explicitly models distinct fast and slow learning pathways DPE evolves visual and textual prototypes jointly (Fig. 2D-E and Fig. 3). By doing so, it enables both per-sample responsiveness and long-term knowledge accumulation through coordinated cross-modal memory fusion. 
+
+Complementary Memory Systems. ComMem is grounded in the complementary learning systems (CLS) theory, also referred to as the complementary memory systems, from neuroscience (McClelland et al., 1995; Tonegawa et al., 2018), which explains how the brain learns across multiple timescales. CLS posits a functional specialization between the hippocampus (HPC) that rapidly encodes detailed, episodic experiences and the neocortex (NC) that slowly incor-porates structured, generalizable knowledge (Fig. 2A) (Tonegawa et al., 2018). The gradual reorganization and transfer of memory traces from HPC to NC is referred to as system consolidation (Fig. 2B), allowing temporary experiences to become part of stable long-term knowledge (Lei et al., 2025; Golbabaei & Frankland, 2025). Importantly, consolidated memories can become labile upon retrieval through a process known as memory reconsolidation (Fig. 2C), which re-engages the HPC to incorporate new information and update existing memories (Lei et al., 2025). To our knowledge, ComMem is the first to explicitly operationalize both the fast (HPC-like) and slow (NC-like) learning dynamics, along with mechanisms analogous to consolidation and reconsolidation, for VLMs’ TTA. This biologically grounded design enables ComMem to achieve more robust and generalizable adaptation. 
+
+B ADDITIONAL IMPLEMENTATION DETAILS 
+
+B.1 EXPERIMENTAL SETUPS 
+
+Datasets. Our evaluation follows the established benchmarks used in prior work (Shu et al., 2022; Feng et al., 2023; Zhang et al., 2024a). To assess robustness to natural distribution shifts , we use the ImageNet dataset (Deng et al., 2009) and its four out-of-distribution variants: ImageNet-A (Hendrycks et al., 2021b), ImageNet-V2 (Recht et al., 2019), ImageNet-R (Hendrycks et al., 2021a), and ImageNet-Sketch (Wang et al., 2019). For cross-dataset generaliza-tion , we evaluate on a diverse suite of 10 recognition datasets: FGVCAircraft (Maji et al., 2013), Caltech101 (Fei-Fei et al., 2007), StandfordCars (Krause et al., 2013), DTD (Cimpoi et al., 2014), EuroSAT (Helber et al., 2019), Flow-ers102 (Nilsback & Zisserman, 2008), Food101 (Bossard et al., 2014), OxfordPets (Parkhi et al., 2012), SUN397 (Xiao 1Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 et al., 2010), and UCF101 (Soomro et al., 2012). These datasets offer a comprehensive benchmark for evaluating the robustness of various methods across different distributional variations. 
+
+Implementation Details. We employ CLIP (Radford et al., 2021) models with both ResNet-50 (He et al., 2016) and ViT-B/16 (Dosovitskiy et al., 2020) visual backbones for all experiments. Following standard practice, we uti-lize a broad set of hand-crafted text prompts and also incorporate prompts from CuPL to enhance the initial textual prototypes (Supplementary Table 6). Followed by previous studies (Karmanov et al., 2024; Zhang et al., 2024a), we generate multiple augmented views for each sample to facilitate robust optimization. The learnable residuals for our complementary memory systems are optimized for a single step per sample using the AdamW optimizer (Loshchilov & Hutter, 2017). The adaptation of batch normalization or layer normalization parameters (Ioffe & Szegedy, 2015) is performed with a distinct, slower learning rate. Our primary experiments are conducted on a single NVIDIA RTX 3090 GPU with 24GB of memory. 
+
+Baselines. We compare ComMem against a comprehensive set of state-of-the-art methods for VLM adaptation. These include: zero-shot CLIP (Radford et al., 2021) and its prompt Ensemble version; few-shot supervised methods like 
+
+CoOp (Zhou et al., 2022); and leading test-time adaptation methods such as TPT (Shu et al., 2022), which learns sample-specific prompts; DiffTPT (Feng et al., 2023), which enhances TPT with diffusion-based augmentations; 
+
+DynaPrompt (Xiao et al., 2025), which performs continual adaptation by adaptively selecting and optimizing relevant prompts for each test sample; TDA (Karmanov et al., 2024), a training-free approach that builds a visual cache; 
+
+TPS (Sui et al., 2025), which shifts prototypes at test-time; DPE (Zhang et al., 2024a), which evolves dual prototypes, and DMN-ZS (Zhang et al., 2024c), which uses a dynamic memory for historical test data and a static memory for few-shot data. B.2 DATASET DETAILS 
+
+In Table 5, we present the detailed statistics of each dataset we used in our experiments, including the number of classes, the sizes of training, validation and testing sets, and their original tasks. Table 5: Detailed statistics of datasets used in experiments . Note that the last 4 ImageNet variant datasets are designed for evaluation and only contain the test sets. Dataset Classes Training Validation Testing Task Caltech101 (Fei-Fei et al., 2007) 100 4,128 1,649 2,465 Object recognition DTD (Cimpoi et al., 2014) 47 2,820 1,128 1,692 Texture recognition EuroSAT (Helber et al., 2019) 10 13,500 5,400 8,100 Satellite image recognition FGVCAircraft (Maji et al., 2013) 100 3,334 3,333 3,333 Fine-grained aircraft recognition Flowers102 (Nilsback & Zisserman, 2008) 102 4,093 1,633 2,463 Fine-grained flowers recognition Food101 (Bossard et al., 2014) 101 50,500 20,200 30,300 Fine-grained food recognition ImageNet (Deng et al., 2009) 1,000 1.28M - 50,000 Object recognition OxfordPets (Parkhi et al., 2012) 37 2,944 736 3,669 Fine-grained pets recognition StanfordCars (Krause et al., 2013) 196 6,509 1,635 8,041 Fine-grained car recognition SUN397 (Xiao et al., 2010) 397 15,880 3,970 19,850 Scene recognition UCF101 (Soomro et al., 2012) 101 7,639 1,898 3,783 Action recognition ImageNet-V2 (Recht et al., 2019) 1,000 - - 10,000 Robustness of collocation ImageNet-Sketch (Wang et al., 2019) 1,000 - - 50,889 Robustness of sketch domain ImageNet-A (Hendrycks et al., 2021b) 200 - - 7,500 Robustness of adversarial attack ImageNet-R (Hendrycks et al., 2021a) 200 - - 30,000 Robustness of multi-domains B.3 TEXTUAL PROMPTS USED IN EXPERIMENTS 
+
+In Table 6, we detail the specific hand-crafted prompts utilized for each dataset. B.4 TEXTUAL PROMPTS USED IN EXPERIMENTS 
+
+In Table 6, we detail the specific hand-crafted prompts utilized for each dataset. 2Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 
+
+Algorithm 1 ComMem: Complementary Memory Systems for Test-Time Adaptation of VLMs 
+
+1: Input : Pretrained VLM (Ev , Et), target stream {xt}Tt=1 ,NC-like abstract memory Pt, HPC-like detailed memory cache M, hyperparameters (τe, τ conf , λ hpc , λ nc )
+
+2: 3: for each incoming test sample xt do 
+
+4: Step 1: Entropy-Guided Visual Encoding 
+
+5: Generate N augmented views {x(i) 
+
+> t
+
+}Ni=1 
+
+6: for each view i = 1 . . . N do 
+
+7: f (i) 
+
+> v
+
+← E v (x(i) 
+
+> t
+
+)
+
+8: p(i) ← p(y|f (i) 
+
+> v
+
+) via Eq. (1) 
+
+9: H(i) ← − PCc=1 p(i) 
+
+> c
+
+log p(i) 
+
+> c
+
+▷ Eq. (6) 
+
+10: end for 
+
+11: Compute weights w(i) ∝ exp( −H (i)/τ e)
+
+12: Obtain entropy-refined feature f ∗ 
+
+> v
+
+= P 
+
+> i
+
+w(i)f (i) 
+
+> v
+
+▷ Eq. (7) 
+
+13: Assign pseudo-label ˆy = arg max p(·| f ∗ 
+
+> v
+
+)
+
+14: 15: Step 2: HPC Detailed Memory Update 
+
+16: if |M ˆy | < K then 
+
+17: Add (f ∗ 
+
+> v
+
+, H) to Mˆy
+
+18: else 
+
+19: Identify least confident entry (fmax , Hmax )
+
+20: if H < Hmax then 
+
+21: Compute class prototype pv 
+
+> ˆy
+
+= mean (Mˆy )
+
+22: Update f ′ 
+
+> v
+
+= Norm ((1 − λhpc )pv 
+
+> ˆy
+
++ λhpc f ∗ 
+
+> v
+
+) ▷ Eq. (8) 
+
+23: Replace (fmax , Hmax ) ← (f ′ 
+
+> v
+
+, H)
+
+24: end if 
+
+25: end if 
+
+26: Recompute HPC prototypes Pv = [ pv 
+
+> 1
+
+, . . . , pvCactive ]
+
+27: 28: Step 3: Test-Time Optimization 
+
+29: Initialize learnable parameters: residuals (δt, δ v ), normalization θn
+
+30: Compute updated prototypes: 
+
+ˆPt 
+
+> local
+
+= Norm (Pt + δt) ▷ Eq. (11) 
+
+ˆPv = Norm (Pv + δv )
+
+31: Compute final logits: 
+
+zfinal = f ⊤ 
+
+> v
+
+ˆPt 
+
+> local
+
++ A(f ⊤ 
+
+> v
+
+ˆPv )
+
+32: Compute composite loss: 
+
+Ltotal = Lent + Lalign + Lsparse 
+
+33: Update (δt, δ v , θ n) with one-step AdamW 
+
+34: Obtain final prediction ˆyt = arg max Softmax (zfinal )
+
+35: 36: Step 4: NC Abstract Memory Update (Consolidation) 
+
+37: if H(zfinal ) < τ conf then 
+
+38: Pt ← Norm  (1 − λnc )Pt + λnc ˆPt
+
+> local
+
+ ▷ Eq. (9) 
+
+39: end if 
+
+40: end for 
+
+41: 42: return Adapted VLM (Ev , Et, Pt, M)
+
+3Published at 5th Conference on Lifelong Learning Agents (CoLLAs), 2026 Table 6: Textual prompts used in experiments . In addition to these prompts, we also employ CuPL (Pratt et al., 2023) prompts to further enhance performance. Dataset Prompts “itap of a {CLASS }.” ImageNet (Deng et al., 2009) “a bad photo of the {CLASS }.” ImageNet-V2 (Recht et al., 2019) “a origami {CLASS }.” ImageNet-Sketch (Wang et al., 2019) “a photo of the large {CLASS }.” ImageNet-A (Hendrycks et al., 2021b) “a {CLASS } in a video game.” ImageNet-R (Hendrycks et al., 2021a) “art of the {CLASS }.” “a photo of the small {CLASS }.” Caltech101 (Fei-Fei et al., 2007) “a photo of a {CLASS }.” DTD (Cimpoi et al., 2014) “{CLASS } texture.” EuroSAT (Helber et al., 2019) “a centered satellite photo of {CLASS }.” FGVCAircraft (Maji et al., 2013) “a photo of a {CLASS }, a type of aircraft.” Flowers102 (Nilsback & Zisserman, 2008) “a photo of a {CLASS }, a type of flower.” Food101 (Bossard et al., 2014) “a photo of {CLASS }, a type of food.” OxfordPets (Parkhi et al., 2012) “a photo of a {CLASS }, a type of pet.” StanfordCars (Krause et al., 2013) “a photo of a {CLASS }.” SUN397 (Xiao et al., 2010) “a photo of a {CLASS }.” UCF101 (Soomro et al., 2012) “a photo of a person doing {CLASS }.” 1000  3000  5000  7000    
+
+> Iteration
+> 1000 3000 5000 7000
+> Iteration
+> EuroSAT
+> ComMem (Food101)
+
+Figure 6: t-SNE visualizations of the HPC-like detailed memory (with cache size K = 30) over time using CLIP-ResNet-50 (Radford et al., 2021) on Food101 (Bossard et al., 2014). Features from 10% of randomly selected classes are shown in different colors, while all others are indicated in gray. 4
