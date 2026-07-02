@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-03</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-03 05:28 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日从14篇AI论文中精选6篇精读，聚焦大模型认知图谱与脑电面部编辑。</p>
-<p>最值得关注：大语言模型的认知组织首次被映射为图谱，脑电信号可直驱面部动作单元编辑。</p>
-<p>读者可跟进多模态脑机接口与大模型认知分析的交叉突破。</p>
+      <p>大脑认知图谱揭秘大模型思维，面部表情编辑实现“意念操控”。</p>
+<p>最值得关注的是大语言模型认知组织规律与跨模态情感计算新突破：脑电信号可驱动面部动作单元编辑，且双流对齐技术让编辑更精准。</p>
+<p>感兴趣可先读两篇精读论文，再了解跨模态学习与情感情感识别的领域自适应方法。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/03/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -150,3 +149,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
