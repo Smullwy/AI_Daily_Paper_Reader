@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-07</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-07 05:31 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读揭示情绪效价的神经编码与前额叶皮层的个体化功能划分，速读则从新生儿脑功能组织、可解释跨模态对齐到线性注意力记忆均有涉及。</p>
-<p>最值得关注的是听故事时愉悦情绪的动态神经表征，以及前额叶功能分区的个体差异突破。</p>
-<p>建议读者从情绪神经解码和个体化脑分区切入，探索认知与计算交叉的新应用。</p>
+      <p>今日从16篇论文中精读了情绪效价的神经编码与个体化前额叶功能分区两项高分研究。</p>
+<p>最值得关注的是叙事理解中愉悦感的动态神经表征模型，以及无创绘制个体化脑功能边界的新方法。</p>
+<p>建议读者优先浏览这两篇精读论文的图文摘要，快速把握从群体模板到个体化脑图谱的技术转向。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/07/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
