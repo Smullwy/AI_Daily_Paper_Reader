@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-08</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-08 05:39 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读聚焦脑信号解码新范式：用堆叠式LoRA让运动想象脑电模型千人千面，并重新发现对抗鲁棒性是CLIP破解视觉解码的隐藏钥匙。</p>
-<p>最值得关注的两大突破：高效参数微调让脑机接口快速适配个体，而对抗训练大幅提升从大脑活动重建视觉内容的可靠性。</p>
-<p>建议研究者立刻尝试在跨被试脑电或fMRI分类任务中引入低秩适应与对抗预训练，可能复现惊喜。</p>
+      <p>今日脑机接口与认知解码前沿速递：从16篇论文中精读6篇，聚焦个体自适应脑电解码与跨模态认知解读的突破性进展。</p>
+<p>最值得关注的是堆叠LoRA实现运动想象脑电的个体化基础模型，以及对抗鲁棒性重塑CLIP在脑解码中的认知边界。</p>
+<p>建议读者深入阅读这两篇9分精读论文，它们共同指向大规模脑模型走向真实世界应用的个体适应与稳健性关键问题。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/08/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
