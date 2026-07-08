@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-09</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-09 05:25 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日速读三篇论文，聚焦于自监督学习架构改进、表征先验对泛化的因果作用和数据稀缺下的认知选择性。</p>
-<p>最值得关注的是：Siamese 结构如何影响 JEPA 的表示坍塌，以及特定结构的表征先验可因果控制“领悟延迟”现象。</p>
-<p>建议普通读者直接追踪《SiamJEPA》和《Structure-Specific Representational Priors》的结论，它们对理解大模型训练稳定性和顿悟时机很有启发。</p>
+      <p>今日速读聚焦AI学习内幕：从孪生编码器到顿悟延迟，再到类人认知的选择性。</p>
+<p>最值得关注：特定结构先验能因果性地控制“顿悟”发生时间，而层次化支架让AI在数据稀缺时也能像人一样精准筛选信息。</p>
+<p>建议普通读者：若想理解大模型为何突然“开窍”或小样本学习如何突破，可精读《Structure-Specific Representational Priors》和《Hierarchical Scaffolding》这两篇。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/09/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -115,3 +114,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

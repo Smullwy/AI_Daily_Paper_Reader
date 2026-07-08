@@ -1,0 +1,412 @@
+Title: Conservative Subject Invariant EMG-based Gesture Recognition
+
+URL Source: https://arxiv.org/pdf/2607.03783v1
+
+Published Time: Tue, 07 Jul 2026 01:32:37 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+> GENERIC COLORIZED JOURNAL, VOL. XX, NO. XX, XXXX 202X 1
+
+# Conservative Subject Invariant EMG-based Gesture Recognition 
+
+Hamed Rafiei and Ali Mousavi 
+
+Abstract — Cross-subject generalization remains a fun-damental challenge in surface electromyography (sEMG)-based gesture recognition. Although deep learning meth-ods have improved within-subject performance, they often rely on subject-specific data and struggle to balance invari-ance and discriminability. In this work, we propose a con-servative multi-objective learning framework for subject-invariant sEMG gesture recognition. The proposed model adopts a multi-head architecture that jointly optimizes ges-ture classification, adversarial subject confusion through gradient reversal, and triplet-based metric learning to en-courage discriminative and subject-invariant representa-tions. To improve optimization stability, a Lipschitz-inspired adaptive weighting mechanism is introduced to dynami-cally balance the auxiliary objectives according to their relative magnitudes during training. The proposed method is evaluated on two benchmark datasets: UCI EMG (36 subjects, 6 gestures) and NinaPro DB5 (10 subjects, 10 gestures). On the UCI EMG dataset, the method achieves 84.48% accuracy compared to 78.2% reported by state-of-the-art methods. On NinaPro DB5, it achieves 61.44% accuracy versus 41.30%, corresponding to a 49% rela-tive improvement. In addition, the proposed framework reduces cross-subject prediction variance and produces more structured latent representations. These results in-dicate that jointly enforcing invariance and discriminability through adaptive multi-objective optimization leads to more stable training and improved cross-subject generalization in sEMG-based gesture recognition systems. 
+
+Index Terms — Cross-subject generalization, Adversarial learning, Feature disentanglement, Neural interface, Deep learning 
+
+I. I NTRODUCTION 
+
+# SURFACE electromyography (sEMG) captures the electri-cal activity of muscle fibers and motor neurons through non-invasive sensors, providing rich insight into muscle ac-tivation during movement [1]. In particular, sEMG-based hand gesture recognition seeks to decode these signals to identify discrete hand movements, enabling intuitive control of robotic systems, prosthetic devices, and assistive tech-nologies—especially for individuals with motor impairments. Owing to its non-invasive nature and high temporal resolu-tion, sEMG has been widely adopted in applications such as human–computer interaction, virtual and augmented reality, 
+
+H. Rafiei is with Department of Electrical Engineering, Center of Excellence on Soft Computing and Intelligent Information Pro-cessing, Ferdowsi University of Mashhad, Mashhad, Iran (e-mail: rafiei.hamed@mail.um.ac.ir). A. Mousavi is with Department of Computer Engineering, Ne. C., Islamic Azad University, Neyshabur, Iran (e-mail: mousavi@iau.ac.ir). 
+
+rehabilitation, and wearable robotics [2]–[4]. Despite these advances, achieving reliable performance across different users and recording conditions remains a fundamental challenge. In practice, models must learn representations that generalize beyond subject-specific characteristics and session-dependent variations, which often limits their robustness in real-world deployments. sEMG signals are inherently complex and highly variable [5], exhibiting strong sensitivity to both inter-subject differ-ences [6] and inter-session variability [7]. These variations arise from intrinsic factors, such as differences in muscle anatomy and physiology across individuals, as well as extrinsic factors, including electrode displacement, variations in skin– electrode contact, and changes in muscle condition across recording sessions. As a result, sEMG feature representations can vary significantly even when different subjects perform the same gesture under nominally identical conditions. This pronounced subject-dependent variability poses a major ob-stacle to cross-subject generalization, as models trained on a limited set of users often capture subject-specific patterns rather than task-relevant muscle activation dynamics. Notably, the individuality encoded in sEMG signals is so strong that it has been successfully leveraged for biometric identifica-tion, further underscoring the challenge of separating gesture-related information from subject-specific signatures [8]–[11]. Several strategies have been explored to address inter-subject variability in sEMG-based gesture recognition, with increasing emphasis on learning subject-invariant representa-tions. Early approaches relied on carefully designed hand-crafted features to improve robustness across users and recording conditions [9], [12]. However, the inherently strong subject-specific nature of sEMG signals limits their effective-ness. Subsequently, transfer learning and domain adaptation methods were introduced to mitigate cross-subject perfor-mance degradation by adapting models trained on source subjects to a target user [13], [14]. While these approaches can improve performance, they typically require access to target-subject data and may suffer from error accumulation when pseudo-labels become unreliable under large inter-subject dis-tribution shifts. More recent work has explored adversarial learning as a means of encouraging subject-invariant rep-resentations without explicit target-domain supervision. By introducing a subject discriminator and training the encoder to confuse it, these methods aim to suppress subject-identifying information in the latent space. Representative examples in-clude multi-source adversarial alignment and feature disentan-glement approaches that explicitly promote invariance across  
+
+> arXiv:2607.03783v1 [cs.LG] 4 Jul 2026 2GENERIC COLORIZED JOURNAL, VOL. XX, NO. XX, XXXX 202X
+
+subjects [11], [15]. However, adversarial objectives alone do not explicitly enforce separation between gesture classes and may lead to over-alignment or class overlap in the latent space. Recent benchmark studies, such as EMGBench [10], evaluate a broad range of models and training strategies under cross-subject and cross-session settings, and show that performance remains limited under strong distribution shifts. These find-ings highlight the difficulty of learning representations that generalize across subjects and suggest that invariance alone is insufficient without strong task-discriminative constraints. Re-cent work has explored Lipschitz-based constraints to improve robustness of sEMG classifiers to input perturbations [16]; however, such approaches primarily focus on stability and do not explicitly address cross-subject variability. Moreover, Lips-chitz continuity has been studied as a principled framework for controlling gradient behavior and improving training stability in deep networks [17], [18]. In this context, it provides a useful interpretation of how the scale of a loss function relates to the magnitude of its gradients during optimization. These insights motivate the use of adaptive mechanisms to balance the influence of adversarial and discriminative objectives in multi-objective training. Alongside domain adaptation and adversarial strategies, deep learning models have been widely adopted to exploit the rich temporal and spectral characteristics of sEMG signals. Convolutional neural networks (CNNs) have been used to au-tomatically extract discriminative features from both time and frequency domains [19], [20]. In addition, hybrid architectures that combine CNNs with recurrent neural networks (RNNs) have been proposed to more effectively capture the spatiotem-poral dependencies in muscle activation patterns [21]–[23]. Although these models significantly enhance representation capacity and recognition accuracy, increased expressive power alone does not guarantee robustness to subject variability. In practice, deep models often learn latent representations in which gesture-related information is entangled with subject-specific characteristics, limiting their ability to generalize across users [24]. To address this limitation, recent work has explored explicit disentanglement strategies aimed at separat-ing task-relevant and subject-dependent factors in the latent space. For instance, Fan et al. [11] proposed a multi-encoder architecture with a shared decoder to decompose sEMG features into gesture-related and subject-related components, demonstrating improved robustness in cross-subject and cross-session settings. Similarly, Zhang et al. [25] introduced an extended variational autoencoder (VAE) framework that par-titions the latent space into gesture-specific, subject-specific, and residual components to enhance generalization. Despite these advances, existing disentanglement-based approaches typically rely on architectural separation or reconstruction objectives and do not explicitly enforce a discriminative structure within the gesture-related latent representation. As a result, the learned features may still lack sufficient intra-class compactness or inter-class separability. Furthermore, many of these approaches depend on fixed weighting of multiple objectives, which can lead to unstable optimization when the relative scales of adversarial and discriminative losses differ significantly. This limitation highlights the need for adaptive mechanisms that balance competing objectives during training. sEMG signals exhibit strong subject-dependent and session-dependent variability, posing a major challenge for reliable cross-subject gesture recognition. To address this issue, we propose a conservative subject-invariant learning framework that jointly optimizes multiple complementary objectives act-ing directly on the encoder representation. Here, conservative 
+
+denotes a training strategy that prevents any single objective from dominating the optimization process, thereby promoting stable and balanced multi-objective learning. Specifically, the framework integrates three components. First, an adversarial subject loss enforces subject invariance by encouraging the encoder, via a gradient-reversal mechanism, to remove subject-identifying information and align latent representations across users. Second, a gesture classification loss promotes intra-class compactness, ensuring that samples corresponding to the same gesture form cohesive clusters in the latent space de-spite variability in muscle activation, electrode displacement, or noise. Third, a triplet loss explicitly enforces inter-class separability by increasing the margin between embeddings of different gestures, thereby reducing overlap between gesture manifolds under subject or session shifts. To ensure stable optimization of these competing objectives, we further in-troduce a Lipschitz-inspired adaptive weighting mechanism that dynamically balances their contributions based on their relative scales. By combining structured representation learn-ing with conservative, adaptive optimization, the proposed approach learns a latent representation that is simultaneously subject-invariant, discriminative, and well structured, provid-ing a robust foundation for cross-subject sEMG-based gesture recognition. Unlike existing approaches, it explicitly addresses both representation structure and optimization stability within a unified framework. The main contributions of this paper are summarized as follows:  
+
+> •
+
+We propose a conservative subject-invariant representa-tion learning framework for sEMG-based gesture recog-nition that addresses inter-subject variability without re-quiring target-subject adaptation.  
+
+> •
+
+We develop a multi-objective learning strategy that jointly integrates adversarial subject confusion, gesture classifi-cation, and triplet-based metric learning to enforce invari-ance, intra-class compactness, and inter-class separability.  
+
+> •
+
+We introduce a Lipschitz-inspired adaptive weighting mechanism that dynamically balances competing objec-tives during training, improving optimization stability and reducing sensitivity to manual hyperparameter tuning.  
+
+> •
+
+We demonstrate through extensive cross-subject evalua-tions that the proposed framework achieves more robust and consistent performance than existing adversarial and discriminative approaches. The remainder of this paper is organized as follows. Sec-tion II provides the proposed conservative subject-invariant network (CSIN) methodology. Section III presents the exper-imental setup and results. Section IV discusses future work. Finally, Section V concludes the paper. A list of notations used throughout the paper is provided in Table I. AUTHOR et al. : PREPARATION OF PAPERS FOR IEEE TRANSACTIONS AND JOURNALS (DECEMBER 2023) 3
+
+TABLE I : List of mathematical notation                                                    
+
+> Notation Description
+> xInput feature vector extracted from EMG window
+> dDimensionality of input feature vector
+> zLatent representation (embedding)
+> pDimensionality of latent embedding
+> ygGesture label
+> ysSubject label
+> CNumber of gesture classes
+> SNumber of subjects
+> fθ(·)Encoder network with parameters θhϕ(·)Gesture classification head with parameters ϕhψ(·)Subject classification head with parameters ψ
+> ˆpgPredicted gesture class probabilities
+> ˆpsPredicted subject class probabilities
+> Wg,bgGesture head weight matrix and bias vector
+> Ws,bsSubject head weight matrix and bias vector
+> Lgest Gesture classification loss
+> Lsub Subject classification loss
+> Ladv Adversarial loss for encoder
+> Ltrip Triplet metric learning loss
+> Lenc Encoder optimization loss
+> Ltotal Total training loss (for reporting)
+> λgest Gesture loss weight
+> λadv Adversarial loss weight
+> λtrip Triplet loss weight
+> λwd Weight decay coefficient
+> ΘSet of all trainable parameters
+> radv Relative adversarial loss ratio
+> rtrip Relative triplet loss ratio
+> ˆLadv Smoothed adversarial loss estimate
+> ˆLtrip Smoothed triplet loss estimate
+> βExponential smoothing coefficient
+> ϵSmall constant for numerical stability
+> zaiAnchor sample in triplet
+> zpiPositive sample (same gesture, different subject)
+> zniNegative sample (different gesture)
+> d(u,v)Squared Euclidean distance between uand v
+> αMargin parameter in triplet loss
+> NNumber of triplets in batch
+
+II. P ROPOSED METHOD 
+
+In this section, we present the proposed conservative subject-invariant network (CSIN) for gesture recognition from sEMG signals. The overall architecture is shown in Fig. 1. CSIN is built on a multi-head neural architecture with a shared feature encoder, designed to learn a latent representation in-variant to subject-specific variations while preserving gesture-related factors. The method aims to obtain a representation that is simultaneously intra-class compact , inter-class separable ,and subject invariant . Intra-class compactness is encouraged by the gesture classification objective, which drives samples of the same gesture toward cohesive clusters in the latent space. Inter-class separability is enforced using a triplet loss, which increases the relative distance between embeddings of distinct gestures. To reduce subject-specific effects, we use an adversarial strategy: a subject classifier attempts to identify the subject, while the encoder, through gradient reversal, is trained to remove this information from the representation. To ensure stable and balanced optimization of these competing objectives, we further introduce a Lipschitz-inspired adaptive weighting strategy that dynamically adjusts the contributions of the adversarial and triplet losses with respect to the pri-mary gesture-classification objective. By jointly optimizing these objectives with adaptive loss balancing, CSIN learns a 
+
+Fig. 1 : Overview of the proposed conservative subject invariant network (CSIN) for sEMG-based gesture recognition. The model consists of a shared feature encoder and two heads: a gesture classification head and a subject classification head. The encoder learns a disentangled latent representation that is intra-class compact, inter-class separable, and invariant to subject-specific characteristics. Forward flow of data and backward gradients are shown in gray and orange solid lines, respectively. The feature extraction step is shown in a dashed line. 
+
+representation that remains discriminative while being more robust to subject variability, leading to improved cross-subject generalization. Let x ∈ Rd denote the extracted feature vector from a window of sEMG signals, and let yg ∈ {1, . . . , C } and 
+
+ys ∈ { 1, . . . , S } denote the corresponding gesture and subject labels, respectively. A shared encoder is used to transform the input feature vector into a latent embedding: 
+
+z = fθ (x) ∈ Rp, (1) where θ denotes the encoder parameters and p is the em-bedding dimension. The encoder maps the input to a latent embedding z that preserves gesture-discriminative information while suppressing subject-specific variations, forming the basis for learning representations that are both discriminative and invariant across subjects. 
+
+A. Multi-head output structure 
+
+The proposed architecture employs two primary prediction heads operating on the shared latent representation z: a gesture classification head and a subject classification head. The gesture head is defined as: 
+
+ˆpg = hϕ(z) = softmax( Wg z + bg ), (2) where ϕ denotes the parameters of the gesture classifier. This head estimates the class probabilities over the C gesture classes. The subject head is defined as: 
+
+ˆps = hψ (z) = softmax( Wsz + bs), (3) where ψ denotes the parameters of the subject classifier. This head predicts the subject identity and is used exclusively for adversarial training. During optimization, the gesture head encourages the en-coder to learn gesture-discriminative representations. In con-trast, the subject head is coupled with a gradient reversal layer, which inverts the gradients propagated to the encoder 4 GENERIC COLORIZED JOURNAL, VOL. XX, NO. XX, XXXX 202X 
+
+during backpropagation. As a result, the encoder is trained to suppress subject-specific information while retaining task-relevant features. 
+
+B. Loss functions 
+
+The proposed framework is formulated as a multi-objective optimization problem on the shared latent representation. Specifically, it jointly optimizes three objectives: (i) gesture classification, (ii) adversarial subject classification for invari-ance, and (iii) triplet-based metric regularization.  
+
+> 1) Gesture Classification Loss:
+
+The gesture head is trained using the standard cross-entropy loss as follows: 
+
+Lgest = −
+
+> C
+
+X
+
+> c=1
+
+I(yg = c) log ˆ pg (c), (4) which encourages the encoder to learn gesture-discriminative representations. This term serves as the primary task objective and acts as the reference scale for balancing auxiliary losses during training.  
+
+> 2) Adversarial subject loss:
+
+To suppress subject-dependent information in the latent representation, a subject classifier is trained jointly with the encoder. The subject head minimizes the cross-entropy loss as follows: 
+
+Lsub = −
+
+> S
+
+X
+
+> s=1
+
+I(ys = s) log ˆ ps(s). (5) To enforce subject invariance, a gradient reversal mecha-nism is applied between the subject head and the encoder. During backpropagation, the gradients from the subject loss are multiplied by −1 before reaching the encoder. As a result, the subject head is trained to correctly predict subject identity, while the encoder is trained adversarially to remove subject-discriminative information. The adversarial contribution to the encoder objective is therefore given by Ladv = −L sub . This adversarial interaction encourages the latent representation to be invariant to subject identity while retaining task-relevant gesture information.  
+
+> 3) Triplet loss:
+
+To enhance the discriminative structure of the latent space, we employ a triplet loss that enforces both intra-class compactness and inter-class separation. Each training sample is organized into triplets of the form (zai , zpi , zni ),where the anchor and positive embeddings correspond to the same gesture class (typically from different subjects). In contrast, the negative embedding belongs to a different gesture class. Using the squared Euclidean distance as follows: 
+
+d(u, v) = ∥u − v∥22, (6) the triplet loss is defined as: 
+
+Ltrip = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+[d(zai , zpi ) − d(zai , zni ) + α]+ , (7) where α > 0 is a margin parameter and [·]+ = max(0 , ·).This objective brings embeddings of the same gesture closer together while pushing those of different gestures further apart, improving class separability and reducing overlap in the latent space. 
+
+C. Lipschitz-adaptive multi-objective optimization 
+
+A key challenge in joint optimization is the relative scaling of the adversarial and triplet objectives with respect to the main gesture-classification loss. Fixed coefficients often require ex-tensive manual tuning and may lead to unstable training when one auxiliary objective dominates the others. To address this issue, we introduce a Lipschitz-inspired adaptive weighting strategy that dynamically adjusts the weights of the adversarial and triplet losses during optimization. The total loss used is written as 
+
+Ltotal = λgest Lgest + λadv Lsub + λtrip Ltrip + λwd ∥Θ∥22, (8) where Θ collects all trainable weights and λwd denotes the weight-decay coefficient. Since the encoder is trained adversar-ially with respect to subject identity, the loss used to compute gradients for the shared encoder becomes 
+
+Lenc = λgest Lgest − λadv Lsub + λtrip Ltrip + λwd ∥Θ∥22. (9) In contrast, the subject-classification head itself is trained in the standard direction to minimize Lsub . This results in the usual adversarial interaction between the encoder and the subject classifier. To avoid manually fixing λadv and λtrip , we estimate their relative magnitudes with respect to the gesture loss. To simplify the notation, we treat the subject classification loss 
+
+Lsub as a proxy for the adversarial loss magnitude, as both operate on a similar scale. Let 
+
+radv = Lsub 
+
+Lgest + ϵ , rtrip = Ltrip 
+
+Lgest + ϵ , (10) computed at predefined intervals during training, whenever 
+
+Lgest is sufficiently large. These ratios act as practical proxies for the relative Lipschitz scales of the objectives, since the magnitude of a loss is related to the norm of its gradients during stochastic optimization. We then maintain exponentially smoothed estimates as follows: 
+
+ˆL(t)adv = β ˆL(t−1) adv + (1 − β) r(t)adv , (11) 
+
+ˆL(t)trip = β ˆL(t−1) trip + (1 − β) r(t)trip , (12) where β ∈ [0 , 1) is a smoothing coefficient. The adaptive weights are then updated inversely propor-tional to these estimated scales, 
+
+λ(t)adv = λgest 
+
+ˆL(t)adv 
+
+, λ(t)trip = λgest 
+
+ˆL(t)trip 
+
+. (13) This update rule ensures that auxiliary objectives remain on a scale comparable to the main classification objective, thereby improving optimization stability and reducing the need for exhaustive hyperparameter tuning. To improve stability, the adaptive updates are applied only after an initial warm-up phase. The resulting weights are also clipped to predefined ranges, 
+
+λadv ∈ [λmin adv , λ max adv ], λtrip ∈ [λmin trip , λ max trip ], (14) to avoid extreme values caused by noisy mini-batch estimates. AUTHOR et al. : PREPARATION OF PAPERS FOR IEEE TRANSACTIONS AND JOURNALS (DECEMBER 2023) 5
+
+This Lipschitz-adaptive weighting strategy provides two main advantages. First, it prevents the adversarial and metric-learning terms from dominating the gesture objective. Second, it reduces the sensitivity of the training process to dataset-specific tuning, which is particularly important in cross-subject EMG learning, where the balance between invariance and discrimination can vary across datasets. 
+
+a) Why Lipschitz-Adaptive Balancing Improves Training Sta-bility: The proposed adaptive weighting strategy can be in-terpreted through the lens of Lipschitz continuity and gradi-ent scaling. In multi-objective optimization, each loss term contributes gradients of potentially different magnitudes with respect to the shared encoder parameters. When fixed coef-ficients are used, the optimization process becomes highly sensitive to the relative scales of the gradients, often leading to one objective dominating the others or to unstable oscillatory behavior. By estimating the relative magnitude of each auxiliary loss with respect to the primary gesture-classification loss, the proposed method effectively balances their gradient con-tributions. Since the norm of a loss gradient is related to its Lipschitz constant, the ratio Lsub  
+
+> Lgest
+
+and Ltrip  
+
+> Lgest
+
+serves as a practical indicator of the relative scale of each objective. Adjusting the weights inversely to these ratios therefore acts as a form of gradient normalization, helping prevent any single objective from dominating the shared representation. Moreover, exponential smoothing helps stabilize these esti-mates across mini-batches, reducing the impact of stochastic fluctuations and avoiding abrupt changes during training. To-gether, inverse scaling and temporal smoothing lead to a more stable and adaptive optimization process, making the model less sensitive to initialization and dataset-specific variations. From a representation learning perspective, this results in a better balance between discriminability (gesture classification), invariance (adversarial subject confusion), and structural orga-nization (triplet loss), producing embeddings that generalize more effectively to unseen subjects. This balance is especially important in cross-subject EMG recognition, where the relative difficulty of these objectives can vary across individuals. 
+
+D. Optimization details 
+
+The network is trained using the Adam optimizer. For each mini-batch, the gesture, subject, triplet, and reconstruction losses are computed from the shared embedding. The encoder is then updated using the adversarially signed objective in (9), while the subject head is updated in the normal direction using subject classification loss. Gradient clipping is used to avoid exploding updates, and 
+
+L2 regularization is applied to the trainable weights. During inference, only the encoder and gesture-classification head are retained; the subject-classification and reconstruction heads are used only during training. The complete training procedure of the proposed frame-work is summarized in Algorithm 1. For each mini-batch, the encoder produces a latent representation that is simul-taneously optimized for gesture discrimination, subject in-variance, and metric structure. The gesture loss acts as the 
+
+Algorithm 1: Lipschitz-Adaptive Training Procedure 
+
+Input: Training set D = {(xi, y ig , y is)}Ni=1 
+
+Input: Initial weights λgest , λ adv , λ trip 
+
+Input: Margin α, smoothing coefficient β, warm-up length 
+
+Twarm , update interval K
+
+Output: Trained encoder fθ and gesture head hϕg
+
+Initialize encoder, gesture head, subject head, and reconstruction head parameters; Initialize optimizer state; Initialize ˆLadv ← 1, ˆLtrip ← 1;
+
+for epoch = 1 to Tmax do 
+
+Shuffle training data; 
+
+for each mini-batch B do 
+
+Compute latent embeddings z = fθ (x);Compute gesture predictions ˆpg = hϕg (z);Compute subject predictions ˆps = hϕs (z);Compute Lgest , Lsub , and Ltrip ;Form encoder loss: 
+
+Lenc = λgest Lgest − λadv Lsub + λtrip Ltrip .
+
+Update encoder and auxiliary heads using backpropagation; 
+
+if training step > T warm and update step is a multiple of K then 
+
+Compute 
+
+radv = Lsub 
+
+Lgest 
+
+, rtrip = Ltrip 
+
+Lgest 
+
+when Lgest > ϵ ;Update smoothed estimates 
+
+ˆLadv ← β ˆLadv + (1 − β)radv ,
+
+ˆLtrip ← β ˆLtrip + (1 − β)rtrip .
+
+Update adaptive coefficients 
+
+λadv ← λgest 
+
+ˆLadv 
+
+, λtrip ← λgest 
+
+ˆLtrip 
+
+.
+
+Clip λadv and λtrip to predefined ranges; 
+
+primary task objective, while the adversarial subject loss and triplet loss are adaptively reweighted during training using the proposed Lipschitz-inspired balancing mechanism. After an initial warm-up stage, the relative magnitudes of the subject and triplet losses are periodically estimated relative to the gesture loss, and their coefficients are updated via exponen-tially smoothed inverse scaling. This allows the network to maintain stable multi-objective optimization without relying on manually fixed loss weights. During inference, only the encoder and gesture head are used. 
+
+III. R ESULTS 
+
+A. Datasets 
+
+1) UCI EMG dataset: The UCI dataset 1 comprises raw EMG recordings captured using a MYO Thalmic bracelet positioned on the forearm of 36 healthy subjects. During data collection, participants executed a series of static hand gestures. At the  
+
+> 1https://archive.ics.uci.edu/dataset/481/emg+data+ for+gestures 6GENERIC COLORIZED JOURNAL, VOL. XX, NO. XX, XXXX 202X
+
+same time, eight evenly distributed sensors around the forearm recorded myographic signals at a sampling rate, yielding approximately 40,000-50,000 time-stamped measurements per recording session. Each participant completed two separate trials consisting of six to seven basic hand movements (here we use 6 gestures), with each gesture maintained for 3 seconds, followed by a 3-second rest period. The recorded gestures included resting hand position, fist clenching, wrist flexion and extension, radial and ulnar deviations, and an extended palm configuration (though not all subjects performed this). Windows of length 250ms with a 50ms step length are used for feature extraction. Four features of mean absolute value (MAV), root mean square (RMS), wave length (WL), zero crossing (ZC) are extracted.  
+
+> 2) NinaPro DB5 dataset:
+
+The Ninapro DB5 dataset 2 in-cludes surface EMG recordings from 10 intact subjects per-forming hand and wrist movements [26]. Data were acquired using two Thalmic Myo Armbands, each equipped with 8 dry electrodes equally spaced around the forearm, providing a total of 16 EMG channels sampled at 200 Hz. The first arm-band was positioned at the height of the radio-humeral joint, while the second was placed with a 22.5-degree clockwise rotation. For this study, we utilize only the EMG channels and focus on a subset of 10 movement classes: Rest, Finger Abduction, Fist, Finger Adduction, Middle Axis Supination, Middle Axis Pronation, Wrist Flexion, Wrist Extension, Radial Deviation, and Ulnar Deviation. These movements span basic finger articulations and fundamental wrist motions, repre-senting functionally relevant gestures for prosthetic control and human-computer interaction applications. Each movement repetition lasted approximately 5 seconds, followed by a 3-second rest, for a total of 6 repetitions per gesture class. The movements were organized into three exercises: basic finger movements; isometric and isotonic hand configurations with wrist movements; and functional grasping movements. The dataset provides synchronized recordings, including raw EMG signals and movement labels with refined temporal annotations (restimulus) that more accurately reflect the actual movement execution. The same features as in the UCI dataset are extracted from standard windows of length 250ms with a 50ms step size for suitable real-time use [27]. 
+
+B. Network architecture 
+
+The proposed CSIN network consists of a shared encoder followed by two specialized prediction heads for gesture clas-sification and subject classification. The complete architecture is detailed in Table II. The shared encoder processes z-score normalized 32/64-dimensional input features (8/16 electrodes 
+
+× 4 features: MAV, RMS, WL, ZC) through two fully con-nected blocks of 64 units each, with layer normalization, ReLU activation, and 30% dropout. The encoder outputs a 16-dimensional embedding that serves as the bottleneck represen-tation for both downstream heads. The gesture classification head consists of three 16-unit fully connected layers with ReLU activations, layer normalization, and dropout, followed by a 6/10-way softmax output for the UCI/NinaPro dataset.                   
+
+> 2https://ninapro.hevs.ch/instructions/DB5.html
+> TABLE II : CSIN Network Architecture for the UCI/NinaPro dataset.
+> Component Configuration Output
+> Input Z-score normalization 32/64
+> Shared Encoder
+> FC Block 1 FC(64) + LN + ReLU + Drop(0.3) 64 FC Block 2 FC(64) + LN + ReLU + Drop(0.3) 64 Embedding FC(16) 16
+> Gesture Head
+> FC Blocks 3×[ReLU + LN + Drop + FC(16)] 16 Output FC(6/10) + Softmax 6/10
+> Subject Head
+> FC Blocks 3×[ReLU+LN+Drop+FC(36)] 36 Output FC(35/10) + Softmax 35/10
+
+The subject classification head mirrors this structure but uses 36-unit layers and outputs 35/10 classes (corresponding to training subjects in leave-one-subject-out cross-validation). During training, the subject head minimizes cross-entropy loss with normal gradients, while the shared encoder receives re-versed gradients from this head to remove subject-identifying information. Training employs the Adam optimizer ( β1 =0.9, β2 = 0 .999 , ϵ = 10 −8) with a fixed learning rate of 0.001, L2 regularization ( 10 −4), batch size of 512, and 300 epochs. The total loss combines gesture classification ( λgest ), adversarial subject loss ( λadv ), and triplet loss ( λtrip , margin 
+
+α = 0 .5). Triplets are constructed with anchor and positive samples sharing the same gesture from different subjects, while negative samples represent different gestures, enforcing both inter-class separability and cross-subject consistency. 
+
+C. Ablation study on training schedules 
+
+In addition to the main Lipschitz-adaptive training strategy, we investigated whether the timing of adversarial interaction between the encoder and the subject-classification head affects final performance. In all cases, the network architecture, feature extraction procedure, and loss definitions remained unchanged; only the update schedule of the encoder and subject head differed. We considered four training schedules:      
+
+> a) Scenario 1(fully coupled training):
+
+All modules are trained jointly from the first epoch onward. The encoder is optimized with the full objective, while the subject head is trained continuously with a subject-classification loss.  
+
+> b) Scenario 2 (warm-up without subject-head training):
+
+Dur-ing the initial stage, the subject head is frozen, and the encoder is optimized only with gesture and triplet losses. After the warm-up period, adversarial subject learning is activated, and full joint training begins.  
+
+> c) Scenario 3 (delayed adversarial interaction):
+
+The subject head is trained from the start, but the encoder does not receive adversarial subject gradients during the warm-up stage. After initialization, the full objective is used for encoder training. 
+
+> d) Scenario 4 (early subject supervision with later freezing):
+
+The subject head is trained during the warm-up stage to establish a discriminative subject signal. After initialization, the subject head is frozen, while the encoder continues to receive adversarial gradients from the fixed subject classifier. AUTHOR et al. : PREPARATION OF PAPERS FOR IEEE TRANSACTIONS AND JOURNALS (DECEMBER 2023) 7
+
+TABLE III : Training-schedule ablation scenarios. Check marks indi-cate active losses or updated modules.                                            
+
+> Scenario Stage Encoder objective Gesture head Subject head
+> S1 Full training Lgest −λadv Lsub +
+> λtrip Ltrip
+> updated updated S2 Warm-up Lgest +λtrip Ltrip updated frozen Later stage Lgest −λadv Lsub +
+> λtrip Ltrip
+> updated updated S3 Warm-up Lgest +λtrip Ltrip updated updated Later stage Lgest −λadv Lsub +
+> λtrip Ltrip
+> updated updated S4 Warm-up Lgest +λtrip Ltrip updated updated Later stage Lgest −λadv Lsub +
+> λtrip Ltrip
+> updated frozen
+
+Table III summarizes these schedules. The purpose of this ablation is to determine whether the final performance gains arise primarily from the proposed Lipschitz-adaptive balancing itself or from a particular adversarial training schedule. As shown in the experimental results, the differences among scenarios are relatively small, indicating that the proposed method is robust to the exact scheduling strategy. This obser-vation suggests that the main benefit derives from the multi-objective, subject-invariant formulation together with adaptive loss balancing, rather than from a highly specialized training schedule. 
+
+TABLE IV : Comparing the accuracies’ average, standard deviation, maximum, and minimum (%) of the proposed method with SOTA for the UCI EMG dataset. Best results are bold.                                   
+
+> Method Mean ↑Std ↓Max ↑Min ↑Window size(ms) Number of gestures KNN-1 [28] 77.5 ---300 7EMGBench [10] 78.2 ---250 6Na¨ ıve CSIN 80.88 15.05 98.12 32.93 250 6Full CSIN 84.48 15.74 97.49 22.36 250 6
+
+TABLE V : Comparing the accuracies’ average, standard deviation, maximum, and minimum (%) of the proposed method with SOTA for the NinaPro DB5 EMG dataset. Best results are bold.                                               
+
+> Method Mean ↑Std ↓Max ↑Min ↑Window size (ms) Number of gestures FedEMG [29] 24.52 ---1000 53 KNN-1 [28] 68.7 ---500 53 genANN [30] 17.28 4.82 --250 40 EMGBench [10] 41.30 ---250 10 Na¨ ıve CSIN 60.77 6.06 65.52 46.00 250 10 Full CSIN 61.44 1.23 62.79 59.11 250 10
+
+D. Performance comparison 
+
+Tables IV and V show results against published baselines on UCI EMG and NinaPro DB5, respectively, under leave-one-subject-out cross-validation (LOSOCV). On UCI EMG, the proposed full CSIN reaches 84.48% mean accuracy, clearing the EMGBench reference of 78.2% by a meaningful margin. The na¨ ıve CSIN (the proposed CSIN with constant Lipschitz) already lands at 80.88%, which itself surpasses all published comparators. The cost is a slightly wider spread (std 15.74% vs. 15.05%), driven by a few low-performing subjects where subject-invariant training does not fully close the gap. On NinaPro DB5, the picture is different. Both the na¨ ıve CSIN (60.77%) and full CSIN (61.44%) substantially outperform EMGBench (41.30%), and the key gain from the proposed method is not accuracy but variance: std drops from 6.06% to 1.23%, and the worst-case subject accuracy rises from 46.00% to 59.11%. For a system intended to generalize to unseen users, a nearly five-point improvement in the floor matters more than a fractional gain in the mean. Tables VI and VII expand this picture across fixed-weight configurations and four training schedules. On UCI EMG (Ta-ble VI), the baseline (gesture classification only, no adversarial or triplet objectives) sits at 81.75% (std 14.33%). Adding triplet loss alone—at any of the three tested weights—barely moves the needle, with means clustering within 0.4% of baseline regardless of scenario. Adversarial loss alone (with no triplet term) similarly provides negligible lift. The mod-est gains emerge when both auxiliary objectives are active together. The best fixed-weight result in Table VI is 82.26% (std 13.99%, min 37.76%) at λadv = 0 .01 and λtrip = 1 
+
+under Scenario 3—a setup where the subject head is frozen after the warm-up. This pairing sits squarely in the middle of the search grid; notably, raising the triplet weight to 10 rarely helps and occasionally degrades the minimum accuracy, suggesting that aggressive metric pushing conflicts with the classification objective at these embedding scales. Across all four scheduling scenarios the results are strik-ingly stable. For any fixed pair of (λadv , λ trip ), swapping between S0 (fully coupled from epoch one) and S3 (delayed adversarial with later head freezing) typically shifts the mean by under 0.3%. The practical takeaway is that the benefit does not hinge on a particular initialization trick; the multi-objective formulation is the operative ingredient, not the schedule. On NinaPro DB5 (Table VII), the baseline (gesture classifi-cation only, no adversarial or triplet objectives) is 60.85% with std 5.60%. Triplet loss alone leaves performance essentially unchanged. Once adversarial loss is introduced at λadv = 0 .1,mean accuracy rises to around 61.34–61.47% across several configurations, and the standard deviation consistently falls to roughly 5.1–5.3%, compared to 6.14% without adversarial training. The best individual result, 61.47% with std 5.12%, comes at λadv = 0 .1 and λtrip = 0 .01 under Scenario 0. A lighter adversarial weight of 0.01 (λadv = 0 .01) narrows the std gain slightly but still consistently outperforms triplet-only configurations. One structural difference from UCI stands out: on DB5, Scenario 0 (fully coupled training) tends to match or beat the warm-up variants, whereas on UCI the differences were negligible in either direction. With only 10 subjects available for training, the subject head appears to benefit from updating throughout rather than being frozen mid-training—consistent with the intuition that a stronger, continuously updated adversary provides a more persistent invariance signal when number of subjects is less. Taken together, the ablation results point to two clear conclusions. First, neither adversarial training nor triplet loss alone is sufficient; their combination is what drives consistent improvement. Second, the adaptive loss weighting proposed in CSIN removes the need to hand-tune this balance: the Lipschitz-inspired mechanism keeps both auxiliary objectives scaled relative to the classification loss throughout training, which matters especially for datasets where the relative dif-ficulty of invariance and gesture discrimination differs across subjects. 8 GENERIC COLORIZED JOURNAL, VOL. XX, NO. XX, XXXX 202X 
+
+TABLE VI : Comparing the accuracies’ average, standard deviation, maximum, and minimum (%) of the proposed method with regular training for the UCI EMG dataset. Best and second-best results are bold and underlined, respectively.                                                                                                                                                                                                                                                                         
+
+> Methods λadv λtrip Scenario 1 Scenario 2 Scenario 3 Scenario 4 Mean ↑Std ↓Max ↑Min ↑Mean ↑Std ↓Max ↑Min ↑Mean ↑Std ↓Max ↑Min ↑Mean ↑Std ↓Max ↑Min ↑
+> Baseline 0081.75 14.33 98.35 36.71 81.75 14.33 98.35 36.71 81.75 14.33 98.35 36.71 81.75 14.33 98.35 36.71 CSIN with fixed weights (gesture, adversarial, and triplet weights) 00.1 81.69 15.09 98.26 33.84 81.69 15.09 98.26 33.84 81.69 15.09 98.26 33.84 81.69 15.09 98.26 33.84 181.41 14.12 97.87 36.71 81.41 14.12 97.87 36.71 81.41 14.12 97.87 36.71 81.41 14.12 97.87 36.71 10 81.77 14.22 97.76 36.71 81.77 14.22 97.76 36.71 81.77 14.22 97.76 36.71 81.77 14.22 97.76 36.71 0.1 081.68 14.14 96.71 38.22 81.32 14.00 97.81 38.07 81.42 14.51 97.96 38.37 81.71 14.86 98.40 32.33 0.01 81.74 14.50 97.99 38.82 81.41 14.62 97.76 35.95 81.40 14.24 98.43 37.61 81.51 14.87 98.40 33.69 0.1 81.54 14.37 97.52 32.63 81.83 14.30 97.87 36.71 81.46 15.08 98.28 33.69 81.51 14.87 98.40 33.69 181.87 14.21 97.76 36.70 81.68 15.04 98.23 33.38 81.46 15.08 98.28 33.69 81.51 14.87 98.4 33.69 10 81.74 14.59 97.99 38.82 81.69 13.90 97.34 40.63 81.40 14.58 98.75 33.38 81.92 14.40 98.75 38.82 0.01 081.50 14.66 98.47 33.23 81.68 15.04 98.23 33.38 81.46 15.08 92.28 33.69 81.31 14.91 98.40 33.69 0.01 81.32 14.91 98.11 31.72 81.83 14.30 97.87 36.71 81.44 14.90 98.43 34.74 81.51 14.87 98.40 33.69 0.1 81.63 14.10 97.18 32.93 98.70 15.06 98.70 30.82 81.46 15.08 98.28 33.69 81.91 14.66 98.40 30.51 181.68 14.14 96.71 38.22 81.80 14.11 98.11 41.08 81.51 14.59 97.73 38.22 82.26 13.99 98.23 37.76 10 81.62 14.42 98.43 35.35 81.83 14.30 97.87 36.71 81.44 14.90 98.43 34.74 81.51 14.87 98.40 33.69
+
+TABLE VII : Comparing the accuracies’ average, standard deviation, maximum, and minimum (%) of the proposed method with regular training for the NinaPro DB5 EMG dataset. Best and second-best results are bold and underlined, respectively.                                                                                                                                                                                                                                                                         
+
+> Methods λadv λtrip Scenario 1 Scenario 2 Scenario 3 Scenario 4 Mean ↑Std ↓Max ↑Min ↑Mean ↑Std ↓Max ↑Min ↑Mean ↑Std ↓Max ↑Min ↑Mean ↑Std ↓Max ↑Min ↑
+> Baseline 0060.85 5.60 65.49 47.11 60.85 5.60 65.49 47.11 60.85 5.60 65.49 47.11 60.85 5.60 65.49 47.11 CSIN with fixed weights (gesture, adversarial, and triplet weights) 00.1 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 160.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 10 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 60.90 6.14 65.49 45.48 0.1 061.46 5.12 66.14 48.94 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 60.90 6.14 65.49 45.48 0.01 61.47 5.12 66.14 48.94 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07 0.1 61.09 5.46 65.15 47.69 60.90 6.14 65.49 45.48 61.34 5.29 61.47 48.07 61.34 5.29 65.81 48.07 161.08 5.44 65.42 47.65 61.19 5.25 65.49 48.71 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07 10 60.77 6.22 65.26 45.01 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07 0.01 061.00 5.76 65.62 46.73 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07 0.01 61.04 5.69 65.99 46.75 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07 0.1 61.14 5.43 65.20 47.25 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07 161.02 5.46 65.16 46.99 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07 10 61.14 5.43 65.20 47.25 60.90 6.14 65.49 45.48 61.34 5.29 65.81 48.07 61.34 5.29 65.81 48.07
+
+E. Feature extraction progress 
+
+In this section, we visualized the extracted features under the regular training and the proposed method by t-distributed stochastic neighbor embedding (t-SNE). We trained the two variants with the same architecture on data from 30 subjects and tested them on 6 held-out subjects of the UCI EMG dataset. Fig. 2 shows the visualization result under different loss weights and scenarios. The original feature exhibits a highly scattered, unstructured distribution in the 2D latent space. Except for three gesture classes—wrist extension, radial deviation, and hand at rest—which exhibit relatively well-clustered structures in the original feature space, most other classes are highly scattered and poorly organized, indicating substantial overlap and limited discriminability. Among these, ulnar deviation is the most challenging class, exhibiting the greatest dispersion and the most confusion with other ges-tures. By comparing regular and adversarial training across all figures, it is evident that the proposed CSIN with fixed weights achieves greater class compactness and stronger inter-class discrimination, particularly for the most challenging gesture, ulnar deviation. Scenario 2 with λtrip = 0 .1 achieves the clearest class separation compared to all other cases and Scenario 4 with λtrip = 10 provides superior separation among different gestures compared with the other scenarios cases. 
+
+IV. D ISCUSSION 
+
+While our approach deliberately removes subject-specific information to improve cross-subject generalization, there are scenarios where retaining some subject characteristics could actually improve performance. In clinical applications involv-ing patients with neuromuscular disorders or limb differences, subject-specific features may encode crucial information about residual muscle function, compensatory movement patterns, or atypical muscle activation sequences, all of which are essential for accurate gesture recognition. For instance, a stroke patient might consistently activate muscles in an unconventional order to perform a specific gesture, and removing this subject-specific pattern could degrade rather than improve recognition accuracy for that individual. Similarly, in prosthetic control applications where the system is intended for long-term use by a single individual, preserving subject-specific features during an initial calibration phase can lead to more intuitive and responsive control than a completely subject-invariant system. The trade-off becomes particularly relevant when we consider the difference between a universal model that works reasonably well for everyone versus a personalized model that works exceptionally well for one person. In other words, the proposed method could provide a universal baseline in which no after-tuning is applied, and personalization is used. The fundamental challenge we address—removing subject-dependent variations while preserving task-relevant informa-tion—extends naturally to other neural recording modalities, though each presents unique considerations. EEG signals exhibit similar cross-subject variability, including differences in skull thickness, brain anatomy, and electrode placement relative to cortical regions, making our adversarial disentan-glement approach potentially valuable for motor imagery clas-sification or cognitive state decoding. ECoG and intracortical recordings offer higher signal quality but introduce subject AUTHOR et al. : PREPARATION OF PAPERS FOR IEEE TRANSACTIONS AND JOURNALS (DECEMBER 2023) 9                                                 
+
+> (a) Original data (b) Baseline
+> (c) Scenario 1: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 0 .1.
+> (d) Scenario 1: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 10 .
+> (e) Scenario 2: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 0 .1.
+> (f) Scenario 2: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 10 .
+> (g) Scenario 3: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 0 .1.
+> (h) Scenario 3: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 10 .
+> (i) Scenario 4: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 0 .1.
+> (j) Scenario 4: CSIN with λgest =1.0,λadv = 0 .1, and λtrip = 10 .
+
+Fig. 2 : Comparing CSIN under fixed weights and different scenarios. 
+
+variability due to electrode placement variations, differing tissue responses to implantation, and progressive changes in recording quality over time as the tissue-electrode interface evolves. The similar rules are applied to the other modalities such as KMG [31]. One finding that deserves more attention than the summary numbers suggest is the behavior of the minimum accuracy across subjects. On UCI EMG, even the best configurations leave certain subjects at 35–38% accuracy — roughly twice chance level for a 6-class problem, but far enough below the 81% group average to suggest these individuals are maybe outliers rather than just hard cases at the tail of a normal distribution. This is not a failure of the adversarial mechanism per se; it is a sign that, for some individuals, the four time-domain features used here (MAV, RMS, WL, ZC) may not capture sufficient of the relevant muscle-activation structure to support generalization in either direction. The adversarial loss cannot manufacture a discriminative signal that was never in the features to begin with. This points toward a practi-cal ceiling on what representation-level disentanglement can achieve with a fixed, compact feature set. Learning the features jointly with the encoder, rather than treating them as a fixed preprocessing step, might expose the network to richer signals currently discarded by windowed statistics. The broader point is that invariance learning and feature engineering are not independent problems; in other words, asking the encoder to remove subject-specific information becomes significantly harder when that information is already baked into the input features themselves. 
+
+V. C ONCLUSION 
+
+Cross-subject generalization in sEMG-based gesture recog-nition is hard precisely because the signals that identify a person and the signals that identify a gesture are not cleanly separable. This paper addresses that entanglement through a conservative multi-objective framework—CSIN—that jointly optimizes gesture classification, adversarial subject confusion, and triplet-based metric learning on a shared encoder, with a Lipschitz-inspired adaptive mechanism that keeps the auxil-iary objectives scaled relative to the primary task throughout training. The experimental results on UCI EMG and NinaPro DB5 support several concrete observations. On UCI EMG, the pro-posed method reaches 84.48% mean accuracy under LOSOCV, compared to 78.2% from the best published comparator. The ablation in Table VI shows that triplet loss or adversarial loss in isolation provides negligible gain over the classification-only baseline; the improvement requires both objectives active together, with moderate weights. On NinaPro DB5, where only 10 subjects are available and the task involves 10 gestures, the more meaningful gain is in consistency rather than mean accuracy: the standard deviation across subjects drops from 6.06% to 1.23%, and the worst-case subject accuracy rises by over 13 points relative to published baselines. Table VII further shows that the method is robust across training sched-ules—fully coupled training performs comparably to warm-up variants on UCI, while continuous adversarial updating 10 GENERIC COLORIZED JOURNAL, VOL. XX, NO. XX, XXXX 202X 
+
+is slightly preferable on DB5 where number of subjects is limited. Despite these gains, persistent inter-subject variance re-mains, particularly on UCI EMG where standard deviations stay above 13% even in the best configurations. Some subjects are simply harder to generalize to, and the current adversarial mechanism does not fully resolve that. Whether this reflects irreducible entanglement between subject identity and gesture-specific activation patterns—or a limitation of the feature set and architecture—is an open question worth pursuing. Extending the framework to richer temporal representations, or incorporating explicit domain randomization during training, could be productive next steps. Applying similar disentan-glement strategies to EEG or intracortical recordings, where analogous cross-subject variability challenges exist, is another natural direction for future work. 
+
+CODE AVAILABILITY 
+
+All results and codes will be available at www.github. com/Hamed-Rafiei/CSIN .
+
+DATA AVAILABILITY 
+
+All datasets used in this paper are publicly available. 
+
+REFERENCES 
+
+[1] M. A. Oskoei and H. Hu, “Myoelectric control systems—a survey,” 
+
+Biomedical Signal Processing and Control , vol. 2, no. 4, pp. 275–294, 2007. [2] Z. Ge, Z. Wu, X. Han, and P. Zhao, “Gesture recognition and master– slave control of a manipulator based on semg and convolutional neural network–gated recurrent unit,” Journal of Engineering and Science in Medical Diagnostics and Therapy , vol. 6, no. 2, p. 021004, 2023. [3] A. Jaramillo-Y´ anez, M. E. Benalc´ azar, and E. Mena-Maldonado, “Real-time hand gesture recognition using surface electromyography and machine learning: A systematic literature review,” Sensors , vol. 20, no. 9, p. 2467, 2020. [4] Z. Zhang, S. Liu, Y. Wang, W. Song, and Y. Zhang, “Online cross session electromyographic hand gesture recognition using deep learning and transfer learning,” Engineering Applications of Artificial Intelligence ,vol. 127, p. 107251, 2024. [5] H. Rafiei and M.-R. Akbarzadeh-T, “Understandable time frame-based biosignal processing,” Biomedical Signal Processing and Control ,vol. 103, p. 107429, 2025. [6] J. Liu, X. Sheng, D. Zhang, N. Jiang, and X. Zhu, “Towards zero retraining for myoelectric control based on common model component analysis,” IEEE Transactions on Neural Systems and Rehabilitation Engineering , vol. 24, no. 4, pp. 444–454, 2015. [7] Y. Du, W. Jin, W. Wei, Y. Hu, and W. Geng, “Surface emg-based inter-session gesture recognition enhanced by deep domain adaptation,” 
+
+Sensors , vol. 17, no. 3, p. 458, 2017. [8] A. Pradhan, J. He, and N. Jiang, “Performance optimization of surface electromyography based biometric sensing system for both verification and identification,” IEEE Sensors Journal , vol. 21, no. 19, pp. 21718– 21729, 2021. [9] X. Jiang, X. Liu, J. Fan, X. Ye, C. Dai, E. A. Clancy, D. Farina, and W. Chen, “Optimization of hd-semg-based cross-day hand gesture clas-sification by optimal feature extraction and data augmentation,” IEEE Transactions on Human-Machine Systems , vol. 52, no. 6, pp. 1281–1291, 2022. [10] J. Yang, M. Soh, V. Lieu, D. J. Weber, and Z. Erickson, “Emgbench: Benchmarking out-of-distribution generalization and adaptation for elec-tromyography,” Advances in Neural Information Processing Systems ,vol. 37, pp. 50313–50342, 2024. [11] J. Fan, X. Jiang, X. Liu, L. Meng, F. Jia, and C. Dai, “Surface emg feature disentanglement for robust pattern recognition,” Expert Systems with Applications , vol. 237, p. 121224, 2024. [12] A. Phinyomark, F. Quaine, S. Charbonnier, C. Serviere, F. Tarpin-Bernard, and Y. Laurillau, “Emg feature evaluation for improving myoelectric pattern recognition robustness,” Expert Systems with Ap-plications , vol. 40, no. 12, pp. 4832–4840, 2013. [13] J. Fan, M. Jiang, C. Lin, G. Li, J. Fiaidhi, C. Ma, and W. Wu, “Improving semg-based motion intention recognition for upper-limb amputees using transfer learning,” Neural Computing and Applications , vol. 35, no. 22, pp. 16101–16111, 2023. [14] K. Wang, Y. Chen, Y. Zhang, X. Yang, and C. Hu, “Iterative self-training based domain adaptation for cross-user semg gesture recognition,” IEEE Transactions on Neural Systems and Rehabilitation Engineering , vol. 31, pp. 2974–2987, 2023. [15] K. Su, K. Liu, B. Wan, H. Qiao, J. Huang, M. Feng, and J. Liu, “Multi-source adversarial feature disentanglement method for cross-subject gesture recognition using semg signals,” IEEE Transactions on Instrumentation and Measurement , vol. 74, pp. 1–12, 2025. [16] A. A. Neacs ¸u, J.-C. Pesquet, and C. Burileanu, “Emg-based automatic gesture recognition using lipschitz-regularized neural networks,” ACM Transactions on Intelligent Systems and Technology , vol. 15, no. 2, p. Article 26, 2024. [17] Y. Tsuzuku, I. Sato, and M. Sugiyama, “Lipschitz-margin training: Scalable certification of perturbation invariance,” in NeurIPS , 2018. [18] H. e. a. Gouk, “Regularisation of neural networks by enforcing lipschitz continuity,” in Machine Learning , 2021. [19] Z. Gao, Y. Wang, X. Sun, P. Chen, and C. Ma, “A multifeatured time–frequency neural network system for classifying semg,” IEEE Transactions on Circuits and Systems II: Express Briefs , vol. 69, no. 11, pp. 4588–4592, 2022. [20] S. Shen, X. Wang, M. Wu, K. Gu, X. Chen, and X. Geng, “Ica-cnn: Gesture recognition using cnn with improved channel attention mechanism and multimodal signals,” IEEE Sensors Journal , vol. 23, no. 4, pp. 4052–4059, 2023. [21] Y. Zhang, Y. Chen, H. Yu, X. Yang, and W. Lu, “Learning effective spatial–temporal features for semg armband-based gesture recognition,” 
+
+IEEE Internet of Things Journal , vol. 7, no. 8, pp. 6979–6992, 2020. [22] X. Chen, Y. Li, R. Hu, X. Zhang, and X. Chen, “Hand gesture recog-nition based on surface electromyography using convolutional neural network with transfer learning method,” IEEE Journal of Biomedical and Health Informatics , vol. 25, no. 4, pp. 1292–1304, 2020. [23] H. Wang, D. Jiang, J. Yun, Y. Zhao, L. Huang, Y. Liu, M. Jia, and B. Chen, “Residual attention-based hybrid neural network for semg gesture recognition,” Concurrency and Computation: Practice and Experience , vol. 37, no. 25-26, p. e70368, 2025. [24] U. Cˆ ot´ e-Allard, E. Campbell, A. Phinyomark, F. Laviolette, B. Gosselin, and E. Scheme, “Interpreting deep learning features for myoelectric control: A comparison with handcrafted features,” Frontiers in Bioengi-neering and Biotechnology , vol. 8, p. 158, 2020. [25] Z. Zhang, Y. Ming, Q. Shen, Y. Wang, and Y. Zhang, “An extended variational autoencoder for cross-subject electromyograph gesture recog-nition,” Biomedical Signal Processing and Control , vol. 99, p. 106828, 2025. [26] S. Pizzolato, L. Tagliapietra, M. Cognolato, M. Reggiani, H. M¨ uller, and M. Atzori, “Comparison of six electromyography acquisition setups on hand movement classification tasks,” PloS one , vol. 12, no. 10, p. e0186132, 2017. [27] L. H. Smith, L. J. Hargrove, B. A. Lock, and T. A. Kuiken, “Determining the optimal window length for pattern recognition-based myoelectric control: Balancing the competing effects of classification error and con-troller delay,” IEEE Transactions on Neural Systems and Rehabilitation Engineering , vol. 19, no. 2, pp. 186–192, 2010. [28] H. Lee, M. Jiang, J. Yang, Z. Yang, and Q. Zhao, “Decoding gestures in electromyography: Spatiotemporal graph neural networks for gener-alizable and interpretable classification,” IEEE Transactions on Neural Systems and Rehabilitation Engineering , vol. 33, pp. 404–419, 2024. [29] H. Lee, M. Jiang, and Q. Zhao, “Fedemg: Achieving generalization, personalization, and resource efficiency in emg-based upper-limb reha-bilitation through federated prototype learning,” IEEE Transactions on Biomedical Engineering , vol. 73, pp. 803–817, 2025. [30] T. Hoshino, S. Kanoga, M. Tsubaki, and A. Aoyama, “Comparison of fine-tuned single-source and multi-source approaches to surface electromyogram pattern recognition,” Biomedical Signal Processing and Control , vol. 94, p. 106261, 2024. [31] A. Moradi, H. Rafiei, M. Daliri, M.-R. Akbarzadeh-T, A. Akbarzadeh, A.-M. Naddaf-Sh, and S. Naddaf-Sh, “Clinical implementation of a bionic hand controlled with kineticomyographic signals,” Scientific Re-ports , vol. 12, no. 1, p. 14805, 2022.
