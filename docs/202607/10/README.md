@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-10</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-10 05:48 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,8 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>大脑功能组织因人而异且多年稳定，多任务脑电图解码有新架构助力人机协作。</p>
-<p>可重点关注个体化脑功能网络的长期稳定性，以及结构化多任务脑电解码模型带来的性能突破。</p>
-<p>不妨持续观察个性化脑科学和实用脑机接口的进展，它们正加速走向真实应用。</p>
+      <p>从大脑功能稳定性到多任务脑电解码，今日精读直击个体化神经标记与协作智能。最值得看：个体大脑功能组织经年稳定，视觉解码需谨慎预处理。推荐先读这两篇精读，速读关于视觉预测分区和反虚假相关的论文也值得延伸。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/10/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -159,3 +156,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
