@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-13</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-13 04:42 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读揭示了V4神经元如何将纹理组织成物体，并见证了从脑活动直接预测文本的跨模态模型。</p>
-<p>最值得关注的是灵长类视觉皮层自发的“纹理到物体”建构机制，以及脑机接口在VR意图解码中的无缝交互潜力。</p>
-<p>想一窥大脑如何赋予世界意义，可以从这次物体感知与解码突破开始。</p>
+      <p>猴脑揭晓视觉从纹理到物体的奥秘，AI读出大脑活动中的文字，灵长类视觉皮层竟会自发计算美感。</p>
+<p>最值得看：猕猴V4区如何把“素材”转化为“物体”，以及用神经影像对比学习直接从脑图预测文本的NiCLIP模型。</p>
+<p>下步建议：关注这些“读心”与美感计算技术如何从实验室走向VR无缝交互与艺术体验。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/13/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
