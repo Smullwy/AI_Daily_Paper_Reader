@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-14</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-14 05:21 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读了两篇神经解码与认知连接的高分论文，并速览了表征学习、手语神经解码等10项进展。</p>
-<p>最值得关注的是：多尺度卷积Transformer实现高效脑电解码，以及内在网络分离模式能预测认知却无关情感。</p>
-<p>建议读者从《CoCoT-EEG》入手，探索多模态预训练如何推动脑机接口的实际应用。</p>
+      <p>今日聚焦13篇前沿论文，深入脑机接口与认知神经科学交叉领域，精读脑电解码与连接组学突破。</p>
+<p>最值得关注的两大方向：多尺度对比学习Transformer将脑电解码推至新高度，而脑网络分离架构精准预测认知能力，却超脱情绪影响。</p>
+<p>建议读者追踪Transformer在生理信号的应用迁移，并思考脑连接模式能否成为个性化认知评估的生物标记。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/14/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -141,3 +140,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
