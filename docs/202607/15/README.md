@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-15</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-15 04:07 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,10 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读聚焦跨被试脑功能对齐与注意力的跨范式测量，速读则从学习动力学到视觉Gestalt线索，探索了AI与脑科学的交叉前沿。</p>
-<p>最值得深入：《Fast Whole-Brain, Geometry-Aware Functional Alignment》提出几何感知快速对齐，显著提升跨被试解码；《A single dynamical property》发现单一动力学属性可统一解释从人工</p>
+      <p>今日精读两篇高分论文，分别突破全脑功能对齐与跨范式注意力测量，速读中一篇8分文章揭示从AI到大脑共有的单一学习动力学属性。</p>
+<p>最值得关注：跨被试解码的新型几何感知对齐方法（9.0分），以及从人工网络到哺乳动物脑共用的学习能力底层机制（8.0分）。</p>
+<p>建议普通读者先看那篇“学习动力学”速读论文，它用简洁原理连接AI与神经科学，或许能刷新你对智能的理解。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/15/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -158,3 +158,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

@@ -1,0 +1,670 @@
+Title: SPORT: Structure-Aware Prototype Disentanglement for Incomplete Multi-View Clustering
+
+URL Source: https://arxiv.org/pdf/2607.10413v1
+
+Published Time: Tue, 14 Jul 2026 01:58:36 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+> JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+
+# SPORT: Structure-Aware Prototype Disentanglement for Incomplete Multi-View Clustering 
+
+Yaoyuan Guo, Zhibin Gu, Songhe Feng, Yuhui Zheng, Bing Li 
+
+Abstract —Prototype-based Incomplete Multi-view Clustering has recently attracted increasing attention by exploiting prototypes as semantic anchors for missing-view imputation. However, existing approaches are still limited in three aspects. First, they typically focus on enforcing cross-view prototype consistency, while ignoring view-specific information embedded in prototypes, thus limiting multi-view expressiveness. Second, most methods rely on instance-level contrastive learning that only aligns paired samples across views, failing to preserve cluster-level relational structures. Third, missing-view imputation is usually performed using global prototypes alone, without considering local geometric neighborhood structures, leading to inaccurate recovery of missing representations. To address these limitations, we propose a novel framework termed Structure-aware PrOtotype disentanglement foR incomplete multi-view clusTering (SPORT), which explicitly disentangles shared and view-specific components of prototypes while preserving cluster-level relational structures. Specifically, we decouple prototypes into orthogonal shared and view-specific components, aligning only shared components to capture con-sensus semantics while decorrelating view-specific components to preserve complementary information. Meanwhile, a structure-aware contrastive learning mechanism is incorporated to explicitly model cluster-level relationships during cross-view representation learning. Furthermore, a hybrid imputation strategy integrates global prototype matching with local neighborhood matching, enabling joint exploitation of semantic prototypes and manifold structures for missing-view recovery. Extensive experiments on six benchmark datasets show that SPORT achieves superior performance over state-of-the-art methods under various missing rates. 
+
+Index Terms —Incomplete multi-view clustering, prototype disentanglement, structure-aware contrastive learning, missing-view imputation 
+
+I. I NTRODUCTION 
+
+# With The rapid development of knowledge discovery and data mining techniques, data are increasingly collected and stored in multiple modalities. Such multi-source 
+
+Y. Guo is with the College of Computer and Cyberspace Security, Hebei Normal University, Shijiazhuang 050024, China, and also with the Department of Statistics and Data Science, Southern University of Science and Technology, Shenzhen 518055, China. (e-mail: 12312902@mail.sustech.edu.cn). Z. Gu is with the College of Computer and Cyberspace Security, Hebei Normal University, Shijiazhuang 050024, China, and also with the Key Laboratory of Tibetan Information Processing, Ministry of Education, Qinghai Normal University, Xining 810008, China. (e-mail: guzhibin@hebtu.edu.cn). S. Feng is with the School of Computer Science and Technology, Beijing Jiaotong University, Beijing 100044, China. (e-mail: shfeng@bjtu.edu.cn). Y. Zheng is with the Key Laboratory of Tibetan Information Processing, Ministry of Education, Qinghai Normal University, Xining 810008, China. (e-mail: zhengyh@vip.126.com). B. Li is with the State Key Laboratory of Multimodal Artificial Intelligence Systems, Institute of Automation, Chinese Academy of Sciences, Beijing 100190, China. (e-mail: bli@nlpr.ia.ac.cn). Corresponding author: Zhibin Gu. 
+
+data are referred to as multi-view data. Multi-View Learning (MVL), which aims to leverage the shared (common) and complementary information across different views to enhance the performance of various learning tasks, has been extensively studied [ 1 – 4]. As a representative unsupervised paradigm within MVL, Multi-View Clustering (MVC) seeks to partition unlabeled multi-view data by identifying shared clustering structures across multiple views, thereby offering a more comprehensive characterization of the underlying relationships among samples [ 5 –8 ]. Conventional MVC frameworks typically assume that all samples are fully observed across all views [ 9 –14 ]. However, in real-world scenarios, incomplete multi-view data are ubiquitous due to sensor limitations, hardware failures, or storage constraints, with some samples missing one or more views [ 15 –18 ], which significantly impair the performance of conventional multi-view clustering methods. To address this challenge, recent years have witnessed the emergence of numer-ous Incomplete Multi-View Clustering (IMVC) approaches [ 19 –24 ], which are designed to accommodate arbitrary missing-view patterns while leveraging complementary information from available views to uncover semantically consistent clustering structures. According to the learning paradigm, existing IMVC methods can be broadly categorized into traditional methods [ 25 – 34 ]and deep learning-based methods [ 16 , 35 – 43 ]. Owing to their superior representation capacity and scalability, deep learning-based methods have garnered increasing attention in addressing IMVC tasks. For instance, Lin et al. [44] proposed an information-theoretic framework that jointly performs data recovery and consistency learning, achieving cross-view consistency and reconstructing missing data via dual prediction and contrastive losses. Tang and Liu [45] designed a neighborhood-based IMVC framework that imputed missing views from dynamically mined k-nearest neighbors and introduced a weighting function to suppress low-quality imputations. Motivated by the strong generative capability of generative models, Shang et al. [46] and Wen et al. [47] respectively adopt generative adversarial networks (GANs) and diffusion models for missing-view reconstruction. Moreover, a growing line of literature focuses on prototype-based methods [17 , 48 –53 ], which exploit global semantics via representative prototypes to better handle missing information and improve clustering robustness. For example, Wang et al. [49] aligned the prototypes via contrastive learning and recovered the missing data through an explicit prototype graph matching strategy. Li et al. [50] developed a dual-stream model that mutually refined sample and prototype representations through attention-based interaction, with missing data reconstructed by the learned arXiv:2607.10413v1 [cs.CV] 11 Jul 2026 JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+
+Fig. 1: Illustration of the Prototype Over-alignment Problem (POP) and the proposed prototype decomposition paradigm. (a) Full cross-view prototype alignment suppresses view-specific information and reduces representation diversity. (b) Our method decouples shared and view-specific components and align only shared semantics across views. prototypes. Furthermore, Li et al. [51] designed a bi-alignment guidance module to ensure discriminative representations and employed an attention layer to enhance the compactness of the view-specific sample-prototype relationship. Despite the notable advancement in prototype-based IMVC methods, three key limitations persist. First, existing methods typically enforce strict cross-view prototype alignment under the assumption that corresponding prototypes should share identical semantic representations across views. However, each view is generated from a distinct observation process, and its prototype inherently encodes both shared semantics and view-specific characteristics. Such overly strict alignment suppresses view-specific information, limiting the expressive capacity of multi-view representations, a phenomenon we term the Prototype Over-alignment Problem (POP), as illustrated in Fig.1(a). Second, most methods employ hard contrastive learning that treats only same-sample pairs as positive pairs, discarding cluster-level semantic similarity among neighboring instances (i.e., samples belonging to the same cluster generally exhibit closely related features which should also be harnessed), causing semantically similar samples to be pushed apart in the feature space. Furthermore, existing prototype-based imputation methods rely exclusively on prototypes as semantic anchors for missing-view imputation. Due to the coarse-grained nature of prototypes, they primarily capture global cluster-level semantics while overlooking local neighborhood relationships, resulting in structurally over-smoothed reconstructions that fail to preserve fine-grained instance-level consistency. To address the aforementioned issues, we propose a novel Structure-aware PrOtotype disentanglement foR incompleTe multi-view clustering framework (SPORT), which jointly exploits cross-view consistency, view-specific semantics, and structural relationships to learn robust and discriminative clustering representations. Specifically, as illustrated in Fig. 2, we explicitly decompose the multi-view prototypes obtained via k-means into complementary shared and view-specific com-ponents (Fig. 1(b)). The shared components are aligned across views to capture view-invariant semantics, while the view-specific components are regularized via a decorrelation con-straint to preserve discriminative view-dependent information. This prototype decomposition strategy effectively disentangles cross-view consensus from view-specific semantics, leading to more discriminative clustering representations. In addition, a weighted contrastive learning mechanism is designed, where similarity-aware weights are introduced to characterize the structural relationships among samples, enabling cross-view feature alignment while preserving the underlying geometric structure of the data. Moreover, SPORT employs a hybrid imputation scheme that reconstructs missing samples by jointly exploiting information from matched prototypes and neigh-boring instances. By integrating cluster-level semantics with local structural information, the proposed strategy improves the quality of missing-data recovery and further enhances clustering performance. In summary, the contributions of our work can be summarized as follows:  
+
+> •
+
+We propose a unified prototype alignment framework by decomposing prototypes into shared and view-specific components. The shared components are aligned across views, while the view-specific components are regularized via decorrelation, enabling effective integration of shared semantics and view-specific information and alleviating prototype misalignment.  
+
+> •
+
+We develop a structure-aware feature alignment mecha-nism by introducing instance-wise similarity weights to softly encode inter-sample relationships. This enables the contrastive objective to enforce cross-view consistency while preserving cluster-level relational structures, yielding more discriminative representations.  
+
+> •
+
+We design a hybrid prototype imputation strategy that imputes missing data by integrating information from matched prototypes and neighboring samples, thereby jointly exploiting global cluster semantics and local structural information to improve reconstruction quality.  
+
+> •
+
+Extensive experiments on six benchmark datasets against 14 state-of-the-art incomplete multi-view clustering meth-ods demonstrate that SPORT achieves superior perfor-mance. II. R ELATED WORK 
+
+Benefiting from the representation learning capability of deep neural networks, various deep learning-based incomplete multi-view clustering (DIMVC) methods have been developed [19 , 20 , 54 – 60 ]. These methods can be broadly categorized into four classes: generator-based, predictor-based, neighborhood-based, and prototype-based methods. 
+
+A. Generator-based methods 
+
+Generator-based methods leverage the strong generative capability of generative models to reconstruct missing infor-mation from observed representations [ 46 , 47 , 61 – 67 ]. Two predominant generative paradigms applied to IMVC tasks are generative adversarial networks (GANs) [ 66 ] and diffusion models [ 68 ]. Early works predominantly adopt GANs due to their ability to learn high-fidelity representations via adversarial training. For example, Xu et al. [62] proposed an adversarial JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 3
+
+Fig. 2: Framework of the proposed SPORT. We first learn feature representations by mapping complete inputs ˜X(v) into a shared latent space Hv ∈ Rd. Built upon these representations, a structure-aware relational contrastive learning module is introduced to jointly capture cross-view consistency and cluster-level structure by aligning semantically consistent samples. Next, we construct prototypes and decompose them into shared and view-specific components, where shared components are aligned across views while view-specific components are de-correlated to preserve complementary information. Finally, a hybrid prototype imputation strategy is developed, which leverages both matched prototypes and local neighborhood information to complete missing data effectively. feature recovery framework based on GANs, while Wang et al. [67] incorporated cycle-consistency and adaptive fusion to handle incomplete views. More recently, diffusion models have attracted increasing attention due to their training stability and strong mode coverage. Representative works include Fang et al. [64] , which initialize missing features with Gaussian noise and progressively recover them via a diffusion-based completion process, and Zhang et al. [65] , which further integrates diffusion modeling with contrastive learning, yielding more discriminative and compact clustering representations. 
+
+B. Predictor-based methods 
+
+Predictor-based methods estimate missing features from observed ones from an information-theoretic perspective [ 16 ,41 , 44 , 69 , 70 ]. For example, Lin et al. [44] first established a unified information-theoretic framework that jointly learned consistent representations and recovers missing views by maximizing cross-view mutual information. Building upon this work, Lin et al. [69] introduced a dual contrastive loss and a dual prediction loss to simultaneously enforce cross-view consistency and data recoverability. To further mitigate the distribution discrepancy between complete and incomplete data, Xu et al. [41] designed an adaptive feature projection mechanism that aligned the distributions between complete and incomplete data by optimizing mutual information, yielding more faithful feature recoverability. Beyond single-level pre-diction, Yin et al. [71] formulated a multi-level dual prediction strategy in which both high-level and semantic features are extracted via an attention layer and optimized for missing data prediction. 
+
+C. Neighborhood-based methods 
+
+Neighborhood-based methods exploit structural relationships to address data incompleteness by leveraging local topology within or across views [ 37 , 45 , 72 – 74 ]. K-nearest neighbor (kNN) [ 75 ] is a classic machine learning method that is used to integrate features from the top-K spatial neighbors. For example, Teng et al. [73] integrated multi-view and neighborhood information using complementary encoders with kNN-based augmentation and reconstruction. Yan et al. [74] explored the latent common clustering information embedded in multi-view data and performed neighbor-based completion via kNN. Beyond instance-level aggregation, graph neural networks (GNNs) [ 76 ] provide an alternative strategy for recovering missing views from adjacent samples. Typical works include Wen et al. [37] used a GCN to aggregate adjacent information and fused a consensus graph to repair missing view features and Chao et al. [35] which transferred multi-view consistency relations via GCN, while applying high-confidence guiding with instance-level contrastive learning for missing view reconstruction. 
+
+D. Prototype-based methods 
+
+Prototype-based methods capture global semantics by learn-ing view-wise prototypes as representative anchors and lever-aging them for missing-data imputation [ 17 , 48 – 53 ]. These JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 4
+
+prototypes are often misaligned across views, which has motivated extensive research on cross-view prototype alignment. For example, Yuan et al. [17] addressed the prototype unaligned problem (PUP) by aligning the generated prototypes across views via contrastive learning and proposed a novel prototype matching framework to impute the missing data. Jin et al. [48] considered the IMVC problem from a partially-aligned setting and generated view-specific prototypes via l2 loss minimiza-tion while reconstructing missing views through contrastive learning-free aligned prototypes. Other works utilized graphs to capture semantic dependencies among prototypes to enhance prototype alignment. For instance, Du et al. [52] formulated a prototype-guided graph transformer framework that integrated dual attention mechanisms with cross-view alignment which mitigated the influence of noise and outliers. Zhu et al. [53] introduced a similarity graph-based framework that captures semantic-invariant structural information across prototypes for prototype alignment, further improving quality of the aligned prototypes. III. M ETHOD 
+
+A. Notation and Problem Statement 
+
+In this paper, {X(v) ∈ Rn×dv }mv=1 denotes the multi-view incomplete dataset consisting of n samples across m views with k clusters, where dv is the feature dimension of the v-th view. Due to incomplete observations, we define the observed view set of sample i as : 
+
+Vi = {v | x(v) 
+
+> i
+
+is observed } ⊆ { 1, . . . , m } (1) Let ˜X(v) ∈ Rnv ×dv denote the observed instances in view v,where nv = |{ i | v ∈ V i}| is the number of observed instances in view v. Ev and Dv are the respective encoder and decoder for view v, Hv ∈ Rnv ×d and ˆX(v)
+
+∈ Rnv ×dv are the unified and reconstructed representations of ˜X(v). We use hvi to denote the ith row of Hv . Pv ∈ Rk×d refers to the representation of 
+
+k prototypes in view v.Incomplete multi-view clustering aims to partition n unla-beled samples into k disjoint clusters through unsupervised learning, where each sample is only observed in certain views. To achieve this objective, we propose a structure-aware prototype disentanglement framework (SPORT), whose overall architecture is illustrated in Fig. 2. Specifically, given incomplete multi-view data, we first use autoencoders to project all complete features into a common subspace. Subsequently, similarity weights are calculated to measure inter-instance affinities, which guide the relational contrastive objective to jointly capture cross-view semantic consistency and cluster-level structural consistency among samples. In addition, proto-types are generated via k-means and decomposed into shared and view-specific components, where the shared parts are aligned across views while the view-specific parts are de-correlated to preserve both consensus and complementary information. Finally, missing data are imputed hybridly via related neighbors and prototypes and cluster assignments are obtained via k-means. 
+
+B. Feature Representation Learning 
+
+Given the observed dataset ˜X(v) ∈ Rnv ×dv of view v, to cap-ture the relationships among samples, we utilize view-specific autoencoders [ 77 ] to project all features into a common latent space. Specifically, using an encoder Ev : Rnv ×dv → Rnv ×d
+
+and a decoder Dv : Rnv ×d → Rnv ×dv , the latent representation and the subsequent reconstruction process are formulated as: 
+
+Hv = Ev ( ˜X(v)), (2) 
+
+ˆX(v)
+
+= Dv (Hv ), (3) where Hv ∈ Rnv ×d serves as the latent representation, and 
+
+ˆX(v)
+
+∈ Rnv ×dv is the reconstructed feature corresponding to view v.To ensure the mapping fidelity of the autoencoders and preserve inherent structural characteristics, the overall recon-struction loss is defined as the Frobenius norm between the input and the reconstructed output across all views: 
+
+LREC =
+
+> m
+
+X
+
+> v=1
+
+˜X(v) − ˆX(v) 2
+
+> F
+
+, (4) where ∥ · ∥ F denotes the Frobenius norm. 
+
+C. Structure-Aware Relational Contrastive Learning 
+
+Although the feature representation learning module maps all features into a unified latent subspace with high reconstruction fidelity, it neglects the dual consistency nature of multi-view data which also needs to be harnessed. Specifically, such consistency arises from two complementary aspects: (1) cross-view consistency, where different views of the same sample share common semantic information, and (2) structural consistency, where samples belonging to the same cluster tend to exhibit similar feature characteristics. Neglecting either aspect may hinder the learning of discriminative and semanti-cally coherent representations. However, existing contrastive learning-based IMVC methods primarily exploit cross-view consistency by aligning representations of the same sample across different views [ 17 , 48 , 50 ], while largely neglecting structural consistency among semantically related instances. As illustrated in Fig. 3(a), these methods typically treat only cross-view pairs of the same instance as positives, while all other instances are uniformly treated as negatives. Consequently, semantically similar samples may be undesirably separated in the latent space, failing to preserve cluster-level relational structures and ultimately leading to suboptimal clustering performance. To address this limitation, we propose a structure-aware relational contrastive learning module to jointly model cross-view and structural consistency, as shown in Fig. 3(b). Specif-ically, the contrastive objective takes cross-view features of the same sample as positive pairs, and further uses pairwise similarity weights to characterize inter-instance affinities. As a result, similar samples are softly involved as positives, whereas JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 5
+
+Fig. 3: Illustration of conventional hard contrastive learning and our structure-aware relational contrastive learning. (a) Hard contrastive learning ignores inter-sample structure by treating all non-positive samples as negatives. (b) Our method introduces similarity-aware weighting to preserve cluster-level consistency. unrelated samples serve as negatives. The pairwise similarity weight wij is defined as: 
+
+wij =
+
+
+
+1, i = j, 
+
+P
+
+> v∈V i∩V j
+
+exp( S(hvi , hvj )/τ w)exp(1 /τ w)
+
+|V i ∩ V j | , |V i ∩ V j | ≥ 1,
+
+0, |V i ∩ V j | = 0 .
+
+(5) where wij denotes the inter-instance similarity weight between sample i and j with wij = wji and wii = 1 . Vi is the set of views where sample i has complete data defined in Eq.(1). 
+
+|V i ∩ V j | is the cardinality of Vi ∩ V j which represents the set of views where sample i and j both have complete data. τw
+
+is a temperature hyperparameter, and S(hvi , hvj ) is the cosine similarity between hvi and hvj calculated as: 
+
+S(hvi , hvj ) = (hvi )⊤hvj
+
+∥hvi ∥∥ hvj ∥ (6) These weights characterize the sample-wise similarity be-tween samples, which captures the relationship between sam-ples. Furthermore, for a view pair (v, u ), we define the set of instances simultaneously observed in both views as: 
+
+Nv,u = {i | v ∈ V i and u ∈ V i} (7) To achieve the objective of aligning the closely related features of samples while deviating from the uncorrelated ones, the objective loss for feature alignment is defined as Eq. (8): 
+
+LCON = −
+
+> m
+
+X
+
+> v,u =1
+> u̸=v
+
+1
+
+nvnvX
+
+> i=1
+
+1[i ∈ N v,u ] log P v→ui , (8) where P v→ui is defined as: 
+
+P v→ui =
+
+Pnu 
+
+> j=1
+
+wij Ev,u i,j 
+
+Pnv 
+
+> j=1
+
+Ev,v i,j + Pnu 
+
+> j=1
+
+Ev,u i,j 
+
+. (9) Here, the notation Ev,u i,j represents the exponential similarity between representations from view v and view u, computed as: 
+
+Ev,u i,j = exp( S(hvi , huj )/τ ), (10) where τ is the temperature hyperparameter, and 1[·] is the indicator function taking the value of 1 if the condition holds, and 0 otherwise. 
+
+D. Prototype Partial Alignment 
+
+Prototype-based IMVC methods typically learn prototypes 
+
+Pv from Hv via k-means for missing feature reconstruction [17 , 48 , 50 ]. Since these prototypes are independently generated across views, they are inherently unaligned. Existing methods address this issue by enforcing cross-view prototype alignment, implicitly assuming that prototypes from different views should share consistent semantic representations. However, this assumption overlooks a key fact: prototypes in different views simultaneously encode both shared semantics and view-specific information. Consequently, enforcing strict alignment effectively constrains the representation space toward view-invariant semantics, suppressing view-specific components. This leads to reduced representational diversity and weakens the ability of prototypes to capture complementary cross-view information. We refer to this issue as the Prototype Over-alignment Problem (POP), which constitutes a fundamental bottleneck in prototype-based IMVC methods. To tackle POP, we design a prototype partial alignment module, which jointly utilizes cross-view consistency and view-specific semantics. Specifically, the ith prototype pvi ∈ Rd of view v is decomposed each into two orthogonal complementary parts, namely the shared part svi and view-specific cvi part. We separate these two components through a learnable weight matrix U ∈ Rd×dc satisfying U⊤U = Idc , where Idc is the identity matrix ∈ Rdc×dc , dc is a dimension smaller than d.Each prototype is decomposed into: 
+
+pvi = svi + cvi (11) where svi and cvi are derived following: 
+
+svi = UU ⊤pvi ∈ Rd, cvi = ( Id − UU ⊤)pvi ∈ Rd (12) Here U⊤U = Idc preserves the orthogonality between svi
+
+and cvi by: 
+
+(svi )⊤ cvi =
+
+
+
+UU ⊤ pvi
+
+⊤ 
+
+(Id − UU ⊤) pvi
+
+
+
+= ( pvi )⊤(UU ⊤)⊤(Id − UU ⊤) pvi
+
+= ( pvi )⊤UU ⊤(Id − UU ⊤) pvi
+
+= ( pvi )⊤ 
+
+UU ⊤ − UU ⊤UU ⊤
+
+pvi
+
+= ( pvi )⊤ 
+
+UU ⊤ − UI dc U⊤
+
+pvi
+
+= ( pvi )⊤ 
+
+UU ⊤ − UU ⊤
+
+pvi
+
+= 0 (13) To ensure that the above decomposition is well-defined, the matrix U should remain column-orthonormal during opti-mization, such that UU ⊤ forms a valid orthogonal projection JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 6
+
+onto the shared subspace. Instead of imposing an regular-ization term, we adopt a re-parameterization strategy based on the Cayley transform[ 78 ], which maps a skew-symmetric matrix to an orthogonal matrix. Specifically, we introduce a free matrix W ∈ Rd×d and construct a skew-symmetric matrix A = W − W⊤. Then, an auxiliary orthogonal matrix 
+
+Ufull ∈ Rd×d is obtained at each forward pass as 
+
+Ufull = ( Id − A)( Id + A)−1 (14) Since A is skew-symmetric, i.e., A⊤ = −A, the orthogo-nality of Ufull holds by: 
+
+U⊤ 
+
+> full
+
+=  (Id − A)( Id + A)−1⊤
+
+= ( Id − A)−1(Id + A) (15) and: 
+
+U⊤
+
+> full
+
+Ufull =  (Id − A)−1(Id + A)   (Id − A)( Id + A)−1
+
+= ( Id − A)−1 (( Id + A)( Id − A)) ( Id + A)−1
+
+= ( Id − A)−1 (( Id − A)( Id + A)) ( Id + A)−1
+
+=  (Id − A)−1(Id − A)   (Id + A)( Id + A)−1
+
+= Id · Id
+
+= Id (16) Finally U is derived by taking the first dc columns of Ufull ,and U⊤U = Idc holds immediately. After the prototypes are decomposed, to simultaneously capture cross-view consistency and view-specific semantics, we align the shared parts of the prototypes across different views while de-correlating the view-specific parts. This objective is achieved through a combination of the shared alignment loss and view-specific de-correlation loss. 
+
+a) Shared Alignment Loss: To enforce the shared parts svk
+
+is consistent across views for the same prototype-index g, we adopt a prototype contrastive objective. Define the cross-view alignment probability as: 
+
+Qvu g = exp( S(svg , s(u) 
+
+> g
+
+)/τ )
+
+Pmj=1 exp( S(svg , s(u) 
+
+> j
+
+)/τ ) (17) where S(·, ·) denotes cosine similarity, τ is a hyperparameter. The shared alignment loss is then defined as: 
+
+LSHARED =
+
+> m
+
+X
+
+> v,u =1
+> u̸=v
+
+1
+
+k
+
+> t
+
+X
+
+> r=1
+> k
+
+X
+
+> g=1
+
+(1 − Qvu g )r
+
+r (18) where t is a hyperparameter, k is the number of prototypes for each view. This loss simultaneously pulls together shared components of the same class across views and pushes apart those of different classes. 
+
+b) View-specific De-correlation Loss: To allow the view-specific parts cvk capture genuinely distinct information across views rather than redundant features, we minimize the cosine alignment between view-specific parts of different views: 
+
+LDE = 1
+
+k
+
+> k
+
+X
+
+> g=1
+> m
+
+X
+
+> v,u =1
+> u̸=v
+
+* cvg
+
+∥cvg ∥ , c(v′)
+
+> g
+
+∥c(v′) 
+
+> g
+
+∥
+
++
+
+(19) 
+
+Algorithm 1 The training procedure of SPORT 
+
+Input: Multi-view raw data {Xv }mv=1 , number of clusters k,pretraining epoch EP RE , fine-tuning epoch EF IN ,Multi-view raw complete data { ˜Xv }mv=1 with size s, Batch size 
+
+B
+
+Output: Clustering results via k-means  
+
+> 1:
+
+Pretraining:  
+
+> 2:
+
+for t = 1 , . . . , E P RE do  
+
+> 3:
+
+for i = 1 , . . . , s/B do  
+
+> 4:
+
+Pretrain the autoencoder by optimizing Eq. (4)  
+
+> 5:
+
+end for  
+
+> 6:
+
+end for  
+
+> 7:
+
+Feature construction:  
+
+> 8:
+
+Obtain features {Hv }Vv=1 from the encoders  
+
+> 9:
+
+Fine-Tuning:  
+
+> 10:
+
+for t = 1 , . . . , E F IN do  
+
+> 11:
+
+for i = 1 , . . . , n/B do  
+
+> 12:
+
+Features are aligned by Eq. (8)  
+
+> 13:
+
+Initial prototypes {Pv }mv=1 via k-means  
+
+> 14:
+
+Prototypes are decomposed by Eq. (12)  
+
+> 15:
+
+Prototypes are optimized by Eq. (20)  
+
+> 16:
+
+Model optimized by overall loss in Eq. (21)  
+
+> 17:
+
+end for  
+
+> 18:
+
+end for  
+
+> 19:
+
+Prototype imputation:  
+
+> 20:
+
+Impute missing data via hybrid prototype imputation  
+
+> 21:
+
+Clustering:  
+
+> 22:
+
+Apply k-means to obtain final clustering results Minimizing this term drives the view-specific parts of different views toward orthogonal directions, ensuring each view retains its own distinctive representation. The overall combinatorial loss is defined as: 
+
+LPRO = λLSHARED + ηLDE (20) where λ and η are hyperparameters used to balance the shared and view-specific loss. 
+
+E. Overall objective function 
+
+To achieve our IMVC objective, we combine the losses defined above, and the overall loss function for our SPORT model is formulated as: 
+
+L = LREC + αLCON + βLPRO (21) where α and β are hyperparameters to reconcile the contrastive loss and the prototype partial alignment loss. The training of our SPORT model consists of two phases as shown in Algorithm.(1). In the pretraining phase, only the reconstruction loss defined in Eq.(4) is used to train the autoencoder. After the pretraining phase, we enter a fine-tuning phase where the model uses the overall loss defined in Eq.(21) to better align the features and prototypes across different views. The missing data is then padded via a hybrid prototype imputation strategy discussed in the next subsection. Finally, 
+
+k-means is performed on the imputed complete data to obtain clustering results. JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 7
+
+Fig. 4: Illustration of the proposed hybrid prototype imputation strategy. (a) Existing methods rely solely on the most relevant prototype for missing-view reconstruction, primarily capturing global semantics while neglecting local neighborhood information. (b) Our method jointly leverages prototype-level global semantics and neighbor-level local semantics to perform more robust missing feature imputation. 
+
+F. Hybrid Prototype Imputation Strategy 
+
+After prototype alignment, these prototypes are employed as semantic anchors for missing-view reconstruction. Existing methods [ 17 , 48 , 50 ] typically rely solely on the most relevant prototypes to recover missing features, as illustrated in Fig. 4(a). Such approaches mainly exploit global shared information encoded in prototypes, while neglecting the local semantics captured by neighboring instances. Consequently, their performance often degrades under high missing rates or when unreliable prototypes are generated. To mitigate this drawback, we propose a novel hybrid pro-totype imputation strategy which utilizes both prototypes and neighboring information as shown in Figure.4(b). Specifically, for a missing data in view v of sample j, we first calculate the average cosine similarity between sample j and all prototypes in views where sample j is complete. Then, for all other samples who have complete data in view v, we calculate the average similarity between them and sample j in views where both samples have complete features. In addition following Eq.(22) and Eq.(23), we match the prototype and sample with the largest average cosine similarity with sample j, and denote their features in view v as ˆpvj and ˆnvj respectively. Lastly, the missing information of sample j in view v is imputed by a weighted sum of ˆpvj and ˆnvj as Eq.(24), where the imputed feature is denoted by ˆhvj , and the weights are γ and 1 − γ with 
+
+γ ∈ [0 , 1] .
+
+ˆpvj = arg max  
+
+> pvk∈Pv
+
+1
+
+|V j |
+
+X
+
+> v∈V j
+
+S(pvk, hvj ) (22) 
+
+ˆnvj = arg max   
+
+> hvi∈˜Hv
+
+1
+
+|V j ∩ V i|
+
+X 
+
+> u∈V j∩V i
+
+S(h ui , huj ) (23) 
+
+ˆhvj = γ · ˆpvj + (1 − γ) · ˆnvj , γ ∈ [0 , 1] (24) By exploiting both prototype- and neighborhood-based information for missing data imputation, our method achieves stable clustering performance even under increasing missing rates, as demonstrated in the subsequent experiments. IV. E XPERIMENTS 
+
+In this section, we demonstrate the superior performance of our proposed SPORT model through extensive evaluations, including experimental settings, performance comparisons, ablation study, sensitive analysis and clustering visualization. 
+
+A. Experimental Settings 
+
+Benchmark Datasets : We construct comprehensive experi-ments on 6 benchmark multi-view datasets namely ALOI_100 1,Animal 1, Digit4k 1, 100Leaves 1, Reuters_21578 1, and VG-GFace2_50 1. The detailed statistics of these datasets are shown in TABLE I. TABLE I: Statistics of 6 Benchmark Datasets.                              
+
+> Dataset Samples ( n)Views ( v)Clusters ( k)Dimensionality( dv)
+> Reuters_21578 1500 5621531/24892/34251/15506/11547 100Leaves 1600 3100 64/64/64 Digit4k 4000 2430/30 Animal 10158 250 4096/4096 ALOI_100 10800 4100 77/13/64/125 VGGFace2_50 34027 450 944/576/512/640
+
+Evaluating Metrics : We used three widely-used evaluation criteria to demonstrate the validity of the experiment. These metrics are accuracy(ACC), Adjusted Rand Index(ARI) and F-Score(F-Sco). 
+
+Comparing Methods : We choose 14 state-of-the-art IMVC methods as baselines and compare them with our SPORT frame-work to investigate SPORT’s effectiveness. These baselines are CDIMC-net (IJCAI’21) [ 37 ], COMPLETER (CVPR’21) [ 44 ], SURE (TPAMI’22) [ 72 ], ProImp (IJCAI’23) [ 50 ], APADC (TIP’23) [ 41 ], IMVC-IE (ICASSP’24) [ 79 ], RPCIC (ACM MM’24) [ 80 ], BURG (ICCV’25) [ 81 ], BRIDGE (ICCV’25) [82 ], HSACC (NeurIPS’25) [ 16 ], IMC-MCL (TKDE’25) [ 71 ], MGCCFF (AAAI’25) [ 83 ], DGIMVCM (AAAI’26) [ 20 ] and GMAE (TPAMI’26) [84]. 
+
+Experiment Configurations : All experiments are conducted on an NVIDIA RTX L20 GPU with 48 GB memory using PyTorch 2.11.0+CUDA 13.0. For each dataset we set the missing rate as [0 .1, 0.3, 0.5, 0.7] . The implementation of SPORT consists of two phases, namely the pretraining phase and fine-tuning phase with the learning rate set to 0.0005 and 0.00001 respectively. We set the pretraining epoch EP RE to 200 and fine-tuning epoch EF IN to 100. Our method adopts an autoencoder with the encoder dimensionality structured as Input dimension-512-512-1024-d, and the decoder dimensionality structured as d-1024-512-512-Input dimension where d is set to 256. Additionally, we set the the batch size to 512, and dc to 128. For the loss function, α and β, the trade-off parameters of the overall loss are set to 1.6 × 10 −5 and 5 respectively, while 
+
+λ and η which balance the shared alignment loss and view-specific de-correlation loss are set to 10 and 5. Moreover, the temperature parameters [τ, τ w] are set to [0 .75 , 0.5] and t the exponent of the shared-alignment loss is set to 3. Furthermore,  
+
+> 1https://github.com/JethroJames/Awesome-Multi-View-Learning-Datasets JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 8
+
+TABLE II: Performance Comparison on Animal, ALOI_100 and Digit4k Under Different Missing rates. The Optimal Results are In Bold and The Second-best Results are Underlined. O/M Represents Out of Memory. 
+
+Missing Rate 0.1 0.3 0.5 0.7 Metric ACC ARI F-score ACC ARI F-score ACC ARI F-score ACC ARI F-score Animal CDIMC-net(IJCAI’21) [37] 5.94 0.66 0.60 3.76 -0.01 0.72 3.90 -0.01 0.77 3.90 0.00 0.77 COMPLETER (CVPR’21) [44] 21.29 15.40 15.84 19.67 13.42 13.12 20.37 15.59 14.22 20.93 11.52 14.84 SURE(TPAMI’22) [72] 35.67 23.00 32.72 31.42 20.66 27.69 27.46 15.90 24.92 25.18 13.47 21.98 ProImp (IJCAI’23) [50] 41.40 30.05 38.02 38.51 27.47 34.63 38.14 26.90 34.52 37.65 26.06 34.44 APADC (TIP’23) [41] 22.73 5.39 20.78 34.61 21.69 31.91 32.50 21.23 27.25 23.60 12.70 16.41 IMVC-IE (ICASSP’24) [79] 17.55 2.96 18.82 11.36 0.37 12.23 7.95 0.05 7.60 8.26 1.44 6.92 RPCIC (ACM MM’24) [80] 43.84 31.05 45.41 46.05 34.39 47.42 44.93 32.40 46.42 35.64 23.27 36.44 BURG (ICCV’25) [81] 60.82 50.40 63.81 50.57 38.36 54.34 49.67 36.18 54.03 39.46 25.97 42.97 BRIDGE (ICCV’25) [82] 20.12 14.60 17.46 18.80 13.16 15.92 17.54 11.94 15.75 27.58 17.76 25.74 HSACC (NeurIPS’25) [16] 20.29 12.98 16.82 24.03 17.63 17.55 24.77 18.89 20.10 23.02 16.33 17.60 IMC-MCL (TKDE’25) [71] 25.98 17.17 15.39 24.63 16.82 0.41 25.35 16.17 0.49 26.45 18.16 16.36 MGCCFF(AAAI’25) [83] 11.69 4.45 9.70 11.53 4.43 9.40 10.92 3.86 9.13 10.81 3.87 8.46 DGIMVCM (AAAI’26) [20] 62.45 52.07 59.09 49.10 40.75 44.72 45.27 34.44 41.50 36.10 23.76 35.53 GMAE (TPAMI’26) [84] 56.22 43.41 47.78 29.53 15.92 16.20 14.60 7.40 6.32 20.55 12.56 10.97 
+
+SPORT (Ours) 64.71 54.80 64.39 55.98 46.78 54.90 58.48 45.88 57.57 51.66 39.47 51.20 
+
+> ALOI_100
+
+CDIMC-net(IJCAI’21) [37] 62.02 48.70 57.36 37.92 18.34 38.04 21.52 7.85 21.85 13.48 3.77 14.05 COMPLETER (CVPR’21) [44] 20.83 11.77 20.12 20.28 12.02 19.29 16.96 9.83 14.39 18.94 10.68 18.28 SURE(TPAMI’22) [72] 61.75 52.36 60.64 63.24 53.62 62.20 56.37 46.45 54.52 57.09 46.53 55.45 ProImp (IJCAI’23) [50] 45.67 33.92 44.09 48.06 35.24 46.86 43.44 31.32 42.42 42.16 29.24 41.12 APADC (TIP’23) [41] 26.55 10.12 20.59 16.41 8.86 10.50 16.41 7.32 11.70 22.35 10.14 19.31 IMVC-IE (ICASSP’24) [79] 35.92 23.28 33.07 30.04 18.13 27.47 26.64 16.48 25.08 23.23 13.27 21.61 RPCIC (ACM MM’24) [80] 74.99 64.99 73.20 71.35 63.07 68.91 55.36 45.21 56.03 63.23 54.50 61.43 BURG (ICCV’25) [81] 61.80 48.14 60.02 50.19 29.84 51.06 41.10 19.06 43.49 29.94 14.34 32.29 BRIDGE (ICCV’25) [82] 78.63 72.04 75.47 70.30 60.89 66.75 56.72 43.21 53.49 32.61 18.73 31.89 HSACC (NeurIPS’25) [16] 20.19 12.56 18.42 20.30 11.74 19.50 19.94 11.20 19.21 19.10 11.63 17.76 IMC-MCL (TKDE’25) [71] 17.47 10.36 0.90 17.76 11.38 0.91 15.44 9.46 0.65 16.20 9.89 0.44 MGCCFF(AAAI’25) [83] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M DGIMVCM (AAAI’26) [20] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M GMAE (TPAMI’26) [84] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M 
+
+SPORT (Ours) 77.15 69.05 74.18 72.93 62.87 70.27 74.56 64.04 71.32 70.51 57.88 67.27 
+
+> Digit4k
+
+CDIMC-net(IJCAI’21) [37] 34.10 2.91 21.57 46.02 24.47 27.31 33.25 1.84 25.46 57.65 34.42 51.13 COMPLETER (CVPR’21) [44] 30.10 0.86 19.85 29.20 0.41 18.30 30.12 0.73 19.90 32.28 2.16 23.35 SURE(TPAMI’22) [72] 64.30 33.29 64.61 46.78 24.15 46.36 48.38 18.59 47.36 42.55 13.69 41.37 ProImp (IJCAI’23) [50] 61.96 35.17 62.22 53.10 21.06 53.30 78.57 52.51 78.51 62.32 29.83 62.86 APADC (TIP’23) [41] 38.48 5.86 30.67 30.70 5.89 20.43 36.78 9.39 27.55 34.82 7.26 25.47 IMVC-IE (ICASSP’24) [79] 82.05 60.85 60.80 62.72 31.13 46.10 56.50 20.68 44.36 57.45 22.63 44.70 RPCIC (ACM MM’24) [80] 80.60 57.70 80.34 55.60 26.40 56.39 39.92 18.77 39.90 42.58 14.25 43.89 BURG (ICCV’25) [81] 69.45 38.68 69.89 68.85 27.49 69.35 79.35 56.68 78.61 53.72 35.71 50.60 BRIDGE (ICCV’25) [82] 47.17 16.83 36.89 71.48 45.76 53.03 68.14 46.00 49.26 68.04 44.02 49.74 HSACC (NeurIPS’25) [16] 35.45 4.42 28.63 35.22 3.95 28.26 35.20 6.71 28.17 37.08 6.46 30.73 IMC-MCL (TKDE’25) [71] 73.85 40.04 54.50 81.58 59.56 59.18 64.62 32.49 48.02 61.88 30.17 48.93 MGCCFF(AAAI’25) [83] 64.84 40.80 64.31 61.49 39.43 61.01 65.05 38.94 64.27 62.37 35.82 61.28 DGIMVCM (AAAI’26) [20] 64.18 56.35 59.66 70.18 60.80 60.02 63.58 43.07 63.56 63.80 41.66 63.68 GMAE (TPAMI’26) [84] 65.45 57.50 61.74 66.15 28.99 61.28 59.62 46.66 56.18 55.70 37.42 52.43 
+
+SPORT (Ours) 85.70 67.06 65.14 81.22 58.41 62.58 83.95 63.52 63.90 84.12 64.40 63.92 
+
+(a) 100Leaves (b) Digit4k (c) Animal 
+
+Fig. 5: The clustering performance results with different missing rates on 100Leaves, Digit4k and Animal. 
+
+γ is set to 0.3 for our hybrid imputation strategy. During our experiment, we selectively fine-tune a subset of parameters certain datasets to accommodate varying dataset characteristics. The specific configurations are provided in the code repository JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 9
+
+TABLE III: Performance Comparison on 100Leaves, Reuters_21578 and VGGFace2_50 Under Different Missing rates. The Optimal Results are In Bold and The Second-best Results are Underlined. O/M Represents Out of Memory. 
+
+Missing Rate 0.1 0.3 0.5 0.7 Metric ACC ARI F-score ACC ARI F-score ACC ARI F-score ACC ARI F-score 100Leaves CDIMC-net(IJCAI’21) [37] 70.75 61.18 64.96 47.56 38.38 43.82 31.37 20.27 29.35 24.88 11.27 23.95 COMPLETER (CVPR’21) [44] 29.38 16.97 27.13 26.44 14.10 24.21 37.44 21.27 37.81 29.06 15.54 28.07 SURE(TPAMI’22) [72] 56.62 41.57 53.66 51.38 37.40 48.84 48.00 35.09 45.19 37.62 24.15 36.05 ProImp (IJCAI’23) [50] 63.44 56.51 58.70 48.62 37.08 45.33 45.94 34.29 43.37 41.94 27.43 41.07 APADC (TIP’23) [41] 24.06 12.29 19.01 18.75 8.12 15.32 20.81 8.00 18.06 19.31 8.18 16.37 IMVC-IE (ICASSP’24) [79] 39.38 24.22 38.86 29.19 13.76 28.67 22.75 7.92 23.10 15.44 3.11 15.28 RPCIC (ACM MM’24) [80] 74.50 62.36 74.70 59.25 38.22 61.77 47.06 30.51 48.42 45.56 31.63 44.40 BURG (ICCV’25) [81] 71.19 58.87 69.12 57.06 37.48 56.85 45.38 21.17 47.49 34.62 14.42 36.58 BRIDGE (ICCV’25) [82] 49.30 35.14 47.68 29.07 13.63 28.67 26.29 9.57 26.53 28.66 11.95 28.66 HSACC (NeurIPS’25) [16] 27.31 15.61 24.49 29.38 18.24 25.82 29.38 18.14 26.49 31.00 16.15 28.90 IMC-MCL (TKDE’25) [71] 9.00 7.87 0.07 7.12 5.54 2.07 6.62 4.37 0.06 6.75 3.40 0.18 MGCCFF(AAAI’25) [83] 6.56 3.88 0.21 9.80 5.88 0.41 10.66 5.09 0.24 10.84 6.72 4.72 DGIMVCM (AAAI’26) [20] 85.21 81.28 83.76 72.56 64.68 70.14 63.50 53.01 61.11 48.88 36.25 46.71 GMAE (TPAMI’26) [84] 67.81 56.83 64.96 42.44 23.94 42.06 37.56 26.55 35.71 35.19 20.11 34.82 
+
+SPORT (Ours) 80.62 72.95 78.71 74.06 62.31 71.18 69.56 54.35 67.47 56.06 36.68 54.24 
+
+> Reuters_21578
+
+CDIMC-net(IJCAI’21) [37] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M COMPLETER (CVPR’21) [44] 33.87 1.03 18.64 30.93 1.99 17.31 34.40 1.27 18.92 32.40 1.91 19.71 SURE(TPAMI’22) [72] 32.27 9.36 28.75 31.40 7.68 29.01 29.80 4.00 23.90 29.33 4.64 25.29 ProImp (IJCAI’23) [50] 40.87 16.06 38.46 41.13 17.09 28.34 31.00 9.49 29.28 35.33 10.58 31.42 APADC (TIP’23) [41] 28.07 18.30 41.09 27.40 7.29 29.05 28.53 18.83 47.69 29.93 9.84 38.89 IMVC-IE (ICASSP’24) [79] 3.93 18.95 47.43 7.33 12.10 39.40 6.80 11.21 39.11 3.93 8.29 32.06 RPCIC (ACM MM’24) [80] 46.00 18.38 46.40 46.93 17.54 46.54 46.13 17.77 44.78 48.07 20.32 46.16 
+
+BURG (ICCV’25) [81] 45.93 11.81 35.53 44.20 10.08 35.28 27.67 −0.05 12.28 47.07 14.33 42.47 BRIDGE (ICCV’25) [82] 5.40 25.94 44.69 6.39 23.57 46.43 7.58 23.39 44.71 2.77 8.08 35.69 HSACC (NeurIPS’25) [16] 38.20 5.14 31.71 34.93 1.59 30.04 37.20 4.69 31.83 32.93 2.94 24.51 IMC-MCL (TKDE’25) [71] 33.67 11.72 37.56 38.27 11.85 41.65 29.67 7.27 31.63 35.33 7.07 32.39 MGCCFF(AAAI’25) [83] 44.73 16.87 39.15 46.79 22.50 46.09 45.81 17.21 40.26 46.53 21.86 46.16 
+
+DGIMVCM (AAAI’26) [20] 40.60 9.03 20.62 38.20 6.14 21.39 32.87 5.37 22.39 29.00 3.29 20.31 GMAE (TPAMI’26) [84] 34.00 2.06 20.60 31.80 0.07 14.43 25.87 2.40 19.89 27.13 1.57 23.98 
+
+SPORT (Ours) 46.33 21.73 48.27 51.00 23.45 51.73 53.47 26.44 51.39 38.13 15.87 39.20 VGGFace2_50 CDIMC-net(IJCAI’21) [37] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M COMPLETER (CVPR’21) [44] 4.72 0.73 4.10 5.27 0.94 3.74 4.70 0.74 3.91 4.76 0.82 4.05 SURE(TPAMI’22) [72] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M ProImp (IJCAI’23) [50] 7.62 1.48 7.57 7.15 1.37 7.05 8.30 1.66 8.19 7.18 1.41 7.13 APADC (TIP’23) [41] 5.42 0.94 4.02 5.58 0.92 3.84 5.24 0.84 3.21 5.62 1.12 2.87 IMVC-IE (ICASSP’24) [79] 6.82 1.23 6.43 5.44 0.63 5.32 4.79 0.38 4.76 4.62 0.38 4.20 RPCIC (ACM MM’24) [80] 8.21 1.92 8.19 9.62 2.53 9.62 9.96 2.58 10.03 10.31 2.82 10.46 
+
+BURG (ICCV’25) [81] 10.04 2.90 9.96 9.40 1.82 9.52 8.11 1.44 8.26 5.79 0.78 5.81 BRIDGE (ICCV’25) [82] 5.03 0.78 4.82 5.49 1.25 4.78 5.60 0.79 5.61 5.53 0.88 5.43 HSACC (NeurIPS’25) [16] 5.39 1.06 4.21 5.47 0.97 4.04 5.33 0.94 4.08 5.51 0.92 4.10 IMC-MCL (TKDE’25) [71] 5.05 0.73 3.56 4.93 0.63 3.89 4.64 0.59 2.66 5.00 0.75 3.54 MGCCFF(AAAI’25) [83] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M DGIMVCM (AAAI’26) [20] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M GMAE (TPAMI’26) [84] O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M O/M 
+
+SPORT (Ours) 10.42 3.05 10.23 10.41 3.01 10.33 11.29 3.17 11.23 10.24 2.92 9.82 
+
+at https://github.com/EricGuo2004/SPORT_IMVC. 
+
+B. Performance Comparisons 
+
+The clustering performances of SPORT and 14 competing methods on six multi-view datasets under different missing rates are summarized in TABLE II and TABLE III, where the optimal results are highlighted in bold and the second-best results are underlined . From these tables, we obtain the following observations: (1) SPORT performs better than other baseline methodss on most datasets. For example, on the Animal dataset, SPORT obtains the best result in terms of ACC, ARI and F-score under all missing rates. Specifically, when the missing rate is 0.5, comparing to the second-best model (BURG) SPORT improves the ACC ARI and F-Score by 17 .7% , 26 .8% and 
+
+6.5% respectively. Such clustering performance benefits from the structure-aware relational contrastive learning module and prototype partial alignment module where SPORT is able to jointly enforce structural and cross-view consistency while leveraging view-specific information. (2) The proposed method demonstrates remarkable robust-ness against increasing missing rates. For instance, on the 100Leaves dataset, SPORT only encounters a 8.1% and 6.7% 
+
+fluctuation on ACC when the missing rate increases from 0.1 to 0.3 and 0.3 to 0.5 respectively, while the acc of GMAE, which exhibits strong clustering results under small missing rates, drops 14 .8% and 12 .5% . In addition, on the Digit4k dataset, the ACC remains above 80% for all missing rates, and only encounters a performance decline of 1.8% when the missing rate increases from 0.1% to 0.7% . These results justify that our JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 10 
+
+TABLE IV: Ablation Study Results on Six Benchmark Datasets With 0.5 Missing Rate. The Best Results are In Bold , and the Second-best Result are Underlined.                                                                                                                                                                                                                                         
+
+> Components Reuters_21578 100Leaves Digit4k
+> LREC LCON LP RO LSHARED LDE ACC ARI F-Sco ACC ARI F-Sco ACC ARI F-Sco
+> ✓44.08 18.50 44.57 66.50 50.96 63.84 83.90 63.44 63.86
+> ✓43.40 17.45 43.21 69.06 53.83 67.25 81.52 58.85 62.47
+> ✓✓✓51.87 25.88 52.84 67.62 51.59 64.71 83.42 62.44 63.63
+> ✓✓45.27 20.37 47.12 67.38 51.78 65.63 83.92 63.48 63.87
+> ✓✓✓✓44.80 18.53 44.58 66.44 50.26 63.10 83.38 62.46 63.44
+> ✓✓✓✓46.67 19.57 46.85 68.25 53.01 66.12 81.50 58.80 62.46
+> ✓✓✓✓45.07 20.29 45.92 69.38 53.46 66.70 81.50 58.80 62.46
+> ✓✓✓✓45.13 20.28 47.00 69.38 53.73 67.47 81.52 58.85 62.47
+> ✓✓✓✓✓53.47 26.44 51.39 69.56 54.35 67.47 83.95 63.52 63.90
+> Components Animal ALoi100 VGGFace2_50
+> LREC LCON LP RO LSHARED LDE ACC ARI F-Sco ACC ARI F-Sco ACC ARI F-Sco
+> ✓53.72 42.08 53.80 70.59 58.71 67.73 10.50 3.01 10.20
+> ✓39.88 27.11 40.72 66.31 50.02 63.47 4.75 0.71 4.66
+> ✓✓✓52.64 40.35 52.93 71.30 60.35 67.58 10.02 2.88 9.74
+> ✓✓52.81 42.04 52.69 73.06 61.20 69.90 10.44 3.02 10.03
+> ✓✓✓✓56.65 44.34 56.24 70.80 59.98 67.31 9.90 2.75 9.95
+> ✓✓✓✓41.77 28.46 41.86 67.15 55.43 64.53 4.87 0.73 4.73
+> ✓✓✓✓56.91 45.21 56.89 73.36 61.52 70.33 11.04 3.11 10.91
+> ✓✓✓✓52.96 42.24 52.77 72.22 60.97 69.12 11.13 3.18 10.99
+> ✓✓✓✓✓58.48 45.88 57.57 74.56 64.04 71.32 11.29 3.17 11.23
+
+hybrid imputation strategy simultaneously captures global and local semantics, which allows SPORT to demonstrate strong robustness under large missing rates when most features are deprecated and low-quality prototypes are generated. To further validate the superiority of SPORT, Figure.5 pro-vides an intuitive visualization of the performance degradation trends for all models with increasing missing rates. As shown in Figure.5 (a), (b) and (c), when the missing rate increases, almost all methods suffer a performance decline, indicating that missing information impairs model performance. However, comparing to other methods, in most scenarios the ACC curves of SPORT are positioned at the top while remaining relative smooth and flat with increasing missing rates. This observation further demonstrates the effectiveness and robustness of the proposed method under different levels of missingness. 
+
+C. Ablation Study 
+
+As defined in Eq.(21), our SPORT model consists of three major modules namely the feature representation learning module, the structure-aware relational contrastive learning module and the prototype partial alignment module. To further validate the contributions of each individual module, in this subsection we conduct ablation study on all six datasets with a missing rate of 0.5. The components are systematically removed while the model is retrained under the same configuration. The experimental results are shown in TABLE IV. From this table we can infer that all parts of SPORT contributes to the overall clustering performance and omitting any key component leads to varying degrees of performance degradation. Specifically, relying solely on representation learning and contrastive learning without prototype partial alignment results in significant accuracy drops. Taking the Reuters_21578 example, the ACC decreases from 53.47% to 45.27% while the F-sco drops from 51.39% to 47.12% when the generated prototypes are not partially aligned. Furthermore, neglecting the representation learning module or the contrastive learning module also triggers sharp performance plunges. Notably, on the Animal dataset, masking LREC dramatically drags the ARI down by 38.97%, whereas on the Reuters_21578 dataset, dropping LCON causes an 8.67% decrease in ACC. Furthermore, components within the prototype partial alignment module, such as shared alignment, also prove indispensable; dropping it on the Animal dataset leads to a clear 5.52% drop in ACC. Overall, the results confirm that the three modules are highly complementary. Their joint optimization enables more discriminative feature representations, improves cross-view se-mantic consistency while preserving view-specific information, and ultimately leads to superior clustering performance. 
+
+D. Sensitive Analysis 
+
+In this paper, there are four major hyperparameters, [α, β, λ, η], with α and β balancing the structure-aware relational contrastive learning loss and prototype partial alignment loss. 
+
+λ and η are used to balance the shared and view-specific loss. All six datasets are used to test the stability of the model with respect to α, β, λ, η ,with α ∈ { 10 −7, 10 −6, 10 −5, 10 −4, 10 −3},
+
+β ∈ { 5 × 10 −2, 5 × 10 −1, 5 × 10 0, 5 × 10 1, 5 × 10 2}, λ ∈{0.1, 1, 10 , 100 , 1000 }, η ∈ { 0.05 , 0.5, 5, 50 , 500 }. The miss-ing rate for all of the dataset is set to 0.5, the detailed results are visualized in Figure.6 and Figure.7. Overall, despite some minor fluctuations under varying hyperparameters, SPORT exhibits strong robustness to hyperparameter variations. Take JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 11    
+
+> (a) Animal (b) ALOI_100
+> (c) Digit4k (d) 100Leaves
+> (e) Reuters_21578 (f) VGGFace2_50
+
+Fig. 6: Sensitive of α and β with a missing rate of 0.5. the Digit4k dataset for example, the ACC merely fluctuates 0.86% under different α and β settings. Additionally, under varying λ and γ, the ACC on the 100Leaves dataset remains above 68.00% with a maximum gap of only 1.32% between the highest and lowest ACC values. These results demonstrate that the proposed model maintains stable performance under hyperparameter fluctuations. 
+
+E. Effectiveness of Hybrid Imputation 
+
+A key component of the proposed framework lies in its hybrid imputation strategy, which reconstructs missing data by jointly leveraging informative prototypes and neighboring samples, where γ controls their relative contributions. To better understand the behavior of this design, Fig. 8 reports the ACC of SPORT on six datasets with a missing rate of 0.5, where γ varies from 0 to 1 with a step size of 0.1. Here, 
+
+γ = 0 and γ = 1 correspond to the neighbor-only and prototype-only imputation strategies, respectively. As shown, the hybrid strategy outperforms both degenerate variants across all datasets. For example, in Fig. 8(e), on the Reuters_21578 dataset, SPORT achieves an ACC of 53.47% when γ = 0 .3,while the neighbor-only and prototype-only variants obtain 45.67% and 40.47%, respectively. Similarly, in Fig. 8(f), setting 
+
+γ = 0 .3 yields relative ACC gains of 4.33% over the neighbor-only strategy and 87.27% over the prototype-only strategy. It can therefore be concluded that the hybrid imputation strategy effectively balances prototype-level global structure    
+
+> (a) Animal (b) ALOI_100
+> (c) Digit4k (d) 100Leaves
+> (e) Reuters_21578 (f) VGGFace2_50
+
+Fig. 7: Sensitive of λ and η with a missing rate of 0.5.    
+
+> (a) Animal (b) ALOI_100
+> (c) Digit4k (d) 100Leaves
+> (e) Reuters_21578 (f) VGGFace2_50
+
+Fig. 8: Analysis of hybrid imputation under 0.5 missing rate. JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 12   
+
+> (a) Digit4k (b) Leaves_100 (c) Reuters_21578
+
+Fig. 9: Convergence analysis of Digit4k, Leaves_100 and Reuters_21578. 
+
+> (a) Before pretraining
+> (ACC:0.4142 ARI:0.2718 F-Sco:0.4253)
+> (b) After pretraining
+> (ACC:0.4650 ARI:0.3115 F-Sco:0.4866)
+> (c) After fine-tuning
+> (ACC:0.5045 ARI:0.3303 F-Sco:0.5381)
+> (d) After prototype imputation
+> (ACC:0.7293 ARI:0.6287 F-Sco:0.7027)
+
+Fig. 10: Visualization of feature representations of ALOI_100 at four stages. and neighborhood-level local consistency. By integrating these two complementary sources of information, the model achieves more reliable reconstruction of missing views, which in turn leads to improved feature quality and more robust clustering performance across different datasets. 
+
+F. Convergence Analysis 
+
+To further validate the convergence behavior of SPORT, we extend the training to 500 epochs on (a) Digit4k, (b) 100Leaves, and (c) Reuters_21578 under a missing rate of 0.5, with detailed results presented in Fig. 9. Taking the 100Leaves dataset as an example, during the first 200 epochs, SPORT is pretrained to learn feature representations with high reconstruction fidelity. In this stage, the ACC smoothly increases from 33.06% to 65.31%, the ARI rises from 6.23% to 52.45%, and the F-Score improves from 28.45% to 64.37%. In the subsequent 100 epochs, where structure-aware relational contrastive learning and prototype partial alignment are further applied, SPORT continues to refine the learned representations and prototypes, leading to a improvement by 6.51%, 3.7%, and 4.75% in ACC, ARI, and F-Score, respectively. However, extending training to 300–500 epochs results in only minor fluctuations across all three metrics without consistent improvement. This behavior suggests that the proposed framework reaches stable convergence within a moderate number of epochs, and further training yields negligible improvements. 
+
+G. Representation Visualization 
+
+Fig.10 presents the t-SNE visualizations of the learned multi-view feature representations at different training stages, including: (a) before pretraining with raw features, (b) after pre-training, (c) after fine-tuning, and (d) after prototype imputation. The experiments are conducted on the ALOI_100 dataset under a missing rate of 0.3. Across these four stages, the learned representations become progressively more discriminative, evolving from highly mixed and scattered distributions to compact and well-separated cluster structures. For example as shown in Fig.10(a), directly clustering the raw features leads to poor clustering results, with ACC, ARI, and F-Sco values of only 41.42%, 27.18%, and 42.53%, respectively. Most samples are squeezed into a large mixed region on the right side of the figure, indicating that the raw heterogeneous features fail to reveal clear cluster structures. After pretraining, and fine-tuning, as illustrated in Fig.10(b), (c) and (d), after pretraining, fine-tuning and prototype imputation, the mixed region breaks into multiple compact clusters with distinguishable boundaries, where the corresponding ACC, ARI, and F-Sco are enhanced by 76.07%, 131.31% and 65.08% respectively. Overall, the visualization results clearly illustrate a gradual transition from highly entangled feature distributions to well-separated cluster structures. This progression aligns with the staged training strategy, confirming that pretraining, fine-tuning, and prototype imputation each contribute distinctly to improving feature separability under incomplete multi-view conditions. V. C ONCLUSION 
+
+In this paper, we propose a novel incomplete multi-view clustering framework, termed SPORT, which aims to jointly preserve cross-view consistency, structural relationships, and view-specific semantics. To this end, we design a feature JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 13 
+
+representation learning module to extract shared semantic repre-sentations across views, a structure-aware relational contrastive learning module to align representations by incorporating neighborhood-level structural information, and a prototype partial alignment module to effectively model complementary prototype components across views. In addition, a hybrid prototype imputation strategy is introduced to recover missing information by jointly exploiting global prototype semantics and local neighborhood context, thereby improving the reliabil-ity of cross-view feature reconstruction. Extensive experiments on multiple benchmark datasets, together with in-depth analyses and visualizations, demonstrate the superiority of the proposed framework and its effectiveness in learning discriminative representations under incomplete multi-view settings. ACKNOWLEDGMENT 
+
+This work was supported in part by the National Natural Science Foundation of China (No. U24A20331, 62536002, 62506116), the Beijing Natural Science Foundation (No. L251005), the Science Research Project of the Hebei Education Department (No. BJ2026004), and the Open Project of the Key Laboratory of Tibetan Information Processing, Ministry of Education, Qinghai Normal University (No. QHSFCS-2603). REFERENCES 
+
+[1] J. Xu, H. Tang, Y. Ren, L. Peng, X. Zhu, and L. He, “Multi-level feature learning for contrastive multi-view clustering,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2022, pp. 16 051–16 060. [2] M. White, X. Zhang, D. Schuurmans, and Y.-l. Yu, “Convex multi-view subspace learning,” Advances in neural information processing systems , vol. 25, pp. 1– 14, 2012. [3] C. Xu, D. Tao, and C. Xu, “Multi-view intact space learning,” IEEE transactions on pattern analysis and machine intelligence , vol. 37, no. 12, pp. 2531–2544, 2015. [4] C. Zhang, Y. Cui, Z. Han, J. T. Zhou, H. Fu, and Q. Hu, “Deep partial multi-view learning,” IEEE transactions on pattern analysis and machine intelligence , vol. 44, no. 5, pp. 2402–2415, 2020. [5] Q. Qiang, B. Zhang, Y. Hua, and F. Nie, “Multi-view clustering via bilaterally constrained anchor graph,” IEEE Transactions on Pattern Analysis and Machine Intelli-gence , pp. 1–14, 2026. [6] Y. Qin, Y. Feng, Y. Sun, D. Peng, X. Peng, and P. Hu, “Deep information-balanced multimodal learning,” IEEE Transactions on Pattern Analysis and Machine Intelli-gence , pp. 1–13, 2026. [7] J. Xu, J. Han, and F. Nie, “Discriminatively embedded k-means for multi-view clustering,” in Proceedings of the IEEE conference on computer vision and pattern recognition , 2016, pp. 5356–5364. [8] C. Cui, Y. Ren, J. Pu, J. Li, X. Pu, T. Wu, Y. Shi, and L. He, “A novel approach for effective multi-view clus-tering with information-theoretic perspective,” Advances in neural information processing systems , vol. 36, pp. 44 847–44 859, 2023. [9] Q. Wang, “Llm-damvc: A large language model assisted dynamic agent for multi-view clustering,” Advances in Neural Information Processing Systems , vol. 38, pp. 119 515–119 534, 2026. [10] L. Xin, W. Yang, L. Wang, and M. Yang, “Multilevel reliable guidance for unpaired multiview clustering,” IEEE Transactions on Neural Networks and Learning Systems ,vol. 36, no. 10, pp. 18 968–18 982, 2025. [11] Z. Gu and W. Wang, “Hypergraph-enhanced contrastive learning for multi-view clustering with hyper-laplacian regularization,” Advances in Neural Information Process-ing Systems , vol. 38, pp. 54 600–54 620, 2026. [12] Z. Gu and S. Feng, “Twin tensor learning for consistency and inconsistency: A unified affinity learning framework for multi-view clustering,” IEEE Transactions on Multi-media , vol. 28, pp. 4233–4244, 2026. [13] D. J. Trosten, S. Løkse, R. Jenssen, and M. C. Kampffmeyer, “On the effects of self-supervision and contrastive alignment in deep multi-view clustering,” in 
+
+Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2023, pp. 23 976–23 985. [14] X. Zhang, X. Zhang, H. Liu, and X. Liu, “Multi-task multi-view clustering,” IEEE Transactions on Knowledge and Data Engineering , vol. 28, no. 12, pp. 3324–3338, 2016. [15] X. Liu, K. Liang, J. Wang, S. Liu, X. Wang, and H. Wang, “Two decades of multi-view clustering: Taxonomy, appli-cation, and challenge,” IEEE Transactions on Pattern Analysis and Machine Intelligence , vol. 48, no. 3, pp. 3744–3764, 2026. [16] X. Ding, L. Zhao, X. Li, and X. Zhu, “Incomplete multi-view clustering via hierarchical semantic alignment and cooperative completion,” in Advances in Neural Information Processing Systems , vol. 39, 2025. [17] H. Yuan, Y. Sun, F. Zhou, J. Wen, S. Yuan, X. You, and Z. Ren, “Prototype matching learning for incomplete multi-view clustering,” IEEE Transactions on Image Processing , vol. 34, pp. 828–841, 2025. [18] C. Liu, J. Wen, Y. Xu, B. Zhang, L. Nie, and M. Zhang, “Reliable representation learning for incomplete multi-view missing multi-label classification,” IEEE Trans-actions on Pattern Analysis and Machine Intelligence ,vol. 47, no. 6, pp. 4940–4956, 2025. [19] Q. Wang, H. Xu, W. Feng, and Q. Gao, “Adversarial fair incomplete multi-view clustering,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 40, no. 12, 2026, pp. 10 011–10 019. [20] Z. Zhang, J. Xie, X. Chen, T. Yu, H. Yi, K. Xu, Y. Wang, T. Zong, X. Wang, J. Chen et al. , “Dynamic deep graph learning for incomplete multi-view clustering with masked graph reconstruction loss,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 40, no. 34, 2026, pp. 28 600–28 608. [21] Z. Zhong, Z. Gu, P. Yang, R. Guo et al. , “Gaussian regression-driven tensorized incomplete multi-view clus-tering with dual manifold regularization,” Advances in JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 14 
+
+Neural Information Processing Systems , vol. 38, pp. 72 102–72 131, 2026. [22] T. Wu, Z. Li, Z. Gu, J. Yuan, and S. Feng, “Koala: Kernel coupling and element imputation induced multi-view clustering,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 39, no. 20, 2025, pp. 21 581– 21 589. [23] C. Zhang, Z. Han, H. Fu, J. T. Zhou, Q. Hu et al. , “Cpm-nets: Cross partial multi-view networks,” Advances in Neural Information Processing Systems , vol. 32, 2019. [24] Z. Xue, J. Du, C. Zheng, J. Song, W. Ren, and M. Liang, “Clustering-induced adaptive structure enhancing network for incomplete multi-view data.” in Ijcai , 2021, pp. 3235– 3241. [25] H. Zhao, Z. Ding, and Y. Fu, “Multi-view clustering via deep matrix factorization,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 31, no. 1, 2017. [26] M. Hu and S. Chen, “Doubly aligned incomplete multi-view clustering,” in International Joint Conference on Artificial Intelligence , 2018, pp. 2262–2268. [27] J. Wen, G. Xu, Z. Tang, W. Wang, L. Fei, and Y. Xu, “Graph regularized and feature aware matrix factorization for robust incomplete multi-view clustering,” IEEE Trans-actions on Circuits and Systems for Video Technology ,vol. 34, no. 5, pp. 3728–3741, 2024. [28] W. Zhou, H. Wang, and Y. Yang, “Consensus graph learning for incomplete multi-view clustering,” in Lecture Notes in Computer Science , 2019, pp. 529–540. [29] J. Wen, Y. Xu, and H. Liu, “Incomplete multiview spectral clustering with adaptive graph learning,” IEEE Transactions on Cybernetics , vol. 50, no. 4, pp. 1418– 1429, 2020. [30] S. Deng, J. Wen, C. Liu, K. Yan, G. Xu, and Y. Xu, “Projective incomplete multi-view clustering,” IEEE Trans-actions on Neural Networks and Learning Systems ,vol. 35, no. 8, pp. 10 539–10 551, 2024. [31] N. Xu, Y. Guo, X. Zheng, Q. Wang, and X. Luo, “Partial multi-view subspace clustering,” in Proceedings of the 26th ACM International Conference on Multimedia , 2018, pp. 1794–1801. [32] Y. Ye, X. Liu, Q. Liu, and J. Yin, “Consensus kernel k-means clustering for incomplete multiview data,” Com-putational Intelligence and Neuroscience , vol. 2017, pp. 1–11, 2017. [33] X. Liu, X. Zhu, M. Li, L. Wang, E. Zhu, T. Liu, M. Kloft, D. Shen, J. Yin, and W. Gao, “Multiple kernel k-means with incomplete kernels,” IEEE Transactions on Pattern Analysis and Machine Intelligence , vol. 42, no. 5, pp. 1191–1204, 2019. [34] J. Guo and J. Ye, “Anchors bring ease: An embarrassingly simple approach to partial multi-view clustering,” in Pro-ceedings of the AAAI Conference on Artificial Intelligence ,vol. 33, no. 01, 2019, pp. 118–125. [35] G. Chao, Y. Jiang, and D. Chu, “Incomplete contrastive multi-view clustering with high-confidence guiding,” in 
+
+Proceedings of the AAAI conference on artificial intelli-gence , vol. 38, no. 10, 2024, pp. 11 221–11 229. [36] G. Chao, S. Sun, and J. Bi, “A survey on multiview clustering,” IEEE Transactions on Artificial Intelligence ,vol. 2, no. 2, pp. 146–168, 2021. [37] J. Wen, Z. Wu, Z. Zhang, L. Fei, B. Zhang, and Y. Xu, “Structural deep incomplete multi-view clustering network,” in Proceedings of the 30th ACM international conference on information & knowledge management , 2021, pp. 3538– 3542. [38] B. Xiao, Z. Dong, K. Liang, S. Liu, S. Wang, T. Liu, X. Hu, E. Zhu, and X. Liu, “Easemvc: Efficient dual selection mechanism for deep multi-view clustering,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 20 716–20 726. [39] J. Wen, Z. Zhang, Z. Zhang, Z. Wu, L. Fei, Y. Xu, and B. Zhang, “Dimc-net: Deep incomplete multi-view clustering network,” in Proceedings of the 28th ACM international conference on multimedia , 2020, pp. 3753– 3761. [40] R. Lin, Y. Lin, Z. Lin, S. Du, and S. Wang, “Ccr-net: Consistent contrastive representation network for multi-view clustering,” Information Sciences , vol. 637, p. 118937, 2023. [41] J. Xu, C. Li, L. Peng, Y. Ren, X. Shi, H. T. Shen, and X. Zhu, “Adaptive feature projection with distribution alignment for deep incomplete multi-view clustering,” 
+
+IEEE Transactions on Image Processing , vol. 32, pp. 1354–1366, 2023. [42] Y. Zhang, L. Jiang, D. Liu, and W. Liu, “Incomplete multi-view clustering via self-attention networks and feature reconstruction: Y. zhang et al.” Applied Intelligence ,vol. 54, no. 4, pp. 2998–3016, 2024. [43] J. Xu, Y. Ren, X. Shi, H. T. Shen, and X. Zhu, “Untie: Clustering analysis with disentanglement in multi-view information fusion,” Information Fusion , vol. 100, p. 101937, 2023. [44] Y. Lin, Y. Gou, Z. Liu, B. Li, J. Lv, and X. Peng, “Com-pleter: Incomplete multi-view clustering via contrastive prediction,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2021, pp. 11 174–11 183. [45] H. Tang and Y. Liu, “Deep safe incomplete multi-view clustering: Theorem and algorithm,” in International conference on machine learning , 2022, pp. 21 090–21 110. [46] C. Shang, A. Palmer, J. Sun, K.-S. Chen, J. Lu, and J. Bi, “Vigan: Missing view imputation with generative adver-sarial networks,” in 2017 IEEE International conference on big data (Big Data) , 2017, pp. 766–775. [47] J. Wen, S. Deng, W. Wong, G. Chao, C. Huang, L. Fei, and Y. Xu, “Diffusion-based missing-view generation with the application on incomplete multi-view clustering,” in 
+
+Forty-first international conference on machine learning ,vol. 235, 2024, pp. 52 762–52 778. [48] J. Jin, S. Wang, Z. Dong, X. Liu, and E. Zhu, “Deep incomplete multi-view clustering with cross-view partial sample and prototype alignment,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2023, pp. 11 600–11 609. [49] Y. Wang, Q. Li, D. Chang, J. Wen, H. Dai, F. Xiao, and Y. Zhao, “Learning from disjoint views: A contrastive pro-JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 15 
+
+totype matching network for fully incomplete multi-view clustering,” Advances in Neural Information Processing Systems , vol. 38, pp. 18 265–18 284, 2026. [50] H. Li, Y. Li, M. Yang, P. Hu, D. Peng, and X. Peng, “Incomplete multi-view clustering via prototype-based imputation,” arXiv preprint arXiv:2301.11045 , 2023. [51] A. Li, S. Mei, F. Gu, D. Miao, and T. Gao, “Attention-based deep incomplete multi-view clustering via bi-alignment guidance,” Complex & Intelligent Systems ,vol. 11, no. 8, p. 349, 2025. [52] Y. Du, Y. Wang, Z. Wang, R. Ning, and L. Li, “Pgformer: A prototype-graph transformer for incomplete multiview clustering,” IEEE Transactions on Neural Networks and Learning Systems , vol. 37, no. 3, pp. 1163–1175, 2026. [53] Z. Zhu, P. Zhou, L. Bai, J. Nie, L. Cheng, S. Min, and J. Zhu, “Prototype and sample level semantic alignment for incomplete multi-view clustering,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2026, pp. 5818–5827. [54] B. Wu, W. Du, J. Wang, and G. Yu, “Imputation-free incomplete multi-view clustering via knowledge distillation,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 5071–5081. [55] J. Pu, C. Cui, X. Chen, Y. Ren, X. Pu, Z. Hao, P. S. Yu, and L. He, “Adaptive feature imputation with latent graph for deep incomplete multi-view clustering,” in Proceedings of the AAAI conference on artificial intelligence , vol. 38, no. 13, 2024, pp. 14 633–14 641. [56] S. Bai, Q. Zheng, X. Ren, and J. Zhu, “Graph-guided imputation-free incomplete multi-view clustering,” Expert Systems with Applications , vol. 258, p. 125165, 2024. [57] R. Lin, S. Du, S. Wang, and W. Guo, “Consistent graph embedding network with optimal transport for incomplete multi-view clustering,” Information Sciences , vol. 647, p. 119418, 2023. [58] W. Chen, L. Gao, C. Liang, and F. Guo, “Deep varia-tional incomplete multi-view clustering with information-theoretic guidance,” in Proceedings of the 33rd ACM International Conference on Multimedia , 2025, pp. 2457– 2466. [59] Z. Dong, D. Hu, J. Jin, S. Wang, X. Liu, and E. Zhu, “Selective cross-view topology for deep incomplete multi-view clustering,” IEEE Transactions on Image Processing ,2025. [60] W. Feng, G. Sheng, Q. Wang, Q. Gao, Z. Tao, and B. Dong, “Partial multi-view clustering via self-supervised network,” in Proceedings of the AAAI conference on artificial intelligence , vol. 38, no. 11, 2024, pp. 11 988– 11 995. [61] J. Wang, Z. Xu, X. Yang, D. Guo, and L. Liu, “Self-supervised image clustering from multiple incomplete views via constrastive complementary generation,” IET Computer Vision , vol. 17, no. 2, pp. 189–202, 2023. [62] C. Xu, Z. Guan, W. Zhao, H. Wu, Y. Niu, and B. Ling, “Adversarial incomplete multi-view clustering.” in Ijcai ,vol. 7, 2019, pp. 3933–3939. [63] Q. Wang, Z. Ding, Z. Tao, Q. Gao, and Y. Fu, “Partial multi-view clustering via consistent gan,” in 2018 IEEE International Conference on Data Mining (ICDM) , 2018, pp. 1290–1295. [64] S. Fang, Z. Yang, and J. Chen, “Incomplete multi-view clustering via diffusion completion,” Multimedia Tools and Applications , vol. 83, no. 18, pp. 55 889–55 902, 2024. [65] Y. Zhang, Y. Lin, W. Yan, L. Yao, X. Wan, G. Li, C. Zhang, G. Ke, and J. Xu, “Incomplete multi-view clustering via diffusion contrastive generation,” in Pro-ceedings of the AAAI Conference on Artificial Intelligence ,vol. 39, no. 21, 2025, pp. 22 650–22 658. [66] I. Goodfellow, J. Pouget-Abadie, M. Mirza, B. Xu, D. Warde-Farley, S. Ozair, A. Courville, and Y. Bengio, “Generative adversarial networks,” Communications of the ACM , vol. 63, no. 11, pp. 139–144, 2020. [67] Q. Wang, Z. Ding, Z. Tao, Q. Gao, and Y. Fu, “Generative partial multi-view clustering with adaptive fusion and cy-cle consistency,” IEEE Transactions on Image Processing ,vol. 30, pp. 1771–1783, 2021. [68] J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,” Advances in neural information processing systems , vol. 33, pp. 6840–6851, 2020. [69] Y. Lin, Y. Gou, X. Liu, J. Bai, J. Lv, and X. Peng, “Dual contrastive prediction for incomplete multi-view representation learning,” IEEE Transactions on Pattern Analysis and Machine Intelligence , vol. 45, no. 4, pp. 4447–4461, 2022. [70] Y. Lu, Y. Lin, M. Yang, D. Peng, P. Hu, and X. Peng, “De-coupled contrastive multi-view clustering with high-order random walks,” in Proceedings of the AAAI conference on artificial intelligence , vol. 38, no. 13, 2024, pp. 14 193– 14 201. [71] J. Yin, P. Wang, S. Sun, and Z. Zheng, “Incomplete multi-view clustering via multi-level contrastive learning,” IEEE Transactions on Knowledge and Data Engineering , 2025. [72] M. Yang, Y. Li, P. Hu, J. Bai, J. Lv, and X. Peng, “Robust multi-view clustering with incomplete information,” IEEE Transactions on Pattern Analysis and Machine Intelli-gence , vol. 45, no. 1, pp. 1055–1069, 2022. [73] G. Teng, T. Mao, C. Shen, X. Tian, X. Liu, Y. Chen, and J. Ye, “Urrl-imvc: Unified and robust representation learn-ing for incomplete multi-view clustering,” in Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining , 2024, pp. 2888–2899. [74] W. Yan, J. Zhu, Y. Zhou, J. Chen, H. Cheng, K. Yue, and Q. Zheng, “Neighbor-based completion for addressing incomplete multiview clustering,” IEEE Transactions on Neural Networks and Learning Systems , 2025. [75] L. E. Peterson, “K-nearest neighbor,” Scholarpedia , vol. 4, no. 2, p. 1883, 2009. [76] G. Corso, H. Stark, S. Jegelka, T. Jaakkola, and R. Barzi-lay, “Graph neural networks,” Nature Reviews Methods Primers , vol. 4, no. 1, p. 17, 2024. [77] P. Li, Y. Pei, and J. Li, “A comprehensive survey on design and application of autoencoder in deep learning,” 
+
+Applied Soft Computing , vol. 138, p. 110176, 2023. [78] M. JAUCH, P. D. HOFF, and D. B. DUNSON, “Random orthogonal matrices and the cayley transform,” Bernoulli ,JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 16 
+
+vol. 26, no. 2, pp. 1560–1586, 2020. [79] B. Huang, Z. Huang, S. Lan, Q. Zheng, and Y. Yu, “Incom-plete multi-view clustering via inference and evaluation,” in ICASSP 2024-2024 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) , 2024, pp. 8180–8184. [80] H. Yuan, S. Lai, X. Li, J. Dai, Y. Sun, and Z. Ren, “Robust prototype completion for incomplete multi-view clustering,” in Proceedings of the 32nd ACM international conference on multimedia , 2024, pp. 10 402–10 411. [81] J. Jin, S. Wang, Z. Dong, X. Yang, X. Liu, E. Zhu, and K. He, “Deep incomplete multi-view clustering with distribution dual-consistency recovery guidance,” in 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision , 2025, pp. 1016–1026. [82] X. Jiang, B. He, P. Y. Zhou, X. Chen, J. Guo, J. Xu, and Y. Liao, “A unified framework to bridge complete and incomplete deep multi-view clustering under non-iid missing patterns,” in Proceedings of the IEEE/CVF International Conference on Computer Vision , 2025, pp. 594–603. [83] L. Zhao, Z. Wang, X. Wang, Z. Chen, and B. Xu, “Incomplete and unpaired multi-view graph clustering with cross-view feature fusion,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 39, no. 21, 2025, pp. 22 786–22 794. [84] X. Zou, R. Liu, C. Tang, Z. Li, X. Liu, K. He, and W. Li, “Learning disentangled representations for generalized multi-view clustering,” IEEE Transactions on Pattern Analysis and Machine Intelligence , pp. 1–16, 2026.
