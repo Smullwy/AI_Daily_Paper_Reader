@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-16</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-16 04:52 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦脑信号语义解码的“读心术”新突破，两篇高赞论文正重新定义从fMRI到语言的重建精度。</p>
-<p>最值得关注的点在于：交互式多特征融合显著提升非侵入式脑记录的语义重建效果，同时重新审视Llama模型对编码基线Huth的改进正逼近实用化阈值。</p>
-<p>建议读者优先深读这两篇9分研究，接着用速读中的视觉语言模型鲁棒性思路来审视跨模态落地的可靠性。</p>
+      <p>今日聚焦脑信号解码新突破，用AI从fMRI与EEG中重建语义乃至图像。</p>
+<p>两大高分研究揭示了多特征融合与基准模型改进对非侵入式语义解码的显著提升。</p>
+<p>建议普通读者关注这些技术如何让大脑活动直接“说话”，未来或可辅助沟通障碍患者。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/16/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -114,3 +113,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
