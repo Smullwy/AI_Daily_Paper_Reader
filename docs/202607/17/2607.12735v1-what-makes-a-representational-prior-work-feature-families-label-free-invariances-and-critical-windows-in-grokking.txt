@@ -1,0 +1,133 @@
+Title: What Makes a Representational Prior Work? Feature Families, Label-Free Invariances, and Critical Windows in Grokking
+
+URL Source: https://arxiv.org/pdf/2607.12735v1
+
+Published Time: Wed, 15 Jul 2026 12:02:13 GMT
+
+Number of Pages: 7
+
+Markdown Content:
+# What Makes a Representational Prior Work? 
+
+Feature Families, Label-Free Invariances, and Critical Windows in Grokking Gunner Levi Howe 
+
+gunnerlevihowe@gmail.com 
+
+July 2026 
+
+Abstract 
+
+Companion work showed that the grokking delay is causally the time to form task-structured representations: a contrastive prior encoding the task’s true equivalence structure controls whether and when a transformer generalizes on modular arithmetic. Here we characterize what makes such a prior work , across four axes, in 188 new runs. Content : a coherent, learnable prior built from the wrong feature family (magnitude bands) blocks generalization like a random partition (1/15 vs 0/20; p = 0 .43 between them), confirming the companion’s prediction that priors act at the level of the circuit’s features. Supervision : a fully label-free invariance prior — positives are commuted pairs ( a, b ) ∼ (b, a ) only — generalizes in 15/15 runs at a median 2.7× speedup, more reliably than the label-supervised prior itself ( p = 0 .038), and combined with a weight-norm clamp yields the strongest method we test (median 17 × vs baseline, 5/5) — strongest meaning reliably fast: plain cross-entropy with a clamp matches this speed only at the exact critical norm and collapses away from it, whereas the prior keeps it fast across the entire clamp range we sweep. Timing : the prior is only needed early — applied solely during the first 2,000 epochs (4% of the budget) it generalizes 10/10 at 2 .7×, beating continuous application (8/10, 1 .25 ×); a late window is reliable but slower (1 .9×). Setting : the structural dissociation replicates on modular multiplication (shuffled 0/5) and across depths and normalization variants, and a clamp-value sweep quantifies the companion’s central claim: structure injection flattens the weight-norm delay-law exponent ∼17-fold (plain cross-entropy slows 31 × per +10 norm — a lower bound, its high-norm cells are fully censored — versus 1 .22 × with the prior). We also report honest boundaries: tasks that generalize before memorizing (small parity, shallow synthetic grammar) have no delay to control, and there the prior raises accuracy levels without changing trends. Together these results refine the causal picture: feature-family alignment decides whether a prior permits generalization, invariance content suffices for acceleration without labels, and a brief early window captures nearly all of the benefit. 
+
+# 1 Introduction 
+
+The companion paper established that the long delay between memorization and generalization in grokking [ 1 ] is, causally, the time for task-structured representations to form: injecting the task’s equivalence structure into hidden representations via a supervised-contrastive prior [ 2] controls whether generalization occurs (against exactly-matched shuffled and weight-norm-matched controls) and can accelerate it, with the residual failure mode traced to a weight-norm side-effect and repaired by norm control [ 3 ]. That work answered whether representational priors causally control the delay. This paper asks the follow-up questions that determine whether the phenomenon is understood and usable: which structures work (must the prior match the task, or only its feature family?), what supervision they require (are labels necessary?), when they must act (is there a critical window?), 1arXiv:2607.12735v1 [cs.LG] 14 Jul 2026 Prior Properties Grok Median speedup Fisher vs random True ( a+b) mod p supervised, task structure 22/30 1.25 ×* p = 1 .3 × 10 −7                                
+
+> Sibling ( a−b) mod psupervised, same features 14/15 none —
+> Commutativity label-free , sparse, aligned 15/15 2.7×p= 3 .1×10 −10
+> Band ( ⌊a/ 10 ⌋,⌊b/ 10 ⌋)coherent, foreign features 1/15 —p= 0 .43 (n.s.) Random partition incoherent 0/20 ——Commutativity + clamp label-free + norm control 5/5 17 ×—Window [0 ,2k] (true) 4% early exposure 10/10 2.7×—
+
+Table 1: The structural priors compared (pooled over λ; paired same-seed speedups; * = at λ=1.0). 
+
+Whether generalization occurs tracks feature-family alignment; label-free invariance content suffices for accelerating; a brief early window or a norm clamp removes the supervised prior’s stall mode. and where the account holds (tasks, architectures, normalization, and the quantitative form of the norm interaction). Each question gets a purpose-built experiment: (1) a band-structure control — coherent and learnable but expressible only in a different feature family — to discriminate feature-family alignment from mere coherence; (2) a commutativity prior using zero label information; (3) 
+
+window experiments applying the prior only in chosen epoch ranges; (4) generality sweeps 
+
+over tasks (multiplication, subtraction, parity), architectures (2-layer, MLP, LayerNorm variants), and a clamp-value sweep that measures the delay-law exponent [ 3 ] with and without the prior; and (5) an exploratory sequence-task pilot probing the account’s boundary. All comparisons are same-seed paired; censored runs are scored at the 50,000-epoch budget; every number is generated from the run artifacts by gen numbers.py and byte-verified by verify regen.py .
+
+# 2 Setup 
+
+We inherit the companion’s system: a one-layer transformer (no biases; no LayerNorm except where stated), full-batch AdamW (lr 10 −3, weight decay 1 .0), task ( a + b) mod 97 with a 30% train split, and auxiliary loss λ LSupCon on the final-position representation ( τ = 0 .1, 64-d projection), 
+
+λ ∈ { 0.1, 0.3, 1.0} unless stated. tgen = first epoch with test accuracy ≥ 0.95 sustained. Baseline, true-structure, sibling-structure (( a − b) mod p), and random-partition arms are reused from the companion for pairing; all other arms are new. 
+
+2.1 The two new priors 
+
+Band structure (content control): positives share the magnitude-band pair ( ⌊a/ 10 ⌋, ⌊b/ 10 ⌋) — 100 classes of ≈28 train examples, closely matching the true structure’s 97 of ≈29. The partition is coherent and learnable (threshold features), but magnitude bands are not expressible by the periodic features the task’s Fourier circuit uses [ 4 ]. The companion’s feature-family account predicts band patterns with the random partition; a coherence account predicts it patterns with the sibling. 
+
+Commutativity (supervision control): positives are the commuted pairs {(a, b ), (b, a )} only. This uses no answer information whatever — commutativity is a property of the task family knowable before training — and it is sparse: only 31% of anchors have their partner in the train split (one positive each). Because commuted pairs share their sum, this is a sparse sample of the true equivalence structure obtained label-free. 23 Rung 1: Feature family, not coherence, decides whether 
+
+The band prior blocks generalization: 1/15 runs grok, statistically indistinguishable from the random partition (0/20; Fisher exact p = 0 .43 between them) and decisively different from the true structure (22/30; p = 2 .3 × 10 −5). Coherence and learnability are therefore not sufficient: a prior whose demanded geometry cannot be built from the generalizing circuit’s feature family behaves like noise-structure, even at matched class sizes and strengths. This confirms the discriminating prediction stated in the companion paper — sibling structure (same features, wrong combination: 14/15) preserves generalization while band structure (different features) abolishes it. Two honest nuances: one band run of 15 did grok (it is a strong tendency, not an absolute wall), and several censored band runs show substantial terminal test accuracy on some seeds — the block is best described as pushing the transition far beyond budget rather than destroying it. 
+
+# 4 Rung 2: Labels are unnecessary — an invariance prior suffices 
+
+The commutativity prior generalizes in 15/15 runs (vs 0/20 random, p = 3 .1 × 10 −10 ) at a median 2.7× speedup over same-seed baselines — and it is more reliable than the label-supervised true-structure prior itself (22/30; p = 0 .038). Sparsity is the plausible mechanism — one positive per covered anchor supplies correctly-aligned structure (commuted pairs share sums) at gentler optimization pressure — and the norms point the right way, though not decisively: the commutativity arms’ median peak weight norm is 103 versus 130 for the supervised prior (baseline ≈57), a reduction rather than an absence of the inflation side-effect; as in the companion, the held level is an incomplete summary and trajectory likely matters too. Combining the label-free prior with the companion’s norm clamp ( ∥W ∥=45) yields the strongest method in this program: 5/5 grokking at a median 17 ×
+
+speedup — sub-1,000-epoch generalization on some seeds — using no label information beyond the task loss itself. This is the proof-of-concept that self-supervised representational priors work: the structure can come from known invariances rather than answers. 
+
+# 5 Rung 3: A brief early window captures the benefit 
+
+Applying the prior only during the first 2,000 epochs — then removing it entirely — generalizes 10/10 at a median 2 .7× speedup: better than applying it throughout (8/10 at 1 .25 ×, with 2 stalls), better than annealing (1 .7×), and rescuing every seed the always-on prior stalls (Fig. 1). A [0 , 5k] window gives 1 .8× (5/5), and the late window [2k , 10k] gives 1 .9× (10/10). Two conclusions, each with its own control. First, brief beats sustained : a duration-matched late window [2k , 4k] (10/10, 2.1×) outperforms the 4 ×-longer [2k , 10k] window — more exposure at the same placement is worse — consistent with the cumulative norm-inflation cost in the companion’s race mechanism. Second, there is a genuine early advantage at matched duration: [0 , 2k] at 2 .7× versus [2k , 4k] at 2 .1× —the same 2,000 epochs of exposure buy more when delivered first, indicating the seeded structure compounds: class clusters formed early guide circuit formation for the rest of training. Practically, this removes the wall-clock objection to contrastive priors: the O(n2) term runs for 4% of training. 
+
+# 6 Rung 4: Generality, and the delay-law exponent under structure injection 
+
+Tasks. On modular multiplication the whole dissociation replicates: baseline 5/5 (median tgen 
+
+19,700); random partition 0/5; unmitigated prior 4/5 with drag (20,900); prior+clamp 5/5 at 2,250 30 10000 20000 30000 40000 50000 
+
+> Epoch
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Fraction not yet generalized
+> Baseline (10/10)
+> Always (unmitigated) (8/10)
+> Window [0,2k] (10/10)
+> Window [2k,4k] (matched) (10/10)
+> Window [0,5k] (5/5)
+> Window [2k,10k] (10/10)
+> Norm-clamp45 (10/10)
+
+Figure 1: Survival curves for windowed application of the prior ( λ= 1.0). Applying SupCon only during epochs [0 , 2k] (4% of budget) generalizes 10/10 at a median 2 .7× speedup, outperforming continuous application (8/10, 1 .25 ×), λ-annealing (1 .7×), and — at matched 2,000-epoch duration — the late window [2k , 4k] (2 .1×); the longer late window [2k , 10k] is reliable but slower still (1 .9×). Norm-clamp reference in brown. (median 9 .8× speedup). Modular subtraction is a slower-grokking task in this architecture (baseline 3/5 within budget) and shows the prior’s whether -power in a new form: the true-structure prior groks seeds whose baselines never do (4/5 vs 3/5). Small sparse parity generalizes immediately at our sizes (no delay to control) — a boundary condition, not a counterexample. 
+
+Architectures. The unmitigated prior’s stall mode replicates at depth 2 (1/3 vs baseline 3/3) and under pre-LN (2/5 vs 5/5), and the norm clamp repairs both (3/3 at 2,150; 5/5 at 1,850). Two architecture-specific observations, reported with their caveats. LayerNorm itself shortens the baseline delay dramatically (median 6,250 versus ∼20,000 without LN), consistent with LN removing the norm-overshoot dynamics; and the total-norm clamp still operates under our pre-LN variant because it lacks a final LN, leaving the readout path norm-sensitive — clamping only the unembedding norm reproduces the rescue, in line with the functional-norm account of Truong et al. [3] . The MLP is the mildest setting: no stalls unmitigated (3/3) and modest clamp gains (7,400 vs baseline 10,900). 
+
+The exponent. Clamping the weight norm to constants from 35 to 70 with and without the prior maps the delay-law [ 3 ] in both regimes (Fig. 2). Three findings. (i) At the optimal clamp ( ∼45), plain cross-entropy generalizes as fast as the prior does — the speed of low-norm training belongs to norm control alone, consistent with Liu et al. [5] , and we state this plainly as a correction of emphasis for the companion’s accelerator section. (ii) Away from the optimum the regimes diverge dramatically: plain CE slows 31 × per +10 norm units (and is fully censored by +20), while the prior slows only 1 .22 × — a ∼17 × flattening of the exponent. Structure injection buys robustness to the norm setting , which is what matters in practice since the critical norm is not known a priori. (iii) Below the floor ( ∼35–40) the relationship inverts: plain CE generalizes in hundreds of epochs 435 40 45 50 55 60 65 70 
+
+> Clamped total weight norm
+> 10 3
+> 10 4
+> Epochs to generalization (log)
+> SupCon + clamp
+> SupCon + clamp, censored
+> Plain CE + clamp
+> Plain CE + clamp, censored
+
+Figure 2: Epochs to generalization versus clamped total weight norm (log scale; 3 seeds per value). Plain cross-entropy (black) follows a steep delay-law exponential — slope 0.344 per unit norm, 31 ×
+
+per +10, a lower bound since its highest-norm cells are entirely censored — while the structural prior (red) is nearly flat (slope 0.020, 1 .22 × per +10). Structure injection flattens the weight-norm delay law by ∼17 × in the exponent. Both curves share a low-norm floor below ∼40–45. where the prior stalls — at very low norm the contrastive gradient interferes with the lean circuit’s formation. The delay law is thus conditional on structure-agnostic training in a precise, measurable sense: the exponent is a function of the representational forces present. 
+
+# 7 Rung 5: An honest boundary — tasks without a memorize-first phase 
+
+Synthetic subject–verb agreement grammars (attractor and conjunction variants) never grok under matched conditions: they generalize immediately (median peak 0.90 by epoch 500) and then degrade 
+
+with continued training (median final 0.73). The memorize-first precondition of grokking is absent — the rule is easier than memorization for this model class — so there is no delay for a representational prior to control. The prior still shapes representations there (number-clustering roughly doubles) and lifts accuracy levels (peak 0.95, final 0.76) but does not prevent the degradation trend. Small sparse parity behaves the same way. The representation-timing account is therefore an account of the memorize-first regime ; where generalization precedes memorization, different dynamics (and possibly different uses of priors, e.g. as regularizers) apply. 
+
+# 8 Discussion 
+
+A three-level answer to “what makes a prior work.” Whether a prior permits generalization is decided by feature-family alignment: structures expressible in the generalizing circuit’s features (true, sibling, commutativity) preserve or enable grokking; structures requiring foreign features (bands) or memorization (random) block it. How fast is decided jointly by alignment and the norm side-effect: the exponent measurements show the norm sets a steep default timescale that aligned 5structure almost entirely neutralizes. When matters less than expected: the prior’s work is done early, and removing it after the seeding window strictly helps. 
+
+Self-supervised priors are the practical upshot. The commutativity result converts the companion’s supervised intervention into something with a path to use: invariances of the data or task family — available without labels — supply enough aligned structure to accelerate reliably, and compose with norm control into the strongest method we tested (17 × median). In natural domains the analogous objects are augmentation- and symmetry-based positives; whether they carry enough feature-level alignment in real tasks is the key open question this program points at. 
+
+Corrections and confirmations of the companion. The band control confirms its feature-level prediction. The exponent sweep sharpens its accelerator claims: speed at the optimal norm belongs to the clamp; the prior’s causal contributions are robustness to the norm setting (the flattened exponent), whether-generalization at free and inflated norms, and rescue of slow tasks. We regard this as the payoff of running one’s own discriminating controls. 
+
+# 9 Limitations 
+
+All positive results remain within algorithmic tasks where the generalizing circuit’s feature family is known; “feature-family alignment” is operationalized via that knowledge, and its analogue in natural data is untested. The commutativity prior, while label-free, exploits an exact task-family invariance; noisy or approximate invariances are untested. Window boundaries (2k/5k/10k) were chosen a priori rather than swept finely; the “early advantage” is a median tendency with seed-level exceptions. The CE exponent is a lower bound due to censoring. The LayerNorm findings apply to a pre-LN variant without final LN. Sequence-task conclusions rest on two synthetic grammars at one scale. Sample sizes are 3–15 per cell (3 for the depth-2, MLP, and per-clamp-value cells; categorical outcomes are emphasized over means throughout), and all runs use a single prime and training fraction. 
+
+# Acknowledgments 
+
+We thank Truong Xuan Khanh for feedback on the companion manuscript that shaped this program’s controls. 
+
+# References 
+
+[1] Alethea Power, Yuri Burda, Harri Edwards, Igor Babuschkin, and Vedant Misra. Grokking: Generalization beyond overfitting on small algorithmic datasets. arXiv preprint arXiv:2201.02177 ,2022. [2] Prannay Khosla, Piotr Teterwak, Chen Wang, Aaron Sarna, Yonglong Tian, Phillip Isola, Aaron Maschinot, Ce Liu, and Dilip Krishnan. Supervised contrastive learning. In Advances in Neural Information Processing Systems , volume 33, 2020. arXiv:2004.11362. [3] Xuan Khanh Truong, Hoang Viet Doan, Duc Trung Luu, and Thanh Duc Phan. The weight norm sets the grokking timescale: A causal delay law. arXiv preprint arXiv:2606.13753 , 2026. 6[4] Neel Nanda, Lawrence Chan, Tom Lieberum, Jess Smith, and Jacob Steinhardt. Progress measures for grokking via mechanistic interpretability. In International Conference on Learning Representations , 2023. arXiv:2301.05217. [5] Ziming Liu, Eric J Michaud, and Max Tegmark. Omnigrok: Grokking beyond algorithmic data. In International Conference on Learning Representations , 2023. arXiv:2210.01117. 
+
+# A Reproducibility 
+
+All arms run on a single RTX 3080. 188 new runs ( runs/grid3 ) plus reused companion arms; every number in this paper is a macro generated by paper2/gen numbers.py from the run artifacts and byte-verified by paper2/verify regen.py . Conditions, windows, and clamp values are enu-merated in scripts/run paper3 r123.py and scripts/run paper3 r4.py ; the sequence pilot is 
+
+src/train seq.py .7

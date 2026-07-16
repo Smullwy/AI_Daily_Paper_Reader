@@ -1,0 +1,904 @@
+Title: How to Tame Grokking: Representation Geometry as a Control Signal
+
+URL Source: https://arxiv.org/pdf/2607.11666v1
+
+Published Time: Tue, 14 Jul 2026 03:19:30 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# How to Tame Grokking: Representation Geometry as a Control Signal 
+
+# Maksim A. Kazanskii 
+
+Independent Researcher mkazanskii@gmail.com 
+
+Abstract 
+
+Grokking is a phenomenon in which neural networks initially memorize training data and only later exhibit strong gener-alization after prolonged optimization. Despite extensive re-cent study, the factors influencing the emergence and timing of grokking remain incompletely understood. We investi-gate the relationship between representation geometry and delayed generalization. We find that dimensionality collapse consistently precedes the onset of grokking in all evaluated settings. Motivated by these observations, we introduce Ge-ometric Dimensionality Regularization (GeomDR), a simple spectral regularizer that modifies the effective dimensionality of hidden representations during training. Across modular ad-dition, modular division, and permutation composition tasks, GeomDR consistently alters grokking dynamics and can sub-stantially accelerate the onset of generalization depending on the intervention schedule and target dimensionality. In sev-eral settings, grokking is accelerated by up to 52 times rela-tive to standard AdamW training. Similar qualitative effects are observed in both multilayer perceptrons and transformers. Together, these results suggest that representation geometry can serve as an effective control signal for grokking and pro-vide evidence that geometric interventions offer a practical approach for studying and influencing delayed generalization in neural networks. 
+
+# Introduction 
+
+Grokking is a delayed-generalization phenomenon in which neural networks first memorize training data and only much later achieve strong test performance after prolonged op-timization [19]. This behavior differs from conventional learning dynamics, where training and test performance typ-ically improve together, and has become a useful setting for studying generalization in overparameterized neural net-works [19, 13, 17, 24]. Prior work has linked grokking to weight decay, feature compression, circuit formation, and representation learning dynamics [19, 17, 13]. A common theme in these explana-tions is that learned representations often become progres-sively compressed into lower-dimensional structures. More broadly, representation geometry and dimensionality have been shown to play important roles in optimization and gen-eralization [2, 12]. Recent work has shown that grokking can be accel-erated or altered through optimization dynamics, weight-norm control, sparse subnetworks, or embedding transfer [14, 16, 11, 26]. However, comparatively less attention has been paid to controlling grokking through direct interven-tions on the geometry of hidden representations. If delayed generalization is closely connected to representation geom-etry, then explicitly modifying this geometry may influence the onset and speed of grokking. We investigate this hypothesis by introducing Geometric Dimensionality Regularization (GeomDR), a representation-level spectral regularizer that suppresses variance outside a target subspace and thereby controls the effective dimension-ality of hidden representations during training. GeomDR directly modifies the covariance spectrum of hidden activa-tions. We perform a systematic study across grokking tasks, ar-chitectures, intervention schedules, target dimensionalities, and random seeds. Our results show that geometric inter-ventions can substantially alter delayed generalization dy-namics, accelerating grokking by up to 52 times in some settings and, under stronger interventions, delaying or sup-pressing generalization. We further find that changes in effective dimensionality consistently precede the transition from memorization to generalization, suggesting that repre-sentation dimensionality is not merely a diagnostic statistic but a controllable variable associated with grokking dynam-ics. Our contributions are threefold: 
+
+• We show that direct geometric interventions can substan-tially alter delayed generalization, enabling acceleration and, in some settings, delay or suppression. 
+
+• We introduce GeomDR, a representation-level spectral regularizer for directly controlling the effective dimen-sionality of hidden representations. 
+
+• We provide a systematic empirical study of how interven-tion strength, timing, target dimensionality, task structure, and architecture affect grokking dynamics. 
+
+# Related Work 
+
+Early work on grokking identified delayed generalization in algorithmic tasks and highlighted the importance of regu-larization, particularly weight decay, in the transition from memorization to generalization [19]. Subsequent studies 1arXiv:2607.11666v1 [cs.LG] 13 Jul 2026 connected grokking to feature compression, circuit forma-tion, and representation learning dynamics [13, 17, 24]. These works largely treat representation geometry as an emergent property of learning, whereas our goal is to in-vestigate whether geometry can be directly manipulated to control grokking dynamics. Several approaches have sought to accelerate or modify grokking through changes to the training process. Omnigrok studies the role of weight norms and conventional regular-ization [14], Grokking Tickets relates delayed generalization to sparse subnetworks and pruning [16], Grokfast accelerates grokking through gradient filtering [11], and GrokTransfer explores embedding transfer from weaker models [26]. In contrast, GeomDR acts directly on hidden representations by modifying their covariance spectrum rather than altering optimization dynamics, sparsity, or transferred embeddings. Representation geometry provides a useful framework for understanding learning dynamics. Prior work has shown that independently trained networks often converge to simi-lar representational structures [9], while geometric analyses have been used to study feature organization and learning across architectures [20]. Neural representations frequently exhibit low intrinsic dimensionality [2, 12, 1] and may un-dergo phases of compression and expansion during learn-ing [21]. Related evidence from Neural Collapse, Informa-tion Bottleneck analyses, and self-supervised learning further suggests that covariance structure and representation dimen-sionality are closely linked to learning and generalization [18, 6, 10, 23, 22, 3, 7]. Existing grokking studies either analyze representation geometry as a correlate of delayed generalization or influ-ence grokking indirectly through regularization, optimiza-tion, sparsity, or transfer mechanisms [19, 13, 17, 11, 26]. GeomDR instead treats representation geometry as the ob-ject of intervention itself, enabling controlled experiments on how effective dimensionality influences the onset and speed of grokking. 
+
+# Methods 
+
+We introduce a geometry-based regularization framework that directly modifies the effective dimensionality of hidden representations during training. We consider supervised algorithmic learning tasks with inputs x and labels y. A neural network fθ is trained to predict 
+
+ˆy = fθ (x). (1) For each hidden layer ℓ, the network produces a represen-tation matrix 
+
+Z(ℓ) ∈ RN ×d, (2) where N is the number of examples and d is the represen-tation dimension. 
+
+Geometric Characterization of Representations 
+
+For each representation matrix Z, we first center the repre-sentations: 
+
+eZ = Z − ¯Z, (3) where ¯Z denotes the feature-wise mean of Z.We then compute the empirical covariance matrix 
+
+C = 1
+
+N − 1 eZ⊤ eZ. (4) Let μ1, . . . , μ d denote the eigenvalues of C. Building on prior work on intrinsic dimensionality and representation geometry [2], we compute effective dimensionality using the participation ratio 
+
+Deff = (P 
+
+> i
+
+μi)2
+
+P 
+
+> i
+
+μ2
+
+> i
+
+. (5) Lower values of Deff correspond to representations whose variance is concentrated in a smaller number of directions. Let each representation vector be normalized as 
+
+ˆzi = zi
+
+∥zi∥2
+
+. (6) Then we define local neighborhood distance as the av-erage Euclidean distance to the k nearest neighbors of each normalized representation, 
+
+ρ = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+1
+
+k
+
+X 
+
+> j∈N k(i)
+
+∥ˆzi − ˆzj ∥2, (7) where Nk(i) denotes the set of k nearest neighbors of representation i. Unless otherwise specified, we use k = 10 
+
+throughout all experiments. 
+
+Geometric Dimensionality Regularization 
+
+We hypothesize that the reduction of representation dimen-sionality is not merely a consequence of grokking but a driv-ing factor in the transition from memorization to general-ization. If representation dimensionality is mechanistically linked to grokking, then directly controlling the geometry of hidden representations should alter the timing and dynamics of the memorization-to-generalization transition. Motivated by this idea, we introduce Geometric Dimensionality Reg-ularization (GeomDR) . For each hidden layer ℓ, we compute the empirical covariance matrix 
+
+C(ℓ) = 1
+
+N − 1
+
+ eZ(ℓ)⊤ eZ(ℓ). (8) Let 
+
+μ(ℓ)1 ≥ μ(ℓ)2 ≥ · · · ≥ μ(ℓ) 
+
+> d
+
+(9) denote the eigenvalues of C(ℓ) sorted in descending order. Given a target dimensionality d∗, we define the layer-wise geometric regularization loss as 
+
+L(ℓ)GeomDR =
+
+> d
+
+X
+
+> j=d∗+1
+
+μ(ℓ) 
+
+> j
+
+. (10) 2This objective admits several geometric interpretations re-lated to effective-rank control, low rank covariance approx-imation, and representation volume compression (see Ap-pendix A). Unless otherwise specified, GeomDR is applied to all hidden layers and excluded from the input embedding and output layers. This objective penalizes variance contained in directions beyond the leading d∗ principal components, encouraging representations to concentrate within a lower-dimensional subspace. The objective is therefore closely related to classical low rank approximation and principal component analysis [4, 8]. The total geometric regularization loss is 
+
+LGeomDR = X
+
+> ℓ
+
+L(ℓ)GeomDR , (11) The full training objective is 
+
+L = Ltask + λ(t)LGeomDR , (12) where Ltask denotes the task-specific training loss. The geometric regularizer is activated after an initial train-ing phase, allowing the network to fit the training data before constraining representation geometry. This design is moti-vated by grokking, where generalization typically emerges only after memorization [19]. To avoid an abrupt change in the optimization objective, the regularization strength is introduced gradually using a cosine ramp. Smooth schedul-ing of optimization hyperparameters has become a common strategy in deep learning to improve training stability and optimization behavior [15, 5]. 
+
+λ(t) = λmax 
+
+1 − cos( πq (t)) 2 , (13) where 
+
+q(t) = 
+
+
+
+0, t < t s,t − ts
+
+Tramp 
+
+, ts ≤ t < t s + Tramp ,
+
+1, t ≥ ts + Tramp .
+
+(14) Here ts is the activation time step, Tramp is the ramp du-ration, and λmax is the final regularization strength. For brevity, we refer to λmax simply as λ when reporting exper-imental configurations. GeomDR requires covariance estimation and eigendecom-position of hidden representations, resulting in a per-layer complexity of O(N d 2 + d3) (see Appendix D). 
+
+Experimental Protocol 
+
+We evaluate the proposed framework across three algorith-mic learning tasks: modular addition, modular division, and permutation composition. These tasks are commonly used in the grokking literature because they exhibit delayed gen-eralization under appropriate training conditions [19]. Ex-periments are conducted using two neural architectures: a multilayer perceptron (MLP) and a Transformer [25]. For all tasks, a fixed 30% /70% train–test split is used. Following prior grokking work [19], no separate validation set is em-ployed, and test-set dynamics are reported directly. Unless otherwise specified, all reported results are averaged across five independent random seeds. A run is considered to have successfully grokked when the training accuracy is 1.0 and the test accuracy satisfies 
+
+Acc test ≥ 0.999 Acc train 
+
+for 10 consecutive evaluations. The evaluation is performed every 10 optimization steps. Therefore this criterion corre-sponds to maintaining the target accuracy for 100 consecutive optimization steps. The grokking step is defined as the first optimization step at which this condition is satisfied. For all tasks and architectures, geometric regularization is not applied at the beginning of training. Instead, the regular-izer is activated after an initial unconstrained optimization phase. Unless otherwise specified, MLP experiments use an intervention activation step of ts = 2000 . Transformer experiments use ts = 1000 . For each task–architecture pair, we use the unregularized model as the baseline reference. Our main experimental procedure consists of three stages: 1. Schedule sweep (MLP). For MLPs, we sweep both the final regularization strength λmax and ramp duration 
+
+Tramp . For Transformers, we sweep only λmax . Each configuration is evaluated across five random seeds and compared to the baseline. 2. Dimensionality sweep. We perform a sweep over the target dimensionality d∗.3. Intervention-start sweep. We vary the activation step ts
+
+at which geometric regularization is introduced. Complete architectural specifications, hyperparameter grids, and implementation details are provided in Ap-pendix B. 
+
+# Results 
+
+Observation 
+
+We first examine the evolution of representation geometry during baseline grokking on modular addition. This base-line setting provides a reference for subsequent intervention experiments. To characterize representation geometry, we monitor effective dimensionality Deff and the local neigh-borhood distance ρ, which measures the average distance between neighboring representations. For visualization, tra-jectories are smoothed with an exponential moving average (EMA) using a window of 100 steps, while the final 20,000 optimization steps are additionally shown without smooth-ing. Figure 1 shows the evolution of effective dimensionality and local neighborhood distance across all layers. Shallow layers remain relatively stable throughout training, whereas deeper layers exhibit pronounced geometric restructuring. Effective dimensionality stays high for most of training be-fore undergoing a sharp collapse near the grokking transi-tion, with the strongest effect observed in the deepest hidden layer. Local neighborhood distance displays a similar pat-tern, remaining stable for extended periods before reorganiz-ing rapidly near the onset of generalization. These coordi-nated changes occur within a narrow training interval across 3(a) All steps: Deff (b) All steps: ρ (c) Train accuracy     
+
+> (d) Final 20k steps: Deff (e) Final 20k steps: ρ(f) Test accuracy
+
+Figure 1: Evolution of accuracy and representation geometry during baseline grokking on modular addition. The model is trained without geometric regularization. Panels (a), (b), (c), and (f) show EMA-smoothed trajectories of effective dimension-ality, local neighborhood distance, train accuracy, and test accuracy. Panels (d) and (e) show the raw geometric trajectories for dimensionality, local neighborhood distance during the final 20K optimization steps. Delayed generalization coincides with rapid geometric reorganization, particularly in deeper layers. The deepest hidden layer ( L4) exhibits the largest changes in both effective dimensionality and local neighborhood distance near the grokking transition. multiple layers, suggesting that grokking is accompanied by a rapid reorganization of representation geometry. Across all runs analyzed and tasks considered in this study, dimensionality collapse consistently preceded grokking. In GeomDR-induced models, collapse occurred substantially earlier, reaching 50% of its initial effective dimensionality after approximately 2.3K optimization steps, and was fol-lowed shortly thereafter by grokking (approximately 6.8Ksteps). These results indicate that interventions that accel-erate grokking also accelerate dimensionality collapse, sup-porting the hypothesis that geometric compression is closely linked to the emergence of generalization. The unsmoothed trajectories reveal that the transition is not continuous. Instead, grokking is associated with a small number of abrupt geometric reorganizations. These events occur simultaneously in both effective dimensionality and the local neighborhood distance ρ, suggesting that delayed gener-alization is accompanied by a large-scale restructuring of in-ternal representations rather than gradual optimization alone. This observation motivates the hypothesis that representation geometry may play a mechanistic role in grokking dynam-ics. If so, then directly controlling representation geometry may alter the timing of the memorization-to-generalization transition, motivating the intervention studies presented in the following sections. 
+
+Intervention 
+
+To investigate the role of representation dimensionality, we introduce a regularizer that enforces a target dimensionality 
+
+d∗. The intervention is activated at training step ts = 2000 
+
+and cosine-ramped to λ = 1 over 333 optimization steps. We evaluate four target dimensionalities, d∗ ∈ { 8, 16 , 32 , 64 },while keeping all other hyperparameters fixed. Figure 2 shows the evolution of effective dimensionality and local neighborhood distance in the shallowest ( L0) and deepest (L4) hidden layers, together with train and test accuracy. Ac-tivation of the regularizer produces an immediate geometric transition across all measured quantities. The strongest effect is observed in the local neighborhood distance ρ. Prior to the intervention, all runs follow nearly identical trajectories. Once regularization is activated, ρ
+
+rapidly decreases in both shallow and deep layers, indicating substantial reorganization of the representation space. The trajectories subsequently separate according to the target di-mensionality, demonstrating direct control over the resulting geometric state. Effective dimensionality exhibits a similar response. Im-mediately after the intervention, Deff decreases sharply, con-sistent with the suppression of variance outside the target subspace. This is followed by a recovery phase, after which larger target dimensionalities maintain higher effective di-mensionality. The effect is most pronounced in the deepest layer, where the separation between settings remains visible throughout training. 4(a) L4: Deff (b) L4: ρ (c) Train accuracy       
+
+> (d) L0:Deff (e) L0:ρ(f) Test accuracy
+
+Figure 2: Evolution of accuracy and representation geometry under GeomDR for modular addition. The model is trained with different target dimensionalities d∗. Panels (a), (b), (c), and (f) show EMA-smoothed trajectories of effective dimensionality, local neighborhood distance, train accuracy, and test accuracy. Panels (d) and (e) show the corresponding geometric trajectories in the shallowest hidden layer. The strongest effects are observed in the deepest hidden layer ( L4), where dimensionality collapse occurs earliest and is followed by rapid increases in test accuracy. Despite these substantial geometric changes, train and test accuracy remain broadly similar across settings. Together, these results demonstrate that dimensionality regularization provides a direct mechanism for controlling representation geometry during training. 
+
+Control: Regularization Schedule and Target Dimensionality 
+
+To identify an effective intervention schedule, we fixed the target dimensionality to d∗ = 16 and performed a grid search over the final regularization strength λmax and ramp dura-tion Tramp . Figure 3 summarizes the results. Relative to the baseline ( 362 .1 ± 111 .0K steps), GeomDR substan-tially accelerates grokking across a broad range of schedules, with the best configuration reaching successful generaliza-tion after approximately 7K steps. Intermediate regulariza-tion strengths and ramp durations perform best, whereas very weak interventions have little effect and overly strong inter-ventions can destabilize training or prevent grokking. Based on these results, we select λmax = 1 and Tramp = 333 for subsequent experiments. Using this schedule, we vary the target dimensionality over 
+
+d∗ ∈ { 2, 4, 8, 16 , 32 , 48 , 64 } and evaluate each configuration across ten random seeds. As shown in Figure 4, aggressive compression ( d∗ ≤ 8) produces slower and more variable grokking, whereas dimensions in the range 16 ≤ d∗ ≤ 64 
+
+consistently yield strong acceleration. The best mean per-formance is obtained at d∗ = 64 , reaching the grokking criterion after approximately 7K steps. Similar trends are observed for modular division and permutation composition (Appendix C). 
+
+Ablation Studies: Intervention Timing 
+
+To investigate the relationship between dimensionality col-lapse and grokking, we measured the collapse time of the deepest hidden representation as the first training step at which its effective dimensionality fell below 50% of its ini-tial value. We then compared this quantity to the grokking time, defined as the first step at which the grokking crite-rion above is satisfied. Figure 5 shows that dimensionality collapse consistently precedes grokking in both baseline and GeomDR models. In the baseline setting, collapse occurs relatively early in training (approximately 15–25K steps), whereas grokking emerges much later (approximately 250– 500K steps), producing a large temporal gap between geo-metric compression and successful generalization. GeomDR shifts both events to substantially earlier stages of training, with collapse occurring after only 3–5K steps and grokking following shortly thereafter at approximately 5–10K steps. Consequently, the intervention not only accelerates dimen-sionality collapse but also markedly reduces the lag between collapse and generalization. Across all target dimensional-ities and random seeds, GeomDR moves the system closer to the diagonal tcollapse = tgrok , indicating a substantially tighter coupling between geometric reorganization and the onset of generalization. The effectiveness of geometric regularization depends strongly on intervention timing. Figure 6 shows the relation-5Figure 3: Schedule sweep for modular addition ( d∗ = 16 ). Cells report the mean grokking step (K) ± one standard de-viation; fractions indicate successful runs. Grey cells denote failed configurations (at least one failed run). Intermediate 
+
+λmax and Tramp produce the fastest grokking, with λmax = 1 
+
+and Tramp = 333 performing best. ship between the intervention-start step ts and the resulting grokking step. A clear U-shaped trend is observed. Very early interventions ( ts = 500 and ts = 1000 ) exhibit sub-stantially slower and more variable convergence across ran-dom seeds. The fastest and most stable grokking behavior occurs for intermediate activation times ( ts = 2000 –4000 ), where the mean grokking step is minimized. Delaying the intervention beyond this region progressively increases the number of optimization steps required for successful gener-alization. These results suggest the existence of a critical tempo-ral window during which geometric regularization is most effective. Applying the intervention too early appears to dis-rupt the formation of useful task representations, whereas applying it too late reduces its ability to influence the memorization-to-generalization transition. Overall, the re-sults support the hypothesis that geometric interventions are most beneficial after an initial unconstrained learning phase but before memorizing solutions become firmly established. Additional intervention-start sweeps and implementation details are provided in Appendix C. Intervention timing sub-stantially influences performance, although the optimal acti-vation step varies across tasks and architectures. 
+
+Generalization Across Tasks and Architectures 
+
+We report grokking times, success rates, and relative im-provements for all evaluated settings. The relationship be-tween representation geometry and grokking remains con-sistent across all evaluated settings. Table 1 summarizes the best-performing GeomDR configuration for each task and architecture. For MLPs, GeomDR produces large and consistent im-
+
+Figure 4: Effect of target dimensionality d∗ on grokking. Points show individual runs, the dashed curve the mean, and error bars one standard deviation. The orange dashed line denotes the baseline. Moderate and large target dimen-sions ( 16 ≤ d∗ ≤ 64 ) substantially accelerate grokking, whereas aggressive compression ( d∗ ≤ 8) slows and desta-bilizes learning. provements across all tasks, reducing the mean grokking time from 362 .1K to 6.9K steps on modular addition ( 52 .5×), from 330 .9K to 8.4K steps on modular division ( 39 .4×), and from 300 .2K to 12 .8K steps on permutation learning (23 .5×). In all cases, GeomDR achieves a 100% suc-cess rate. For Transformers, the effect remains consistent but more moderate. GeomDR reduces grokking time from 
+
+66 .4K to 33 .0K steps on modular addition ( 2.01 ×), from 
+
+89 .4K to 48 .7K steps on modular division ( 1.84 ×), and from 
+
+72 .6K to 48 .9K steps on permutation learning ( 1.48 ×), while maintaining a 100% success rate across all tasks. Additional ablation studies, hyperparameter sweeps, and architecture-specific analyses are provided in Appendix C. Together, these results indicate that GeomDR accelerates grokking across diverse tasks and architectures, although the magnitude of improvement varies across model classes. 
+
+# Discussion 
+
+Our results suggest that representation geometry can serve as an effective control signal for grokking. Across a range of tasks, schedules, dimensionalities, and architectures, Ge-omDR consistently influences delayed generalization. In many MLP settings, the intervention accelerates grokking by more than an order of magnitude, while Transformer experi-ments show smaller but qualitatively similar improvements. The smaller gains observed in Transformers may reflect their substantially faster baseline grokking dynamics, leaving less room for acceleration than in MLPs. The geometric analyses reveal systematic changes in ef-fective dimensionality and local distance near the grokking transition. Across all successful runs, dimensionality col-6Table 1: Summary of the best GeomDR configuration for each task and architecture. Values denote mean grokking step ±
+
+standard deviation (K optimization steps). S/T indicates runs satisfying the grokking criterion. Unsuccessful runs were assigned the maximum training budget (500K for MLPs, 200K for Transformers) when computing statistics.                                                                        
+
+> Addition Division Permutation Architecture Step S/T Imp. Step S/T Imp. Step S/T Imp. MLP 362.1 ±111.0 4/5 –330.9 ±100.9 5/5 –300.2 ±207.0 3/5 –MLP + GeomDR 6.9 ±1.6 5/5 52.5 ×8.4 ±5.0 5/5 39.4 ×12.8 ±1.7 5/5 23.5 ×
+> Transformer 66.4 ±12.0 5/5 –89.4 ±27.3 5/5 –72.6 ±33.0 5/5 –Transformer + GeomDR 33.0 ±2.5 5/5 2.01 ×48.7 ±8.8 5/5 1.84 ×48.9 ±9.1 5/5 1.48 ×
+
+Figure 5: Relationship between representation collapse time and grokking time. Each point corresponds to one run. The dashed diagonal denotes tcollapse = tgrok .lapse consistently preceded grokking, and interventions that accelerated grokking also accelerated the onset of collapse. These observations suggest that delayed generalization is accompanied by a substantial reorganization of internal rep-resentations. Previous work on grokking has largely treated representation geometry and compression as emergent con-sequences of learning [19, 13, 24, 17]. In contrast, our re-sults show that directly modifying representation geometry is sufficient to substantially alter delayed generalization dy-namics. While this does not establish representation dimen-sionality as the sole causal mechanism underlying grokking, it demonstrates that geometric interventions are capable of systematically altering when grokking occurs. Geometric interventions provide a new experimental methodology for studying learning dynamics and suggest that representation geometry may serve as a controllable degree of freedom for studying optimization and generalization. Rather than passively observing representational changes during train-ing, researchers can directly manipulate geometric proper-ties and measure the resulting effects on optimization and generalization. Importantly, the observed acceleration is not restricted to a single task or finely tuned hyperparameter configuration. Effective interventions are obtained across a broad range of target dimensionalities and activation sched-ules, indicating that the relationship between representation geometry and grokking is robust rather than task-specific. Several limitations remain. First, our experiments focus on small-scale algorithmic grokking benchmarks, and it remains 
+
+Figure 6: Intervention-start sweep for modular addition. Points show individual runs; the dashed curve and shaded region denote the mean and one standard deviation. Inter-mediate activation times yield the fastest grokking. unclear whether similar geometric interventions are effective in larger-scale domains such as language or vision. Second, while GeomDR provides a direct geometric intervention, the precise mechanisms linking representation geometry and delayed generalization remain an open theoretical question. Appendix A provides a geometric interpretation of the reg-ularizer in terms of effective-rank control, low rank approx-imation, and representation volume compression. 
+
+# Conclusion 
+
+Across all tasks and architectures studied, dimensionality collapse consistently preceded generalization. Motivated by this observation, we introduced Geometric Dimension-ality Regularization (GeomDR), a spectral regularizer that directly controls the effective dimensionality of hidden rep-resentations. Across diverse settings, GeomDR substantially alters grokking dynamics, accelerating, delaying, or sup-pressing generalization. These results suggest that represen-tation geometry is not merely a correlate of grokking but a useful target for intervention. 7References 
+
+[1] Aghajanyan, A.; Gupta, S.; and Zettlemoyer, L. 2021. Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning. In Proceedings of the 59th Annual Meeting of the Association for Compu-tational Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers) , 7319–7328. Association for Compu-tational Linguistics. [2] Ansuini, A.; Laio, A.; Macke, J. H.; and Zoccolan, D. 2019. Intrinsic Dimension of Data Representations in Deep Neural Networks. In Advances in Neural Infor-mation Processing Systems , volume 32, 6114–6125. [3] Bardes, A.; Ponce, J.; and LeCun, Y. 2022. VI-CReg: Variance-Invariance-Covariance Regulariza-tion for Self-Supervised Learning. In International Conference on Learning Representations .[4] Eckart, C.; and Young, G. 1936. The Approximation of One Matrix by Another of Lower Rank. Psychometrika ,1(3): 211–218. [5] Goyal, P.; Dollár, P.; Girshick, R.; Noordhuis, P.; Wesolowski, L.; Kyrola, A.; Tulloch, A.; Jia, Y.; and He, K. 2017. Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour. arXiv , abs/1706.02677. [6] Han, X.; Papyan, V.; and Donoho, D. L. 2022. Neural Collapse Under MSE Loss: Proximity to and Dynamics on the Central Path. In International Conference on Learning Representations .[7] Jing, L.; Vincent, P.; LeCun, Y.; and Tian, Y. 2022. Un-derstanding Dimensional Collapse in Contrastive Self-Supervised Learning. In International Conference on Learning Representations .[8] Jolliffe, I. T. 2002. Principal Component Analysis .Springer, 2nd edition. [9] Kornblith, S.; Norouzi, M.; Lee, H.; and Hinton, G. 2019. Similarity of Neural Network Representations Revisited. In Proceedings of the 36th International Conference on Machine Learning , 3519–3529. [10] Kothapalli, V. 2022. Neural Collapse: A Review on Modelling Principles and Generalization. arXiv ,abs/2206.04041. [11] Lee, J.; Kang, B. G.; Kim, K.; and Lee, K. M. 2024. GrokFast: Accelerated Grokking by Amplifying Slow Gradients. arXiv , abs/2405.20233. [12] Li, C.; Farkhoor, H.; Liu, R.; and Yosinski, J. 2018. Measuring the Intrinsic Dimension of Objective Land-scapes. In International Conference on Learning Rep-resentations .[13] Liu, Z.; Kitouni, O.; Nolte, N.; Michaud, E. J.; Tegmark, M.; and Williams, M. 2022. Towards Un-derstanding Grokking: An Effective Theory of Repre-sentation Learning. arXiv , abs/2205.10343. [14] Liu, Z.; Michaud, E. J.; and Tegmark, M. 2022. Om-niGrok: Grokking Beyond Algorithmic Data. arXiv ,abs/2210.01117. [15] Loshchilov, I.; and Hutter, F. 2017. SGDR: Stochastic Gradient Descent with Warm Restarts. In International Conference on Learning Representations .[16] Minegishi, G.; Iwasawa, Y.; and Matsuo, Y. 2023. Bridging Lottery Ticket and Grokking: Understand-ing Grokking from Inner Structure of Networks. arXiv ,abs/2310.19470. [17] Nanda, N.; Chan, L.; Lieberum, T.; Smith, J.; and Stein-hardt, J. 2023. Progress Measures for Grokking via Mechanistic Interpretability. arXiv , abs/2301.05217. [18] Papyan, V.; Han, X.; and Donoho, D. L. 2020. Preva-lence of Neural Collapse During the Terminal Phase of Deep Learning Training. Proceedings of the National Academy of Sciences , 117(40): 24652–24663. [19] Power, A.; Burda, Y.; Edwards, H.; Babuschkin, I.; and Misra, V. 2022. Grokking: Generalization Be-yond Overfitting on Small Algorithmic Datasets. arXiv ,abs/2201.02177. [20] Raghu, M.; Unterthiner, T.; Kornblith, S.; Zhang, C.; and Dosovitskiy, A. 2021. Do Vision Transformers See Like Convolutional Neural Networks? In Advances in Neural Information Processing Systems , volume 34, 12116–12128. [21] Recanatesi, S.; Farrell, M.; Advani, M.; Moore, T.; Lajoie, G.; and Shea-Brown, E. 2019. Dimensionality Compression and Expansion in Deep Neural Networks. 
+
+arXiv , abs/1906.00443. [22] Shwartz-Ziv, R.; and Tishby, N. 2017. Opening the Black Box of Deep Neural Networks via Information. 
+
+arXiv , abs/1703.00810. [23] Tishby, N.; and Zaslavsky, N. 2015. Deep Learning and the Information Bottleneck Principle. In 2015 IEEE Information Theory Workshop (ITW) , 1–5. Jerusalem, Israel. [24] Varma, V.; Shah, R.; Kenton, Z.; Kramár, J.; and Ku-mar, R. 2023. Explaining Grokking through Circuit Efficiency. arXiv , abs/2309.02390. [25] Vaswani, A.; Shazeer, N.; Parmar, N.; Uszkoreit, J.; Jones, L.; Gomez, A. N.; Kaiser, Ł.; and Polosukhin, I. 2017. Attention Is All You Need. In Advances in Neural Information Processing Systems , volume 30. [26] Xu, Z.; Ni, Z.; Wang, Y.; and Hu, W. 2025. Let Me Grok for You: Accelerating Grokking via Embedding Transfer from a Weaker Model. arXiv , abs/2504.13292. 8Contents Introduction 1Related Work 1Methods 2
+
+# Geometric Characterization of Representations . . . . . . . . . . . . . . . . . . . . . . . . . . . 2Geometric Dimensionality Regularization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2Experimental Protocol . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+# Results 3
+
+# Observation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3Intervention . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4Control: Regularization Schedule and Target Dimensionality . . . . . . . . . . . . . . . . . . . 5Ablation Studies: Intervention Timing . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5Generalization Across Tasks and Architectures . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+# Discussion 6Conclusion 7Appendix 10 A Spectral Properties of GeomDR 10 B Tasks and Architectures 12 
+
+# Modular Addition . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12 Modular Division . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12 Permutation Composition . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12 MLP Architecture . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12 Transformer Architecture . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12 
+
+# C Ablations 14 
+
+# MLP . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14 Transformer . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17 Width Ablation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 Collapse–Grokking Lag Analysis . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 
+
+# D Scalability 20 E Comparison with Grokking Acceleration Methods 21 F Use of Large Language Models 22 G Code Availability 22 
+
+> 9
+
+# Appendix A Spectral Properties of GeomDR 
+
+The results in this appendix characterize the optimization objective induced by Geometric Dimensionality Regulariza-tion (GeomDR) and establish several geometric properties directly encouraged by the regularizer, including effective-rank control, low rank covariance approximation, and rep-resentation volume compression. Importantly, these results do not constitute a formal proof of why grokking accelerates under GeomDR. Rather, they describe the geometric struc-tures that GeomDR explicitly promotes during optimization. Our working hypothesis is that accelerated grokking emerges because GeomDR reduces the space of high-dimensional memorizing solutions and biases optimization toward more compact representations, a mechanism that is consistent with the empirical observations presented in the main paper. Let Z ∈ RN ×d denote a matrix of hidden representations and let 
+
+C = 1
+
+N − 1 (Z − ¯Z)⊤(Z − ¯Z) (15) denote the corresponding covariance matrix. Let 
+
+μ1 ≥ μ2 ≥ · · · ≥ μd ≥ 0 (16) be the eigenvalues of C.The Geometric Dimensionality Regularization (Ge-omDR) objective is 
+
+LGeomDR =
+
+> d
+
+X
+
+> i=d∗+1
+
+μi (17) where d∗ is the target dimensionality. Using 
+
+Tr( C) = 
+
+> d
+
+X
+
+> i=1
+
+μi (18) the objective can be rewritten as 
+
+LGeomDR = Tr( C) −
+
+> d∗
+
+X
+
+> i=1
+
+μi (19) This formulation admits several useful interpretations. 
+
+Proposition 1 (Effective Rank Control). For ϵ ∈ (0 , 1) ,define the effective rank 
+
+rϵ(C) = min 
+
+(
+
+k :
+
+Pki=1 μi
+
+Pdi=1 μi
+
+≥ 1 − ϵ
+
+)
+
+(20) If 
+
+LGeomDR ≤ ϵ Tr( C) (21) then 
+
+rϵ(C) ≤ d∗ (22) 
+
+Proof. Since (19) holds, the assumption (21) implies 
+
+> d∗
+
+X
+
+> i=1
+
+μi ≥ (1 − ϵ) Tr( C) (23) Hence the leading d∗ eigenvalues explain at least a fraction 
+
+1 − ϵ of the total variance. By definition of rϵ(C),
+
+rϵ(C) ≤ d∗. (24) 
+
+□
+
+This proposition formalizes the fact that GeomDR directly limits the number of statistically significant covariance direc-tions. 
+
+Proposition 2 (Low Rank Approximation Bound). Let 
+
+Cd∗ denote the optimal rank-d∗ approximation of C, and let 
+
+∥ · ∥ F denote the Frobenius norm. Then 
+
+∥C − Cd∗ ∥F ≤ LGeomDR (25) 
+
+Proof. By the Eckart–Young theorem [4], 
+
+∥C − Cd∗ ∥2 
+
+> F
+
+=
+
+> d
+
+X
+
+> i=d∗+1
+
+μ2 
+
+> i
+
+(26) Since all eigenvalues are nonnegative, 
+
+> d
+
+X
+
+> i=d∗+1
+
+μ2 
+
+> i
+
+≤
+
+> d
+
+X
+
+> i=d∗+1
+
+μi
+
+!2
+
+= L2GeomDR . (27) Taking square roots yields (25). 
+
+□
+
+Thus minimizing GeomDR minimizes an upper bound on the reconstruction error of the best rank-d∗ covariance approximation. 
+
+Proposition 3 (Representation Volume Compression). 
+
+Assume that the nonzero covariance spectrum of a repre-sentation matrix is 
+
+μ1 ≥ μ2 ≥ · · · ≥ μr > 0, (28) where r = rank( C). The covariance ellipsoid associated with C has volume proportional to the square root of the determinant of C [8], 
+
+Vol( C) ∝ pdet( C) = 
+
+> r
+
+Y
+
+> i=1
+
+√μi. (29) 
+
+LGeomDR =
+
+> d
+
+X
+
+> i=d∗+1
+
+μi ≤ ϵ, (30) then every tail eigenvalue satisfies 
+
+μi ≤ ϵ, i > d ∗. (31) Consequently, 10 Vol( C) = 
+
+> d∗
+
+Y
+
+> i=1
+
+√μi
+
+! rY
+
+> i=d∗+1
+
+√μi
+
+!
+
+≤
+
+> d∗
+
+Y
+
+> i=1
+
+√μi
+
+! rY
+
+> i=d∗+1
+
+√ϵ
+
+!
+
+≤
+
+> d∗
+
+Y
+
+> i=1
+
+√μi
+
+!
+
+ϵ(r−d∗)/2.
+
+(32) Thus, as LGeomDR → 0, the representation volume out-side the leading d∗-dimensional subspace vanishes. 
+
+Proof. Since 
+
+> d
+
+X
+
+> i=d∗+1
+
+μi ≤ ϵ (33) and all eigenvalues are nonnegative, 
+
+μi ≤ ϵ, i > d ∗. (34) Therefore, 
+
+> r
+
+Y
+
+> i=d∗+1
+
+√μi ≤
+
+> r
+
+Y
+
+> i=d∗+1
+
+√ϵ = ϵ(r−d∗)/2. (35) Substituting into the volume expression yields 
+
+Vol( C) ≤
+
+> d∗
+
+Y
+
+> i=1
+
+√μi
+
+!
+
+ϵ(r−d∗)/2. (36) 
+
+□
+
+The empirical results suggest that GeomDR accelerates grokking by reducing the geometric complexity of learned representations. Neural networks can often fit the training data using a large family of distinct solutions, many of which distribute information across numerous weakly informative directions in representation space. Such solutions achieve low training error but need not capture the underlying algo-rithmic structure of the task. In contrast, successful generalization on algorithmic tasks may require the discovery of more structured representa-tions. For modular arithmetic and related symbolic prob-lems, these representations often appear substantially more concentrated, with variance captured by a relatively small number of dominant latent directions. Under this view, memorizing and algorithmic solutions occupy regions of representation space with different geometric characteris-tics: memorizing solutions tend to be spectrally diffuse and high-dimensional, whereas algorithmic solutions appear more spectrally concentrated. GeomDR explicitly suppresses covariance mass outside a target subspace through the objective (17). Propositions 1–3 show that minimizing this objective si-multaneously controls the effective rank of the representation covariance, improves its low rank approximation, and com-presses the geometric volume associated with tail covari-ance directions. In particular, Proposition 3 implies that as 
+
+LGeomDR decreases, the volume contributed by dimensions outside the leading d∗-dimensional subspace vanishes. Consequently, optimization is no longer free to spread in-formation across a large number of weak directions. Instead, representations are encouraged to concentrate variance into a smaller set of dominant components, reducing the geo-metric volume available to spectrally diffuse solutions. This may substantially restrict the family of memorizing repre-sentations accessible during training and bias optimization toward more compact solutions. Under this hypothesis, GeomDR does not directly create algorithmic representations. Rather, it modifies the geometry of the optimization landscape by making high-dimensional, spectrally diffuse solutions increasingly expensive. As train-ing proceeds, optimization is therefore encouraged to move toward compressed representations that may be more likely to capture task structure. This shift can reduce the time required to transition from memorization to generalization, leading to earlier grokking. The broad dimensionality plateaus observed in our exper-iments are consistent with this interpretation. Acceleration occurs across a wide range of target dimensionalities rather than only at a single finely tuned value, suggesting that the critical factor is the suppression of excess representational degrees of freedom rather than the precise dimensionality itself. While this explanation remains a hypothesis rather than a formal proof, it provides a geometric interpretation that is consistent with the observed reductions in effective di-mensionality, increased spectral concentration, covariance-volume compression, and substantially earlier grokking tran-sitions across multiple tasks and architectures. 11 B Tasks and Architectures 
+
+Modular Addition 
+
+The modular addition task receives a pair of integers (a, b ) ∈
+
+Z297 and predicts 
+
+y = ( a + b) mod 97 .
+
+The dataset contains all possible ordered pairs in Z297 ,resulting in 97 2 = 9409 examples. 
+
+Modular Division 
+
+The modular division task receives a pair (a, b ) with b̸ = 0 
+
+and predicts 
+
+y = ( a · b−1) mod 97 ,
+
+where b−1 denotes the multiplicative inverse of b in Z97 .The dataset contains all valid pairs (a, b ) with a ∈ Z97 
+
+and b ∈ { 1, . . . , 96 }, resulting in 97 × 96 = 9312 examples. 
+
+Permutation Composition 
+
+To evaluate whether the observed effects extend beyond mod-ular arithmetic, we additionally consider permutation com-position. Let S5 denote the symmetric group on five ele-ments. Given two permutations σ, τ ∈ S5, the task is to predict their composition 
+
+y = σ ◦ τ, 
+
+defined by 
+
+(σ ◦ τ )( i) = σ τ (i).
+
+Since |S5| = 120 , the dataset contains 120 2 = 14400 
+
+ordered pairs of permutations. 
+
+MLP Architecture 
+
+Each input token is mapped to an 8-dimensional embedding vector. The embeddings corresponding to the two inputs are concatenated, 
+
+z0 = [ e(a); e(b)] ,
+
+yielding a 16 -dimensional input representation. The concatenated representation is projected into a hidden space of dimension 128 :
+
+h0 = LayerNorm(GELU( Win z0 + bin )) .
+
+The network then applies three residual feed-forward blocks 
+
+hl+1 = LayerNorm( hl + GELU( Wlhl + bl)) ,l ∈ { 0, 1, 2}.
+
+The final hidden representation is mapped to the output space using a linear classifier 
+
+ˆy = Wout h3 + bout .
+
+The architecture parameters are summarized below: 
+
+• Embedding dimension: 8
+
+• Input dimension: 16 
+
+• Hidden dimension: 128 
+
+• Residual blocks: 3
+
+• Activation: GELU 
+
+• Normalization: LayerNorm 
+
+• Output dimension: 97 (arithmetic tasks), 120 (permuta-tion composition) Geometric Dimensionality Regularization (GeomDR) is applied to the hidden representations produced by the MLP. Specifically, the regularization term is evaluated for the out-puts of all hidden layers (h0, h 1, h 2, h 3) and summed across layers. The input embedding representation z0 is excluded from the regularization. 
+
+Permutation Composition MLP. For the permutation composition task, we use a larger MLP configuration. The task involves predicting one of |S5| = 120 possible permuta-tion classes, compared with 97 output classes in the modular arithmetic tasks. The embedding dimension is increased to 16 and the hidden dimension is increased to 256 while preserving the same residual MLP structure. The permutation MLP architecture uses: 
+
+• Embedding dimension: 16 
+
+• Input dimension: 32 
+
+• Hidden dimension: 256 
+
+• Residual blocks: 3
+
+• Activation: GELU 
+
+• Normalization: LayerNorm 
+
+• Output dimension: 120 
+
+For permutation composition experiments, we use d∗ =48 to account for the larger hidden representation dimension. All MLP models are trained using the same optimization protocol. We use full-batch AdamW optimization with a learning rate of 10 −3 and weight decay of 10 −1.
+
+Transformer Architecture 
+
+To evaluate whether the proposed geometric intervention generalizes beyond multilayer perceptrons, we additionally consider a Transformer encoder architecture [25]. Each input symbol is mapped to a learned embedding of dimension 
+
+dmodel = 32 .
+
+All tasks considered in this work operate on ordered pairs of input symbols. Consequently, each example is represented as a sequence of length two. Learned positional embeddings are added to the token embeddings before being processed by the Transformer encoder. The encoder consists of two Transformer layers. Each layer employs multi-head self-attention with 
+
+nheads = 4 
+
+attention heads and a feed-forward network of dimension 12 dff = 64 .
+
+The architecture uses GELU activations, residual connec-tions, LayerNorm, and the pre-normalization formulation of the Transformer. Dropout is disabled in all experiments. Let 
+
+H(0) = E(X) + P
+
+denote the input token embeddings together with the learned positional embeddings. The Transformer encoder computes 
+
+H(ℓ+1) = TransformerLayer 
+
+
+
+H(ℓ)
+
+,
+
+for 
+
+ℓ ∈ { 0, 1},
+
+where L = 2 denotes the number of encoder layers. After the final encoder layer, token representations are ag-gregated using mean pooling across the sequence dimension, 
+
+h = 12
+
+> 2
+
+X
+
+> i=1
+
+H(L) 
+
+> i
+
+.
+
+The pooled representation is subsequently normalized us-ing LayerNorm and mapped to the output space through a linear classifier, 
+
+ˆy = Wout h + bout .
+
+The architecture parameters are summarized below: 
+
+• Embedding dimension ( dmodel ): 32 
+
+• Attention heads: 4
+
+• Transformer layers: 2
+
+• Feed-forward dimension: 64 
+
+• Activation: GELU 
+
+• Normalization: LayerNorm (pre-normalization) 
+
+• Pooling: mean pooling 
+
+• Output dimension: task dependent Transformer models for modular addition and modular division are trained using full-batch AdamW optimization with a learning rate of 10 −3 and weight decay of 10 −1. For permutation composition, we use a learning rate of 3 × 10 −4
+
+and weight decay of 1.0.For the permutation composition task, the default Trans-former configuration was insufficient to reliably exhibit grokking behavior within the available training budget with and without interventions. To obtain a stable grokking regime suitable for evaluating geometric interventions, we increased the model capacity only for the permutation task. Specifically, permutation composition experiments use 
+
+dmodel = 64 , L = 3 , dff = 128 .
+
+All other architectural and optimization settings remain unchanged. This larger Transformer is used for both the baseline and GeomDR experiments on permutation compo-sition. The larger architecture was introduced solely to obtain a reproducible grokking regime and is not used for the addi-tion or division tasks, which reliably grok under the default Transformer configuration. Geometric Dimensionality Regularization (GeomDR) is applied to the hidden token representations produced by each Transformer layer. For each layer, token representations from all examples and sequence positions are collected into a ma-trix 
+
+RNtokens ×dmodel ,
+
+from which the covariance matrix is computed. The GeomDR penalty is then evaluated by summing the eigenvalues beyond a target dimensionality d∗. The total regularization term is obtained by summing the GeomDR penalties across all Transformer layers. For each task, the train–test split is generated once and kept fixed across all runs. For all tasks, 30% of examples are used for training and 70% for testing. Different random seeds therefore affect only model initialization and optimizer state. Reported results are averaged across seeds, and vari-ability is reported as one standard deviation. This protocol follows the standard experimental setting commonly adopted in grokking studies [19, 13]. 13 Table 2: Ablation studies of Geometric Dimensionality Regularization (GeomDR) on three grokking tasks using the MLP architecture. The table reports dimension sweeps (varying the target dimensionality d∗) and intervention-time sweeps (varying the GeomDR activation step ts). Values denote the mean grokking step ± one standard deviation (in thousands of optimization steps). Baseline results are computed from 5 random seeds, whereas all GeomDR sweeps are computed from 10 random seeds. The baseline corresponds to standard training without Geometric Dimensionality Regularization (GeomDR). Success/Total columns report the number of runs that satisfied the grokking criterion out of all runs. For runs that did not satisfy the criterion within the training budget, the maximum budget of 500K optimization steps was used when computing the reported mean and standard deviation. Addition Division Permutation Setting Step (K) Success/Total Step (K) Success/Total Step (K) Success/Total Baseline 362 .1 ± 111 .0 4/5 330 .9 ± 100 .9 5/5 300 .2 ± 207 .0 3/5
+
+Dimension Sweep 
+
+2 17 .0 ± 16 .3 10 /10 81 .1 ± 154 .3 9/10 209 .3 ± 216 .1 7/10 
+
+4 17 .6 ± 20 .5 10 /10 62 .3 ± 154 .0 9/10 183 .8 ± 221 .2 7/10 
+
+8 15 .2 ± 24 .3 10 /10 64 .8 ± 110 .8 10 /10 176 .6 ± 189 .6 9/10 
+
+16 7.0 ± 1.5 10 /10 37 .1 ± 41 .0 10 /10 176 .5 ± 182 .2 9/10 
+
+32 8.0 ± 2.7 10 /10 19 .5 ± 15 .5 10 /10 217 .2 ± 216 .4 7/10 
+
+48 14 .5 ± 18 .1 10 /10 61 .9 ± 154 .1 9/10 176 .5 ± 198 .4 8/10 
+
+64 7.0 ± 1.3 10 /10 60 .9 ± 154 .5 9/10 181 .3 ± 198 .3 9/10 
+
+Intervention Time Sweep 
+
+500 21 .9 ± 29 .6 10 /10 15 .3 ± 6.5 10 /10 160 .3 ± 198 .6 9/10 
+
+1000 12 .7 ± 16 .1 10 /10 13 .3 ± 7.3 10 /10 149 .3 ± 196 .5 8/10 
+
+2000 7.0 ± 1.5 10 /10 61 .9 ± 154 .1 9/10 176 .5 ± 198 .4 8/10 
+
+4000 8.1 ± 1.8 10 /10 66 .4 ± 153 .1 9/10 163 .3 ± 171 .6 9/10 
+
+8000 21 .4 ± 27 .8 10 /10 62 .8 ± 153 .6 9/10 162 .1 ± 155 .1 10 /10 
+
+16000 25 .5 ± 17 .2 10 /10 24 .5 ± 8.8 10 /10 273 .6 ± 231 .8 7/10 
+
+# C Ablations 
+
+MLP 
+
+For the MLP architecture, we first evaluated the effect of the regularization schedule by varying the final regularization strength λmax and ramp duration Tramp . We then performed target-dimensionality sweeps using a representative (not nec-essarily the best) schedule from the schedule-ablation study for each task and subsequently investigated the effect of in-tervention timing by varying the activation step ts.Table 2 summarizes the effects of Geometric Dimension-ality Regularization (GeomDR) across three grokking tasks using the MLP architecture. We evaluate two classes of in-terventions: target-dimensionality sweeps and intervention-time sweeps. Schedule-sweep results are omitted from the table because they are reported separately as heatmaps in Figure 7. This figure additionally provides the correspond-ing dimensionality and intervention-timing visualizations for the modular division and permutation composition tasks. For modular addition, schedule-sweep experiments fixed the target dimensionality at d∗ = 16 and the intervention-start step at ts = 2000 , while varying the regulariza-tion strength λmax ∈ { 0.333 , 1, 3.33 , 10 , 33 .3} and ramp duration Tramp ∈ {100 , 333 , 1000 , 3333 , 10000 }. Each configuration was evaluated across five random seeds 
+
+{0, 1, 2, 112 , 1122 }. Dimensionality-sweep experiments used the representative schedule ( λmax = 1 , Tramp = 333 ,
+
+ts = 2000 ) and varied the target dimensionality over 
+
+d∗ ∈ { 2, 4, 8, 16 , 32 , 48 , 64 }. Each configuration was eval-uated across ten random seeds {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}.Intervention-timing experiments used the same schedule and target dimensionality ( λmax = 1, Tramp = 333 ,
+
+d∗ = 16 ) while varying the intervention-start step over 
+
+ts ∈ { 500 , 1000 , 2000 , 4000 , 8000 , 16000 }, again using ten random seeds {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}.For modular division, the schedule-ablation study fol-lowed the same protocol as modular addition, using d∗ = 16 
+
+and ts = 2000 while varying λmax and Tramp over the same ranges. Each configuration was evaluated across five random seeds {0, 1, 2, 112 , 1122 }. Dimensionality-sweep experiments used the representative schedule ( λmax =3.33 , Tramp = 1000 , ts = 2000 ) and varied the target dimensionality over d∗ ∈ {2, 4, 8, 16 , 32 , 48 , 64 }.Each configuration was evaluated across ten random seeds 
+
+{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}. Intervention-timing experiments used the same schedule and varied the intervention-start step over ts ∈ { 500 , 1000 , 2000 , 4000 , 8000 , 16000 }, while fixing λmax = 3.33 , Tramp = 1000 , and d∗ = 48 .Each configuration was evaluated across ten random seeds 
+
+{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}.For the permutation composition task, the schedule-ablation study followed the same protocol as modular addi-tion, except that the target dimensionality was fixed at d∗ =48 to reflect the larger hidden representation dimension. Dimensionality-sweep experiments used the representative 14 (a) Division: schedule sweep (b) Permutation composition: schedule sweep   
+
+> (c) Division: dimensionality sweep (d) Permutation composition: dimensionality sweep
+> (e) Division: intervention timing (f) Permutation composition: intervention timing
+
+Figure 7: Additional MLP experiments on modular division and permutation composition. Top row: schedule sweeps over regularization strength λ and ramp duration. Middle row: target-dimensionality sweeps. Bottom row: intervention-start sweeps. Consistent with the modular addition results reported in the main paper, Geometric Dimensionality Regularization (GeomDR) substantially accelerates grokking on both modular division and permutation composition. The effect remains robust across a broad range of schedules, target dimensionalities, and intervention times. schedule ( λmax = 1 , Tramp = 333 , ts = 2000 ) and varied the target dimensionality over d∗ ∈ { 2, 4, 8, 16 , 32 , 48 , 64 }.Intervention-timing experiments used the same schedule and target dimensionality ( λmax = 1, Tramp = 333 ,
+
+d∗ = 48 ) while varying the intervention-start step over 
+
+ts ∈ { 500 , 1000 , 2000 , 4000 , 8000 , 16000 }.15 Across all tasks, GeomDR substantially accelerates grokking relative to the baseline. For modular addi-tion, the baseline model reaches the grokking criterion after 362 .1 ± 111 .0K optimization steps (4/5 successful runs), whereas multiple GeomDR configurations reduce the grokking time to 7.0 ± 1.3K steps (5/5 successful runs). The schedule-ablation results exhibit a relatively smooth dependence on both the regularization strength λmax and ramp duration Tramp . Rather than displaying highly irreg-ular behavior, performance changes gradually across neigh-boring configurations, indicating that GeomDR is not overly sensitive to precise hyperparameter choices. Across all tasks, successful configurations form contiguous regions in the hy-perparameter space, suggesting a broad basin of effective schedules. A consistent trend is that more challenging tasks require stronger regularization. For modular addition, optimal per-formance is achieved with relatively weak regularization (λmax = 1 ), whereas modular division benefits from in-termediate regularization strengths ( λmax = 3 .33 ). The per-mutation composition task, which exhibits the most difficult grokking dynamics among the considered MLP benchmarks, achieves its best performance with substantially stronger regularization ( λmax = 33 .3). These results suggest that the amount of geometric compression required to accelerate grokking increases with task complexity. The dimensionality sweep reveals that GeomDR is effec-tive across a broad range of target dimensions. For modular addition, the fastest and most stable performance is obtained for d∗ ∈ { 16 , 32 }. For modular division, the best perfor-mance is achieved at d∗ = 32 , although substantial improve-ments are observed across nearly the entire range of tested target dimensionalities. For permutation composition, per-formance is strongest at an intermediate target dimensionality 
+
+d∗ = 16 , while both excessively strong and excessively weak compression lead to slower grokking and reduced success rates. Extremely small target dimensions may impose ex-cessive representational constraints, while excessively large target dimensions may provide insufficient geometric pres-sure. These results indicate that the benefits of GeomDR are not restricted to a narrowly tuned target dimensionality and that effective geometric regularization can be achieved across a broad range of target dimensions. The intervention-time sweep demonstrates that GeomDR remains effective across a broad range of activation times. For modular addition, the best performance is achieved at Table 3: Ablation studies of Geometric Dimensionality Regularization (GeomDR) on three grokking tasks using the Transformer architecture. The table reports dimension sweeps (varying the target dimensionality d∗), regularization-strength sweeps (varying the final GeomDR coefficient λmax ), and intervention-time sweeps (varying the GeomDR activation step ts). Values denote the mean grokking step ± one standard deviation (in thousands of optimization steps). Results are computed from 5 random seeds. The baseline corresponds to standard Transformer training without Geometric Dimensionality Regularization (GeomDR). Success/Total columns report the number of runs that satisfied the grokking criterion out of all runs. For runs that did not satisfy the criterion within the training budget, the maximum budget of 200K optimization steps was used when computing the reported mean and standard deviation. Addition Division Permutation Setting Step (K) Success/Total Step (K) Success/Total Step (K) Success/Total Baseline 66 .4 ± 12 .0 5/5 89 .4 ± 27 .3 5/5 72 .6 ± 33 .0 5/5
+
+Dimension Sweep 
+
+2 41 .2 ± 19 .2 5/5 59 .9 ± 14 .1 5/5 85 .2 ± 58 .0 5/5
+
+4 36 .7 ± 9.1 5/5 58 .8 ± 27 .9 5/5 155 .1 ± 174 .4 4/5
+
+8 46 .0 ± 9.8 5/5 71 .5 ± 39 .5 5/5 131 .6 ± 184 .2 4/5
+
+16 136 .7 ± 181 .7 4/5 70 .8 ± 30 .2 5/5 68 .0 ± 29 .5 5/5
+
+Lambda Sweep 
+
+33.3 74 .0 ± 63 .0 4/5 49 .1 ± 13 .4 5/5 120 .6 ± 59 .9 4/5
+
+10 34 .6 ± 6.2 5/5 67 .8 ± 51 .7 5/5 74 .8 ± 63 .5 4/5
+
+3.33 34 .5 ± 7.4 5/5 88 .4 ± 59 .6 4/5 97 .3 ± 66 .2 4/5
+
+1 38 .2 ± 15 .4 5/5 65 .5 ± 28 .3 5/5 48 .9 ± 9.1 5/5
+
+0.333 35 .9 ± 1.9 5/5 52 .9 ± 9.6 5/5 79 .5 ± 61 .2 4/5
+
+Intervention Time Sweep 
+
+500 47 .2 ± 13 .0 5/5 112 .0 ± 66 .1 4/5 71 .3 ± 65 .2 4/6
+
+1000 33 .0 ± 2.5 5/5 101 .1 ± 54 .0 4/5 93 .6 ± 73 .0 4/5
+
+2000 41 .1 ± 11 .7 5/5 63 .8 ± 23 .3 5/5 80 .2 ± 26 .4 5/5
+
+4000 35 .2 ± 3.3 5/5 77 .4 ± 61 .4 4/5 77 .1 ± 52 .8 5/5
+
+8000 36 .4 ± 8.2 5/5 48 .7 ± 8.8 5/5 102 .6 ± 54 .4 4/5
+
+16000 78 .7 ± 60 .9 4/5 59 .0 ± 21 .0 5/5 65 .1 ± 14 .2 5/5
+
+16 ts = 2000 , with similarly strong results at ts = 4000 . For modular division, the best mean performance obtained at 
+
+ts = 1000 . For permutation composition, the lowest mean grokking step is observed at ts = 1000 , while the most reli-able performance is obtained at ts = 8000 , which achieves a 
+
+10 /10 success rate. Overall, all intervention times substan-tially outperform the baseline. Across the three tasks, early-to-intermediate interventions generally provide the largest acceleration. One possible explanation is that prolonged memorization makes the learned representations increas-ingly specialized and less amenable to subsequent geometric restructuring. GeomDR may therefore be most effective af-ter useful task structure has begun to emerge, but before the representation geometry becomes comparatively rigid. 
+
+Transformer 
+
+For the Transformer architecture, we adopted a different tun-ing procedure from that used for the MLP. To reduce the size of the hyperparameter search space, we fixed the ramp duration at Tramp = 1000 throughout all Transformer exper-iments. We first performed target-dimensionality sweeps to identify the best-performing target dimensionality d∗. Using this best configuration, we then optimized the regularization strength λmax . Finally, using the best-performing dimen-sionality and regularization strength, we evaluated the effect of intervention timing by varying the activation step ts.Table 3 summarizes ablation studies of Geometric Di-mensionality Regularization (GeomDR) on the Transformer architecture across the modular addition, modular division, and permutation composition tasks. For Transformer-based modular addition, dimensionality-sweep experiments fixed the intervention-start step at 
+
+ts = 1000 , the ramp duration at Tramp = 1000 , and the regularization strength at λmax = 1, while vary-ing the target dimensionality over d∗ ∈ {2, 4, 8, 16 }.Using the best-performing dimensionality (d∗ = 4), we then performed a regularization-strength sweep over 
+
+λmax ∈ {0.333 , 1, 3.33 , 10 , 33 .3} while keeping ts =1000 fixed. Finally, intervention-timing experiments used the best-performing configuration (d∗ = 4,
+
+λmax = 3 .33 ) and varied the activation step over ts ∈{500 , 1000 , 2000 , 4000 , 8000 , 16000 }. Each configuration was evaluated across five random seeds {0, 1, 2, 112 , 1122 }.For Transformer-based modular division, we followed the same experimental procedure as for modular addition. Dimensionality-sweep experiments varied the target dimen-sionality over d∗ ∈ { 2, 4, 8, 16 } while fixing ts = 1000 ,and λmax = 1 . Using the best-performing dimensional-ity ( d∗ = 4 ), we then performed a regularization-strength sweep over λmax ∈ {0.333 , 1, 3.33 , 10 , 33 .3}. Finally, intervention-timing experiments varied the activation step over ts ∈ { 500 , 1000 , 2000 , 4000 , 8000 , 16000 } using the best-performing configuration from the previous stage ( d∗ =4, λmax = 33 .3). Each configuration was evaluated across five random seeds {0, 1, 2, 112 , 1122 }.For Transformer-based permutation composition, we fol-lowed the same experimental procedure as for modular ad-dition. Dimensionality-sweep experiments varied the tar-get dimensionality over d∗ ∈ {2, 4, 8, 16 } while fixing 
+
+ts = 1000 , and λmax = 1 . Using the best-performing di-mensionality ( d∗ = 16 ), we then performed a regularization-strength sweep over λmax ∈ { 0.333 , 1, 3.33 , 10 , 33 .3}. Fi-nally, intervention-timing experiments varied the activation step over ts ∈ { 500 , 1000 , 2000 , 4000 , 8000 , 16000 } using the best-performing configuration from the previous stage (d∗ = 16 , λmax = 1 ). Each configuration was evaluated across five random seeds {0, 1, 2, 112 , 1122 }.Across all three tasks, GeomDR consistently accelerates grokking relative to the baseline Transformer. For modular addition, the baseline model requires 66 .4±12 .0K optimiza-tion steps to satisfy the grokking criterion, whereas the best GeomDR configuration reduces this value to 33 .0±2.5K op-timization steps, corresponding to roughly a twofold acceler-ation. Similar improvements are observed for modular divi-sion, where the grokking step decreases from 89 .4 ± 27 .3Kto 48 .7 ± 8.8K optimization steps. For permutation com-position, the strongest GeomDR configurations reduce the grokking step from 72 .6 ± 33 .0K to 48 .9 ± 9.1K optimiza-tion steps. Although the improvements are generally smaller than those observed for the MLP architecture, these results demonstrate that the benefits of geometric regularization extend beyond modular arithmetic and remain effective on structured combinatorial problems. The dimensionality sweep reveals that moderate target di-mensionalities provide the strongest improvements for the arithmetic tasks. For both modular addition and modular division, target dimensions d∗ ∈ { 2, 4} yield the fastest mean grokking times, while larger dimensions remain bene-ficial but generally produce weaker acceleration. In contrast, permutation composition achieves its best performance at the larger target dimensionality d∗ = 16 . This difference suggests that more complex tasks may benefit from retain-ing a higher-dimensional representation space, whereas sim-pler arithmetic tasks can be effectively accelerated through stronger geometric compression. For modular addition, the fastest mean grokking time is obtained at λmax = 3 .33 , whereas modular division achieves its best performance at λmax = 33 .3. In contrast, permuta-tion composition performs best at the more moderate value 
+
+λmax = 1 . These results further suggest that the optimal strength of geometric regularization is task-dependent and may vary with the complexity and structure of the underly-ing problem. The intervention-time sweep shows that the timing of the geometric intervention also influences performance. For modular addition, activating GeomDR after an initial un-constrained training phase ( ts = 1000 ) produces the fastest and most consistent results. For modular division, the lowest mean grokking step obtained at ts = 8000 . For permuta-tion composition, the strongest performance is achieved at 
+
+ts = 16000 , although several intervention times produce broadly similar results. Taken together, these findings sug-gest that the optimal intervention time is task-dependent and may reflect differences in the duration of the memorization phase preceding generalization. Compared with the MLP results summarized in Table 2, the gains obtained with GeomDR are more modest for the Transformer architecture. Whereas GeomDR often accel-17 erates grokking by more than an order of magnitude in MLPs, he Transformer typically exhibits improvements rang-ing from roughly 1.5 times to 2times. Nevertheless, the qual-itative trends remain consistent across architectures, with ge-ometric interventions reliably reducing grokking time across all three tasks. One possible explanation is that Transformers already pos-sess strong inductive biases toward structured representations through self-attention, residual connections, and normaliza-tion layers. As a result, the baseline Transformer groks substantially faster than the corresponding MLP, leaving less room for geometric regularization to further accelerate the memorization-to-generalization transition. While this in-terpretation remains speculative, it suggests that the effec-tiveness of GeomDR may depend in part on the extent to which the underlying architecture already promotes com-pressed and task-relevant representations. 
+
+Width Ablation 
+
+To evaluate the dependence of GeomDR on model capac-ity, we performed a width ablation study on the modu-lar addition task for both MLP and Transformer architec-tures. For MLPs, width refers to the hidden dimension of the residual network, while for Transformers it refers to the model dimension dmodel . We evaluated MLP widths 
+
+{32 , 64 , 128 , 256 } and Transformer widths {16 , 32 , 64 , 128 }
+
+while keeping all other architectural components fixed. For MLPs, we used the representative configuration identified in the schedule sweep ( d∗ = 16 , λmax = 1 , Tramp = 333 ). For Transformers, we used the best-performing configura-tion identified during Transformer tuning, corresponding to a target dimensionality of d∗ = 4 , regularization strength 
+
+λmax = 3 .33 , intervention-start step ts = 1000 , and ramp duration Tramp = 1000 . Each experiment was repeated with five random seeds {0, 1, 2, 112 , 1122 }.Table 4 summarizes the results. For MLPs, GeomDR consistently accelerates grokking across all tested widths. At width 32 , the baseline failed to satisfy the grokking crite-rion in any run within the training budget, whereas GeomDR achieved a mean grokking step of 21 .6K with a 5/5 success rate. A similar effect is observed at width 64 , where the baseline again failed in all runs while GeomDR achieved a mean grokking step of 19 .3K and successfully grokked in all runs. At width 128 , GeomDR reduces the mean grokking step from 333 .0K to 6.8K while increasing the success rate from 4/5 to 5/5. At width 256 , the mean grokking step decreases from 253 .8K to 10 .4K, again achieving a 5/5 suc-cess rate. Overall, the intervention substantially accelerates grokking and improves reliability across a broad range of MLP capacities. The Transformer results exhibit a markedly different pat-tern. At width 32 , which corresponds to the default Trans-former configuration used throughout the main experiments, GeomDR substantially accelerates grokking, reducing the mean grokking step from 65 .4K to 34 .1K while maintaining a 5/5 success rate. However, this benefit does not persist at larger widths. At width 64 , the intervention succeeds in only 2/5 runs, yielding a mean grokking step of 139 .9Kwhen unsuccessful runs are included in the summary statis-Table 4: Width ablation on modular addition. Results are reported as mean grokking step ± standard deviation across five random seeds. Succ/Tot denotes the number of runs that satisfied the grokking criterion.                                                                             
+
+> (a) MLP
+> Baseline GeomDR ( d∗= 16 )Width Step (K) Succ/Tot Step (K) Succ/Tot 32 500 .0±0.00/521 .6±5.35/5
+> 64 500 .0±0.00/519 .3±23 .55/5
+> 128 333 .0±139 .24/56.8±0.85/5
+> 256 253 .8±146 .44/510 .4±5.65/5
+> (b) Transformer
+> Baseline GeomDR ( d∗= 4 )Width Step (K) Succ/Tot Step (K) Succ/Tot 16 200 .0±0.00/5200 .0±0.00/5
+> 32 65 .4±7.25/534 .1±5.75/5
+> 64 43 .7±5.85/5139 .9±83 .72/5
+> 128 58 .6±26 .25/5174 .6±56 .91/5
+
+tics. At width 128 , only a single run satisfies the grokking criterion, resulting in an average grokking step of 174 .6K. In both cases, performance is substantially worse than the corresponding baseline models. The narrowest Transformer configuration (width 16 ) fails to grok within the training budget both with and without intervention. Overall, the width ablation shows that GeomDR is highly robust across MLP capacities, suggesting that the interven-tion acts on a geometric property that remains stable under changes in representational width. Transformer results reveal a more architecture-dependent behavior. While GeomDR can accelerate grokking in Transformers under suitable set-tings, the fixed low dimensional target used here does not scale reliably with model width and can even degrade per-formance for larger models. These findings indicate that representation geometry remains a useful control signal be-yond MLPs, but that effective geometric interventions are likely architecture-dependent. These findings indicate that representation geometry remains a useful control signal be-yond MLPs, but that effective geometric interventions are likely architecture-dependent and may require retuning as model width increases. 
+
+Collapse–Grokking Lag Analysis 
+
+Table 5 reports the quantitative analysis of the temporal sep-aration between representation collapse and grokking. Col-lapse time is defined as the first step at which the effective dimensionality of the deepest hidden layer ( L4) decreases below 50% of its initial value. The initial dimensionality is computed from the first recorded representation snapshot at initialization (step 0) using the effective dimension met-ric. The lag is defined as tgrok − tcollapse . All experiments use the modular addition task and the MLP architecture de-scribed earlier. Values are averaged over five random seeds in 
+
+{0, 1, 2, 112 , 1122 }. For this setting, baseline models exhibit 18 a large delay between dimensionality collapse and success-ful generalization, whereas GeomDR substantially reduces this temporal gap, bringing representation compression and generalization into closer alignment. Table 5: Timing of dimensionality collapse and grokking. Collapse is defined as the first step at which the effective dimension of the final hidden layer falls below 50% of its initial value. Lag denotes the temporal separation tgrok −
+
+tcollapse . All values are reported in thousands of training steps (K) as mean ± standard deviation. Succ/Tot denotes the number of runs satisfying the grokking criterion out of the total number of runs. For the baseline, lag statistics were computed over the four seeds that successfully grokked; one non-grokking run was omitted from the lag analysis.                                                           
+
+> Setting Succ/Tot Collapse (K) Grok (K) Lag (K) Baseline 4/5 19 .1±2.0283 .4±33 .5264 .3±33 .8
+> d∗= 64 5/5 3.7±0.35.9±1.12.2±0.8
+> d∗= 32 5/5 3.7±0.36.6±1.52.9±1.4
+> d∗= 16 5/5 3.9±0.46.9±1.63.0±1.4
+> d∗= 8 5/5 3.8±0.26.7±1.22.9±1.1
+
+19 Table 6: Random-sampling ablation for Geometric Dimensionality Regularization (GeomDR) on modular addition using the MLP architecture. The covariance spectrum is estimated from a randomly sampled subset of hidden representations. Values report mean ± standard deviation. Method Sample Size (% of Data) Success / Total Runtime (s) Grokking Step (K) Baseline - 4/5 12952 .0 ± 3154 .4 362 .1 ± 111 .0
+
+GeomDR (100%) 2822 (100%) 5/5 666 .0 ± 368 .0 7.06 ± 1.74 
+
+GeomDR (50%) 1411 (50%) 5/5 447 .2 ± 274 .9 7.36 ± 3.72 
+
+GeomDR (25%) 705 (25%) 5/5 276 .7 ± 50 .6 6.34 ± 1.05 
+
+GeomDR (10%) 282 (10%) 5/5 259 .6 ± 94 .3 6.81 ± 1.96 
+
+GeomDR (5%) 141 (5%) 5/5 247 .5 ± 76 .9 7.89 ± 1.87 
+
+GeomDR (1%) 28 (1%) 5/5 1088 .7 ± 366 .8 35 .76 ± 9.65 
+
+# D Scalability 
+
+For large datasets, computing covariance spectra using all available representations may become prohibitively expen-sive. We therefore investigate whether GeomDR remains effective when the covariance spectrum is estimated from a randomly sampled subset of representations. Indeed, the computational complexity of GeomDR for a single layer is dominated by covariance estimation and eigendecomposition. Given N representations of dimension 
+
+d, computing the covariance matrix requires O(N d 2) op-erations, while eigendecomposition of the resulting d × d
+
+covariance matrix requires O(d3) operations. The overall complexity is therefore 
+
+O(N d 2 + d3).
+
+In the regimes considered in this work, the number of representations is substantially larger than the representation dimension ( N ≫ d), so the covariance computation dom-inates and the effective complexity scales approximately as 
+
+O(N d 2). If the covariance spectrum is estimated using only a fraction r of the available representations, the complexity for one layer becomes 
+
+O(rN d 2 + d3),
+
+implying an approximately linear reduction in computa-tional cost with respect to the sampling ratio r.Experiments are performed on the modular addition task using the MLP architecture. The intervention uses λ = 3 .33 ,target dimensionality d∗ = 16 , activation step ts = 2000 ,and Tramp = 1000 . At each optimization step, a fraction 
+
+r ∈ { 1% , 5% , 10% , 25% , 50% , 100% }
+
+of the training representations is sampled uniformly without replacement, and the GeomDR penalty is computed using only the sampled subset. For the modular addition task, the training set contains 2822 examples, corresponding to sample sizes ranging from 28 representations at 1% sam-pling to the full training set at 100% sampling. Table 6 reports both wall-clock runtime and grokking step. Across a broad range of sampling ratios, GeomDR remains highly effective despite using substantially fewer representations for covariance estimation. Sampling ratios between 5% and 50% 
+
+yield grokking times comparable to those obtained with full-spectrum estimation, with successful generalization typically occurring after approximately 6–8K optimization steps. The fastest average grokking time is observed at 25% sampling, reaching the grokking criterion after 6.34 ± 1.05 K steps, compared to 7.06 ±1.74 K steps for full-spectrum estimation. However, the differences in grokking steps among sampling ratios in the 5% –50% range are relatively small, indicating that accurate covariance estimation can be achieved from substantially reduced representation subsets without materi-ally affecting grokking acceleration. Subsampling also substantially reduces computational cost. While full-spectrum GeomDR requires 666 .0 ± 368 .0
+
+seconds of wall-clock time (one CPU), sampling ratios be-tween 5% and 25% reduce runtime to approximately 250 –
+
+280 seconds, representing a 2.4×–2.7× speedup relative to full-spectrum GeomDR. Compared with the baseline model without GeomDR, these configurations reduce runtime by roughly a factor of 50 . The 1% condition exhibits substan-tially higher runtime due to its much later grokking time, requiring considerably more optimization steps before satis-fying the grokking criterion. These results suggest that the geometric signal exploited by GeomDR can be estimated ac-curately from relatively small random subsets of representa-tions. In practice, covariance estimation using only 5% –25% 
+
+of available representations is sufficient to recover nearly the full benefit of GeomDR while substantially reducing com-putational overhead. This observation indicates that precise estimation of the full covariance spectrum is not required for effective geometric control, improving the practical scalabil-ity and computational efficiency of the method. These findings suggest that GeomDR may be compatible with standard mini-batch optimization. The random sam-pling results show that only a small subset of representations is required to estimate the geometric signal driving the regu-larizer. Although this hypothesis was not evaluated directly in the present work, each mini-batch can be viewed as a random sample of the representation distribution, suggesting that the leading covariance structure may be estimated suffi-ciently accurately from batch-level statistics. If so, GeomDR could be implemented efficiently in large-scale settings with-out computing covariance matrices over the entire dataset. 20 Table 7: Comparison of methods for accelerating grokking on modular addition using the MLP architecture. Values denote mean grokking step ± standard deviation (thousands of optimization steps). Succ/Tot indicates the number of runs satisfying the grokking criterion. For unsuccessful runs, the training budget of 500K steps was used when computing summary statistics.                                
+
+> Method Best Params Step (K) Succ/Tot WD = 0 –500.0 ±0.0 0/5 Weight Decay WD = 1.0 27.2 ±43.9 5/5 GrokFast λ= 1 .0372.1 ±37.6 5/5 GeomDR λmax = 1 7.0 ±1.5 10/10
+> GrokFast + GeomDR λ= 1 .0500.0 ±0.0 0/5
+
+# E Comparison with Grokking Acceleration Methods 
+
+We compare Geometric Dimensionality Regularization (Ge-omDR) with two commonly studied grokking interven-tions: weight decay and GrokFast [11]. For weight de-cay, we evaluate WD ∈ {0.01 , 0.03 , 0.1, 0.3, 1.0} and report the best-performing configuration ( WD = 1.0). For GrokFast, we evaluate amplification coefficients λ ∈{0.05 , 0.1, 0.5, 1.0, 5.0} using the default exponential mov-ing average coefficient α = 0 .999 and baseline weight de-cay WD = 0 .1, and report the best-performing configura-tion identified in the sweep ( λ = 1 .0). GeomDR uses the best-performing modular-addition configuration identified in the ablation studies ( d∗ = 16 , ts = 2000 , Tramp = 1000 ,
+
+λmax = 1 .0). Results are summarized in Table 7. The best weight-decay configuration substantially accelerates grokking rel-ative to the baseline, reaching the grokking criterion after 
+
+27 .2±43 .9K optimization steps. GrokFast also improves per-formance relative to the baseline, achieving a mean grokking step of 372 .1 ± 37 .6K and successfully grokking in all runs. However, the magnitude of this improvement is considerably smaller than that obtained with weight decay or GeomDR. GeomDR provides the strongest acceleration, reaching the grokking criterion after 7.0 ± 1.5K optimization steps while maintaining a perfect success rate across all runs. We ad-ditionally evaluated a combined GrokFast+GeomDR inter-vention. In contrast to the individual methods, the com-bined configuration failed to satisfy the grokking criterion in any run within the available training budget, suggesting that the two interventions may interact unfavorably and over-constrain the optimization dynamics. Increasing the weight-decay coefficient from 0.1 to 1.0
+
+in the presence of GeomDR did not provide additional im-provement, suggesting diminishing returns from combining stronger parameter-space regularization with explicit geo-metric regularization. These results indicate that direct con-trol of representation geometry can provide a highly effective mechanism for accelerating grokking, substantially outper-forming both tuned weight decay and GrokFast in the exper-imental setting considered here. 21 F Use of Large Language Models 
+
+Large language models (LLMs) were used as writing and editing assistants during the preparation of this manuscript. Specifically, LLMs were used to improve the grammar, clar-ity, and presentation of the text. The scientific content of this work, including the research questions, hypotheses, experimental design, implementation, data analysis, interpretation of results, and conclusions, was developed and verified by the author. All AI-assisted text was reviewed and edited by the author prior to submission. The author assumes full responsibility for the accuracy and content of this manuscript. 
+
+# G Code Availability 
+
+Code is available at https://github.com/ maksimkazanskii/grokking .22

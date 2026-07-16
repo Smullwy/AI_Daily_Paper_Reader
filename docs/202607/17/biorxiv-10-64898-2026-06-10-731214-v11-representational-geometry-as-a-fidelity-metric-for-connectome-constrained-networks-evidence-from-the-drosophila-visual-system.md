@@ -1,0 +1,92 @@
+---
+title: "Representational geometry as a fidelity metric for connectome-constrained networks: evidence from the Drosophila visual system"
+title_zh: 表征几何作为连接组约束网络的保真度指标：来自果蝇视觉系统的证据
+authors: "Zhou, M. G., Hasler, J. O."
+date: 2026-07-14
+pdf: "https://www.biorxiv.org/content/10.64898/2026.06.10.731214v11.full.pdf"
+tags: ["query:fclip"]
+score: 8.0
+evidence: 表征几何作为生物连接保真度指标
+tldr: 研究探讨生物连接组对神经计算的真实贡献，提出表征几何作为无需行为解码器的群体保真度度量。通过比较固定连接组的果蝇视觉预训练网络与稳定性约束的随机权重网络，发现连接组网络表现出精细的圆形方向几何，随机网络仅粗略近似。然而，因现有生物参考受圆形刺激结构混淆，区分真实与训练随机连接的决定性测试未成功，表明需要更合适的参考以评估连接组逼真度。
+source: biorxiv
+selection_source: fresh_fetch
+figures_json: "[{\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-009.webp\", \"caption\": \"Figure 1: Connectome-constrained networks produce a smooth circular direction geometry that random networks capture only coarsely (ON edge stimuli, n = 50). Left to right: CC mean cosine RDM, random mean cosine RDM, CC mean Euclidean RDM, random mean Euclidean RDM. The CC cosine RDM shows a smooth circular gradient (off-diagonal range 0.001–0.012); the random cosine RDM is block-structured with no systematic direction dependence. Cosine RDM correlation: Spearman r = 0.686, pperm < 0.0001 (10,000 permutations, Nili et al. 2014). All 50 pretrained Flyvis models, seed = 42.\", \"page\": 9, \"index\": 9, \"width\": 829, \"height\": 216}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-003.webp\", \"caption\": \"Figure 2: Connectome-constrained networks produce polarity-segregated geometry with withinpolarity circular direction structure (ON+OFF edges, n = 50). CC and random mean cosine RDMs for 24 stimulus conditions (12 directions × 2 polarities). The CC RDM shows clear polarity block structure with within-polarity circular direction gradients. Cosine RDM correlation: Spearman r = 0.846, pperm < 0.0001 (10,000 permutations, Nili et al. 2014). All 50 pretrained Flyvis models, seed = 42.\", \"page\": 10, \"index\": 3, \"width\": 826, \"height\": 214}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-001.webp\", \"caption\": \"Figure 3: The ON pathway encodes direction with stronger geometric separation than the OFF pathway within connectome-constrained networks. Within-polarity submatrices (CC top row, random bottom row) with row-level shared colormaps (CC range 0–0.012; random range 0–0.040). CC ON-ON block shows a clear circular direction gradient (r = 0.937 vs circular reference, pperm < 0.0001); CC OFF-OFF block shows the same ordinal structure at compressed range (r = 0.799, pperm < 0.0001). Random ON-ON block shows a two-block artifact with 0◦ as a strong outlier; random OFF-OFF block is flat.\", \"page\": 11, \"index\": 1, \"width\": 622, \"height\": 654}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-006.webp\", \"caption\": \"Figure 4: Raw correlations with the T4/T5 biological reference principally reflect circular stimulus structure. Left: biological reference RDM from von Mises tuning curves fit to Maisak et al. (2013) (off-diagonal range 0.046–0.989). On the ON-only stimulus set this reduces to four cardinal curves of identical width (T5 does not respond to ON edges), and correlates with a pure angular-distance matrix at r = 0.978. Center: CC mean cosine RDM (raw r vs biology = 0.927; r vs circular reference = 0.937). Right: random mean cosine RDM (raw r vs biology = 0.596; r vs circular reference = 0.599). For both networks the raw biological correlation is within 0.01 of the circular correlation. Partialling out circular structure leaves a positive but non-significant residual for CC (r = 0.145, pperm = 0.120) and a smaller one for random (r = 0.061, pperm = 0.323). Caveats: Maisak et al. used square-wave gratings (model uses MovingEdge); reference covers four T4 subtypes for ON edges (8 of 65 cell types in the 24-condition case).\", \"page\": 13, \"index\": 6, \"width\": 706, \"height\": 232}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-004.webp\", \"caption\": \"Table 2: Precision guard verdict, untrained connectome-constrained networks (n = 50). The float32 round-off floor of the responses exceeds the entire dynamic range of the RDM computed from them. No rank-order statistic derived from this matrix carries information.\", \"page\": 14, \"index\": 4, \"width\": 668, \"height\": 217}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-002.webp\", \"caption\": \"Table 3: Perturbation sweeps, untrained connectome-constrained networks (n = 5 per condition). Only one parameter group varies per sweep. CC geometry never becomes resolvable. Under bias noise its dynamic range falls as responses grow; under synapse-strength noise it rises but stalls while the network is pruned and destabilized. Ratio is RDM span divided by the float32 round-off floor; resolvability requires ≥ 10×.\", \"page\": 15, \"index\": 2, \"width\": 820, \"height\": 330}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-010.webp\", \"caption\": \"Table 4: Experiment 5: raw correlations against the (confounded) biological reference collapse to statistical noise once corrected for circularity. Correction applied identically to Experiment 3: both the trained-random ensemble mean RDM and the biological RDM were rank- residualized against the explicit circular-distance reference, then correlated.\", \"page\": 16, \"index\": 10, \"width\": 834, \"height\": 261}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-008.webp\", \"caption\": \"Figure 5: An independent similarity metric corroborates the RSA fidelity signal in both experiments. Top row: stimulus-label permutation null distributions for Experiments 1 and 2. Bottom row: model-level bootstrap distributions. Observed CKA (red line) falls outside the permutation null in both experiments (p = 0.0095 and p < 0.0001, respectively). The Experiment 2 bootstrap distribution is bimodal due to near-overflow activations in some stable random models under resampling; the permutation test is the primary inference.\", \"page\": 17, \"index\": 8, \"width\": 829, \"height\": 663}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-005.webp\", \"caption\": \"Figure 6: MDS embeddings confirm the circular direction geometry of connectome-constrained networks; random embeddings show neither direction structure nor the CC networks’ organized polarity separation. Left: Experiment 1 (ON edges). The CC embedding shows a partially circular arrangement; the random embedding collapses into tight clusters with no direction structure. Right: Experiment 2 (ON+OFF edges). The CC embedding shows clear polarity separation (circles = OFF, triangles = ON); within-polarity direction variation is a second-order feature compressed by cross-polarity dissimilarity in the 2D projection. The random baseline exhibits a polarity block structure in its RDM but no corresponding within-polarity direction organization (see Experiment 2). Color encodes direction angle (HSV colormap, 0◦–360◦).\", \"page\": 18, \"index\": 5, \"width\": 822, \"height\": 225}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-06-10-731214-v11/fig-007.webp\", \"caption\": \"Table 5: Summary of RSA results across all experiments. Spearman r and permutation p-values (10,000 permutations, Nili et al. 2014) for all primary RSA comparisons. Raw Experiment 3 correlations largely reflect circular stimulus structure (the reference itself correlates with a circulardistance matrix at r = 0.978); the partial correlations isolate residual biological structure and are not significant at n = 50. Experiment 4 reports no RSA statistic: its RDMs fall below the numerical resolution of the responses from which they are computed.\", \"page\": 19, \"index\": 7, \"width\": 846, \"height\": 406}]"
+motivation: 需要独立于行为的度量来判别生物连接的真实性，因为行为逼真度并不保证内部表征的生物保真度。
+method: 应用表征相似性分析与中心核对齐，比较基于连接组架构的预训练果蝇视觉网络与稳定性约束的随机权重网络。
+result: 连接组网络展现光滑的圆形方向几何，而随机网络仅粗略捕捉；极性内方向调谐明确区分两类网络，但与生物参考的比较因圆形混淆而不可解释。
+conclusion: 表征几何能区分连接组约束与权重洗牌的接线，但要鉴别真实与训练随机接线仍需解决参考系混淆问题。
+---
+
+## 摘要
+生物布线对神经计算的实质贡献是什么？行为实验可以测试模型是否产生正确的输出，但无法确定其内部表征是否生物学上忠实。Brunton 等人(2026)将其具体化：一个用深度强化学习训练的秀丽隐杆线虫连接组产生了逼真的果蝇行走行为——然而该模型在生物学上毫无意义，因为行为保真度可以在没有生物保真度的情况下实现。我们需要一个群体水平的指标，来区分真实的生物布线与任意布线，且不需要行为解码器。我们提出表征几何作为这一指标。表征几何——即对不同刺激的群体响应之间成对距离的结构——捕捉了神经回路如何组织其表征空间，而不依赖于它所驱动的行为。我们将表征相似性分析(RSA)和中心核对齐(CKA)应用于Flyvis预训练的黑腹果蝇视觉系统集成(Lappalainen 等人，2024)：50个网络，其架构固定为Flyvis连接组(由部分电子显微镜来源重建)，并与受稳定性约束的随机基线(符号保持的权重重排，经拒绝采样以确保动态稳定性，n=50)进行比较。连接组约束网络产生了一种平滑的圆形方向几何，而随机网络只能粗略地捕捉：在ON边缘刺激上，RSA Spearman r=0.686(p<0.0001)；在ON+OFF边缘刺激上，r=0.846(p<0.0001)，且被CKA(两项实验中p<0.05)证实。此处的高r值表明，连接组约束几何是随机基线所近似结构的一个更精细版本，而非两者可互换。我们还将该几何与根据已发表摘要参数重建的T4/T5方向调谐参考(Maisak 等人，2013)进行了比较，但该比较在构建上无法解释：在仅ON刺激集合上，参考简化为四个宽度相同的冯·米塞斯曲线，并与纯角度距离矩阵相关，r=0.978，因此与它的原始相关性衡量的是圆形组织而非方向调谐保真度——连接组约束与随机之间的原始差距(Δr=0.330)等于圆形度差距(Δr=0.338)，且在剔除圆形结构后，残差在n=50时对任一网络均不显著。因此，生物保真度的证据依赖于每个极性通道内的方向结构，其中连接组约束网络在每个极性通道中均表现出强烈的圆形方向调谐(ON-ON r=0.937，OFF-OFF r=0.799)，而随机基线则没有(ON-ON r=0.38，OFF-OFF r=0.49)。在每个刺激极性内，ON通路编码方向的几何分离强于OFF通路(Δr=0.138，95% CI[0.091,0.236])；我们将其作为模型集成表征的一个特性报告，而非已确立的生物学差异：Maisak 等人(2013)发现T4和T5除对比极性外功能等价。为解决训练混淆，我们将未训练网络与重排基线进行比较。这一比较无法进行：未训练网络的表征相异矩阵的动态范围比其所衍生的响应低了浮点32舍入下限的11倍，这一点由无抵消度量交叉检查确认；该工作的早期版本报告了来自这些矩阵的边缘未训练网络相关性，那些是舍入的置换检验，已被撤回。因此，我们报告未训练连接组约束网络在其保持连接组约束的机制内没有可测量的表征几何，且不对训练前的布线先验做出任何断言。这些结果表明，在匹配训练下，表征几何能够区分连接组约束与权重重排的布线。它是否能区分真实布线与训练后的随机布线——这是Brunton的结果所迫切提出的问题——需要对随机布线的网络在相同任务上进行训练；我们直接进行了这一检验(实验5)，训练了两个零连接组方案(度保持与度破坏，各n=10)至相同任务，并将它们的几何与上述相同的生物参考进行比较。该比较继承了相同的圆形度混淆：一旦校正了圆形刺激结构，两个零方案的与生物学的原始相关性(r=0.832，r=0.738)便崩塌为统计噪声(r=-0.033，r=-0.011)。因此，我们提出表征几何作为候选保真度指标，其决定性检验——区分真实布线与训练后随机布线——已被尝试但尚未解决，并非因为缺乏努力，而是因为现有的生物学参考无法支持它，并勾勒出一条通往连接组规模仿真保真度指标的道路，这些仿真正接近哺乳动物皮层。
+
+## Abstract
+What does biological wiring actually contribute to neural computation? Behavioral experiments can test whether a model produces the right outputs, but they cannot determine whether its internal representations are biologically faithful. Brunton et al. (2026) made this concrete: a C. elegans worm connectome trained with deep reinforcement learning produces realistic Drosophila fly walking -- yet the model is biologically meaningless, because behavioral fidelity is achievable without biological fidelity. We need a population-level metric that discriminates real biological wiring from arbitrary wiring, without requiring a behavioral decoder. We propose representational geometry as that metric. Representational geometry -- the structure of pairwise distances between population responses to different stimuli -- captures how a neural circuit organizes its representational space, independently of what behavior it drives. We apply representational similarity analysis (RSA) and centered kernel alignment (CKA) to the Flyvis pretrained Drosophila melanogaster visual system ensemble (Lappalainen et al. 2024): 50 networks whose architecture is fixed to the Flyvis connectome (reconstructed from partial electron-microscopy sources), compared against stability-constrained random baselines (sign-preserving weight shuffles, rejection-sampled for dynamic stability, n = 50). Connectome-constrained networks produce a smooth circular direction geometry that random networks capture only coarsely: RSA Spearman r = 0.686 (p < 0.0001) for ON edge stimuli and r = 0.846 (p < 0.0001) for ON+OFF edge stimuli, corroborated by CKA (p < 0.05 in both experiments). A high r here indicates that the CC geometry is a more resolved version of a structure the random baseline approximates, not that the two are interchangeable. We also compared the geometry against a T4/T5 direction-tuning reference reconstructed from published summary parameters (Maisak et al. 2013), but that comparison proves uninterpretable by construction: on the ON-only stimulus set the reference reduces to four cardinal von Mises curves of identical width and correlates with a pure angular-distance matrix at r = 0.978, so raw correlations against it measure circular organization rather than direction-tuning fidelity -- the raw CC-versus-random gap ({Delta}r = 0.330) equals the gap in circularity ({Delta}r = 0.338), and the residual after partialling out circular structure is not significant for either network at n = 50. The biological-fidelity evidence therefore rests on the within-polarity direction structure, where the connectome-constrained network shows strong circular direction tuning in each polarity channel (ON-ON r = 0.937, OFF-OFF r = 0.799) against an explicit circular reference, and the random baseline does not (ON-ON r = 0.38, OFF-OFF r = 0.49). Within each stimulus polarity, the ON pathway encodes direction with stronger geometric separation than the OFF pathway ({Delta}r = 0.138, 95% CI [0.091, 0.236]); we report this as a property of the model ensemble's representations rather than an established biological difference: Maisak et al. (2013) find T4 and T5 functionally equivalent except in contrast polarity. To address the training confound, we compared untrained networks against shuffled baselines. That comparison cannot be made: the untrained networks' representational dissimilarity matrices have a dynamic range eleven times below the float32 round-off floor of the responses they derive from, confirmed by a cancellation-free metric cross-check; an earlier version of this work reported marginal untrained-network correlations from these matrices, and those are permutation tests on rounding and are withdrawn. We therefore report that untrained connectome-constrained networks have no measurable representational geometry within the regime where they remain connectome-constrained, and make no claim about a pre-training wiring prior. These results show that representational geometry distinguishes connectome-constrained from weight-shuffled wiring under matched training. Whether it discriminates real wiring from trained random wiring -- the case Brunton's result makes urgent -- requires training random-wired networks on the identical task; we ran this test directly (Experiment 5), training two null connectome schemes (degree-preserving and degree-breaking, n = 10 each) to the identical task and comparing their geometry against the same biological reference used above. This comparison inherits the identical circularity confound: both null schemes' raw correlations with biology (r = 0.832, r = 0.738) collapse to statistical noise (r = -0.033, r = -0.011) once corrected for circular stimulus structure. We therefore offer representational geometry as a candidate fidelity metric whose decisive test -- discriminating real wiring from trained random wiring -- has been attempted but remains unresolved, not for want of trying but because the available biological reference cannot support it, and sketch a path toward fidelity metrics for connectome-scale emulations approaching mammalian cortex.
+
+---
+
+## 论文详细总结（自动生成）
+
+## 研究价值与阅读建议
+* **关联方向**：本文与“神经先验/表征对齐”方向弱相关，主要提供来自连接组计算模型的外部视角，而非直接研究fMRI表征或脑解码。
+* **启发与意义**：核心启发在于提出了一种独立于行为输出的“表征几何”保真度度量框架，并警示了仅依赖行为相似性可能导致的虚假保真度结论，这对评估神经编码模型具有普遍意义。
+* **可借鉴点**：可借鉴其严谨的阴性结果报告方法和“参考基准”混淆风险的排查流程，以提高表征对比研究的稳健性。
+* **阅读建议**：建议关注其方法论困境及对所提框架的严谨反思，但无需深入其果蝇视觉系统的具体生物学细节。
+
+## 1. 论文的核心问题与整体含义
+* **核心问题**：生物学连接组对神经计算的**真实贡献**是什么？行为实验可以验证模型输出是否正确，但无法判断其**内部表征**是否具备生物保真度。
+* **问题背景**：当前连接组约束的网络仿真正在兴起，但缺乏原则性的保真度评估框架。Brunton等人的研究已表明，一个线虫的“大脑”经过训练可以控制果蝇的“身体”，产生逼真行为，但该模型在生物学上无意义，说明**行为保真度可以在没有生物保真度的情况下实现**。
+* **整体含义**：本文提出并使用“表征几何”作为候选的保真度指标，旨在从**群体编码层面**，独立于行为解码器，区分真实生物布线与任意布线，并探索了这一思路的潜力与当前面临的挑战。
+
+## 2. 论文提出的方法论
+* **核心思想**：**表征几何**捕捉的是神经回路对不同刺激的群体响应间的成对距离结构，反映了一个回路如何组织其表征空间。通过比较不同网络（如连接组约束网络和随机网络）的表征几何，可以评估生物布线的特独贡献。
+* **关键技术细节**：
+  * **表征相异矩阵的构建**：对每一对刺激条件$(i, j)$，计算群体响应向量$v_i$和$v_j$之间的余弦距离$D_{ij} = 1 - \frac{v_i \cdot v_j}{\lVert v_i \rVert \lVert v_j \rVert}$，从而构建表征相异矩阵。
+  * **主要分析工具 - 表征相似性分析**：通过计算两个表征相异矩阵的上三角元素之间的Spearman秩相关系数，来量化它们所代表的表征几何的相似度。使用刺激标签随机化置换检验评估显著性。
+  * **独立验证工具 - 中心核对齐**：直接对原始激活矩阵$X$和$Y$计算线性中心核对齐，公式为 $\text{CKA}(X, Y) = \frac{\text{HSIC}(K_X, K_Y)}{\sqrt{\text{HSIC}(K_X, K_X) \text{HSIC}(K_Y, K_Y)}}$，作为与表征相似性分析独立但可相互印证的几何相似性度量。
+* **生物学参考**：根据已发表的果蝇T4/T5神经元的汇总调谐参数（方向、宽度、极性），使用冯·米塞斯函数解析构建一个“生物参考”表征相异矩阵，作为比较的基准。
+
+## 3. 实验设计
+* **数据集/场景**：使用Flyvis预训练的**黑腹果蝇视觉系统模型集成**（共50个模型），该模型架构完全约束于从部分电子显微镜数据重建的Flyvis连接组，并经过光流估计任务的训练。
+* **刺激集**：
+  * **实验1**：12个方向的**ON边缘**运动刺激。
+  * **实验2**：24个条件（12个方向 × ON/OFF两种极性）的**ON+OFF边缘**运动刺激。
+* **对比基准**：
+  * **稳定性约束的随机基线**（主要基线）：对训练好的网络，将其所有权重参数在**保持兴奋/抑制符号不变**的前提下进行随机重排，并通过拒绝采样确保网络的**动态稳定性**。
+  * **未训练网络**（实验4）：在网络参数初始化后、未进行任何任务训练前，即在“连接组先验”状态下进行比较。
+  * **训练后的零连接组网络**（实验5）：创建并**从头训练**两种随机连接组方案（保度和破度）的网络，完成相同的光流任务。
+* **对比目标**：将以上不同网络产生的表征相异矩阵进行相互比较，并与基于真实生理数据（T4/T5调谐）构建的生物参考表征相异矩阵进行比较。
+
+## 4. 资源与算力
+* 论文提到实验1、2和4是在**Google Colab**平台上使用**T4 GPU**运行的。中心核对齐验证和事后分析则在中央处理器上运行。未报告任何高性能计算集群、多卡训练或巨额算力消耗。
+
+## 5. 实验数量与充分性
+* **实验数量**：论文设计了**5个主要实验**，层层递进。
+* **实验充分性与公平性**：
+  * **正面结果（实验1、2）**：验证了核心假设，实验设计较充分，包含了两种复杂度刺激集、两种分析指标（表征相似性分析、中心核对齐）、不同随机基线构造和稳定性检查，结论稳健。
+  * **阴性结果与自我纠错（实验3、4、5）**：论文花费大量篇幅报告并深入分析实验失败的原因，体现了高度的**客观性和严谨性**。作者主动揭示了生物参考被刺激结构混淆、未训练网络响应低于数值精度导致统计结果无效、以及训练后随机网络的比较再次陷入同源混淆等一系列问题，并撤回了先前版本的错误结论。这种对阴性结果的深入剖析使得论证过程非常充分且客观。
+  * **公平性**：对比公平，训练条件、刺激输入和评估流程在不同网络间保持一致。
+
+## 6. 论文的主要结论与发现
+* **连接组约束网络产生独特几何**：在匹配训练下，连接组约束网络产生了平滑的**圆形方向几何**，而稳定性约束的随机网络只能粗略捕捉，两者的表征几何具有统计上显著但非互换的相关性。
+* **极性内方向结构是关键区分点**：在ON和OFF极性通道内部，连接组网络表现出强烈的圆形方向调谐，而随机网络则没有，这提供了最清晰的区分证据。
+* **生物参考系存在严重混淆**：使用现有T4/T5数据构建的生物参考，其结构几乎完全由刺激的圆形结构决定（$r = 0.978$），导致与它的相关性衡量的是“圆形度”而非“方向调谐保真度”，无法用于评估。
+* **未训练网络无信号**：未训练的网络所产生的响应过于相似，其表征相异矩阵的动态范围**低于数值精度**，无法进行有意义的测量，因此无法探讨“预训练布线先验”。
+* **决定性检验未决**：区分真实布线与“训练后”随机布线的最终测试（实验5）因继承了相同的生物参考混淆而未能得出结论。
+
+## 7. 优点
+* **问题定义清晰，立意高远**：直接挑战了后连接组时代“逼真仿真”的核心评估难题，并以一个有影响力的反例（Brunton 2026）开篇，论证有力。
+* **方法论严谨，自我纠错精神突出**：这是本文最大的亮点。作者没有掩饰失败的实验，而是投入大量精力深入剖析其根本原因（如数值精度、参考混淆），并主动撤回先前错误结论，体现了极高的学术诚信和方法学标准。
+* **多维度验证**：结果通过多种刺激集、两种独立的相似性指标（表征相似性分析、中心核对齐）和多种基线的验证，增加了主要正面发现的可靠性。
+* **提供了实用的分析检查项**：提出了在进行类似分析前，必须检查表征相异矩阵动态范围与数值精度，以及检查生物参考是否与刺激结构混淆等具体、可操作的质控建议。
+
+## 8. 不足与局限
+* **模型代表性局限**：结论基于单一种类的模型（果蝇视觉系统）和单一任务（光流估计），其结果泛化到其他物种、脑区和任务的能力未知。
+* **生物参考的限制**：生物参考存在根本性缺陷，导致论文最雄心勃勃的目标（与真实生物学对齐）未能达成。这是本研究当前最核心的局限。
+* **训练混淆悬而未决**：尽管作者认识到并尝试解决训练与布线的混淆（实验4和5），但实验4因数值问题失败，实验5因参考问题失败，导致“生物布线本身贡献了何种表征先验”这一关键问题仍未得到解答。
+* **噪声协方差矩阵估计不佳**：用于计算“白化表征相异矩阵”的噪声协方差矩阵条件数极高（$\sim 10^7$），使得该部分鲁棒性分析的结果高度依赖正则化参数的选择。
+
+## 9. 总结
+本研究为连接组计算模型的评估领域做出了重要贡献。它不仅提出了“表征几何”这一有前景的保真度指标，并提供了初步证据，更因其**方法论上的严谨性、对阴性结果的深刻反思以及对所提框架固有挑战的坦诚剖析**，为整个领域提供了宝贵的知识和行为准则。
+
+（完）

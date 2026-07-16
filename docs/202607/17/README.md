@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-17</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-17 05:08 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日神经解码突破味觉偏好，几何表示驯服“顿悟”现象。</p>
-<p>值得一看：未标记数据大幅提升神经群体解码的泛化能力；表征几何结构能有效控制深层网络“顿悟”般的泛化过程。</p>
-<p>想了解AI如何更懂大脑与学习？可从这两篇精读与“顿悟”系列深入。</p>
+      <p>今日精读揭示：利用未标记数据可大幅提升神经群体解码的泛化能力，而个体味觉偏好虽能预测皮层动态，却会被后天经验重塑。</p>
+<p>最值得关注的方向是“无标签数据如何让脑机接口更通用”与“主观偏好如何在大脑活动中被改写”。</p>
+<p>下一步不妨思考：你我的日常经验，正在怎样悄悄重写大脑对味道的“本能”反应？</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/17/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -159,3 +158,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
