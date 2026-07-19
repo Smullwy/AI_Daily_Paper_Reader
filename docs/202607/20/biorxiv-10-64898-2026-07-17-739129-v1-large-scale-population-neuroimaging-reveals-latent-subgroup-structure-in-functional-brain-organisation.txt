@@ -1,0 +1,1162 @@
+Title: Large-scale population neuroimaging reveals latent subgroup structure in functional brain organisation
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.07.17.739129v1.full.pdf
+
+Number of Pages: 58
+
+Markdown Content:
+## Large-scale population neuroimaging reveals latent subgroup structure 1
+
+## in functional brain organisation 2
+
+Authors 3S Rezvan Farahibozorg 1*, Stephen M Smith 1, Lloyd T Elliott 2, Mark W Woolrich 1,3 
+
+4
+
+Affiliations 5
+
+> 1
+
+FMRIB, Oxford Centre for Integrative Neuroimaging, Nuffield Department of Clinical 6Neurosciences, University of Oxford, Oxford, UK. 7
+
+> 2
+
+Department of Statistics and Actuarial Science, Simon Fraser University, Burnaby, Canada 8
+
+> 3
+
+OHBA, Oxford Centre for Integrative Neuroimaging, Department of Psychiatry, University of 9Oxford, Oxford, UK. 10 
+
+*Correspondence to: rezvan.farahibozorg@ndcn.ox.ac.uk 11 
+
+12 
+
+Abstract 13 Large-scale functional MRI datasets provide resources to understand inter-individual variation in 14 human brain function and relate this variation to behaviour and health. However, most existing 15 approaches fail to bridge the gap between population-average and individual-specific modelling, 16 limiting the identification of structured subgroup heterogeneity across individuals. Here we 17 develop a scalable framework for unsupervised subgroup discovery in population-scale resting-18 state fMRI data from 19,993 UK Biobank participants. Using stochastic Probabilistic Functional 19 Modes, we estimate population-informed individualised spatial topographies of resting-state 20 networks and derive high-dimensional functional fingerprints for each participant. We then 21 identify latent subgroups by applying Gaussian mixture modelling independently to each 22 fingerprint feature, yielding hundreds of reproducible subgroup definitions across 1,000 23 functional dimensions. We report approximately 5,700 significant differences between 24 subgroups in a range of non-imaging phenotypes related to cognition, lifestyle, physical and 25 mental health. Spatial organisation of the brain networks reveals distinct subgroup differences 26 in sensory-motor and higher-order cognitive systems, in addition to correspondence with 27 regional patterns of genetic variability across the brain. Together, these results demonstrate that 28 large-scale functional neuroimaging contains rich latent subgroup structure linked to behavioural 29 and biological variation. Our framework provides an interpretable and scalable basis for stratified 30 models of human brain function and population neuroscience. 31 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+2
+
+# 1 Introduction 32 
+
+Functional MRI provides non-invasive recordings of brain activity and connectivity. It has been 33 instrumental in characterising various modes of human brain function, e.g., attention, language, 34 sensorimotor, and the default mode. Each mode is a system of interconnected voxels and/or 35 regions that work in synchrony, such that a single time course can be used to summarise their 36 activity. Functional modes have been characterised during cognitive tasks as well as the intrinsic 37 “resting state” brain activity (a.k.a. resting state networks, RSNs), and structured differences in 38 brain disorders have been reported (Biswal et al., 1995; Buckner and Vincent, 2007; Calhoun et 39 al., 2008; Damoiseaux et al., 2006; Raichle et al., 2001). With growing large-scale brain imaging 40 datasets, e.g., Human Connectome Project (Smith et al., 2013), UK Biobank (Miller et al., 2016) 41 and ABCD (Casey et al., 2018), neuroimaging research has been given access to open resources 42 to examine the brain at population scales. This is fundamentally different from conventional 43 neuroimaging datasets, where small homogeneous cohorts are available (Bijsterbosch et al., 44 2018; Button et al., 2013; Szucs and Ioannidis, 2020). Here, we exploit the power of big data, and 45 the new generation of individualised brain function mapping techniques, to characterise axes of 46 population variations and emergent subgroups based on 19,993 subjects in UK Biobank. 47 Brain function, and its variability, have been conventionally characterised for population 48 averages, to understand “an average brain” (Samanez-Larkin and D’Esposito, 2008; Woolrich et 49 al., 2025), and to compare the average brains across various cohorts, e.g., dementia patients vs 50 age-matched healthy adults (Verdi et al., 2021). Therefore, while these studies have been 51 important in understanding the mechanistic and consensus patterns of changes in various 52 disorders, cross-individual variability of the brain function in health and diseases remain poorly 53 understood. This has been partly due to the limitations of the neuroimaging datasets, where only 54 small cohorts of < 50 people were available (Szucs and Ioannidis, 2020), and partly due to the 55 limitation of the conventional brain connectivity modelling techniques being built on models of 56 group averages (Calhoun et al., 2001; Yeo et al., 2011). 57 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+3To address these issues, the next generation of the brain function mapping techniques have 58 introduced individualised functional modes (Guo and Tang, 2013; Manning et al., 2018; Mejia et 59 al., 2020). Using these new tools, growing evidence has shown that functional modes vary across 60 individuals, and that they can be predictive of traits and diseases. However, these studies have 61 predominantly focussed on “functional connectivity” between the modes. More specifically, 62 after defining functional modes as either distributed systems (e.g., Default Mode or Dorsal 63 attention), or localised parcels in atlases (e.g., Schaefer (Schaefer et al., 2018) or HCP’s 64 Multimodal (Glasser et al., 2016) Parcellations), it has often been of interest to find temporal 65 correlations between the timecourses of these modes, and to use these functional connectivity 66 features as personalised fingerprints, and in phenotype prediction pipelines (Bijsterbosch et al., 67 2018; Finn et al., 2015; He et al., 2022). 68 Importantly, however, cross-individual variability in brain function is not limited to temporal 69 features – it can also be reflected in the spatial organisation of the functional modes (Bijsterbosch 70 et al., 2018; Harrison et al., 2020). When modelled accurately for every individual person, the 71 spatial organisation of the modes has been shown to be associated with, and to be predictive of, 72 cognition, emotion, lifestyle, and health. Recent studies have provided convincing evidence for 73 this: these include hierarchical parcellation schemes that yield individualised atlases of the brain 74 (i.e., “hard parcellations”), as well as hierarchical matrix factorisation schemes that yield 75 individualised RSNs (i.e., “soft parcellations”) (Farahibozorg et al., 2025; Kong et al., 2019). 76 In this study, we build on these recent advances ( Figure 1 ), in particular using stochastic 77 Probabilistic Functional Modes (sPROFUMO) (Farahibozorg et al., 2021) on 19,993 subjects from 78 UK Biobank to: a) characterise continuous fingerprints, i.e., axes of population variations in the 79 spatial organisation of the brain’s functional modes; b) identify reproducible latent subgroups 80 based on non-Gaussianities in these fingerprint features, and assess the differences between 81 these subgroups. By combining continuous fingerprints with discrete subgroup discovery, our 82 framework explicitly bridges population-average and individual-specific models of functional 83 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+4brain organisation. Importantly, we used fully unsupervised interpretable (“white-box”) 84 techniques for both steps. First, to characterise the fingerprint features, we focussed on 85 techniques that identify shared patterns of population variations across multiple functional 86 modes (using linked Independent Component Analysis, FLICA) (Gong et al., 2021; Groves et al., 87 2011), as well as cross-subject similarities in functional organisation of the brain (subject ICA). 88 Next, we applied Gaussian Mixture Modelling (GMM) with integrated optimisation methods to 89 identify discrete subgroups. Rather than deriving a single clustering of the entire population, the 90 GMM was applied to each fingerprint feature separately (i.e., 1D GMMs instead of a multivariate 91 GMM applied to the full matrix of fingerprint features). This enables the identification of multiple 92 subgroup definitions across different axes of functional variation, allowing distinct aspects of 93 brain organisation to be related to different behavioural and biological characteristics. 94 Using FLICA and subjectICA fingerprints, together consisting of 1,000 fingerprint features from 95 which we identified 789 subgroup definitions, we show that the discovered subgroups are highly 96 reproducible across independent splits of 19,993 UK Biobank participants. Although identified 97 entirely without phenotype information, these subgroups exhibited widespread differences in 98 cognition, lifestyle, physical health and mental health. Furthermore, subgroup difference maps 99 revealed distinct spatial organisation across sensory-motor and higher-order cognitive systems. 100 Finally, continuous fingerprint features and discrete subgroup representations showed 101 correspondence with regional patterns of genetic variation and genes associated with 102 neuropsychiatric disorders, health-related lifestyle and brain morphology. Together, these 103 findings demonstrate that large-scale functional neuroimaging contains reproducible latent 104 subgroup structure that links individual differences in functional brain organisation to 105 behavioural and biological variation. 106 107 108 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+5109 
+
+Figure 1 An illustration of the pipeline for subgroup identification based on functional MRI. a) 
+
+Starting from preprocessed resting state fMRI (rfMRI) recordings for 19,993 UK Biobank subjects, 
+
+individual-specific Probabilistic Functional Modes (PFMs) were estimated using the sPROFUMO 
+
+framework. b) Spatial topographies of these modes ( N!"#$%&' × N ()*%+ (× N ,-. = k) ) were used as the 
+
+basis for subgroup characterisation. c) PCA (multimodal MIGP with linked U estimated across PFMs) and 
+
+Dictionary Learning were subsequently used for dimensionality reduction across subject and voxel axes, 
+
+respectively: PCA reduced spatial maps of size N!"#$%&' (= 19,993) by N()*%+ (= 228,079) to V (k) of size 
+
+N/012 (= 1,000) by N()*%+ . Dictionary Learning further reduced V (k) matrices of size N/012 by N()*%+ to B (k) 
+
+of size N/012 by N30&4 (= 1,000). d) Dictionary Learning feature weightings (B (k) ) were then fed into bigFLICA 
+
+(a linked ICA method designed for large datasets), the output of which was weighted by PCA’s subject 
+
+weightings to yield H of size N!"#$%&' by N5+0&6 (= 500) . e) bigFLICA output was in turn fed into subject ICA 
+
+to characterise independent axes of subject variability, yielding G of size N!"#$%&' by N!0&6 (= 500) . f) FLICA 
+
+and subjectICA methods provided fingerprint features that were used as input to 1D Gaussian Mixture 
+
+Modelling over subjects for subgroup characterisation. PFM: Probabilistic Functional Modes; PCA: Principal 
+
+Component Analysis; ICA: Independent Component Analysis. 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+6
+
+# 2 Materials and Methods 110 
+
+## 2.1 Data 111 
+
+2.1.1 UK Biobank (UKB) 112 
+
+Twenty thousand (20,000) subjects were randomly drawn from the May 2019 release of the UK 113 Biobank (UKB) data (application number 8107, all participants are over 45 years old). North West 114 Multi-centre Research Ethics Committee (MREC) has provided ethical approval to UKB for data 115 collection and sharing (http://www.ukbiobank.ac.uk/ethics/), and by extension, these ethical 116 regulations cover our study. All participants completed written informed consent prior to being 117 scanned. Resting state fMRI data in UKB consists of 1 recording session with TR = 0.735s, 490 (or 118 530) time points per session, providing ~6 minutes of recording per participant. The data used 119 here was in volumetric space and it was preprocessed using UKB’s standard preprocessing 120 pipeline (Alfaro-Almagro et al., 2018). The preprocessing steps consisted of quality control (QC), 121 brain extraction, motion correction, artefact rejection using FSL-FIX, and high-pass temporal 122 filtering (Gaussian-weighted least-squares straight line fitting with sigma of 50.0s). Subsequently, 123 data were registered to standard 2mm MNI space. According to our previous investigations into 124 subject-specific modelling of functional modes (Farahibozorg et al., 2021), and to improve the 125 SNR of the data, we applied an additional spatial smoothing to obtain a final 5mm FWHM 126 smoothness (versus with the original 2mm in UKB pipeline). 127 
+
+## 2.2 Estimating continuous fingerprint features and discrete subgroups 128 
+
+2.2.1 Probabilistic Functional Modes (PFMs) 129 
+
+Probabilistic Functional Modes (PFMs) used in this study are individualised functional modes that 130 are obtained from applying sPROFUMO to rfMRI data from 20,000 UKB subjects. Seven subjects 131 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+7were removed from the subsequent analysis steps due to incomplete imaging confounds data, 132 leaving 19,993 for the rest of the analyses. In this subsection, we present a summary of the 133 algorithm and brief details of inference and implementation. 134 
+
+2.2.1.1 Generative model 135 
+
+A detailed description can be found in our previous papers (Farahibozorg et al., 2021; Harrison 136 et al., 2020). sPROFUMO is a hierarchical Bayesian matrix factorisation model that can be used 137 to model functional modes in every individual simultaneously in big fMRI data. The group model 138 provides top-down regularisation for individual specific modelling, and vice versa. 139 For each subject and run, fMRI timeseries ( Dsr ) are decomposed into spatial maps ( Ps), time 140 courses ( Asr ) and amplitudes ( Wsr ), with residuals 𝜺 !" :141 
+
+𝑫 𝒔𝒓 = 𝑷 𝒔 𝑾 𝒔𝒓 𝑨 𝒔𝒓 + 𝜺 𝒔𝒓 Eq. 1 142 
+
+where 𝑫 𝒔𝒓 ∈ ℝ𝑵 𝒗 ×𝑵 𝒕 , 𝑷 𝒔 ∈ ℝ𝑵 𝒗 ×𝑵 𝒎 , 𝑾 𝒔𝒓 ∈ ℝ𝑵 𝒎 ×𝑵 𝒎 , 𝑨 𝒔𝒓 ∈ ℝ𝑵 𝒎 ×𝑵 𝒕 , s stands for subject, r for 143 scanning session. N v, N t and N m denote the number of voxels, time points and modes, 144 respectively. 145 The spatial maps (or just “maps”) of PFMs across the brain voxels are characterised as 𝑷 !. 𝑷 ! is 146 estimated at the subject level with group-level map 𝑷 ' used as prior, and both 𝑷 ! and 𝑷 ' are 147 probabilistic. A hierarchical Bayesian Double-Gaussian Mixture Model (DGMM) is used to model 148 
+
+𝑷 ! where the PFM signal and background spatial noise are each modelled using one Gaussian 149 component of the DGMM. PFM time courses, 𝑨 !" , are modelled per subject and run. A 150 multivariate normal distribution is used to model 𝑨 !" , and signal timecourse can be HRF-151 constrained, when needed (and used here). Temporal correlations between PFM timecourses 152 (precision matrix 𝜶 !" ) is also modelled hierarchically, and it takes the form of a Wishart 153 distribution. HRF-constrained autocorrelations can be incorporated in the modelling of 𝜶 !" . PFM 154 amplitudes, 𝑾 !" , which are used to capture the variance of timecourses, are modelled using a 155 hierarchical multivariate normal distribution and are set to be diagonal. Therefore, all the PFM 156 modelling elements are fully probabilistic, at both subject and group levels. 157 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+8
+
+2.2.1.2 Inference and application details 158 
+
+Stochastic Variational Bayes (sVB) is used as the inference technique in sPROFUMO. Specifically, 159 during the inference, subjects from big data are divided into small batches, and model 160 parameters are optimised to obtain an approximate distribution, 𝑞 , that is as close as possible to 161 the true posterior. The group model parameters, as Bayesian priors, are used for top-down 162 regularisation of subject model parameters within each batch, and posterior distributions are 163 summed and fed back to obtain an updated group model. Importantly, group-level parameters 164 are treated as “global” parameters that are continuously updated over batches, and the model 165 iterates between group and subject updates until convergence. Default parameters, as described 166 in (Farahibozorg et al., 2021) were used for application to UKB: forget rate ( 𝛽 ) = 0.6, to specify 167 global parameter updates relying on the current compared with previous batches. Delay 168 parameter ( 𝜏 ) = 5, to specify the contribution of the initial batches to the overall inference. Batch 169 size of 50 subjects was used, and each subject was normally picked in 2 to 3 batches (2.5 on 170 average), and the overall group model was updated 5,000 times. 171 sPROFUMO’s internal initialisation applies a few preprocessing steps to the UKB-processed rfMRI 172 data, including voxel-wise de-meaning and variance normalisation. The first step of Bayesian 173 model initialisation involves the estimation of a set of initial maps to start the inference from a 174 realistic set of group-level parameters (i.e., to start the model with reasonable priors). These 175 initial maps are estimated using MELODIC’s Incremental Group-PCA (MIGP) (Smith et al., 2014) 176 followed by variational ICA, both of which are implemented internally within s/PROFUMO 177 software. Subsequently, the group model is initialised using hyperpriors and the initial maps, and 178 used for regularisation of the matrix factorisation that is conducted at subject level, as elaborated 179 earlier, to start the full stochastic VB inference. 180 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+9
+
+2.2.2 FLICA and Subject ICA 181 
+
+Subject-specific PFM spatial maps (P) were fed into the following steps to acquire two sets of 182 features (which together comprise the subjects' fingerprints): FLICA features (H) and subjectICA 183 features (G). Conceptually, FLICA finds spatially-independent components (based on spatially 184 non-Gaussian distributions) by extracting shared information across multiple PFMs, whereas 185 Subject ICA finds subject-independent components (i.e., based on non-Gaussian distributions in 186 the other direction – subject-wise, not spatially). As such, they are expected to provide distinct 187 bases for subsequent subgroup modelling. 188 
+
+2.2.2.1 Multimodal MELODIC’s Incremental Group-PCA decomposition 189 
+
+𝑷 ()) = 𝑼 𝑽 ()) Eq. 2 190 
+
+where 𝑷 ()) ∈ ℝ+:×+; represents the spatial maps for a mode k, 𝑼 ∈ ℝ+:×+<=>? represents 191 Principal Components, and 𝑽 ()) ∈ ℝ+<=>? ×+; represents MIGP spatial maps that are fed into the 192 subsequent sparse dictionary learning decomposition. 𝑁 ,-'. = 1,000 , 𝑁 ! = 19 ,993 and 193 
+
+𝑁 / = 228 ,079 .194 
+
+2.2.2.2 Sparse Dictionary learning 195 
+
+𝑽 ()) = 𝑩 ())𝑸 ()) Eq. 3 196 
+
+where 𝑩 (𝒌) ∈ ℝ+<=>? ×+@=AB represents feature loading, and 𝑸 (𝒌) ∈ ℝ+@=AB ×+; is the sparse 197 spatial dictionary basis. 𝑁 ,-'. = 1,000 , 𝑁 1-23 = 1,000 and 𝑁 / = 228 ,079 .198 
+
+2.2.2.3 bigFLICA 199 
+
+𝑩 (𝒌 ) = 𝒊𝒄𝒂𝑨 𝒊𝒄𝒂𝑺 𝑻 (𝒌 ) Eq. 4 200 
+
+where 𝑖𝑐𝑎𝐴 ∈ ℝ+<=>? ×+CD=AE represents the mixing matrix and 𝒊𝒄𝒂𝑺 𝑻 ∈ ℝ+CD=AE ×+@=AB represents 201 the independent components. 𝑁 56-27 = 500 .202 
+
+2.2.2.4 BigFLICA fingerprint features 203 
+
+𝑯 = 𝑼 𝒊𝒄𝒂𝑨 Eq. 5 204 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+10 where U and icaA are derived from steps 2.2.2.1 and 2.2.2.3, respectively, yielding 205 
+
+𝑯 ∈ ℝ+:×+CD=AE . These are referred to as FLICA fingerprint features in the following sections. The 206 FLICA fingerprint features H are subsequently used as the input to SubjectICA: 207 
+
+2.2.2.5 SubjectICA fingerprint features 208 
+
+𝑯 𝑻 = 𝑼𝟐 𝑺𝟐 𝑽𝟐 𝑻 Eq. 6 209 
+
+where H is derived from step 2.2.2.4, and further decomposed/whitened using SVD into 210 
+
+𝑼𝟐 ∈ ℝ+CD=AE ×+:=AE , 𝑺𝟐 ∈ ℝ+:=AE ×+:=AE and 𝑽𝟐 𝑻 ∈ ℝ+:=AE ×+: . Next, ICA is applied to 𝑽𝟐 to obtain 211 
+
+𝑽 𝟐 = 𝑮 𝒁 𝑻 Eq. 7 212 
+
+Where 𝑮 ∈ ℝ+:×+:=AE , 𝒁 8 ∈ ℝ +:=AE ×+:=AE . G is referred to as subjectICA fingerprint features in 213 the following sections. 𝑁 !-27 = 500 in this paper. 214 
+
+2.2.3 Subgroup estimation using Gaussian Mixture Modelling 215 
+
+Features obtained from FLICA ( H) and subjectICA ( G) were fed into subgroup modelling steps 216 independently. Here we describe the process using FLICA ( H) notation; but note there is an 217 equivalent equation using subjectICA ( G) notation: 218 
+
+𝐇 = [𝐡 𝟏 𝐡 𝟐 ⋯ 𝐡 𝑵 𝒇𝒍𝒊𝒄𝒂 ] Eq. 8 219 
+
+where 𝑯 ∈ ℝ+:×+CD=AE and 𝐡 ; = (ℎ<;, ℎ=;, … , ℎ+:;)> are the Ns subject weights for ( FLICA) 220 
+
+feature j .221 
+
+2.2.3.1 Gaussian Mixture Modelling (GMM, per column) 222 
+
+The distribution of each column 𝐡 ; is modelled using a GMM with 𝐾 ; subcomponents (i.e., 223 subgroups): 224 
+
+𝑝 aℎ ;bΘ ?K d = ∑ 𝜋 )𝒩hℎ ; i𝜇 ), 𝜎 )
+
+> =
+
+l 
+
+> ?K
+> )@<
+
+Eq. 9 225 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+11 where 𝜋 ) represents the mixing weight for the k th component (∑𝜋 ) = 1). 𝒩 (⋅) represents 226 Gaussian distribution with mean 𝜇 ) and variance 𝜎 )
+
+> =
+
+. ΘA represents the set of model 227 parameters {(𝜋 ), 𝜇 ), 𝜎 )
+
+> =
+
+) ∣ 𝑘 = 1, … , 𝐾 ;}.228 
+
+2.2.3.2 Optimisation and Model Selection 229 
+
+The optimal number of subcomponents, 𝐾 ;∗, is selected from 𝐾 ; ∈ {1, 2, … , 20 } based on two 230 criteria, Bayesian Information Criterion (BIC) and Davies-Bouldin Index (DBI), as follows: 231 a) Bayesian Information Criterion (BIC) 232 
+
+BIC hK Cl = −2 ⋅ ln yL aΘ ?L
+
+{ bh Cd} + P ?K ⋅ ln(N D) Eq. 10 233 where LaΘ Kj
+
+{ bh Cd is the maximised likelihood of the 𝐾 ;-component model given the data. 𝑃 AM is 234 the number of free parameters (3K j - 1), and 𝑁 ! is the number of subjects. The optimal 235 number 𝐾 ;EFG was selected as the number of subcomponents that minimised the BIC: 236 
+
+𝐾 ;EFG = arg min  
+
+> AM∈{<,…,=L }
+
+BIC h𝐾 ;l Eq. 11 237 
+
+238 
+
+b) Davies-Bouldin Index (DBI) 239 
+
+DBI hK Cl = <
+
+> ?K
+
+∑ max  
+
+> 6N)
+
+a !NO!D
+
+> 1(2 N,2 D)
+
+d 
+
+> ?K
+> )@<
+
+Eq. 12 240 
+
+where 𝑠 ) is the average distance within cluster 𝑘 (intra-cluster scatter), and 𝑑 (𝑐 ), 𝑐 6) is the 241 distance between centroids 𝑐 ) and 𝑐 6 (inter-cluster separation). The optimal number 𝐾 ;PEF was 242 selected as the number of subcomponents that minimised the DBI (DBI = 0 is the optimal score): 243 
+
+𝐾 ;PEF = arg min  
+
+> AM∈{<,…,=L }
+
+DBI h𝐾 ;l Eq. 13 244 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+12 The final number of subgroups 𝐾 ;∗ for component 𝑗 was selected as the minimum of the two 245 optimal numbers: 𝐾 ;∗ = min h𝐾 ;EFG , 𝐾 ;PEF l. This was repeated for j = 1, 2, …, 𝑁 56-27 . The same 246 process was applied to columns of G, the subject ICA features, j = 1, 2, …, 𝑁 !-27 .247 This approach yields the optimal number of subgroups from a mathematical point of view. 248 However, for example, with super-Gaussian distributions that have long tails at both ends, the 249 GMM would typically merge both tails as one Gaussian distribution (i.e., one subgroup). 250 However, biological interpretation of the two tails is expected to be distinct: e.g., if one 251 represents the highest end of a fingerprint feature related to fluid intelligence, the other will 252 represent the lowest end, and thus, it is best to split the two. Therefore, in scenarios like this we 253 split that component into two halves, each consisting of one end of the distribution. 254 It is worth noting that we applied a separate 1D GMM to each fingerprint feature separately (i.e., 255 columns of H and G). This was preferred over a multivariate GMM applied to the full matrix of 256 fingerprint features at once. The latter would provide a single definition of subgroup divisions 257 across the entire feature space, whereas the 1D approach used here can potentially provide 258 hundreds of distinct subgroup divisions, each possibly linked to its own specific set of phenotypes 259 or disease. In the Results section, we use Kurtosis and Skewness to characterise non-Gaussianities 260 in each fingerprint feature. Kurtosis = 0 indicates a Gaussian distribution while Kurtosis > 0 and < 261 0 would indicate super-Gaussian and sub-Gaussian distributions, respectively. Skewness = 0 262 indicates a Gaussian distribution while Skewness > 0 and < 0 represent long tails on the right-263 hand and left-hand side, respectively. 264 
+
+2.2.4 Confound Removal in UK Biobank 265 
+
+Imaging confounds refer to factors such as head motion or head size, that tend to correlate with 266 both non-imaging phenotypes (e.g., disease scores) and brain-imaging data. This can become 267 particularly problematic in studies with big data populations (high sample sizes providing high 268 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+13 statistical power), when associations between imaging and non-imaging variables are of interest: 269 confounds can significantly affect the interpretability of the findings (Alfaro-Almagro et al., 2020). 270 In this study, imaging confounds can additionally impact and bias subgroup identifications. 271 Therefore, we deconfounded the raw subject-specific PFM spatial maps. For this purpose, Ps in 272 Eq. 1 was concatenated across subjects and deconfounded, before conducting the subsequent 273 feature estimation (i.e., FLICA and Subject ICA, see section 2.2.2) and subgroup identifications. 274 This was done by linearly regressing out the confounds from the PFM spatial maps, and where 275 relevant, the non-imaging variables. The list of imaging confounds is included in Table S 1. 276 
+
+2.2.5 Non-imaging derived phenotypes (nIDPs) 277 
+
+We used 436 non-Imaging-Derived Phenotypes (nIDPs) from UK Biobank to test phenotypical 278 differences between subgroups, and Canonical Correlation Analyses between imaging and non-279 imaging variables, as explained below. These nIDPs spanned six categories: cognitive, mental 280 health, alcohol, tobacco, cardiovascular and bone health. 281 
+
+Cognitive nIDPs : 68 out of 1172 nIDPs related to cognitive tests were selected based on two 282 criteria: firstly, we manually prefiltered the outcome measures, to only include active metrics of 283 subjects’ performance. For example, under the “Reaction Time” cognitive test, which consists of 284 viewing two cards (A and B) and pressing buttons when identical, “Mean time to correctly identify 285 matches”, was labelled as active (included) whereas “Index for card A in round” was labelled as 286 passive (excluded). Secondly, only tests that had a non-missing value in at least 25% of the 287 subjects were included. The final list consisted of 68 cognitive nIDPs in the following categories: 288 Reaction time, Trail making, Matrix pattern completion, Numeric memory, Prospective memory, 289 Pairs matching, Symbol digit substitution and Fluid intelligence. Additional details of these nIDPs 290 can be found in Table S 2 and here: https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=100026. 291 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+14 
+
+Mental Health nIDPs: We selected 142 metrics related to mental health that had a non-missing 292 value in at least 25% of the subjects. Details of these nIDPs are available in Table S 3 and the 293 following link: https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=100060. 294 
+
+Alcohol and Tobacco nIDPs: We selected 37 Alcohol-related and 19 Tobacco-related metrics that 295 had a non-missing value in at least 25% of the subjects. More details about these nIDPs are 296 available in Table S 4, Table S 5 and the following links: 297 https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=100051 and 298 https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=100058. 299 
+
+Cardiovascular nIDPs : 77 out of 992 nIDPs related to cardiovascular health were selected based 300 on two criteria: firstly, we manually prefiltered the nIDPs and excluded the metrics that were not 301 directly health-related. For example, “Systolic blood pressure, manual reading (0.0)” and “LV 302 stroke volume (2.0)” were included but “Program category (0.0)” and “Completion status of test 303 (0.0)” were excluded. Secondly, only tests that had a non-missing value in at least 25% of the 304 subjects were included. Details of these nIDPs can be found in Table S 6 and the following links: 305 https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=100011, 306 https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=104 and 307 https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=100012 . 308 
+
+Bone Health nIDPs: We selected 93 metrics related to bone health that had a non-missing value 309 in at least 25% of the subjects. More details about these nIDPs are available in Table S 7 and the 310 following link: https://biobank.ctsu.ox.ac.uk/crystal/label.cgi?id=100018. 311 
+
+2.2.6 Statistical comparison of phenotypes between subgroups 312 
+
+As elaborated earlier in 2.2.2 and 2.2.3, FLICA and subjectICA features and the subsequent 313 subgroup estimations were unsupervised. We next tested if the subgroups were significantly 314 different with respect to each of the 436 phenotypes described in 2.2.5. For this purpose, for 315 each FLICA/subjectICA feature, and each nIDP, we compared the 𝐾 ;∗ identified subgroups using 316 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+15 the Kruskal-Wallis test, a non-parametric test that allows the comparison of two or multiple 317 subgroups. The obtained p-values were then adjusted for multiple comparisons using both 318 Bonferroni and (separately) FDR criteria (correcting across features x nIDPs), and results were 319 summarised using Manhattan plots. The FLICA/subjectICA features for each nIDP that passed the 320 Bonferroni correction threshold will be referred to as nIDP-hits in the rest of the paper. 321 
+
+2.2.7 Estimating spatial Maps of Subgroups Differences (MSDs) 322 
+
+We next estimated the spatial Maps of Subgroup Differences (MSD) across the brain voxels. This 323 was done independently for each resting state network (RSN). The process was as follows: 324 1. For each nIDP, we extracted the nIDP-hits, after p-value calculation and Bonferroni 325 correction for multiple comparisons, as described in 2.2.6. This was done for both 326 subjectICA and FLICA features. To focus on the strongest nIDP-hits and additionally to 327 reduce computational costs, we extracted up to up to 10 significant fingerprint features 328 per nIDP. For example, for “Fluid intelligence score (0.0)”, we will have N hit_FLICA <= 10 and 329 Nhit_subjectICA <= 10 hits. 330 2. 11 prominent RSNs (6 cognitive and 5 sensory-motor) were manually selected: cognitive 331 RSNs consisted of Default Mode 1&2, left and right Fronto-parietal, Ventral Attention and 332 Language; sensory-motor RSNs consisted of Visual 1&2, Motor 1&2 and Auditory. We 333 analysed subject-specific PFM spatial maps (P in Eq. 1), one at a time, and concatenated 334 the spatial maps across subjects, obtaining N s x N v matrices per RSN. 335 3. For each of the nIDP-hits , and per brain voxel, we conducted Kruskal-Wallis test across 336 the 𝐾 ;∗ subgroups associated with that nIDP-hit, and computed p-values. These show how 337 each RSN spatial map’s intensity at a given voxel differs across the 𝐾 ;∗ subgroups. 338 4. We finally conducted Bonferroni correction for multiple comparisons across (N hit_FLICA +339 Nhit_subjectICA ) x N phenotype_per_category . These maps were then thresholded at corrected p-value 340 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+16 < 0.05 to obtain binarised masks of significant differences. This yielded (N hit_FLICA +341 Nhit_subjectICA ) x N phenotype_per_category binarised spatial maps. 342 5. Maps were summed across all N hit_FLICA + N hit_subjectICA phenotypes per category, normalised 343 per category, then summed across categories, yielding MSDs. 344 
+
+2.2.8 Canonical Correlation Analysis: multivariate associations between 345 
+
+subgroups and traits 346 
+
+Canonical Correlation Analysis (CCA) was used to find multivariate mappings between each of 347 the nIDP categories and subjectICA/FLICA fingerprints, subgroups, or both concatenated. Each 348 CCA component reflects a weighted combination of PFM-based features and a weighted 349 combination of nIDPs, to obtain transformed outputs that are maximally correlated. In order 350 words, CCA projects data onto axes of population co-variation between brain and non-imaging 351 traits. CCA used in this paper was aimed at examining the phenotypical relevance of subgroup 352 estimations, and to test whether subgroups-alone, or the combination of subgroups+fingerprints 353 would show stronger association to traits, than the conventional continuous feature spaces 354 alone. 355 
+
+Conducting CCA: 356 
+
+CCA consisted of the following steps: 357 1. We conducted cross-validated CCA using 5-fold cross-validation. Therefore, the N s358 subjects were randomised and divided into 5 folds, and in each iteration, 4 folds were 359 used to train the CCA, as well as any additional normalisation and dimensionality 360 reduction steps, as described below. The remaining fold was then used as test set and 361 results were averaged across folds for reporting. 362 2. One side of CCA received brain features, in either of the following three forms: 363 a. Fingerprint-features-only: Continuous fingerprint features obtained from FLICA 364 and subjectICA. Columns of these matrices were concatenated, standardised, and 365 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+17 additionally, following guidelines from (Helmer et al., 2024) regarding the impact 366 of sample to feature ratio on CCA stability, we dimension-reduced the input 367 feature matrices to 100 features using PCA before feeding into CCA. 368 b. Subgroup-only: subgroup summaries were one-hot transformed and dimension-369 reduced to 100 features using Multiple Correspondence Analysis (MCA), which is 370 the PCA-equivalent for categorical data. 371 c. Fingerprint + Subgroup: As will be shown later in Results section 3.1, some of the 372 FLICA/subjectICA components (i.e., fingerprint features) did not yield distinct 373 subgroups (i.e., were inherently continuous Gaussian features). Step 2a was 374 repeated on those features and 100 principal components were estimated. This 375 was then concatenated with features obtained from step 2b. 376 3. The other side of CCA received phenotype matrices as input: N s × N nIDP . This was done 377 separately for the six nIDP categories: cognition, mental health, tobacco, alcohol, 378 cardiovascular and bone health. Given the high number of missing values in UK Biobank 379 nIDPs, we used sklearn’s SimpleImputer with mean imputation to account for the missing 380 values. To account for any redundancies, or highly correlated columns, especially after 381 imputation, we applied PCA to the resulting nIDP matrices before feeding into CCA (as 382 before, all the steps are conducted within the cross-validation loop). 383 4. CCA was conducted for 3 (image feature spaces) by 6 (nIDP category) pair-wise 384 comparisons, yielding 18 results overall. 385 5. CCA yields a linear transformation of PFM feature matrices (X) and phenotype feature 386 matrix (Y) so as to maximise their correlation; i.e. Y*A=U ∼ X*B=V, where U and V are the 387 linearly-transformed versions of the nIDP and PFM feature matrices, respectively. 388 6. For each cross-validation fold, we computed the correlation between corresponding test-389 set canonical variates (the diagonal of the U–V cross-correlation matrix), yielding one 390 correlation per CCA component. Because component ordering can vary across folds, we 391 used the first fold as a reference and matched components in subsequent folds using the 392 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+18 Hungarian algorithm (scipy.optimize.linear_sum_assignment). Correlations were then 393 reordered according to this matching before pooling across folds. Averaging the matched 394 correlations provided an estimate of the shared variance captured by each CCA 395 component pair. 396 
+
+2.2.9 Genetic relevance of subgroups 397 
+
+We next examined whether spatial maps of subgroup variability in any given RSN can be linked 398 to the spatial maps of genetic variability in that RSN. The analysis pipeline was as follows: 399 The first step included a Genome-Wide Association Study (GWAS) of all the FLICA/SubjectICA 400 fingerprint features (500 + 500) to identify single nucleotide polymorphisms (SNP), i.e., SNP-hits ,401 across the Genome. We used BGENIE software for GWAS analysis (Bycroft et al., 2018), and a 402 similar processing pipeline as described in (Smith et al., 2021) (the latest 2025 software update). 403 Before feeding into GWAS analysis, each fingerprint feature (num_subjects x 1) vector was 404 Gaussianised using a rank-based inverse normal transformation as implemented in the FSLNets 405 MATLAB package, deconfounded for genetic principal components, and standardised by 406 demeaning and variance normalisation. Additional filtering of the genetic data included MAF 407 (minor allele frequency) ≥ 0.01, imputation information scores ≥ 0.3 (for the Manhattan plots), 408 uncorrected GWAS p-value threshold of 10 −7.5 , and a Bonferroni-corrected threshold of 10 −10.2 .409 Of the 19,993 subjects included in this study, ~16,000 were included in UKB’s BIG40 (updated 410 with 63k subjects in 2025) sample, after applying genetic and ancestry filters. These subjects were 411 divided into Discovery (n = 11,198) and Replication (n = 5,583) cohorts, and SNP-hits were 412 identified for both cohorts, as well as the overlap between them. After extracting the SNP-hits, 413 we further used BGENIE to extract Allele dosage for the hits, yielding a matrix of N s x N SNP_hit .414 After identifying the SNP-hits, we additionally used FUMA (Watanabe et al., 2017) to link the 415 SNPs to genes, and the genes to functions and disease. 416 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+19 The second step involved estimating spatial Maps of Allele Dosage (MAD) per RSN, aiming to 417 compare those spatial maps to the corresponding MSDs described in section 2.2.7. For this 418 purpose, we analysed subject-specific PFM spatial maps (P in Eq. 1), one at a time, and 419 concatenated the spatial maps across subjects, obtaining N s x N v matrices per RSN. Each of these 420 were then correlated with Allele dosage maps of size N s x N SNP_hit across subject dimension, thus 421 yielding N SNP_hit voxel-wise MADs. Therefore, for each PFM/RSN, we estimated 1 MSD (see 422 section 2.2.7) and N SNP_hit MADs. We computed spatial correlation between MSDs and MADs, 423 thus obtaining a correlation matrix of size N SNP_hit x N pfm . Similar to section 2.2.7, 11 RSNs were 424 used for these analyses. 425 It is worth noting that we restricted the SNP-hits used in the spatial map analyses to either: a) 426 hits of the Discovery cohort that were supported by multiple nearby SNPs in linkage 427 disequilibrium (LD) that exceeded the genome-wide significance threshold; these clustered peaks 428 are more likely to represent true loci rather than technical artefacts; or b) isolated single-SNP hits 429 that showed significant p-values in both Discovery and Replication Cohorts. This approach 430 minimises single-occurrence false positives that are caused by imputation or genotyping errors, 431 whilst maintaining sensitivity to detect genuine associations that may be represented by a single 432 variant. 433 
+
+# 3 Results 434 
+
+To identify latent subgroup structure in functional brain organisation, we first derived individual-435 specific resting-state networks (RSN) maps from 19,993 UK Biobank participants using stochastic 436 PROFUMO (sPROFUMO). We then characterised continuous axes of spatial variation (“fingerprint 437 features”) and identified latent subgroups from these features using unsupervised modelling. 438 We next evaluated subgroup reproducibility, phenotypic relevance, patterns of subgroup 439 variability in the spatial organisation of cognitive and sensory-motor RSNs and genetic relevance 440 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+20 of subgroups, i.e., identifying links between patterns of subgroup differences and genetic 441 variability in the spatial organisation of the RSNs. 442 
+
+## 3.1 Characterising subgroups based on the spatial topographies of the 443 
+
+## RSNs 444 
+
+We estimated 50 population-informed individualised RSNs by applying sPROFUMO to rfMRI data 445 from 19,993 UKB subjects. As shown in Figure 1 , each RSN’s spatial map was concatenated across 446 subjects, yielding k = 50 matrices of size N subject by N voxel . These were then separately fed into two 447 feature extraction algorithms: FMRIB’s Linked ICA (FLICA) (Gong et al., 2021) and Subject ICA. 448 Whilst FLICA finds spatially-independent components (having spatially non-Gaussian 449 distributions), Subject ICA finds subject-independent components (i.e., being non-Gaussian in the 450 other dimension – subject-wise, not spatially). 451 FLICA was originally proposed to find Independent Components based on shared patterns of 452 spatial variability across multiple imaging modalities. Here we adopted this technique to instead 453 find shared patterns of variability across multiple RSNs. The resulting outputs are spatially 454 independent components, which yield a parsimonious set of subject-specific fingerprints based 455 on millions of features across voxels and RSNs. 456 We estimated 500 FLICA fingerprint features using the scalable bigFLICA implementation (2.2.2). 457 As a preprocessing step, as elaborated in section 2.2, bigFLICA uses a linked PCA approach and 458 Dictionary Learning to reduce data dimensionalities across subjects and voxels, respectively, 459 before running the linked ICA. FLICA features are spatially independent; we next fed the FLICA 460 outputs into “subject” ICA. Subject ICA uses subject by subject covariation patterns, and thus 461 explicitly places subjects who are similar to each other closer to each other across the axes of 462 variability – this approach can be expected to provide a particularly useful basis for subgroup 463 modelling. We estimated 500 subjectICA fingerprint features. The number of fingerprint features 464 was selected to match our previous studies (Farahibozorg et al., 2025, 2021). Together, these 465 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+21 two complementary fingerprint representations capture both shared patterns of spatial variation 466 across functional networks (FLICA) and similarities between individuals (subjectICA), providing 467 1,000 fingerprint features for subsequent latent subgroup discovery. 468 As shown in Figure 1 , we then used each of these FLICA and subjectICA features as input to 469 independent 1D Gaussian Mixture Models (GMMs), as elaborated in Methods section 2.2.3, to 470 characterise subgroups. This approach identifies latent subgroup structure wherever the 471 population distribution departs from Gaussianity. For example, if a feature’s distribution over 472 subjects has a long tail on one or both sides, the subjects at each tail can be expected to be 473 different from the main body of the distribution. Such subjects could represent smaller distinct 474 subgroups. 475 As shown in Figure 2 a,b, we used two metrics, Kurtosis and Skewness, to characterise non-476 Gaussianities of all the 500+500 fingerprint features. While 440/500 FLICA and 499/500 477 subjectICA components showed significant non-Gaussianity according to Kurtosis scores (after 478 correcting p-values for multiple comparisons), only 83/500 FLICA and 32/500 subjectICA 479 components (i.e., a minority) showed significant Skewness scores ( Figure 2 a,b). This indicates that 480 a majority of the fingerprint features have approximately symmetrical distributions, with non-481 Gaussianity corresponding instead to super- (longer tails on both sides) or sub- (shorter tails on 482 both sides) Gaussian behaviour. Therefore, deviations from Gaussianity were commonly found 483 across the fingerprint features but were predominantly driven by changes in tails rather than 484 asymmetry. 485 486 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+22 487 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 23 488 After estimating the number of subgroups per fingerprint feature using 1D GMMs, we tested 489 whether or not those subgroups were distinct across the features. This is shown in Figure 2 c,d. We 490 computed adjusted Rand index between subgroupings originating from each feature and 491 subgroupings of every other feature – this metric computes similarities between a pair of 492 subgroup definitions. Therefore, smaller values are desirable as they would indicate distinct 493 subgroup definitions. The absolute values of the adjusted Rand indices were found to be 494 0.033±0.017 (max 0.071±0.03) for FLICA-based and 0.015±0.012 (max 0.04±0.066) for 495 subjectICA-based subgroups, thus indicating highly distinct subgroups derived from various 496 fingerprint features. This indicates that various subgroupings are capturing patterns beyond 497 trivial and/or repetitive linear trends in the data. 498 To determine whether the identified subgroup structure reflected robust population 499 organisation, we next examined split-half reproducibility of the subgroups. First, we tested the 500 reproducibility of the number of subgroups. By dividing the 19,993 subjects into two halves and 501 re-running the GMM separately for each half, we checked how many of the fingerprint features 502 reproduced the same number of subgroups. This is shown in Figure 2 e,f. Of the FLICA features, 503 
+
+Figure 2 Validating the identified subgroups, their uniqueness and reproducibility. Left panel shows FLICA-based subgroups and right panel shows subjectICA-based subgroups. a, b) Characterising non-Gaussianities of the FLICA and subjectICA components (i.e., fingerprint features) using Skewness and Kurtosis scores (shown with blue datapoints) and respective p-values (black datapoints). A majority of the components (440 FLICA and 499 subjectICA) showed significant non-Gaussianity according to Kurtosis scores but only a minority of the components (83 FLICA and 32 subjectICA) showed significant non-Gaussianity according to Skewness scores. c, d) Using adjusted Rand index to compute how similar the subgroup definitions were across fingerprint features. Low scores denote highly distinct subgroup definitions, which is desired. Only features that identified more than 1 subgroup were included in this analysis. e, f) Split-half reproducibility of the number of subgroups, comparing split 1 (blue) and split 2 (orange) with full data. 330/500 FLICA and 459/500 subjectICA features were found to be subgroup-worthy, i.e., identifying more than 1 group. Reproducibility scores for the number of identified subgroups were found to be 0.83 and 0.69 for FLICA and subjectICA, respectively. g, h) Split-half reproducibility of subgroup definitions, comparing data splits with full data. Here we tested the similarity of subgroup definitions (i.e., subjects being assigned to the same subgroups) using adjusted Rand index. Each method yielded between 250 and 300 highly reproducible subgroup definitions. 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+24 330 identified > 1 subgroup in the full sample size. The number of subgroups per fingerprint 504 feature were then computed independently for each split, and the reproducibility of the number 505 of subgroups was found to be 0.83. Of the 500 subjectICA features, 459 identified > 1 subgroup 506 in the full sample size, and reproducibility of the number of subgroups compared with data splits 507 was 0.69. 508 We finally tested if the subjects that were assigned to the same subgroups in full data were also 509 assigned to the same subgroups in split-halves. This was evaluated using adjusted Rand index, 510 and results are shown in Figure 2 g,h. Of the 330 subgroup definitions extracted from FLICA, 257 in 511 data split 1 and 257 in data split 2 showed reproducibility scores higher than 0.8, and the overall 512 reproducibility scores were 0.82±0.32 for both data splits. Of the 459 subgroup definitions 513 extracted from subjectICA, 295 in data split 1 and 302 in data split 2 showed reproducibility scores 514 higher than 0.8 and the overall reproducibility scores were 0.696±0.33 and 0.70±0.35 for splits 1 515 and 2, respectively. 516 Together, these analyses demonstrate that latent subgroup structure is common across 517 functional fingerprint features and can be estimated reproducibly across subsets of the 518 population. Whilst subjectICA identified a larger number of subgroup-relevant features, FLICA-519 derived subgroup definitions were generally more reproducible. Both approaches yielded 520 approximately 250-300 highly reproducible subgroup structures, providing a robust foundation 521 for subsequent phenotypic, spatial and genetic analyses. 522 
+
+## 3.2 Phenotypical relevance of subgroups 523 
+
+3.2.1 Phenotypic differences between subgroups 524 
+
+As elaborated earlier, fingerprint features and subgroups were identified using unsupervised 525 methods, and thus are completely uninformed of subjects’ cognition, lifestyle, physical or mental 526 health. We next asked whether the latent subgroups identified purely from functional brain 527 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+25 organisation also captured meaningful variation in non-imaging phenotypes. For this purpose, 528 we conducted statistical comparisons between subgroups with respect to the following non-529 imaging derived phenotype (nIDP) categories: cognition (68 nIDPs), mental health (142 nIDPs), 530 alcohol (37 nIDPs) and tobacco (19 nIDPs) consumption scores, cardiovascular (77 nIDPs) and 531 bone (93 nIDPs) health scores. Results are shown in Figure 3 a. As illustrated earlier, each 532 FLICA/subjectICA fingerprint feature yielded K j subgroups. We compared each nIDP (e.g., fluid 533 intelligence) between these subgroups using Kruskal-Wallis test and computed the 534 corresponding p-values. 535 The -log(10) of the p-values is illustrated in Figure 3 a, with the Bonferroni threshold (correcting 536 across features x nIDPs) shown as the dashed green line – any data points above that threshold 537 are considered significant. As can be noted from these graphs, both FLICA-based and subjectICA-538 based subgroupings showed hundreds of significant nIDP-hits across the six categories. nIDP-hit s539 refer to the significant nIDP differences between subgroups derived from a single fingerprint 540 feature, after correction for multiple comparisons, see 2.2.6 for details. 541 Related to cognition and mental health: first, within the cognition category, we found 877 FLICA-542 related and 487 subjectICA-related nIDP-hits. Some of the strongest nIDP-hits were related to 543 fluid intelligence, reaction time and working memory performance. Second, within the mental 544 health category, we found 522 FLICA-related and 293 subjectICA-related nIDP-hits. Some of the 545 top nIDP-hits were related to life-threatening disease diagnosis, ability to pay rent/mortgage, 546 someone to take to the doctor as a child, ever contemplating self-harm, and ever injured or being 547 injured due to alcohol. Interestingly, several of the most significant nIDP-hits under this category 548 can be linked 549 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+26 
+
+550 
+
+Figure 3 Phenotypical relevance of subgroups. a) Statistical comparisons of phenotypes were conducted 
+
+between various subgroup definitions and -log10(p-values) are shown for FLICA (left) and subjectICA 
+
+(right). Dashed green lines show Bonferroni threshold. The top 5 phenotypes within each category (highest 
+
+number of smallest p-values) are shown in the tables. b) Canonical Correlation Analysis (CCA) with 5-fold 
+
+cross-validation was performed to find axes of co-variation between brain-based features and phenotypes. 
+
+Specifically, we compared brain-based features defined as features-only, subgroups-only and 
+
+subgroups+features. For 5 out of 6 phenotype categories – cognitive, alcohol, cardiovascular, bone and 
+
+mental health – subgroups-only provided the top-matched CCA component. For the tobacco category, 
+
+features-only and subgroups-only provided the top-matched CCA component and were on par. For 
+
+visualisation purposes, only up to 25 CCA components are illustrated on the x-axis. 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+27 551 to socioeconomic background. 552 Related to lifestyle and substance use: first, within the alcohol category, we found 314 FLICA-553 related and 214 subjectICA-related nIDP-hits. Some of the top nIDP-hits were related to alcohol 554 drinking status, concerns about level of alcohol consumption, and fortified wine intake. Second, 555 within the tobacco category, we found 587 FLICA-related and 591 subjectICA-related nIDP-hits. 556 The top nIDP-hits were related to current smoking status and exposure to tobacco smoke at 557 home. 558 Related to physical health: first, within the cardiovascular health category, we found 280 FLICA-559 related and 127 subjectICA-related nIDP-hits. The top 5 nIDP-hits were related to heart rate, 560 number of beats during Pulse Wave Analysis and ventricular rate. Second, within the bone health 561 category, we found 487 FLICA-related and 903 subjectICA-related nIDP-hits. The top 5 nIDP-hits 562 were related to Bone mineral density and content in various body parts. 563 Put together, out of 436x459 (nIDP x Nfeature) comparisons for subjectICA, 2,615 p-values and 564 out of 436x330 (nIDP x Nfeature) comparisons for FLICA, 3,067 p-values passed the Bonferroni 565 threshold. Therefore, despite subgroup discovery being performed entirely without phenotype 566 information, approximately 5,700 significant subgroup-phenotype associations were identified 567 across cognition, lifestyle, physical and mental health. These findings demonstrate that latent 568 subgroup structure derived solely from functional brain organisation captures broad and 569 biologically relevant population heterogeneity rather than variation confined to a single 570 phenotype domain. 571 
+
+3.2.2 Canonical Correlation Analysis 572 
+
+We next used Canonical Correlation Analysis (CCA) to compare multivariate associations between 573 each of the six phenotype categories and: a) subgroups; b) continuous features; or c) both 574 representations concatenated. The six phenotype categories were the same as above. The goal 575 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+28 here was to compare the shared variance between phenotypes and subgroup estimations, versus 576 continuous fingerprint features, versus both combined. This was done to test whether the new 577 subgroup modelling used in this study provides links to the non-imaging traits, above and beyond 578 what can be achieved with the more commonly-used continuous features. CCA finds axes of 579 population co-variations (canonical variates) between the brain-based features and phenotypes. 580 This is done through linear projections of the two sets, such that the similarity between the 581 transformed outputs is maximised (Methods section 2.2.8). To avoid overfitting and obtain 582 generalisable results, we conducted cross-validated CCA with 5-fold cross-validation. We 583 estimated shared variances for each pairwise comparison by computing correlations between 584 the corresponding canonical covariates within the held-out test sets, and averaging those 585 correlations across folds. These results are shown in Figure 3 b. 586 The correlation values for the top-matched CCA components of the features-only CCA, 587 subgroups-only CCA and both concatenated CCA, respectively, were as follows: 1) cognitive 588 nIDPs: 0.178, 0.196 and 0.172; 2) mental health nIDPs: 0.096, 0.132 and 0.111; 3) alcohol nIDPs: 589 0.099, 0.108 and 0.091; 4) tobacco nIDPs: 0.122, 0.121 and 0.107; 5) cardiovascular nIDPs: 0.188, 590 0.303 and 0.248; 6) bone health nIDPs: 0.130, 0.199 and 0.189. 591 Therefore, for five of the six phenotype categories – cognitive, alcohol, cardiovascular, bone and 592 mental health – subgroup modelling provided stronger brain-phenotype associations than 593 continuous fingerprint features alone and combining the two did not further improve 594 performance. This finding suggests that the discrete subgroup representation captures 595 behaviourally relevant population structure more effectively than continuous fingerprints, and 596 potentially reduces noise and redundant variability. 597 
+
+## 3.3 Spatial Maps of Subgroup Differences (MSDs) in the brain 598 
+
+To investigate the biological organisation of the discovered subgroups, we next examined how 599 the canonical resting state networks (RSNs) varied spatially across the discovered subgroups. This 600 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+29 was investigated from two angles, first to test if Maps of Subgroup Differences (MSDs) were 601 reflective of the brain networks’ meta functionalities (i.e., sensorimotor vs higher-level cognitive 602 processing). Second, we tested whether the MSDs reflected phenotypical differences; e.g., if 603 certain phenotype categories showed similar patterns of subgroup differences across the brain 604 voxels. 605 
+
+3.3.1 MSDs: sensorimotor vs higher-level cognitive networks 606 
+
+As shown in Figure 4 a, we examined MSDs in 11 canonical RSNs, consisting of 6 cognitive and 5 607 sensory-motor RSNs: cognitive networks included Default Mode 1&2, left and right Fronto-608 parietal, Ventral Attention and Language, sensory-motor networks included Visual 1&2, Motor 609 1&2 and Auditory. These RSNs were manually selected as some of the most well-known RSNs to 610 represent cognitive and sensorimotor networks, respectively (Kong et al., 2025). For each RSN, 611 we used subject-specific spatial maps, as estimated using sPROFUMO, and conducted voxel-wise 612 statistical comparisons between the K j subgroups identified using each of the j fingerprints. To 613 keep the computational costs manageable, we restricted this analysis to the nIDP-hits (i.e., 614 significant nIDP differences between subgroups derived from a single fingerprint feature, after 615 correction for multiple comparisons), see Figure 3 a, and section 2.2.7 for details. MSDs were 616 obtained by: first, computing maps of significant differences between subgroups derived from 617 each feature after correction for multiple comparisons; next, finding brain areas in which 618 significant differences were most frequently observed across subgroups derived from various 619 features; finally, binarising these maps at the significance threshold and accumulating the results 620 across all the fingerprint features, as shown in Figure 4 a left. 621 MSDs showed a clear block structure separating sensory-motor and higher-order cognitive 622 networks ( Figure 4 a right). Specifically, within-sensory correlations were found to be 0.35±0.12, 623 within-cognitive were 0.19±0.08 and between sensory and cognitive were 0.08±0.07. Therefore, 624 MSDs of the sensory-motor networks (Visual, Auditory and Motor) were similar to each other 625 and distinct from MSDs of the cognitive networks, and vice versa. This is particularly notable 626 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+30 because sensory-motor networks cover very different brain areas and are largely non-627 overlapping. Despite this, brain areas affected by subgroup differences in these networks were 628 found to be similar to each other. Brain regions that showed the highest MSD values included 629 subcortex, cerebellum, parieto-occipital and central regions. This was also observed for cognitive 630 networks, whereby despite the networks being largely non-overlapping, the areas impacted by 631 subgroup differences showed similarities across these networks and predominately covered 632 frontal lobe, lateral and medial parietal lobe. 633 
+
+3.3.2 MSDs: contrasting the six phenotype categories 634 
+
+Next, we examined the extent to which MSDs were reflective of phenotypical differences; i.e., 635 computing and contrasting MSDs separately for the six phenotype categories. MSDs were 636 computed using a similar process as above, with the exception that the binarised maps of 637 significant differences were accumulated across nIDP-hits and RSNs per phenotype category, thus 638 yielding MSDs that were specific to each phenotype category. 639 As shown in Figure 4 b, here we found that cognitive and tobacco related spatial maps were very 640 similar to each other (r = 0.97) and more distinct from the other four categories (r = 0.83±0.09). 641 Medial frontal, occipital, central, cerebellar and subcortical brain regions were most pronounced 642 in these maps. Additionally, mental health and alcohol related MSDs were highly similar to each 643 other (r = 0.94) and relatively distinct from the other four maps (r = 0.82±0.076). These MSDs 644 appeared to be more uniformly distributed across the brain regions. MSDs related to 645 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+31 646 
+
+Figure 4 Spatial Maps of Subgroup Differences (MSD) in the brain. a) RSN-specific MSDs: Individual-
+
+specific RSNs estimated using sPROFUMO (i.e., PFMs) were used to conduct voxel-wise statistical 
+
+comparisons between the subgroups, in order to localise the key areas of subgroup variability in the brain. 
+
+Spatial maps of p-values were generated for subgroups derived from each fingerprint feature, binarised 
+
+after correction for multiple comparisons, and accumulated across fingerprint features. The left panel 
+
+shows MSDs estimated for 11 RSNs, and the right panel shows the spatial correlations between these MSDs. 
+
+An interesting block structure was found whereby sensory-motor MSDs were similar to each other and 
+
+distinct from MSDs derived from cognitive RSNs, and vice versa. b) Phenotype-specific MSDs: similar to 
+
+panel (a), binarised maps of subgroup differences accumulated per phenotype category and across all the 
+
+11 RSNs. The left panel shows MSDs estimated for the 6 phenotype categories, and the right panel shows 
+
+the spatial correlations between these MSDs. Cognitive- and tobacco-specific MSDs were highly similar to 
+
+each other, alcohol- and mental health-specific MSDs were highly similar to each other, and cardiovascular-
+
+and bone-specific MSDs were relatively distinct from the other five categories. 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+32 cardiovascular (r = 0.83±0.048) and bone health (r = 0.73±0.047) were relatively distinct from the 647 other five categories. Together, these findings indicate that different categories of behavioural 648 and health phenotypes are associated with distinct spatial patterns of subgroup variability rather 649 than a common spatial configuration. 650 
+
+## 3.4 Genetic relevance of fingerprints and subgroups 651 
+
+Having established the link between subgroups and the individualised spatial organisation of 652 brain networks, as well as their link to phenotypes, we next examined the relationship between 653 subgroups and genetics. Demonstrating such correspondence would provide an independent 654 biological validation of the latent subgroup structure identified using unsupervised methods from 655 fMRI. To address this, we first identified genetic variants associated with the continuous 656 fingerprint features (using Genome Wide Association Studies (GWAS)) and then tested whether 657 spatial patterns of subgroup variability corresponded to regional patterns of genetic variation 658 across functional brain networks. The latter was done by computing RSN-specific Maps of Allele 659 Dosage (MAD) for SNP-hits in GWAS, and comparing those to MSDs from the previous analyses. 660 
+
+3.4.1 Summary of GWAS results 661 
+
+GWAS requires continuous features as input, and therefore it was performed per fingerprint 662 feature, whereby univariate associations between each fingerprint feature and over 90 million 663 imputed genetic variants were computed. Results were corrected for multiple comparisons. Data 664 were deconfounded using both imaging and genetics confounds, as described in Methods. Of the 665 19,993 subjects included in this study, ~16,000 were included in UKB’s BIG40 (updated with 63k 666 subjects in 2025) sample, after applying genetic and ancestry filters. We divided the sample into 667 Discovery (n = 11,198) and Replication (n = 5,583) cohorts. Figure 5 a shows the Manhattan plot of 668 GWAS for one example FLICA fingerprint feature; the same analysis was repeated across all the 669 500+500 FLICA and subjectICA fingerprint features. Based on the standard GWAS threshold 670 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+33 (−log 10 (p-value) = 7.5) and after prefiltering as outlined in 2.2.9, we identified 58 (38 FLICA-based 671 and 20 subjectICA-based) significant Single Nucleotide Polymorphism (SNP) hits, 13 of which 672 were replicated in the replication cohort. 673 We subsequently used FUMA (Watanabe et al., 2017) to link the SNPs to genes, and the genes to 674 functions and disease. The SNP2GENE analysis identified 54 genomic risk loci and 69 mapped 675 genes. Of the SNPs, 51.3% were intergenic and showed significant enrichment (enrichment value 676 = 1.10, p = 2.18 × 10⁻⁷), while 32.2% were intronic and showed significant depletion (enrichment 677 value = 0.885, p = 1.73 × 10⁻⁶). The remaining SNPs did not show significant functional annotation 678 enrichment. Subsequent GENE2FUNC analysis compared the identified genes with those 679 reported in GWAS catalogue and found 17 significant overlaps with gene sets ( Figure 5 b). These 680 gene sets were related to three categories of function/diseases: a) brain-related disorders and 681 traits, including Autism spectrum disorder, Schizophrenia, Bipolar disorder, Neuroticism and 682 Parkinson’s; b) brain anatomy, including cortical surface area, subcortical volume and brain 683 morphology; c) diet and body shape, including meat and caffein consumption, waist-hip index 684 and body shape index. 685 
+
+3.4.2 RSN-specific spatial maps of genetics versus subgroup variability 686 
+
+To determine whether subgroup variability and genetic variation showed similar spatial 687 organisation, we next estimated spatial Maps of Allele Dosage (MADs) for each significant SNP 688 and compared them with the corresponding Maps of Subgroup Differences (MSDs) found in 3.3. 689 Specifically, subject-specific Allele dosage of SNP-hit matrices (N subject x N SNP_hit ) were correlated 690 with subject-specific PFM spatial maps (N subject x N voxel matrices per RSN) to obtain N SNP_hit voxel-691 wise MADs. An example set of maps corresponding to one SNP-hit is shown in Figure 5 c. For each 692 RSN, we then found the spatial correlations between MADs with corresponding MSDs ( Figure 4 a-693 left), the results of which are shown in Figure 5 d. 694 695 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+34 Finally, Figure 5 e shows the correlations between RSN-specific MADs (averaged across SNP-hits) 696 and MSDs. The diagonal of this correlation matrix captures the one-to-one correspondence 697 between the allele dosage and subgroup difference maps and were found to be: 0.103±0.026 for 698 sensory-motor RSNs and 0.069±0.03 for cognitive RSNs. Consistent with the MSD analyses 699 (Section 3.3), here as well we found a block structure, with stronger similarities within sensory-700 motor networks (r = 0.074±0.038) and within higher-order cognitive networks (r = 0.057±0.025) 701 than between these functional systems (r = 0.001±0.021). 702 Together, these analyses demonstrate that the functional fingerprint features capture genetic 703 variation associated with brain-related traits and disorders, while the spatial organisation of 704 subgroup differences corresponds to regional patterns of genetic variability across canonical 705 functional networks. These findings provide independent biological support for the latent 706 subgroup structure identified from functional neuroimaging, and suggest that this organisation 707 reflects meaningful axes of population variability. 708 709 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+35 710 
+
+Figure 5 Genetic relevance of fingerprints and subgroups: a) A Manhattan plot of a GWAS conducted on an example fingerprint feature (FLICA component 007). The same analysis was conducted across all FLICA and subjectICA fingerprint features, and significant clusters of SNP-hits were identified (after correction for multiple comparisons). b) FUMA software was used to link the SNP-hits to Genes and Genes to functions and disease. Based on the GWAS catalogue that is used as reference in FUMA software, we found significant enrichment of the identified genes to gene sets that have been previously linked to brain-related disorders such as Autism Spectrum Disorder and Schizophrenia, brain anatomy and lifestyle related to diet and body shape. c) Spatial Maps of Allele Dosage (MAD) were calculated as voxel-wise correlations between subject-specific RSNs and subject-specific allele dosage for each SNP-hit. Results are shown for 11 RSNs of interest for an example SNP hit. d) RSN-specific MADs were spatially correlated with their corresponding Maps of Subgroup Differences (MSDs, Figure 4 a), results per SNP-hit and RSN are shown. e) MADs were averaged across SNP-hits per RSN and spatially correlated with the corresponding MSDs. Diagonal values were found to be 0.103±0.026 for sensory-motor RSNs and 0.069±0.03 for cognitive RSNs. 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+36 
+
+# 4 Discussion 711 
+
+Using individualised functional brain topographies from 19,993 UK Biobank participants, we 712 demonstrate that large-scale functional neuroimaging contains reproducible latent subgroup 713 structure that bridges population-average and individual-specific models of the brain’s functional 714 organisation. To reveal this, we developed a scalable framework that builds on stochastic 715 Probabilistic Functional Modes (sPROFUMO) (Farahibozorg et al., 2021), combined with two 716 unsupervised fingerprint extraction approaches (bigFLICA and subjectICA) and feature-wise (1D) 717 Gaussian Mixture Modelling to identify multiple subgroup definitions across distinct axes of 718 functional variation. Importantly, unlike conventional approaches based on population-average 719 models or temporal functional connectivity, our framework uses individualised spatial 720 
+
+topographies of functional brain networks to characterise latent population structure. Across 721 19,993 participants, we identified 1,000 fingerprint features and hundreds of reproducible 722 subgroup definitions that were associated with ~5,700 significant phenotype differences, 723 exhibited distinct organisation across sensory-motor and higher-order cognitive systems, and 724 showed correspondence with regional patterns of genetic variation across the brain. 725 Subgroup modelling based on large-scale population imaging can take a significant step towards 726 a core aim of fMRI research: providing biomarkers of traits and disease while helping bridge the 727 gap between population neuroimaging and precision medicine (Demeter and Greene, 2025; 728 Parkes et al., 2020). Specifically, conventional neuroimaging datasets with small sample sizes 729 typically included homogeneous cohorts (Button et al., 2013; Szucs and Ioannidis, 2020). As a 730 result, conventional fMRI modelling techniques were designed to analyse such datasets, and 731 therefore relied on population average models to identify consensus patterns within groups 732 (Calhoun et al., 2001; Yeo et al., 2011), rather than the structured heterogeneity that becomes 733 apparent in large-scale datasets. 734 However, compelling evidence accumulated over recent years has established structured and 735 meaningful patterns of individual variability in brain function and connectivity (Gordon et al., 736 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+37 2017; Kong et al., 2019). This has led to extensive research into fMRI-based fingerprinting (Finn 737 et al., 2015). However, to fully exploit the potential of large heterogeneous populations in 738 modelling various sources of subject variability, it is important to bridge the gap between 739 population-average and individual-specific modelling – this can be achieved using stratified 740 methods. Subgroup modelling, as proposed in the current paper, takes a step towards bridging 741 this gap. Specifically, using multiple phenotype categories – cognition, mental health, alcohol and 742 tobacco use, bone and cardiovascular health – we identified thousands of highly significant 743 differences between the data-driven subgroups. This provides a proof-of-principle that 744 incorporating latent subgroup structure into models of brain function captures biologically 745 meaningful population heterogeneity and may provide a richer foundation for future 746 individualised fMRI biomarkers. 747 Subgroup modelling has been used in previous fMRI literature for applications such as brain 748 disorder classification (Du et al., 2018) and disease subtyping (Brucar et al., 2023; Miranda et al., 749 2021). However, several challenges hinder the generalisability and reproducibility of such 750 approaches, including limited sample sizes or the lower quality of clinical datasets. Large-scale 751 high-quality datasets of thousands of healthy participants will, by definition, include hundreds of 752 potential clinical cohorts in pre-diagnosis stages. For example, by 2027, in the imaged cohort of 753 the UK Biobank, 6,000, 4,000 and 2,800 participants are expected to develop Alzheimer’s disease, 754 stroke and Parkinson’s, respectively (Miller et al., 2016). Therefore, these datasets are not only 755 useful for characterising healthy populations at scale but also provide a solid foundation for 756 modelling clinical data. Specifically, for Bayesian methods such as sPROFUMO, UK Biobank can 757 provide informative “priors” for subsequent disease classification and subtyping, whereby the 758 state-of-the-art transfer learning methods can be used to inform disease classification and 759 subtyping in any new clinical data, based on similarities to the subpopulations that were 760 identified in the current study. 761 The approach presented here is based on individualised spatial topographies of the brain’s 762 functional networks. Compared with functional connectivity, spatial maps remain a much less 763 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+38 explored dimension of individual variability (due to the limitations of the conventional methods), 764 but recent studies have revealed crucial aspects of subject variability being captured by spatial 765 maps (Bijsterbosch et al., 2018; Farahibozorg et al., 2025; Kong et al., 2019). Functional 766 connectivity analysis computes temporal correlations between the brain networks (or parcels), 767 and as such, it cannot be used to “localise” the network anomalies. This hinders biological 768 interpretability of the functional connectivity-based biomarkers. In contrast, in this study we used 769 fully individualised spatial maps to obtain voxel-wise maps of subgroup differences (MSD), as 770 shown in Figure 4 . Interestingly, we found distinct MSDs for sensory-motor versus cognitive 771 networks, whereby MSDs related to visual, auditory and motor networks were highly similar to 772 each other, and distinct from MSDs related to the default mode, fronto-parietal, ventral attention 773 and language networks, and vice versa. This block structure in the spatial correlations between 774 MSDs suggests that subgroup variability is organised at the level of meta-networks rather than 775 individual functional networks. 776 This meta-network organisation aligns with previous investigations into amplitudes of the brain 777 networks (Bijsterbosch et al., 2017) as well as in the dynamic states (referred to as meta-states 778 in (Vidaurre et al., 2017)). This finding can be interpreted in the context of the growing evidence 779 that inter-individual variability in functional brain organisation is anatomically-informed (rather 780 than random or uniform), and thus differs between sensory-motor and associative systems (Finn 781 et al., 2015; Mueller et al., 2013). For sensory-motor networks, the areas that we found in this 782 study, including subcortical, cerebellar, and parieto-occipital regions, reflect the relatively hard-783 wired developmental trajectories and structural-functional connectivity that characterise the 784 unimodal brain regions (Baum et al., 2020; Guell et al., 2018). In contrast, we found frontal and 785 parietal association cortices highlighted in the MSDs related to the cognitive networks -786 consistent with these regions maturing later during development, showing higher synaptic 787 plasticity, and greater inter-individual variability in functional connectivity (Mueller et al., 2013; 788 Sydnor et al., 2021). This is broadly consistent with the cortical hierarchy framework, where 789 transmodal association areas are thought to be less constrained by genetics and more sensitive 790 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+39 to environmental factors (Margulies et al., 2016; Sydnor et al., 2021). Together, these results 791 suggest that subgroup difference maps identified by our unsupervised techniques reflect 792 biologically meaningful axes of population variability, where the spatial organisation of these 793 MSDs is broadly aligned with the well-known functional organisation of the cortex. 794 The genetic analysis provides independent evidence supporting the biological relevance of these 795 subgroup differences. As well as identifying genetic loci associated with continuous fingerprint 796 features, we found clear spatial correspondence between maps of subgroup differences and 797 regional patterns of genetic variation across the same functional networks. Although these 798 spatial associations do not imply causal mechanisms, they suggest that the spatial organisation 799 of subgroup variability is partly aligned with the genetic architecture underlying functional brain 800 organisation, complementing the behavioural and spatial evidence presented here. 801 Beyond characterising normative population variability, the subgroup organisation identified 802 here may also have implications for understanding disease vulnerability. The prefrontal and 803 parietal association cortex, subcortex, and cerebellum that were found here as the main zones 804 of cross-subgroup differences, have all been implicated in various neuropsychiatric conditions 805 (Goodkind et al., 2015; Sha et al., 2019), raising the possibility that the same pathways that 806 accommodate subgroup diversity in healthy populations may also constitute points of 807 vulnerability in diseases. More broadly, these findings provide a framework for investigating 808 heterogeneity in both healthy populations and clinical cohorts using latent subgroup structure 809 derived from individualised functional brain organisation. 810 
+
+# 5 Acknowledgements 811 
+
+Funding: 812 
+
+• Royal Academy of Engineering under the Research Fellowship programme RF2122-21-310 813 (SRF) 814 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+40 
+
+• Wellcome Trust grants 215573/Z/19/Z (SMS and MWW), 106183/Z/14/Z (MWW). 815 Wellcome Centre for Integrative Neuroimaging is supported by core funding from 816 the Wellcome Trust (203139/Z/16/Z). 817 
+
+• MRC Mental Health Pathfinder grant MC_PC_17215 (SMS) 818 
+
+• The computational aspects of this research were partly carried out at Oxford Biomedical 819 Research Computing (BMRC), that is funded by the NIHR Oxford BRC with additional 820 support from the Wellcome Trust Core Award Grant Number 203141/Z/16/Z. The views 821 expressed are those of the author(s) and not necessarily those of the NHS, the NIHR or 822 the Department of Health. 823 
+
+For the purpose of open access, the author has applied a CC BY public copyright license to any 824 Author Accepted Manuscript version arising from this submission. 825 
+
+Author contribution: 826 
+
+Conceptualisation, Investigation, Resources, Funding acquisition, Writing—review & editing: SRF, 827 MWW, SMS; Methodology, Software: SRF, SMS, LTE; Validation, Data curation, Formal Analysis 828 and Visualisation, Writing—original draft: SRF. 829 
+
+Competing interests: 830 
+
+Authors declare that they have no competing interests related to this manuscript. 831 
+
+Data availability: 832 
+
+• UK Biobank data is available upon registration and applying for data access from UK 833 Biobank website: http://www.ukbiobank.ac.uk/register-apply. 834 
+
+Code availability: 835 
+
+• Code for sPROFUMO is currently available from the following repository, it will be made 836 available in an upcoming FSL release: https://git.fmrib.ox.ac.uk/profumo/profumo/-837 /tree/sprofumo-cpp-clean. 838 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+41 
+
+Use of Generative AI 839 
+
+Some parts of the manuscript and analysis scripts were fine-tuned with the assistance of AI tools 840 (e.g., ChatGPT Edu, OpenAI) to improve coding style, text clarity and language. Outputs were 841 carefully reviewed and validated by the authors. 842 843 844 
+
+# 6 References 845 
+
+Alfaro-Almagro, F., Jenkinson, M., Bangerter, N.K., Andersson, J.L.R., Griffanti, L., Douaud, G., 846 Sotiropoulos, S.N., Jbabdi, S., Hernandez-Fernandez, M., Vallee, E., Vidaurre, D., Webster, 847 M., McCarthy, P., Rorden, C., Daducci, A., Alexander, D.C., Zhang, H., Dragonu, I., Matthews, 848 P.M., Miller, K.L., Smith, S.M., 2018. Image processing and Quality Control for the first 849 10,000 brain imaging datasets from UK Biobank. Neuroimage 166, 400–424. 850 https://doi.org/10.1016/j.neuroimage.2017.10.034 851 Alfaro-Almagro, F., McCarthy, P., Afyouni, S., Andersson, J.L.R., Bastiani, M., Miller, K.L., Nichols, 852 T.E., Smith, S.M., 2020. Confound modelling in UK Biobank brain imaging. Neuroimage 224, 853 117002. https://doi.org/10.1016/j.neuroimage.2020.117002 854 Baum, G.L., Cui, Z., Roalf, D.R., Ciric, R., Betzel, R.F., Larsen, B., Cieslak, M., Cook, P.A., Xia, C.H., 855 Moore, T.M., Ruparel, K., Oathes, D.J., Alexander-Bloch, A.F., Shinohara, R.T., Raznahan, A., 856 Gur, R.E., Gur, R.C., Bassett, D.S., Satterthwaite, T.D., 2020. Development of structure– 857 function coupling in human brain networks during youth. Proceedings of the National 858 Academy of Sciences 117, 771–778. https://doi.org/10.1073/pnas.1912034117 859 Bijsterbosch, J., Harrison, S., Duff, E., Alfaro-Almagro, F., Woolrich, M., Smith, S., 2017. 860 Investigations into within- and between-subject resting-state amplitude variations. 861 Neuroimage 159, 57–69. https://doi.org/10.1016/j.neuroimage.2017.07.014 862 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+42 Bijsterbosch, J.D., Woolrich, M.W., Glasser, M.F., Robinson, E.C., Beckmann, C.F., Van Essen, D.C., 863 Harrison, S.J., Smith, S.M., 2018. The relationship between spatial configuration and 864 functional connectivity of brain regions. Elife 7, e32992. 865 https://doi.org/10.7554/eLife.32992 866 Biswal, B., Zerrin Yetkin, F., Haughton, V.M., Hyde, J.S., 1995. Functional connectivity in the motor 867 cortex of resting human brain using echo-planar mri. Magn. Reson. Med. 34, 537–541. 868 https://doi.org/10.1002/mrm.1910340409 869 Brucar, L.R., Feczko, E., Fair, D.A., Zilverstand, A., 2023. Current Approaches in Computational 870 Psychiatry for the Data-Driven Identification of Brain-Based Subtypes. Biol. Psychiatry 93, 871 704–716. https://doi.org/10.1016/j.biopsych.2022.12.020 872 Buckner, R.L., Vincent, J.L., 2007. Unrest at rest: Default activity and spontaneous network 873 correlations. Neuroimage 37, 1091–1096. 874 https://doi.org/10.1016/j.neuroimage.2007.01.010 875 Button, K.S., Ioannidis, J.P.A., Mokrysz, C., Nosek, B.A., Flint, J., Robinson, E.S.J., Munafò, M.R., 876 2013. Power failure: why small sample size undermines the reliability of neuroscience. Nat. 877 Rev. Neurosci. 14, 365–376. https://doi.org/10.1038/nrn3475 878 Bycroft, C., Freeman, C., Petkova, D., Band, G., Elliott, L.T., Sharp, K., Motyer, A., Vukcevic, D., 879 Delaneau, O., O’Connell, J., Cortes, A., Welsh, S., Young, A., Effingham, M., McVean, G., 880 Leslie, S., Allen, N., Donnelly, P., Marchini, J., 2018. The UK Biobank resource with deep 881 phenotyping and genomic data. Nature 562, 203–209. https://doi.org/10.1038/s41586-018-882 0579-z 883 Calhoun, V.D., Adali, T., Pearlson, G.D., Pekar, J.J., 2001. A method for making group inferences 884 from functional MRI data using independent component analysis. Hum. Brain Mapp. 14, 885 140–151. https://doi.org/10.1002/hbm.1048 886 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+43 Calhoun, V.D., Kiehl, K.A., Pearlson, G.D., 2008. Modulation of temporally coherent brain 887 networks estimated using ICA at rest and during cognitive tasks. Hum. Brain Mapp. 29, 828– 888 838. https://doi.org/10.1002/hbm.20581 889 Casey, B.J., Cannonier, T., Conley, M.I., Cohen, A.O., Barch, D.M., Heitzeg, M.M., Soules, M.E., 890 Teslovich, T., Dellarco, D. V., Garavan, H., Orr, C.A., Wager, T.D., Banich, M.T., Speer, N.K., 891 Sutherland, M.T., Riedel, M.C., Dick, A.S., Bjork, J.M., Thomas, K.M., Chaarani, B., Mejia, 892 M.H., Hagler, D.J., Daniela Cornejo, M., Sicat, C.S., Harms, M.P., Dosenbach, N.U.F., 893 Rosenberg, M., Earl, E., Bartsch, H., Watts, R., Polimeni, J.R., Kuperman, J.M., Fair, D.A., Dale, 894 A.M., 2018. The Adolescent Brain Cognitive Development (ABCD) study: Imaging acquisition 895 across 21 sites. Dev. Cogn. Neurosci. 32, 43–54. https://doi.org/10.1016/j.dcn.2018.03.001 896 Damoiseaux, J.S., Rombouts, S.A.R.B., Barkhof, F., Scheltens, P., Stam, C.J., Smith, S.M., 897 Beckmann, C.F., 2006. Consistent resting-state networks across healthy subjects. Proc. Natl. 898 Acad. Sci. U. S. A. 103, 13848–13853. https://doi.org/10.1073/pnas.0601417103 899 Demeter, D. V., Greene, D.J., 2025. The promise of precision functional mapping for 900 neuroimaging in psychiatry. Neuropsychopharmacology 50, 16–28. 901 https://doi.org/10.1038/s41386-024-01941-z 902 Du, Y., Fu, Z., Calhoun, V.D., 2018. Classification and Prediction of Brain Disorders Using 903 Functional Connectivity: Promising but Challenging. Front. Neurosci. 12, 525. 904 https://doi.org/10.3389/fnins.2018.00525 905 Farahibozorg, S.-R., Bijsterbosch, J.D., Gong, W., Jbabdi, S., Smith, S.M., Harrison, S.J., Woolrich, 906 M.W., 2021. Hierarchical modelling of functional brain networks in population and 907 individuals from big fMRI data. Neuroimage 243, 118513. 908 https://doi.org/10.1016/j.neuroimage.2021.118513 909 Farahibozorg, S.R., Harrison, S.J., Bijsterbosch, J.D., Woolrich, M.W., Smith, S.M., 2025. Multiscale 910 modes of functional brain connectivity. Imaging Neuroscience 3, IMAG.a.1031. 911 https://doi.org/10.1162/IMAG.a.1031 912 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+44 Finn, E.S., Shen, X., Scheinost, D., Rosenberg, M.D., Huang, J., Chun, M.M., Papademetris, X., 913 Constable, R.T., 2015. Functional connectome fingerprinting: Identifying individuals using 914 patterns of brain connectivity. Nat. Neurosci. 18, 1664–1671. 915 https://doi.org/10.1038/nn.4135 916 Glasser, M.F., Coalson, T.S., Robinson, E.C., Hacker, C.D., Harwell, J., Yacoub, E., Ugurbil, K., 917 Andersson, J., Beckmann, C.F., Jenkinson, M., Smith, S.M., Van Essen, D.C., 2016. A multi-918 modal parcellation of human cerebral cortex. Nature 536, 171–178. 919 https://doi.org/10.1038/nature18933 920 Gong, W., Beckmann, C.F., Smith, S.M., 2021. Phenotype discovery from population brain 921 imaging. Med. Image Anal. 71, 102050. https://doi.org/10.1016/j.media.2021.102050 922 Goodkind, M., Eickhoff, S.B., Oathes, D.J., Jiang, Y., Chang, A., Jones-Hagata, L.B., Ortega, B.N., 923 Zaiko, Y. V., Roach, E.L., Korgaonkar, M.S., Grieve, S.M., Galatzer-Levy, I., Fox, P.T., Etkin, A., 924 2015. Identification of a Common Neurobiological Substrate for Mental Illness. JAMA 925 Psychiatry 72, 305–315. https://doi.org/10.1001/jamapsychiatry.2014.2206 926 Gordon, E.M., Laumann, T.O., Adeyemo, B., Gilmore, A.W., Nelson, S.M., Dosenbach, N.U.F., 927 Petersen, S.E., 2017. Individual-specific features of brain systems identified with resting 928 state functional correlations. Neuroimage 146, 918–939. 929 https://doi.org/10.1016/j.neuroimage.2016.08.032 930 Groves, A.R., Beckmann, C.F., Smith, S.M., Woolrich, M.W., 2011. Linked independent 931 component analysis for multimodal data fusion. Neuroimage 54, 2198–2217. 932 https://doi.org/10.1016/j.neuroimage.2010.09.073 933 Guell, X., Schmahmann, J.D., Gabrieli, J. DE, Ghosh, S.S., 2018. Functional gradients of the 934 cerebellum. Elife 7, e36652. https://doi.org/10.7554/eLife.36652 935 Guo, Y., Tang, L., 2013. A hierarchical model for probabilistic independent component analysis of 936 multi-subject fMRI studies. Biometrics 69, 970–981. https://doi.org/10.1111/biom.12068 937 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+45 Harrison, S.J.;, Bijsterbosch, J.D., Segerdahl, A.R., Fitzgibbon, S.P., Farahibozorg, S.-R., Duff, E., 938 Smith, S.M., Woolrich, M.W., 2020. Modelling subject variability in the spatial and temporal 939 characteristics of functional modes. Neuroimage 222, 117226. 940 https://doi.org/10.1016/j.neuroimage.2020.117226 941 He, T., An, L., Chen, P., Chen, J., Feng, J., Bzdok, D., Holmes, A.J., Eickhoff, S.B., Yeo, B.T.T., 2022. 942 Meta-matching as a simple framework to translate phenotypic predictive models from big 943 to small data. Nat. Neurosci. 25, 795–804. https://doi.org/10.1038/s41593-022-01059-9 944 Helmer, M., Warrington, S., Mohammadi-Nejad, A.R., Ji, J.L., Howell, A., Rosand, B., Anticevic, A., 945 Sotiropoulos, S.N., Murray, J.D., 2024. On the stability of canonical correlation analysis and 946 partial least squares with application to brain-behavior associations. Commun. Biol. 7, 217. 947 https://doi.org/10.1038/s42003-024-05869-4 948 Kong, R., Li, J., Orban, C., Sabuncu, M.R., Liu, H., Schaefer, A., Sun, N., Zuo, X.N., Holmes, A.J., 949 Eickhoff, S.B., Yeo, B.T.T., 2019. Spatial Topography of Individual-Specific Cortical Networks 950 Predicts Human Cognition, Personality, and Emotion. Cerebral Cortex 29, 2533–2551. 951 https://doi.org/10.1093/cercor/bhy123 952 Kong, R., Spreng, R.N., Xue, A., Betzel, R.F., Cohen, J.R., Damoiseaux, J.S., De Brigard, F., Eickhoff, 953 S.B., Fornito, A., Gratton, C., Gordon, E.M., Holmes, A.J., Laird, A.R., Larson-Prior, L., 954 Nickerson, L.D., Pinho, A.L., Razi, A., Sadaghiani, S., Shine, J.M., Yendiki, A., Yeo, B.T.T., 955 Uddin, L.Q., 2025. A network correspondence toolbox for quantitative evaluation of novel 956 neuroimaging results. Nat. Commun. 16, 2930. https://doi.org/10.1038/s41467-025-58176-957 9958 Manning, J.R., Zhu, X., Willke, T.L., Ranganath, R., Stachenfeld, K., Hasson, U., Blei, D.M., Norman, 959 K.A., 2018. A probabilistic approach to discovering dynamic full-brain functional connectivity 960 patterns. Neuroimage 180, 243–252. https://doi.org/10.1016/j.neuroimage.2018.01.071 961 Margulies, D.S., Ghosh, S.S., Goulas, A., Falkiewicz, M., Huntenburg, J.M., Langs, G., Bezgin, G., 962 Eickhoff, S.B., Castellanos, F.X., Petrides, M., Jefferies, E., Smallwood, J., 2016. Situating the 963 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+46 default-mode network along a principal gradient of macroscale cortical organization. Proc. 964 Natl. Acad. Sci. U. S. A. 113, 12574–12579. https://doi.org/10.1073/pnas.1608282113 965 Mejia, A.F., Nebel, M.B., Wang, Y., Caffo, B.S., Guo, Y., 2020. Template Independent Component 966 Analysis: Targeted and Reliable Estimation of Subject-level Brain Networks Using Big Data 967 Population Priors. J. Am. Stat. Assoc. 115, 1151–1177. 968 https://doi.org/10.1080/01621459.2019.1679638 969 Miller, K.L., Alfaro-Almagro, F., Bangerter, N.K., Thomas, D.L., Yacoub, E., Xu, J., Bartsch, A.J., 970 Jbabdi, S., Sotiropoulos, S.N., Andersson, J.L.R., Griffanti, L., Douaud, G., Okell, T.W., Weale, 971 P., Dragonu, I., Garratt, S., Hudson, S., Collins, R., Jenkinson, M., Matthews, P.M., Smith, 972 S.M., 2016. Multimodal population brain imaging in the UK Biobank prospective 973 epidemiological study. Nat. Neurosci. 19, 1523–1536. https://doi.org/10.1038/nn.4393 974 Miranda, L., Paul, R., Pütz, B., Koutsouleris, N., Müller-Myhsok, B., 2021. Systematic Review of 975 Functional MRI Applications for Psychiatric Disease Subtyping. Front. Psychiatry 12, 665536. 976 https://doi.org/10.3389/fpsyt.2021.665536 977 Mueller, S., Wang, D., Fox, M.D., Yeo, B.T.T., Sepulcre, J., Sabuncu, M.R., Shafee, R., Lu, J., Liu, H., 978 2013. Individual Variability in Functional Connectivity Architecture of the Human Brain. 979 Neuron 77, 586–595. https://doi.org/10.1016/j.neuron.2012.12.028 980 Parkes, L., Satterthwaite, T.D., Bassett, D.S., 2020. Towards precise resting-state fMRI biomarkers 981 in psychiatry: synthesizing developments in transdiagnostic research, dimensional models 982 of psychopathology, and normative neurodevelopment. Curr. Opin. Neurobiol. 65, 120–128. 983 https://doi.org/10.1016/j.conb.2020.10.016 984 Raichle, M.E., MacLeod, A.M., Snyder, A.Z., Powers, W.J., Gusnard, D.A., Shulman, G.L., 2001. A 985 default mode of brain function. Proc. Natl. Acad. Sci. U. S. A. 98, 676–682. 986 https://doi.org/10.1073/pnas.98.2.676 987 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+47 Samanez-Larkin, G.R., D’Esposito, M., 2008. Group comparisons: imaging the aging brain. Soc. 988 Cogn. Affect. Neurosci. 3, 290–297. https://doi.org/10.1093/scan/nsn029 989 Schaefer, A., Kong, R., Gordon, E.M., Laumann, T.O., Zuo, X.N., Holmes, A.J., Eickhoff, S.B., Yeo, 990 B.T.T., 2018. Local-global parcellation of the human cerebral cortex from intrinsic functional 991 connectivity mri. Cerebral Cortex 28, 3095–3114. https://doi.org/10.1093/cercor/bhx179 992 Sha, Z., Wager, T.D., Mechelli, A., He, Y., 2019. Common Dysfunction of Large-Scale 993 Neurocognitive Networks Across Psychiatric Disorders. Biol. Psychiatry 85, 379–388. 994 https://doi.org/10.1016/j.biopsych.2018.11.011 995 Smith, S.M., Beckmann, C.F., Andersson, J., Auerbach, E.J., Bijsterbosch, J., Douaud, G., Duff, E., 996 Feinberg, D.A., Griffanti, L., Harms, M.P., Kelly, M., Laumann, T., Miller, K.L., Moeller, S., 997 Petersen, S., Power, J., Salimi-Khorshidi, G., Snyder, A.Z., Vu, A.T., Woolrich, M.W., Xu, J., 998 Yacoub, E., Uǧurbil, K., Van Essen, D.C., Glasser, M.F., 2013. Resting-state fMRI in the Human 999 Connectome Project. Neuroimage 80, 144–168. 1000 https://doi.org/10.1016/j.neuroimage.2013.05.039 1001 Smith, S.M., Douaud, G., Chen, W., Hanayik, T., Alfaro-Almagro, F., Sharp, K., Elliott, L.T., 2021. 1002 An expanded set of genome-wide association studies of brain imaging phenotypes in UK 1003 Biobank. Nat. Neurosci. 24, 737–745. https://doi.org/10.1038/s41593-021-00826-4 1004 Smith, S.M., Hyvärinen, A., Varoquaux, G., Miller, K.L., Beckmann, C.F., 2014. Group-PCA for very 1005 large fMRI datasets. Neuroimage 101, 738–749. 1006 https://doi.org/10.1016/j.neuroimage.2014.07.051 1007 Sydnor, V.J., Larsen, B., Bassett, D.S., Alexander-Bloch, A., Fair, D.A., Liston, C., Mackey, A.P., 1008 Milham, M.P., Pines, A., Roalf, D.R., Seidlitz, J., Xu, T., Raznahan, A., Satterthwaite, T.D., 1009 2021. Neurodevelopment of the association cortices: Patterns, mechanisms, and 1010 implications for psychopathology. Neuron 109, 2820–2846. 1011 https://doi.org/10.1016/j.neuron.2021.06.016 1012 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+48 Szucs, D., Ioannidis, J.PA., 2020. Sample size evolution in neuroimaging research: An evaluation 1013 of highly-cited studies (1990–2012) and of latest practices (2017–2018) in high-impact 1014 journals. Neuroimage 221, 117164. https://doi.org/10.1016/j.neuroimage.2020.117164 1015 Yeo, B.T.T., Krienen, F.M., Sepulcre, J., Sabuncu, M.R., Lashkari, D., Hollinshead, M., Roffman, J.L., 1016 Smoller, J.W., Zöllei, L., Polimeni, J.R., Fisch, B., Liu, H., Buckner, R.L., 2011. The organization 1017 of the human cerebral cortex estimated by intrinsic functional connectivity. J. Neurophysiol. 1018 106, 1125–1165. https://doi.org/10.1152/jn.00338.2011 1019 Verdi, S., Marquand, A.F., Schott, J.M., Cole, J.H., 2021. Beyond the average patient: how 1020 neuroimaging models can address heterogeneity in dementia. Brain 144, 2946–2953. 1021 https://doi.org/10.1093/brain/awab165 1022 Vidaurre, D., Smith, S.M., Woolrich, M.W., 2017. Brain network dynamics are hierarchically 1023 organized in time. Proceedings of the National Academy of Sciences 114, 201705120. 1024 https://doi.org/10.1073/pnas.1705120114 1025 Watanabe, K., Taskesen, E., van Bochoven, A., Posthuma, D., 2017. Functional mapping and 1026 annotation of genetic associations with FUMA. Nat. Commun. 8, 1826. 1027 https://doi.org/10.1038/s41467-017-01261-5 1028 Woolrich, M.W., Beckmann, C.F., Nichols, T.E., Smith, S.M., Valsasina, P., Rocca, M.A., Filippi, M., 1029 2025. Statistical Analysis of fMRI Data, in: Filippi, M. (Ed.), FMRI Techniques and Protocols. 1030 Springer US, New York, NY, pp. 193–252. https://doi.org/10.1007/978-1-0716-4438-6_7 1031 1032 1033 1034 1035 1036 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint
+
+49 
+
+# 7 Supplementary Materials 1037 
+
+Table S 1 Confounds 1038 
+
+Confound # Confound Name 
+
+1 'Age_Site_1' 
+
+2 'Age_Site_2' 
+
+3 'Age_Site_3' 
+
+4 'Sex_1_Site_1' 
+
+5 'Sex_1_Site_2' 
+
+6 'Sex_1_Site_3' 
+
+7 'HeadSize_Site_1' 
+
+8 'HeadSize_Site_2' 
+
+9 'HeadSize_Site_3' 
+
+10 'TablePos_COG_Z_Site_1' 
+
+11 'TablePos_COG_Z_Site_2' 
+
+12 'TablePos_COG_Z_Site_3' 
+
+13 'D_clean_p90_Site_1' 
+
+14 'D_clean_p90_Site_2' 
+
+15 'D_clean_p90_Site_3' 
+
+16 'Site_1_vs_2' 
+
+17 'Site_1_vs_3' 
+
+18 'T1_and_T2_for_FreeSurfer_1_Site_1' 
+
+19 'SCALING_T1_1_Site_1' 
+
+20 'SCALING_rfMRI_1_Site_1' 
+
+21 'SCALING_tfMRI_1_Site_1' 
+
+22 'S_clean_p90_Site_1' 
+
+23 'SD_clean_mean_Site_1' 
+
+24 'SD_clean_p90_Site_1' 
+
+25 'TablePos_Table_Site_1' 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 50 
+
+1039 
+
+Table S 2 Cognitive nIDPs 1040 
+
+IDP # IDP Name IDP # IDP Name 
+
+1 Number of incorrect matches in round (0.1) 35 Time elapsed (2.6) 
+
+2 Number of incorrect matches in round (0.2) 36 Time elapsed (2.7) 
+
+3 Number of incorrect matches in round (2.1) 37 Time elapsed (2.8) 
+
+4 Number of incorrect matches in round (2.2) 38 Digits entered correctly (2.0) 
+
+5 Number of incorrect matches in round (2.3) 39 Digits entered correctly (2.1) 
+
+6 Number of times snap-button pressed (0.0) 40 Digits entered correctly (2.2) 
+
+7 Number of times snap-button pressed (0.1) 41 Digits entered correctly (2.3) 
+
+8 Number of times snap-button pressed (0.2) 42 Digits entered correctly (2.4) 
+
+9 Number of times snap-button pressed (0.3) 43 Digits entered correctly (2.5) 
+
+10 Number of times snap-button pressed (0.4) 44 Digits entered correctly (2.6) 
+
+11 Number of times snap-button pressed (0.10) 45 Digits entered correctly (2.7) 
+
+12 Number of times snap-button pressed (0.11) 46 Total errors traversing numeric path (trail #1) (2.0) 
+
+13 Number of times snap-button pressed (2.0) 47 Mean time to correctly identify matches (0.0) 
+
+14 Number of times snap-button pressed (2.1) 48 Fluid intelligence score (0.0) 
+
+15 Number of times snap-button pressed (2.2) 49 Fluid intelligence score (2.0) 
+
+16 Number of times snap-button pressed (2.3) 50 Duration to complete numeric path (trail #1) (0.0) 
+
+17 Number of times snap-button pressed (2.4) 51 Duration to complete alphanumeric path (trail #2) (0.0) 
+
+18 Number of times snap-button pressed (2.5) 52 Digits entered correctly (2.8) 
+
+19 Number of times snap-button pressed (2.7) 53 Maximum digits remembered correctly (2.0) 
+
+20 Number of times snap-button pressed (2.10) 54 Attempted fluid intelligence (FI) test. (2.0) 
+
+21 Number of times snap-button pressed (2.11) 55 FI1 : numeric addition test (0.0) 
+
+22 Prospective memory result (0.0) 56 FI1 : numeric addition test (2.0) 
+
+23 Prospective memory result (2.0) 57 FI3 : word interpolation (0.0) 
+
+24 FI8 : chained arithmetic (2.0) 58 FI3 : word interpolation (2.0) 
+
+25 FI9 : concept interpolation (2.0) 59 FI4 : positional arithmetic (0.0) 
+
+26 Duration to complete numeric path (trail #1) (2.0) 60 FI4 : positional arithmetic (2.0) 
+
+27 Mean time to correctly identify matches (2.0) 61 FI5 : family relationship calculation (0.0) 
+
+28 Number of incorrect matches in round (0.0) 62 FI5 : family relationship calculation (2.0) 
+
+29 Time elapsed (2.0) 63 FI6 : conditional arithmetic (0.0) 
+
+30 Time elapsed (2.1) 64 FI6 : conditional arithmetic (2.0) 
+
+31 Time elapsed (2.2) 65 FI7 : synonym (0.0) 
+
+32 Time elapsed (2.3) 66 FI7 : synonym (2.0) 
+
+33 Time elapsed (2.4) 67 Duration to complete alphanumeric path (trail #2) (2.0) 
+
+34 Time elapsed (2.5) 68 Number of puzzles correctly solved (2.0) 
+
+1041 1042 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 51 
+
+Table S 3 Mental health nIDPs 1043 
+
+IDP # IDP Name IDP # IDP Name 
+
+1 ['Mood swings (0.0)', 72 'Difficulty concentrating during worst depression (0.0)', 
+
+2 'Mood swings (2.0)', 73 'Fraction of day affected during worst episode of depression (0.0)', 
+
+3 'Miserableness (0.0)', 74 'Thoughts of death during worst depression (0.0)', 
+
+4 'Miserableness (2.0)', 75 'Duration of worst depression (0.0)', 
+
+5 'Irritability (0.0)', 76 'Frequency of depressed days during worst episode of depression (0.0)', 
+
+6 'Irritability (2.0)', 77 'Impact on normal roles during worst period of depression (0.0)', 
+
+7 'Sensitivity / hurt feelings (0.0)', 78 'Ever had prolonged loss of interest in normal activities (0.0)', 
+
+8 'Sensitivity / hurt feelings (2.0)', 79 'Lifetime number of depressed periods (0.0)', 
+
+9 'Fed-up feelings (0.0)', 80 'Depression possibly related to childbirth (0.0)', 
+
+10 'Fed-up feelings (2.0)', 81 'Ever had prolonged feelings of sadness or depression (0.0)', 
+
+11 'Nervous feelings (0.0)', 82 'Depression possibly related to stressful or traumatic event (0.0)', 
+
+12 'Nervous feelings (2.0)', 83 'Professional informed about depression (0.0)', 
+
+13 'Worrier / anxious feelings (0.0)', 84 'Feelings of tiredness during worst episode of depression (0.0)', 
+
+14 'Worrier / anxious feelings (2.0)', 85 'Feelings of worthlessness during worst period of depression (0.0)', 
+
+15 "Tense / 'highly strung' (0.0)", 86 'Ever taken cannabis (0.0)', 
+
+16 "Tense / 'highly strung' (2.0)", 87 'General happiness (0.0)', 
+
+17 'Worry too long after embarrassment (0.0)', 88 'General happiness with own health (0.0)', 
+
+18 'Worry too long after embarrassment (2.0)', 89 'Belief that own life is meaningful (0.0)', 
+
+19 "Suffer from 'nerves' (0.0)", 90 'Ever heard an un-real voice (0.0)', 
+
+20 "Suffer from 'nerves' (2.0)", 91 'Ever seen an un-real vision (0.0)', 
+
+21 'Loneliness, isolation (0.0)', 92 'Ever thought that life not worth living (0.0)', 
+
+22 'Loneliness, isolation (2.0)', 93 'Ever self-harmed (0.0)', 
+
+23 'Guilty feelings (0.0)', 94 'Ever contemplated self-harm (0.0)', 
+
+24 'Guilty feelings (2.0)', 95 'Felt hated by family member as a child (0.0)', 
+
+25 'Risk taking (0.0)', 96 'Physically abused by family as a child (0.0)', 
+
+26 'Risk taking (2.0)', 97 'Felt loved as a child (0.0)', 
+
+27 'Frequency of depressed mood in last 2 weeks (0.0)', 98 'Sexually molested as a child (0.0)', 
+
+28 'Frequency of depressed mood in last 2 weeks (2.0)', 99 'Someone to take to doctor when needed as a child (0.0)', 
+
+29 'Frequency of unenthusiasm / disinterest in last 2 weeks (0.0)', 100 'Felt irritable or had angry outbursts in past month (0.0)', 
+
+30 'Frequency of unenthusiasm / disinterest in last 2 weeks (2.0)', 101 'Avoided activities or situations because of previous stressful experience in past month (0.0)', 
+
+31 'Frequency of tenseness / restlessness in last 2 weeks (0.0)', 102 'Felt distant from other people in past month (0.0)', 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 52 
+
+32 'Frequency of tenseness / restlessness in last 2 weeks (2.0)', 103 'Repeated disturbing thoughts of stressful experience in past month (0.0)', 
+
+33 'Frequency of tiredness / lethargy in last 2 weeks (0.0)', 104 'Felt very upset when reminded of stressful experience in past month (0.0)', 
+
+34 'Frequency of tiredness / lethargy in last 2 weeks (2.0)', 105 'Ever sought or received professional help for mental distress (0.0)', 
+
+35 'Seen doctor (GP) for nerves, anxiety, tension or depression (0.0)', 106 'Ever suffered mental distress preventing usual activities (0.0)', 
+
+36 'Seen doctor (GP) for nerves, anxiety, tension or depression (2.0)', 107 'Ever had period of mania / excitability (0.0)', 
+
+37 'Seen a psychiatrist for nerves, anxiety, tension or depression (0.0)', 108 'Ever had period extreme irritability (0.0)', 
+
+38 'Seen a psychiatrist for nerves, anxiety, tension or depression (2.0)', 109 'Recent easy annoyance or irritability (0.0)', 
+
+39 'Able to confide (0.0)', 110 'Recent feelings or nervousness or anxiety (0.0)', 
+
+40 'Able to confide (2.0)', 111 'Recent feelings of inadequacy (0.0)', 
+
+41 'Happiness (0.0)', 112 'Recent trouble concentrating on things (0.0)', 
+
+42 'Happiness (2.0)', 113 'Recent inability to stop or control worrying (0.0)', 
+
+43 'Work/job satisfaction (0.0)', 114 'Recent feelings of depression (0.0)', 
+
+44 'Work/job satisfaction (2.0)', 115 'Recent poor appetite or overeating (0.0)', 
+
+45 'Health satisfaction (0.0)', 116 'Recent feelings of foreboding (0.0)', 
+
+46 'Health satisfaction (2.0)', 117 'Recent thoughts of suicide or self-harm (0.0)', 
+
+47 'Family relationship satisfaction (0.0)', 118 'Recent lack of interest or pleasure in doing things (0.0)', 
+
+48 'Family relationship satisfaction (2.0)', 119 'Recent trouble relaxing (0.0)', 
+
+49 'Friendships satisfaction (0.0)', 120 'Recent restlessness (0.0)', 
+
+50 'Friendships satisfaction (2.0)', 121 'Trouble falling or staying asleep, or sleeping too much (0.0)', 
+
+51 'Financial situation satisfaction (0.0)', 122 'Recent changes in speed/amount of moving or speaking (0.0)', 
+
+52 'Financial situation satisfaction (2.0)', 123 'Recent feelings of tiredness or low energy (0.0)', 
+
+53 'Ever depressed for a whole week (0.0)', 124 'Recent worrying too much about different things (0.0)', 
+
+54 'Ever depressed for a whole week (2.0)', 125 'Belittlement by partner or ex-partner as an adult (0.0)', 
+
+55 'Longest period of depression (2.0)', 126 'Been in a confiding relationship as an adult (0.0)', 
+
+56 'Number of depression episodes (2.0)', 127 'Physical violence by partner or ex-partner as an adult (0.0)', 
+
+57 'Ever unenthusiastic/disinterested for a whole week (0.0)', 128 'Sexual interference by partner or ex-partner without consent as an adult (0.0)', 
+
+58 'Ever unenthusiastic/disinterested for a whole week (2.0)', 129 'Able to pay rent/mortgage as an adult (0.0)', 
+
+59 'Ever manic/hyper for 2 days (0.0)', 130 'Been in serious accident believed to be life-threatening (0.0)', 
+
+60 'Ever manic/hyper for 2 days (2.0)', 131 'Been involved in combat or exposed to war-zone (0.0)', 
+
+61 'Ever highly irritable/argumentative for 2 days (0.0)', 132 'Diagnosed with life-threatening illness (0.0)', 
+
+62 'Ever highly irritable/argumentative for 2 days (2.0)', 133 'Victim of physically violent crime (0.0)', 
+
+63 'Bipolar and major depression status (0.0)', 134 'Witnessed sudden violent death (0.0)', 
+
+64 'Neuroticism score (0.0)', 135 'Victim of sexual assault (0.0)', 
+
+65 'Ever addicted to any substance or behaviour (0.0)', 136 'Did your sleep change? (0.0)', 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 53 
+
+66 'Ever been injured or injured someone else through drinking alcohol (0.0)', 
+
+137 'Trouble falling asleep (0.0)', 
+
+67 'Frequency of inability to cease drinking in last year (0.0)', 138 'Sleeping too much (0.0)', 
+
+68 'Ever felt worried, tense, or anxious for most of a month or longer (0.0)', 139 'Waking too early (0.0)', 
+
+69 'Ever worried more than most people would in similar situation (0.0)', 140 'Weight change during worst episode of depression (0.0)', 
+
+70 'Age at first episode of depression (0.0)', 141 'Ever been offered/sought treatment for anxiety (0.0)', 
+
+71 'Age at last episode of depression (0.0)', 142 'Ever been offered/sought treatment for depression (0.0)'] 
+
+1044 
+
+Table S 4 Alcohol nIDPs 1045 
+
+IDP # IDP Name IDP # IDP Name 
+
+1 ['Alcohol intake frequency. (0.0)', 20 'Alcohol drinker status (0.0)', 
+
+2 'Alcohol intake frequency. (2.0)', 21 'Alcohol drinker status (2.0)', 
+
+3 'Average weekly red wine intake (0.0)', 22 'Amount of alcohol drunk on a typical drinking day (0.0)', 
+
+4 'Average weekly red wine intake (2.0)', 23 'Ever had known person concerned about, or recommend reduction of, alcohol consumption (0.0)', 
+
+5 'Average weekly champagne plus white wine intake (0.0)', 24 'Frequency of failure to fulfil normal expectations due to drinking alcohol in last year (0.0)', 
+
+6 'Average weekly champagne plus white wine intake (2.0)', 25 'Frequency of memory loss due to drinking alcohol in last year (0.0)', 
+
+7 'Average weekly beer plus cider intake (0.0)', 26 'Frequency of feeling guilt or remorse after drinking alcohol in last year (0.0)', 
+
+8 'Average weekly beer plus cider intake (2.0)', 27 'Frequency of drinking alcohol (0.0)', 
+
+9 'Average weekly spirits intake (0.0)', 28 'Frequency of consuming six or more units of alcohol (0.0)', 
+
+10 'Average weekly spirits intake (2.0)', 29 'Liking for bitter/ale (0.0)', 
+
+11 'Average weekly fortified wine intake (0.0)', 30 'Liking for lager (0.0)', 
+
+12 'Average weekly fortified wine intake (2.0)', 31 'Liking for red wine (0.0)', 
+
+13 'Alcohol usually taken with meals (0.0)', 32 'Liking for spirits (0.0)', 
+
+14 'Alcohol usually taken with meals (2.0)', 33 'Liking for whisky (0.0)', 
+
+15 'Alcohol intake versus 10 years previously (0.0)', 34 'Alcohol consumed (1.0)', 
+
+16 'Alcohol intake versus 10 years previously (2.0)', 35 'Alcohol consumed (2.0)', 
+
+17 'Reason for reducing amount of alcohol drunk (0.0)', 36 'Alcohol consumed (3.0)', 
+
+18 'Reason for reducing amount of alcohol drunk (2.0)', 37 'Alcohol consumed (4.0)'] 
+
+19 'Average weekly intake of other alcoholic drinks (0.0)' 
+
+1046 1047 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 54 
+
+Table S 5 Tobacco nIDPs 1048 
+
+IDP # IDP Name 
+
+1 'Current tobacco smoking (0.0)', 
+
+2 'Current tobacco smoking (2.0)', 
+
+3 'Past tobacco smoking (0.0)', 
+
+4 'Past tobacco smoking (2.0)', 
+
+5 'Smoking/smokers in household (0.0)', 
+
+6 'Smoking/smokers in household (2.0)', 
+
+7 'Exposure to tobacco smoke at home (0.0)', 
+
+8 'Exposure to tobacco smoke at home (2.0)', 
+
+9 'Exposure to tobacco smoke outside home (0.0)', 
+
+10 'Exposure to tobacco smoke outside home (2.0)', 
+
+11 'Light smokers, at least 100 smokes in lifetime (0.0)', 
+
+12 'Light smokers, at least 100 smokes in lifetime (2.0)', 
+
+13 'Smoking status (0.0)', 
+
+14 'Smoking status (2.0)', 
+
+15 'Ever smoked (0.0)', 
+
+16 'Ever smoked (2.0)', 
+
+17 'Liking for cigarette smoking (0.0)', 
+
+18 'Tobacco smoking (0.0)', 
+
+19 'Amount of tobacco currently smoked (0.0)' 
+
+1049 1050 1051 1052 1053 1054 1055 1056 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 55 1057 
+
+Table S 6 Cardiovascular nIDPs 1058 
+
+nIDP # nIDP Name nIDP # nIDP Name 
+
+1 Pulse rate, automated reading (0.0), 39 Stroke volume during PWA (2.1), 
+
+2 Pulse rate, automated reading (0.1), 40 Mean arterial pressure during PWA (2.0), 
+
+3 Pulse rate, automated reading (2.0), 41 Mean arterial pressure during PWA (2.1), 
+
+4 Pulse rate, automated reading (2.1), 42 Ventricular rate (2.0), 
+
+5 Diastolic blood pressure, automated reading (0.0), 43 P duration (2.0), 
+
+6 Diastolic blood pressure, automated reading (0.1), 44 QRS duration (2.0), 
+
+7 Diastolic blood pressure, automated reading (2.0), 45 Systolic brachial blood pressure (2.0), 
+
+8 Diastolic blood pressure, automated reading (2.1), 46 Diastolic brachial blood pressure (2.0), 
+
+9 Systolic blood pressure, automated reading (0.0), 47 Cardiac index during PWA (2.0), 
+
+10 Systolic blood pressure, automated reading (0.1), 48 Cardiac index during PWA (2.1), 
+
+11 Systolic blood pressure, automated reading (2.0), 49 Pulse wave Arterial Stiffness index (0.0), 
+
+12 Systolic blood pressure, automated reading (2.1), 50 Pulse wave Arterial Stiffness index (2.0), 
+
+13 Pulse rate (0.0), 51 PQ interval (2.0), 
+
+14 Pulse rate (2.0), 52 QT interval (2.0), 
+
+15 Pulse wave reflection index (0.0), 53 QTC interval (2.0), 
+
+16 Pulse wave reflection index (2.0), 54 RR interval (2.0), 
+
+17 Pulse wave peak to peak time (0.0), 55 PP interval (2.0), 
+
+18 Pulse wave peak to peak time (2.0), 56 P axis (2.0), 
+
+19 Heart rate during PWA (2.0), 57 R axis (2.0), 
+
+20 Heart rate during PWA (2.1), 58 T axis (2.0), 
+
+21 Peripheral pulse pressure during PWA (2.0), 59 QRS num (2.0), 
+
+22 Central systolic blood pressure during PWA (2.0), 60 LV ejection fraction (2.0), 
+
+23 Central pulse pressure during PWA (2.0), 61 LV end diastolic volume (2.0), 
+
+24 Number of beats in waveform average for PWA (2.0), 62 LV end systolic volume (2.0), 
+
+25 Number of beats in waveform average for PWA (2.1), 63 LV stroke volume (2.0), 
+
+26 Central augmentation pressure during PWA (2.0), 64 Cardiac output (2.0), 
+
+27 Central augmentation pressure during PWA (2.1), 65 Average heart rate (2.0), 
+
+28 Augmentation index for PWA (2.0), 66 Minimum carotid IMT (intima-medial thickness) at 120 degrees (2.0), 
+
+29 Augmentation index for PWA (2.1), 67 Mean carotid IMT (intima-medial thickness) at 120 degrees (2.0), 
+
+30 Cardiac output during PWA (2.0), 68 Maximum carotid IMT (intima-medial thickness) at 120 degrees (2.0), 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 56 
+
+31 Cardiac output during PWA (2.1), 69 Minimum carotid IMT (intima-medial thickness) at 150 degrees (2.0), 
+
+32 End systolic pressure during PWA (2.0), 70 Mean carotid IMT (intima-medial thickness) at 150 degrees (2.0), 
+
+33 End systolic pressure during PWA (2.1), 71 Maximum carotid IMT (intima-medial thickness) at 150 degrees (2.0), 
+
+34 End systolic pressure index during PWA (2.0), 72 Minimum carotid IMT (intima-medial thickness) at 210 degrees (2.0), 
+
+35 End systolic pressure index during PWA (2.1), 73 Mean carotid IMT (intima-medial thickness) at 210 degrees (2.0), 
+
+36 Total peripheral resistance during PWA (2.0), 74 Maximum carotid IMT (intima-medial thickness) at 210 degrees (2.0), 
+
+37 Total peripheral resistance during PWA (2.1), 75 Minimum carotid IMT (intima-medial thickness) at 240 degrees (2.0), 
+
+38 Stroke volume during PWA (2.0), 76 Mean carotid IMT (intima-medial thickness) at 240 degrees (2.0), 
+
+77 Maximum carotid IMT (intima-medial thickness) at 240 degrees (2.0) 
+
+1059 1060 1061 1062 1063 1064 1065 1066 1067 1068 1069 1070 1071 1072 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 57 
+
+Table S 7 Bone nIDPs 1073 
+
+IDP # IDP Name IDP # IDP Name 
+
+1 'Heel bone mineral density (BMD) T-score, automated (0.0)', 48 'Total BMD (bone mineral density) (2.0)', 
+
+2 'Ankle spacing width (0.0)', 49 'Total BMD (bone mineral density) T-score (2.0)', 
+
+3 'Heel Broadband ultrasound attenuation, direct entry (0.0)', 50 'Trunk BMC (bone mineral content) (2.0)', 
+
+4 'Speed of sound through heel (0.0)', 51 'Trunk BMD (bone mineral density) (2.0)', 
+
+5 'Heel ultrasound method (right) (2.0)', 52 'Femur shaft BMD (bone mineral density) (left) (2.0)', 
+
+6 'Ankle spacing width (left) (0.0)', 53 'Femur total BMD (bone mineral density) (left) (2.0)', 
+
+7 'Ankle spacing width (left) (2.0)', 54 'Femur total BMD (bone mineral density) T-score (left) (2.0)', 
+
+8 'Heel broadband ultrasound attenuation (left) (0.0)', 55 'Femur troch BMD (bone mineral density) (left) (2.0)', 
+
+9 'Heel broadband ultrasound attenuation (left) (2.0)', 56 'Femur wards BMD (bone mineral density) (left) (2.0)', 
+
+10 'Speed of sound through heel (left) (0.0)', 57 'Femur troch BMD (bone mineral density) T-score (left) (2.0)', 
+
+11 'Speed of sound through heel (left) (2.0)', 58 'Femur neck BMD (bone mineral density) (left) (2.0)', 
+
+12 'Heel quantitative ultrasound index (QUI), direct entry (left) (0.0)', 59 'Femur neck BMD (bone mineral density) T-score (left) (2.0)', 
+
+13 'Heel quantitative ultrasound index (QUI), direct entry (left) (2.0)', 60 'Femur wards BMD (bone mineral density) T-score (left) (2.0)', 
+
+14 'Ankle spacing width (right) (0.0)', 61 'Trunk bone area (2.0)', 
+
+15 'Ankle spacing width (right) (2.0)', 62 'Head bone area (2.0)', 
+
+16 'Heel broadband ultrasound attenuation (right) (0.0)', 63 'Head BMC (bone mineral content) (2.0)', 
+
+17 'Heel broadband ultrasound attenuation (right) (2.0)', 64 'Pelvis bone area (2.0)', 
+
+18 'Speed of sound through heel (right) (0.0)', 65 'Pelvis BMC (bone mineral content) (2.0)', 
+
+19 'Speed of sound through heel (right) (2.0)', 66 'Ribs bone area (2.0)', 
+
+20 'Heel quantitative ultrasound index (QUI), direct entry (right) (0.0)', 67 'Ribs BMC (bone mineral content) (2.0)', 
+
+21 'Heel quantitative ultrasound index (QUI), direct entry (right) (2.0)', 68 'Spine bone area (2.0)', 
+
+22 'L1-L4 TBS (trabecular bone score) (2.0)', 69 'Spine BMC (bone mineral content) (2.0)', 
+
+23 'L1-L4 area (2.0)', 70 'Arm bone area (left) (2.0)', 
+
+24 'L1-L4 average height (2.0)', 71 'Arm bone area (right) (2.0)', 
+
+25 'L1-L4 average width (2.0)', 72 'Arms combined bone area (2.0)', 
+
+26 'L1-L4 BMC (bone mineral content) (2.0)', 73 'Legs combined bone area (2.0)', 
+
+27 'L1-L4 BMD (bone mineral density) (2.0)', 74 'Femur neck bone area (left) (2.0)', 
+
+28 'Femur neck BMD (bone mineral density) (right) (2.0)', 75 'Femur neck bone area (right) (2.0)', 
+
+29 'Femur neck BMD (bone mineral density) T-score (right) (2.0)', 76 'Femur neck BMC (bone mineral content) (left) (2.0)', 
+
+30 'Femur shaft BMD (bone mineral density) (right) (2.0)', 77 'Femur neck BMC (bone mineral content) (right) (2.0)', 
+
+31 'Femur total BMD (bone mineral density) (right) (2.0)', 78 'Femur shaft bone area (left) (2.0)', 
+
+32 'Femur total BMD (bone mineral density) T-score (right) (2.0)', 79 'Femur shaft bone area (right) (2.0)', 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint 58 
+
+33 'Femur troch BMD (bone mineral density) (right) (2.0)', 80 'Femur shaft BMC (bone mineral content) (left) (2.0)', 
+
+34 'Femur troch BMD (bone mineral density) T-score (right) (2.0)', 81 'Femur shaft BMC (bone mineral content) (right) (2.0)', 
+
+35 'Femur wards BMD (bone mineral density) (right) (2.0)', 82 'Femur total area (left) (2.0)', 
+
+36 'Femur wards BMD (bone mineral density) T-score (right) (2.0)', 83 'Femur total area (right) (2.0)', 
+
+37 'Arm BMD (bone mineral density) (left) (2.0)', 84 'Femur total BMC (bone mineral content) (left) (2.0)', 
+
+38 'Arm BMD (bone mineral density) (right) (2.0)', 85 'Femur total BMC (bone mineral content) (right) (2.0)', 
+
+39 'Arms BMC (bone mineral content) (2.0)', 86 'Femur troch bone area (left) (2.0)', 
+
+40 'Arms BMD (bone mineral density) (2.0)', 87 'Femur troch bone area (right) (2.0)', 
+
+41 'Head BMD (bone mineral density) (2.0)', 88 'Femur troch BMC (bone mineral content) (left) (2.0)', 
+
+42 'Legs BMC (bone mineral content) (2.0)', 89 'Femur troch BMC (bone mineral content) (right) (2.0)', 
+
+43 'Legs BMD (bone mineral density) (2.0)', 90 'Femur wards bone area (left) (2.0)', 
+
+44 'Pelvis BMD (bone mineral density) (2.0)', 91 'Femur wards bone area (right) (2.0)', 
+
+45 'Ribs BMD (bone mineral density) (2.0)', 92 'Femur wards BMC (bone mineral content) (left) (2.0)', 
+
+46 'Spine BMD (bone mineral density) (2.0)', 93 'Femur wards BMC (bone mineral content) (right) (2.0)'] 
+
+47 'Total BMC (bone mineral content) (2.0)' 
+
+1074 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted July 19, 2026. ;https://doi.org/10.64898/2026.07.17.739129 doi: bioRxiv preprint

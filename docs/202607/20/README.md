@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-20</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-20 05:02 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日速览六篇顶刊，带你从神经几何理解感知机制，再探大脑如何并行处理场景与记忆。</p>
-<p>最值得细看的发现是：神经元多样性如何塑造感知表现，以及场景感知-记忆的配对信号竟延伸至顶上小叶。</p>
-<p>想深入脑科学与AI的交叉前沿，不妨顺着“表征几何”和“功能组织亚型”这两条线索，对比精读《Representational geometry》与速读《Large-scale population neuroimaging》。</p>
+      <p>今日精读两篇高分论文，揭示神经元多样性如何塑造感知表现，并发现场景感知与记忆的神经关联延伸至顶上小叶皮层。</p>
+<p>最值得关注的两个方向：一是大脑功能组织存在隐藏亚型，二是CLIP潜在空间可用超球形语义混合模型解释。</p>
+<p>建议读者从速读论文入手，快速把握计算神经科学与语言学习的交叉新趋势。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/20/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
