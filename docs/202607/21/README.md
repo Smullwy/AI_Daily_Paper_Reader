@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-21</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-21 05:11 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,8 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今天精读了两篇高分论文，都在探索视觉皮层与人工智能模型的内在机制。</p>
-<p>值得关注的是，研究正从大规模数据集和机械论理解两个方向，揭示灵长类视觉流与扩散模型的计算原理。</p>
-<p>建议读者跟进神经科学如何反向启发AI设计，尤其关注视觉皮层的具体运作对模型可解释性的启示。</p>
+      <p>今日精读聚焦视觉皮层神经元活动建模与扩散模型推理机制，速读涵盖跨被试脑电情绪识别、语义理解fMRI等。重点关注灵长类背侧流数据集《STSBench》与视觉推理的机制性理解。建议读者从这两篇高分论文切入，探索大脑认知模拟与生成模型的交叉启发。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/21/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -141,3 +138,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
