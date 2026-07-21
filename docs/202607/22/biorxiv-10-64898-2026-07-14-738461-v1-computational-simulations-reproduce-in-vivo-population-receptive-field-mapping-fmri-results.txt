@@ -1,0 +1,1505 @@
+Title: Computational simulations reproduce in vivo population receptive field mapping fMRI results
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.07.14.738461v1.full.pdf
+
+Number of Pages: 25
+
+Markdown Content:
+# Computational simulations reproduce in vivo 1
+
+# population receptive field mapping fMRI results 2
+
+Siddharth Mittal 1, Michael Woletz 1, David Linhardt 1, Christian 3
+
+Windischberger ∗1 
+
+> 4
+> 1
+
+High field MR Center, Center for Medical Physics and Biomedical Engineering, 5
+
+Medical University of Vienna, Vienna, Austria 6
+
+Abstract 7
+
+Population receptive field (pRF) mapping is widely used to characterize retinotopic or-8
+
+ganization based on functional magnetic resonance imaging (fMRI) data. Despite its broad 9
+
+adoption, the factors governing intra- and inter-subject variability in pRF estimates remain 10 
+
+incompletely understood, limiting the ability to evaluate and optimize visual stimulation 11 
+
+paradigms prior to data collection. Here, we investigate whether large-scale simulations 12 
+
+can reproduce in vivo run-to-run variability patterns observed in pRF mapping and provide 13 
+
+mechanistic insight into their origins. With GEMSim-pRF, our newly proposed computa-14 
+
+tional framework for large-scale simulation and estimation of pRF responses, we generated 15 
+
+millions of synthetic fMRI time courses across a wide range of receptive field parameters and 16 
+
+noise conditions. We analyzed the variability of pRF estimation results derived from simu-17 
+
+lations and compared them with in vivo data from the publicly available NYU Retinotopy 18 
+
+Dataset. Here we show that our simulation results matched the characteristic eccentricity-19 
+
+dependent variability observed in empirical pRF estimates. These findings show that key 20 
+
+variability patterns observed in empirical pRF mapping can be successfully reproduced in 21 
+
+large-scale simulations, establishing simulation-based analysis as a practical approach for un-22 
+
+derstanding, predicting, evaluating and ultimately improving the behaviour of retinotopic 23 
+
+mapping paradigms before empirical data collection. 24 
+
+Keywords: 25 
+
+fMRI, retinotopy, population receptive field, simulation, visual neuroscience 26 
+
+# 1 Introduction 27 
+
+Introduced in the late 2000s, population receptive field (pRF)-based mapping [Dumoulin and 28 
+
+Wandell, 2008] has become the prime method for determining retinotopic associations between 29 
+
+the visual field and the visual cortex. This approach is based on the acquisition of in vivo func-30 
+
+tional magnetic resonance imaging (fMRI) data to determine neural activation patterns in the 31 
+
+> ∗
+
+Correspondence: Christian Windischberger. Email: christian.windischberger@meduniwien.ac.at 
+
+Mittal et al. : Preprint Page 1 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+brain. During the fMRI scan, participants are presented with specific visual stimulus patterns 32 
+
+that typically shift throughout the visual field. Retinotopic mapping results are obtained by 33 
+
+analysing the fMRI data using pRF mapping software packages such as mrVista [Dumoulin 34 
+
+and Wandell, 2008], analyzePRF [Kay et al., 2013], popeye [DeSimone et al., 2016], SamSrfX 35 
+
+[Schwarzkopf, 2018], Braincoder [de Hollander et al., 2024], or the very recently introduced 36 
+
+GPU-based software GEM-pRF [Mittal et al., 2026]. Typically, these pRF mapping tools relate 37 
+
+an empirically measured fMRI time course to a pRF defined by its specific location and size 38 
+
+in the visual field. Although the specific parameter estimation strategies differ across software 39 
+
+implementations, the underlying principle is shared: pRF parameters are estimated by deter-40 
+
+mining the pRF parameter configuration with the best match between predicted and observed 41 
+
+fMRI signal. As described in the existing literature, the predicted time courses depend on the 42 
+
+pRF model used. Typical approaches include two-dimensional Gaussian modeling [Dumoulin 43 
+
+and Wandell, 2008], difference-of-Gaussians modeling [Zuiderbaan et al., 2012], or compressive 44 
+
+spatial summation modeling [Kay et al., 2013]. 45 
+
+For adequate interpretation of retinotopic mapping results, particularly in clinical and trans-46 
+
+lational applications, it is essential to understand not only the pRF estimates themselves but 47 
+
+also any bias introduced by the spatiotemporal properties of visual stimulation paradigms them-48 
+
+selves. For example, [Prabhakaran et al., 2021] showed that fMRI-based visual field reconstruc-49 
+
+tions depend strongly on the visual stimulation paradigm, with different approaches exhibiting 50 
+
+distinct sensitivity-specificity trade-offs. Similarly, several studies have reported systematic 51 
+
+stimulus-dependent differences in pRF size, eccentricity, visual field coverage, and model fit 52 
+
+quality [Alvarez et al., 2015, Chang et al., 2025a, Linhardt et al., 2021]. In order to com-53 
+
+pare different analysis pipelines, Lerma-Usabiaga et al. [2020] introduced a powerful validation 54 
+
+framework for assessing parameter recovery under controlled noise and modeling assumptions. 55 
+
+Together, these findings indicate that the variability in pRF estimates is not solely determined 56 
+
+by measurement noise, but also emerges from interactions between stimulus design, model as-57 
+
+sumptions, and the estimation procedure itself. 58 
+
+Understanding the origins of this variability remains challenging using empirical data alone. 59 
+
+While repeated measurements can provide estimates of run-to-run variability, the number of 60 
+
+repetitions that can be acquired within a single participant is inherently limited by scan du-61 
+
+ration, participant burden, and experimental cost. Consequently, empirical studies are often 62 
+
+statistically underpowered for systematically investigating how variability changes across visual 63 
+
+field location, pRF size, noise level, or stimulus design. Existing large-scale retinotopy datasets 64 
+
+further illustrate this limitation. The Human Connectome Project [Benson et al., 2018] provides 65 
+
+multiple retinotopic stimuli across a large cohort but typically only a single run per stimulus. 66 
+
+Conversely, the NYU retinotopy dataset [Himmelberg et al., 2021a] provides extensive repeated 67 
+
+measurements but is restricted to a single stimulation paradigm. Similarly, the CHN retino-68 
+
+topy dataset [Chang et al., 2025b] includes multiple paradigms and sessions, but only a limited 69 
+
+number of effective repetitions per stimulus configuration. As a result, empirical datasets alone 70 
+
+provide limited opportunities to systematically characterize the mechanisms governing pRF 71 
+
+estimation variability. 72 
+
+Simulations provide a potential solution to this problem as they could provide a powerful 73 
+
+Mittal et al. : Preprint Page 2 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+framework for understanding the origins of pRF estimation variability and for evaluating retino-74 
+
+topic stimulation paradigms prior to empirical data collection. By generating synthetic fMRI 75 
+
+time courses with known ground-truth parameters, simulations make it possible to isolate and 76 
+
+manipulate individual factors that influence pRF estimation behaviour. Computational con-77 
+
+straints, however, limit the practical scale at which repeated pRF estimation can be performed. 78 
+
+To overcome these challenges, we are introducing GEMSim-pRF (GPU-Empowered Map-79 
+
+ping & Simulations of pRFs), a framework that combines large-scale fMRI simulation with 80 
+
+GPU-accelerated pRF estimation. By taking advantage of the GPU-accelerated performance 81 
+
+of GEM-pRF [Mittal et al., 2026], the GEMSim-pRF framework enables millions of simulated 82 
+
+pRF estimations across visual field locations, pRF sizes, and noise conditions. Using this frame-83 
+
+work, we herein investigate whether empirical variability can be reproduced in simulations and 84 
+
+examine the factors that contribute to their emergence. Specifically, we compare the variability 85 
+
+patterns derived from large-scale simulations with repeated-measurement variability observed 86 
+
+in the NYU retinotopy dataset [Himmelberg et al., 2021a]. We show that the characteristic in-87 
+
+crease in variability with eccentricity emerges naturally in simulations and that a simple white 88 
+
+Gaussian noise model is sufficient to reproduce the major empirical patterns. These findings 89 
+
+establish large-scale simulation as a practical approach for understanding and predicting vari-90 
+
+ability in pRF mapping and provide a foundation for future simulation-driven evaluation of 91 
+
+retinotopic stimulation paradigms. 92 
+
+# 2 Methods 93 
+
+2.1 Empirical retinotopy data 94 
+
+To evaluate the correspondence between simulated and empirical measurements, we used the 95 
+
+publicly available New York University (NYU) retinotopy dataset [Himmelberg et al., 2021a]. 96 
+
+The dataset comprises functional MRI data from 44 healthy participants who completed a 97 
+
+standard bar-aperture retinotopy experiment. 98 
+
+Data were acquired at the NYU Center for Brain Imaging using a 3T Siemens MAGNETOM 99 
+
+Prisma scanner with a 64-channel head coil. Structural images consisted of T1-weighted scans, 100 
+
+with additional T2-weighted images available for a subset (n=11) of participants. Functional 101 
+
+data were collected using a multiband T2*-weighted EPI sequence (TR = 1 s, 2 mm isotropic 102 
+
+resolution), along with reverse phase-encoded spin-echo images to enable distortion correction. 103 
+
+All preprocessing was performed by the dataset authors using fMRIPrep [Esteban et al., 2019]. 104 
+
+Further details on acquisition and preprocessing can be found in Himmelberg et al. [2021b]. 105 
+
+2.2 Visual stimulus 106 
+
+The visual stimulation protocol used in this study corresponds to the bar-aperture paradigm 107 
+
+employed in the New York University (NYU) retinotopy dataset [Himmelberg et al., 2021b]. 108 
+
+This stimulus was used both for the empirical data and for the generation of simulated time 109 
+
+courses, ensuring consistency between empirical and simulated analyses. 110 
+
+For the in vivo data collection, participants viewed dynamic visual content presented within 111 
+
+a moving bar aperture (width 3.1 °). The aperture contained a stimulus pattern of colorful ob-112 
+
+Mittal et al. : Preprint Page 3 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+jects, faces, and scenes of varying scales, which appeared randomly on a pink-noise background. 113 
+
+Stimuli were confined to a circular aperture of 24.8 ° diameter. The bar traversed the visual 114 
+
+field in eight sweeps, each consisting of 24 discrete steps presented at 1 s intervals, synchronized 115 
+
+with MR image acquisition (TR = 1 s). Each scan lasted 192 s, and between 4 and 12 runs 116 
+
+were acquired per participant. 117 
+
+For the generation of simulated fMRI time courses and for pRF estimation in both empirical 118 
+
+and simulated data, the stimulus representation was reduced to a binary aperture sequence, 119 
+
+which served as input for generating pRF model time courses. This abstraction isolates the 120 
+
+stimulus geometry and timing, while omitting higher-order visual features that are not covered 121 
+
+in pRF estimation. 122 
+
+2.3 pRF estimations 123 
+
+Population receptive field (pRF) parameters were estimated using GEM-pRF [Mittal et al., 124 
+
+2026], a GPU-accelerated software package (gemprf-0.1.11, https://pypi.org/project/gemprf/) 125 
+
+for large-scale pRF estimations. The same estimation pipeline was applied consistently to both 126 
+
+simulated and empirical datasets. GEM-pRF was selected because it combines high computa-127 
+
+tional efficiency with estimation accuracy comparable to established pRF analysis tools, such 128 
+
+as mrVista [Dumoulin and Wandell, 2008], making it well-suited for the large number of sim-129 
+
+ulations required in the present framework. A dense sampling space was specified to ensure 130 
+
+high-resolution parameter estimation. The search space employed a 219 × 219 spatial grid up 131 
+
+to 37 ° diameter, resulting in a spacing of approximately 0.17 ° between adjacent grid points. 132 
+
+pRF size ( σ) was sampled using 24 linearly spaced values ranging from 0.1 ° to 3.0 °. In this 133 
+
+study, only grid-based pRF estimation was performed. As described in the original GEM-pRF 134 
+
+framework, sufficiently dense grid sampling provides accurate estimates, while refinement pri-135 
+
+marily interpolates between neighboring grid points [Mittal et al., 2026]. Given the focus of 136 
+
+this work is on evaluating overall variability trends and RMS error distributions rather than 137 
+
+fine-grained parameter optimization, dense grid-based fitting was sufficient and substantially 138 
+
+reduced computational overhead. 139 
+
+The pRFs were modeled as two-dimensional isotropic Gaussians. HRF parameters were 140 
+
+specified to select a canonical double gamma SPM-style hemodynamic response function [Friston 141 
+
+et al., 1998], which was normalized to have unit sum. Low-frequency temporal drifts were 142 
+
+modeled using discrete cosine transform (DCT) basis functions, including a constant term and 143 
+
+additional low-frequency components (0.5 and 1.0 cycles per scan). In order to keep the residual 144 
+
+degrees-of-freedom between the simulated and empirical data consistent, no further subject-145 
+
+specific regressors were used for the empirical data analysis. 146 
+
+2.4 Simulated fMRI time courses 147 
+
+An overview of the complete GEMSim-pRF simulation framework is illustrated in Figure 1. 148 
+
+GEMSim-pRF generates simulated fMRI time courses by adding noise to model predictions 149 
+
+p(t; θ), where θ denotes the ground-truth parameters of a simulated pRF. In the current 150 
+
+framework, a common set of N noise realizations is generated and subsequently added to ev-151 
+
+ery simulated noise-free model time course. Based on the configuration used in the present 152 
+
+Mittal et al. : Preprint Page 4 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+study, N = 2000 noisy time courses were generated using white Gaussian noise sampled from 153 
+
+N
+
+
+
+0,   1CNR 
+
+2
+
+, where CNR denotes the contrast-to-noise ratio. 154 
+
+2.4.1 Normalization factor 155 
+
+Our definition of the CNR assumes a unit-height contrast. We therefore normalize the response 156 
+
+of each pRF to produce a unit-height response, i.e. the response will be equal to one for a fully 157 
+
+stimulated pRF. Taking the regular sampling of the pRF into account and using the Riemann 158 
+
+sum as numerical approximation, the normalization factor is therefore the infinite 2D integral 159 
+
+of each pRF divided by the sampling spacing in x and y, ∆ x and ∆ y respectively: 160 
+
+N (θ) = 
+
+Z ∞−∞ 
+
+Z ∞−∞ 
+
+pRF (x, y ; θ) dx dy 
+
+∆x ∆y (1) This model assumes a linear relationship for the input stimulus and the neural response 161 
+
+and assumes that each simulated pRF will lead to the same response height for a complete 162 
+
+stimulation. 163 
+
+2.4.2 Computing CNR range from empirical data 164 
+
+Simulations were performed at representative CNR conditions selected from the range of CNR 165 
+
+values observed in the empirical data. Only the fMRI time courses from the primary visual 166 
+
+cortex (V1) of empirical data were used in this analysis. CNR values were computed individually 167 
+
+for each empirical fMRI time course y(t). No R2 thresholds were applied when computing the 168 
+
+empirical CNR distribution because such thresholds preferentially remove low-CNR vertices 169 
+
+and would therefore bias the observed distribution toward higher CNR values. The resulting 170 
+
+distribution was subsequently used to select representative simulation CNR levels. 171 
+
+For an estimated empirical pRF parameters ˆθ, the corresponding predicted time course 172 
+
+p(t; ˆθ) was normalized using the normalization factor formulation described in Section 2.4.1 to 173 
+
+ensure comparable signal amplitudes across vertices: 174 
+
+p′(t; ˆθ) = p(t; ˆθ)
+
+N ( ˆθ) . (2) The normalized model time course p′(t; ˆθ) was used within a general linear model (GLM) 175 
+
+framework to compute the residual error ϵ(t): 176 
+
+y(t) = βs p′(t; ˆθ) + X
+
+> k
+
+βk DCT k(t) + ϵ(t), (3) where βs represents the amplitude of the stimulus-driven response, βk are nuisance regressors 177 
+
+capturing low-frequency temporal drifts via DCT basis functions. 178 
+
+As the scaling coefficient βs reflects a direct estimate of signal amplitude independent of 179 
+
+nuisance regressors, the residuals need to be normalized to express noise relative to signal 180 
+
+strength and ensure comparability across vertices using, 181 
+
+Mittal et al. : Preprint Page 5 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+˜ϵ(t) = ϵ(t)
+
+βs
+
+. (4) This results in the contrast-to-noise ratio as: 182 
+
+CNR = 1std(˜ ϵ) . (5) 
+
+2.4.3 Adding noise to generate simulated fMRI time courses 183 
+
+For a given CNR value, synthetic noise was generated and added to the normalized noise-free 184 
+
+model time courses to produce the final simulated fMRI signals. For each simulated param-185 
+
+eter set θ, the corresponding normalized model prediction p′(t; θ) was combined with noise 186 
+
+realizations ϵ(n)(t) to generate simulated time courses: 187 
+
+y(n)(t; θ) = p′(t; θ) + ϵ(n)(t) (6) where n = 1 , . . . , N denotes the individual noise realisations. The noise term ϵ(n)(t) was 188 
+
+scaled to match the desired CNR levels derived from empirical data, ensuring that simulated 189 
+
+time courses span realistic noise regimes while maintaining controlled and consistent signal 190 
+
+scaling across all pRF parameter configurations. 191 
+
+2.5 Characterisation of pRF estimation variability 192 
+
+A series of analyses were designed to evaluate the extent to which simulations reproduce the 193 
+
+variability observed in empirical measurements and to investigate the contribution of individual 194 
+
+factors to pRF estimation variability under controlled simulation conditions. 195 
+
+2.5.1 Variability at representative locations 196 
+
+To illustrate stimulus-dependent variability in a controlled setting, two representative pRF 197 
+
+locations were selected: one at the center of the visual field and one at a peripheral location. 198 
+
+For both cases, the pRF size was fixed to σ=1 ° to isolate the effect of spatial position on 199 
+
+estimation variability. 200 
+
+For each location, 2000 noisy time courses were generated at the chosen CNR levels. The 201 
+
+pRF parameters were then estimated independently for each time course. The resulting es-202 
+
+timates (x,y) were visualized as scatter distributions to characterize the spatial dispersion of 203 
+
+estimated pRF positions relative to the ground truth. 204 
+
+2.5.2 Variability correspondence between empirical and simulated data 205 
+
+To assess whether variability observed in simulations reflects empirical trends, we compared the 206 
+
+spatial spread of pRF estimates as a function of eccentricity between simulated and empirical 207 
+
+datasets. The empirical analysis was performed using the pRF estimates from the primary 208 
+
+visual cortex (V1) region of the NYU Retinotopy Dataset. Only pRF estimates with a vari-209 
+
+ance explained ( R2) of at least 10% were included in both empirical and simulated analyses. 210 
+
+Mittal et al. : Preprint Page 6 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+Variability was quantified using the median absolute deviation (MAD) of eccentricity estimates. 211 
+
+The procedure to compute MAD values for empirical and simulated data is described below. 212 
+
+For the empirical data, pRF estimates from repeated runs were grouped at the vertex level 213 
+
+in individual subject space (fsnative). For each vertex, eccentricity values were computed from 214 
+
+the estimated pRF center positions ( x, y ) for each run. Outliers across runs were removed using 215 
+
+an interquartile range (IQR) criterion, where values lying more than five times the IQR beyond 216 
+
+the first or third quartile were excluded. Such a relatively relaxed threshold was adopted to 217 
+
+remove only extreme estimation outliers. 218 
+
+For each vertex k, the reference eccentricity value was defined as the median of the eccen-219 
+
+tricity estimates across the in vivo runs, 220 
+
+rref  
+
+> k
+
+= median 
+
+
+
+{ˆrk,j }Nruns 
+
+> j=1
+
+
+
+(7) where ˆ rk,j denotes the eccentricity estimated for the k-th vertex from the j-th run. Residuals 221 
+
+were then computed as 222 
+
+∆rk,j = ˆ rk,j − rref  
+
+> k
+
+(8) Vertices with fewer than three valid observations after outlier removal were excluded. For 223 
+
+each remaining vertex, variability was quantified as the MAD of the residuals, 224 
+
+MAD k = median ( |∆rk,j |) (9) Each vertex therefore contributed a single pair  rref  
+
+> k
+
+, MAD k
+
+, representing its reference 225 
+
+eccentricity and corresponding variability estimate. These pairs were subsequently assigned to 226 
+
+fixed eccentricity bins of width 0 .5◦ according to rref  
+
+> k
+
+. The resulting distributions of MAD values 227 
+
+within each eccentricity bin were visualised using boxplots to characterize the variability across 228 
+
+vertices. 229 
+
+For the simulated data, an analogous procedure was applied to compute MAD values. For 230 
+
+each simulated pRF location, multiple noisy time courses (N=2000) yielded repeated pRF es-231 
+
+timates. Eccentricity values derived from these estimates were used to compute the reference 232 
+
+eccentricity rref  
+
+> k
+
+as the median estimated eccentricity, and residuals were computed relative to 233 
+
+this median without reference to the known ground-truth parameters. This choice ensures con-234 
+
+sistency with the empirical data, where ground truth is inherently unknown. Importantly, it 235 
+
+avoids biases that would arise if variability were quantified relative to ground truth, as estima-236 
+
+tion errors are not necessarily symmetric around the true parameters. The resulting pairs of 237 
+
+reference eccentricity and MAD were assigned to the same fixed eccentricity bins as used for 238 
+
+the empirical data. 239 
+
+For analyzing the correspondence of variabilities, pRF center locations and pRF sizes were 240 
+
+sampled independently of the empirical data. Specifically, pRFs were simulated across a spa-241 
+
+tially uniform sampling of the visual field using a common range of pRF sizes at all eccentricities. 242 
+
+Synthetic pRFs were generated using a 71 × 71 grid of pRF center locations spanning the vi-243 
+
+sual field up to 24.8 ° (visual stimulus diameter) and 22 pRF sizes ranging from 0.1 ° to 2.2 °,244 
+
+sampled at intervals of 0.1 °. Each combination of pRF location and pRF size was used to gen-245 
+
+Mittal et al. : Preprint Page 7 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+erate a synthetic noise-free model time course before noise injection. Consequently, small pRFs 246 
+
+were simulated at peripheral eccentricities and large pRFs at central eccentricities, regardless of 247 
+
+known biological relationships between pRF size and eccentricity. For each pRF configuration, 248 
+
+2000 independent noisy fMRI time courses were generated at a given CNR level. This condition 249 
+
+provides a baseline assessment of variability correspondence without incorporating empirical in-250 
+
+formation regarding pRF distributions and reflects the most general use case of the simulation 251 
+
+framework. 252 
+
+The resulting distributions of MAD values obtained for the simulated and empirical datasets 253 
+
+were subsequently compared across eccentricity bins. To quantify the correspondence, the linear 254 
+
+association between the empirical and simulated variability distributions was assessed using 255 
+
+Pearson correlation coefficients, while the monotonic relationship was assessed using Spearman 256 
+
+correlation coefficients. 257 
+
+2.5.3 Analysis of RMS error across the visual field in simulated data 258 
+
+The procedure described in Section 2.5.2 quantifies variability using aggregated measures as a 259 
+
+function of eccentricity. As a result, it does not provide information about the behaviour of 260 
+
+individual pRF parameter estimates across the visual field. Therefore, pRF estimation error 261 
+
+was additionally quantified using the root mean square (RMS) error relative to the known 262 
+
+ground-truth pRF parameters. This provides a location-specific measure of estimation accuracy, 263 
+
+allowing systematic evaluation of how estimation errors vary across different regions of the visual 264 
+
+field and across pRF sizes. 265 
+
+For each pRF parameter k (i.e., horizontal position x, vertical position y, eccentricity r,266 
+
+polar angle ϕ, and pRF size σ), the RMS error was computed as 267 
+
+RMS (k) 
+
+> j
+
+=
+
+vuut 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+ˆθ(k) 
+
+> i,j
+
+− θ(k)
+
+> j
+
+2
+
+, (10) where j indexes the simulated ground-truth pRFs, i indexes the noisy realizations generated 268 
+
+for each simulated pRF, and N denotes the total number of noisy realizations. Furthermore, 269 
+
+θ(k) 
+
+> j
+
+denotes the k-th ground-truth parameter of the j-th simulated pRF, while ˆθ(k) 
+
+> i,j
+
+denotes the 270 
+
+corresponding estimate obtained from the i-th noisy realization. 271 
+
+For the polar angle parameter ϕ, differences were computed using the circular distance to 272 
+
+account for angular wrap-around, 273 
+
+∆ϕi,j = min 
+
+ ˆϕi,j − ϕj , 2π − ˆϕi,j − ϕj
+
+
+
+, (11) and the corresponding RMS polar angle error was computed by replacing the difference 274 
+
+term 
+
+ˆθ(ϕ) 
+
+> i,j
+
+− θ(ϕ)
+
+> j
+
+
+
+in the above equation (eq. 10) with ∆ ϕi,j . Although all calculations were 275 
+
+performed in radians, the resulting RMS values were converted to degrees for visualization. 276 
+
+Only pRF estimates with variance explained ( R2 ≥ 10%) were included in the analysis 277 
+
+to reflect common thresholding procedures in pRF mapping. The goal of this analysis is to 278 
+
+characterize how estimation error varies across spatial locations in the visual field. However, 279 
+
+as the complete pRF parameter space comprises both spatial position and pRF size ( σ), it 280 
+
+Mittal et al. : Preprint Page 8 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+cannot be visualized simultaneously. Therefore, the analysis was performed separately for each 281 
+
+ground-truth pRF size. 282 
+
+For a fixed ground-truth pRF size ( σ), RMS error values were computed for all simulated 283 
+
+pRF center locations across the visual field. This yields a spatial distribution of estimation 284 
+
+error for that specific σ value. The resulting RMS values were then arranged according to 285 
+
+their corresponding spatial positions, forming a two-dimensional representation in which each 286 
+
+location reflects the estimation error of a pRF centered at that position. 287 
+
+This procedure was repeated independently for each pRF parameter, resulting in separate 288 
+
+spatial error maps for horizontal position ( x), vertical position ( y), eccentricity ( r), polar angle 289 
+
+(ϕ), and pRF size ( σ). The maps were cropped to the circular region defined by the stimulus 290 
+
+aperture. This analysis allows direct comparison of how estimation error varies across the visual 291 
+
+field for different pRF parameters and ground-truth pRF sizes. 292 
+
+# 3 Results 293 
+
+3.1 Empirical CNR distribution 294 
+
+Contrast-to-noise ratio (CNR) values were computed from the empirical retinotopy dataset 295 
+
+as described in Section 2.4.2. The empirical CNR distribution (Figure 2) was used to identify 296 
+
+representative simulation conditions for comparison between simulated and empirical variability 297 
+
+trends. The resulting CNR distribution was right-skewed and exhibited a median CNR = 2.36, 298 
+
+with a substantial proportion of voxels extending toward higher CNR values. The central 50% 299 
+
+of CNR values lay between 1.40 (Q1) and 3.63 (Q3). 300 
+
+Based on the empirical CNR distribution, we selected simulation conditions centered around 301 
+
+the approximated median (CNR = 2.5) together with lower and higher neighboring conditions 302 
+
+(CNR = 1.5 and 3.5) to examine variability trends across a representative range of signal 303 
+
+qualities. 304 
+
+3.2 Spatial variability of simulated pRF estimates 305 
+
+Figure 3 presents the results of spatial variability for two representative pRF parameters as 306 
+
+described in Section 2.5.1. For the central configuration (x=0, y=0, σ=1), estimated pRF 307 
+
+centers are concentrated around the origin, with varying degrees of spatial spread, depending 308 
+
+on the CNR level. For the peripheral configuration (x=7, y=7, σ=1), the estimated centers are 309 
+
+distributed around the ground-truth location with a broader spatial spread compared to the 310 
+
+central case. In addition, the distributions become increasingly displaced in the radial outward 311 
+
+direction as CNR decreases. 312 
+
+Across different pRF locations and CNR levels, the spread of estimated pRF centers varies. 313 
+
+In some cases, estimated centers extend beyond the stimulus aperture. The dashed circle denotes 314 
+
+the stimulus extent (24.8 ° visual field diameter), while the outer boundary indicates the extended 315 
+
+search space (18.5 ° radius, i.e., 1.5 × the stimulus extent) used during model evaluation. 316 
+
+Mittal et al. : Preprint Page 9 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+3.3 Correspondence between empirical and simulated variability 317 
+
+The magnitude of variability depended systematically on the simulated CNR level (Figure 4). 318 
+
+Simulations performed at CNR = 1.5 consistently exhibited the largest MAD values across the 319 
+
+eccentricity range, whereas simulations performed at CNR = 3.5 produced the lowest variability. 320 
+
+The median empirical MAD values were largely bracketed by the corresponding median MAD 321 
+
+values obtained for the CNR = 1.5 and CNR = 2.5 simulations across most eccentricity bins. 322 
+
+The primary exception occurred in the highest eccentricity bin, where the empirical median 323 
+
+fell below all simulated conditions. Across both empirical and simulated datasets, variability 324 
+
+remained relatively stable over much of the visual field before increasing substantially at larger 325 
+
+eccentricities. 326 
+
+Quantitatively, strong agreement between simulated and empirical variability was observed 327 
+
+for all three simulated CNR levels. Pearson correlation coefficients of median MAD values com-328 
+
+puted across eccentricity bins were 0.97, 0.95, and 0.90 for CNR values of 1.5, 2.5, and 3.5, 329 
+
+respectively, indicating a high degree of similarity in the overall eccentricity-dependent variabil-330 
+
+ity distributions (Table 1). Corresponding Spearman correlation coefficients were 0.78, 0.91, 331 
+
+and 0.89, demonstrating consistent monotonic relationships across eccentricity. The highest 332 
+
+Spearman correlation was observed for the CNR = 2.5 condition, which also corresponds to the 333 
+
+median CNR of the empirical dataset. 334 
+
+The boxplot representation further demonstrates that the simulations reproduce not only the 335 
+
+overall increase in variability with eccentricity but also the magnitude of variability values. In 336 
+
+both empirical and simulated datasets, the distributions became progressively broader towards 337 
+
+peripheral eccentricities, reflecting greater uncertainty in pRF estimates at larger eccentricities. 338 
+
+Although differences in the absolute magnitude of variability were observed between the simu-339 
+
+lated CNR levels, the overall eccentricity-dependent pattern remained highly consistent across 340 
+
+all simulations. 341 
+
+3.4 Spatial distribution of RMS estimation errors 342 
+
+Figure 5 shows the spatial distribution of RMS errors for pRF parameter estimates obtained 343 
+
+from simulated fMRI time courses for our chosen stimulation paradigms, i.e. NYU bar stimulus. 344 
+
+RMS errors are displayed across the visual field for five pRF parameters: horizontal and vertical 345 
+
+pRF center position, eccentricity, polar angle, and pRF size, as defined in Section 2.5.3. Each 346 
+
+row corresponds to a parameter, and each column corresponds to a specific ground-truth pRF 347 
+
+size ( σ). The displayed columns ( σ = 0.2, 0.4, 0.6, 1.0, 1.4, and 2.0) represent a subset of the full 348 
+
+range of simulated pRF sizes, selected as representative examples spanning small, intermediate, 349 
+
+and large values. All results shown correspond to a contrast-to-noise ratio (CNR) of 2.5. RMS 350 
+
+error values vary systematically as a function of visual field location and pRF size. Spatial 351 
+
+structure is evident in all RMS maps. For all parameters, larger ground-truth σ values are 352 
+
+associated with higher RMS errors across wide regions of the visual field. Spatial patterns of 353 
+
+RMS error are parameter-specific and stimulus-dependent. 354 
+
+For pRF center position, RMS errors in the horizontal (x) and vertical (y) directions exhibit 355 
+
+distinct spatial patterns that are not radially symmetric. RM S x and RM S y show anisotropic 356 
+
+error distributions with different spatial structures along the horizontal and vertical axes. RMS 357 
+
+Mittal et al. : Preprint Page 10 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+errors for eccentricity increase with eccentricity. Polar angle ( ϕ) RMS errors also show spatially 358 
+
+structured patterns that vary with both visual field location and pRF size. However, it exhibits 359 
+
+low error across most of the visual field and a localized increase near the central region. 360 
+
+RMS errors for pRF size increase with ground-truth σ and show only slight spatial variation 361 
+
+across the stimulated visual field. Furthermore, the RMS error in the pRF size ( σ) exhibits a 362 
+
+pronounced X-shaped spatial pattern, with lower error observed along the diagonal directions 363 
+
+of the visual field and relatively higher error in regions between these diagonals. This pattern 364 
+
+is consistently observed across all shown ground-truth σ values. 365 
+
+Across columns, the spatial structure of RMS error remains largely consistent, while the 366 
+
+overall magnitude varies with ground-truth σ. Figure 5 provides a spatially resolved overview 367 
+
+of stimulus-dependent RMS pRF estimation errors across parameters, pRF sizes, and visual 368 
+
+field locations under identical noise, model, and analysis settings. 369 
+
+# 4 Discussion 370 
+
+The primary objective of this study was to investigate whether large-scale simulations can re-371 
+
+produce the variability patterns observed in empirical population receptive field (pRF) mapping 372 
+
+data and to identify factors that contribute to their emergence. Using the novel GEMSim-pRF 373 
+
+framework, we performed millions of pRF simulations across a range of receptive field param-374 
+
+eters and contrast-to-noise conditions and compared the resulting variability with repeated-375 
+
+measurement variability observed in the NYU retinotopy dataset. The results demonstrate 376 
+
+that the characteristic increase in variability with eccentricity observed in empirical data was 377 
+
+successfully reproduced in our simulations. These findings establish a close correspondence 378 
+
+between simulated and empirical variability features and provide a foundation for simulation-379 
+
+driven investigation of pRF estimation behaviour and retinotopic stimulus design. 380 
+
+4.1 Large-scale simulations reproduce in vivo variability trends 381 
+
+One of the most interesting findings of this study is that the characteristic eccentricity-dependent 382 
+
+variability observed in empirical pRF mapping results can be reproduced using large-scale simu-383 
+
+lations. Notably, this was achieved without incorporating any empirical data-based constraints. 384 
+
+Across all investigated CNR conditions, the simulated and empirical median MAD values ex-385 
+
+hibited similar eccentricity-dependent behaviour, yielding high Pearson as well as Spearman 386 
+
+correlation coefficient values (Table 1). One might expect that more realistic cortical pRF 387 
+
+distributions, physiological noise sources, or other empirical constraints would be required to 388 
+
+recover the observed variability behaviour. Instead, this analysis shows that the dominant 389 
+
+characteristics of the empirical variability distribution emerged even in the absence of such 390 
+
+assumptions. This suggests that the increase in variability with eccentricity is not solely a con-391 
+
+sequence of the non-uniform distribution of pRF locations across the visual field in the empirical 392 
+
+data (e.g., due to cortical magnification [Harvey and Dumoulin, 2011]). Instead, a substantial 393 
+
+component of the observed variability appears to arise from the interaction between stimulus 394 
+
+geometry, signal quality, the pRF model, and the estimation procedure itself. The median of 395 
+
+empirical MAD values is largely bracketed by simulations performed at CNR values of 1.5 and 396 
+
+Mittal et al. : Preprint Page 11 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+3.5, while showing particularly strong correspondence with the median empirical CNR condition 397 
+
+(CNR = 2.5), supporting the view that these factors alone explain the major features of the 398 
+
+variability trend. 399 
+
+While the overall correspondence between simulations and empirical data was strong, a 400 
+
+noticeable discrepancy remained at the highest eccentricity bin where empirical variability fell 401 
+
+below all simulated conditions. At the most peripheral eccentricities, the empirical variability 402 
+
+fell below all simulated conditions. Several factors may contribute to this behaviour. First, 403 
+
+empirical estimates are based on comparatively few repeated measurements (up to 12 runs), 404 
+
+and Figure 5 demonstrates that peripheral locations exhibit substantially higher estimation 405 
+
+uncertainty. Consequently, fewer reliable estimates may remain after quality-control filtering, 406 
+
+potentially leading to an underestimation of the empirical variability. Second, the noise model 407 
+
+employed in the present simulations may not fully capture estimation behaviour at the visual 408 
+
+field periphery, where additional nonlinear effects or physiological factors may become more 409 
+
+important. Nevertheless, this local discrepancy does not alter the principal finding that both 410 
+
+empirical and simulated data exhibit the same overall increase in variability with eccentricity. 411 
+
+This correspondence has a practical implication; it establishes confidence that large-scale 412 
+
+simulations can capture variability patterns observed in real data. If the major empirical trends 413 
+
+can be recovered under controlled settings, simulations can characterize estimation behaviour 414 
+
+retrospectively and also predict how changes in stimulus design, signal quality, or model as-415 
+
+sumptions influence variability before empirical data are collected. 416 
+
+4.2 Role of noise in pRF estimation variability 417 
+
+The present findings also provide insight into the role of noise in shaping pRF estimation 418 
+
+variability. Although the simulations employed a simple additive white Gaussian noise model, 419 
+
+they reproduced the major variability trends observed in the empirical data. Importantly, this 420 
+
+correspondence was not achieved merely by adding noise at any arbitrary scale to simulated 421 
+
+time courses, but by introducing noise in a manner that preserved a consistent contrast-to-noise 422 
+
+ratio (CNR) across different pRF configurations. 423 
+
+Holding CNR constant is critical because noise-free model responses vary substantially in 424 
+
+amplitude as a function of pRF size. For pRFs modeled as 2d Gaussian, larger pRFs integrate 425 
+
+over a broader region of the visual field and therefore generate higher-amplitude model signals 426 
+
+than smaller pRFs. Applying identical noise amplitudes to all simulated time courses would 427 
+
+therefore yield systematically different effective CNR values across pRF sizes and small pRFs 428 
+
+would appear artificially more variable simply because they were evaluated at lower CNR. 429 
+
+To avoid this confound, model time courses were normalized to remove pRF size-dependent 430 
+
+amplitude differences before noise was added as formulated in section 2.4.1. Noise was then 431 
+
+scaled to the target CNR, ensuring all simulated pRF configurations were evaluated under 432 
+
+comparable signal-quality conditions. This procedure allowed the influence of pRF size, stimulus 433 
+
+geometry, and spatial location to be examined independently from trivial differences in signal 434 
+
+amplitude. 435 
+
+The empirical variability trends emerging under these controlled conditions suggest that 436 
+
+many of the dominant features of pRF estimation variability can be simulated without using 437 
+
+Mittal et al. : Preprint Page 12 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+complex physiological or scanner-specific noise. A substantial variability component arises from 438 
+
+the interaction between signal quality, spatiotemporal pattern of the stimulus, and the pRF 439 
+
+estimation process itself. This does not imply that physiological noise, motion artifacts, or 440 
+
+scanner-related effects are unimportant, only that they are not necessary to recover the major 441 
+
+population-level variability trends in the empirical dataset. More sophisticated noise models 442 
+
+may further improve quantitative correspondence, but a controlled white Gaussian noise model 443 
+
+is sufficient to capture the dominant characteristics of pRF estimation variability. 444 
+
+4.3 Spatial structure of estimation uncertainty 445 
+
+In addition to our results on variability aggregated across large populations of pRF estimates, 446 
+
+simulations also enable examining uncertainty at the level of individual pRF parameters and 447 
+
+spatial locations. Having established a close correspondence between simulated and empirical 448 
+
+variability distributions, we used root-mean-square (RMS) error maps computed relative to 449 
+
+known ground-truth parameters to characterize how estimation uncertainty is distributed across 450 
+
+the visual field. 451 
+
+RMS maps shown in Figure 5 reveal that estimation uncertainty is spatially structured 452 
+
+rather than uniform, depending on both the pRF parameters being estimated and the underly-453 
+
+ing ground-truth configuration. This observation is consistent with prior work demonstrating 454 
+
+that pRF estimation is sensitive to noise, stimulus properties, and model-stimulus interactions 455 
+
+[Dumoulin and Wandell, 2008, Lerma-Usabiaga et al., 2020]. Furthermore, empirical studies 456 
+
+have shown that retinotopic estimates depend on both stimulus design and visual field location 457 
+
+[Alvarez et al., 2015, Chang et al., 2025a, Linhardt et al., 2021]. The present simulations ex-458 
+
+tend these observations by providing direct access to ground-truth parameters, thereby enabling 459 
+
+spatial patterns of estimation uncertainty to be examined explicitly. 460 
+
+An important observation is that the spatial structure of uncertainty differs substantially 461 
+
+across pRF parameters. Horizontal and vertical position estimates exhibit anisotropic pat-462 
+
+terns of uncertainty, indicating direction-dependent estimation uncertainty. Eccentricity errors 463 
+
+generally increase with distance from the fovea, while polar-angle estimates display spatially 464 
+
+structured regions of high and low uncertainty. The localized increase in RMS for polar angle 465 
+
+at center is expected because polar angle is undefined at the center. In contrast, pRF size ( σ)466 
+
+depends globally on the underlying ground-truth size. Across all visual field locations, RMS er-467 
+
+ror for σ increases systematically with increasing ground-truth pRF size, indicating that larger 468 
+
+receptive fields are more prone to estimation errors. 469 
+
+The σ error maps show a pronounced X-shaped pattern that remains visible across a broad 470 
+
+range of ground-truth pRF sizes. One plausible explanation is the potentially uneven spatiotem-471 
+
+poral sampling properties of the stimulus. Specifically, when quantifying the number of times 472 
+
+individual visual field locations are sampled by the bar stimulus used in the NYU retinotopy 473 
+
+dataset [Himmelberg et al., 2021a], an X-shaped pattern emerges in which locations along the 474 
+
+diagonal axes are sampled more frequently than surrounding regions. Denser sampling in these 475 
+
+regions may constrain pRF size estimation, reducing estimation error. The effect may be pro-476 
+
+nounced for σ rather than for position parameters, potentially because pRF center locations 477 
+
+were sampled more densely in the simulations while pRF size used a coarser parameter grid. 478 
+
+Mittal et al. : Preprint Page 13 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+This interpretation is consistent with the RMS structure, but disentangling stimulus sampling, 479 
+
+parameter discretisation, and noise will require further work. 480 
+
+Beyond error magnitude, the simulations also revealed systematic spatial characteristics of 481 
+
+the estimation process. For example, peripheral pRFs exhibited an increasing radial outward 482 
+
+displacement of the estimated pRF centers as CNR decreased (Figure 3). While assessing the 483 
+
+origin of this behaviour is beyond this study, our results illustrate that large-scale simulations 484 
+
+can be used to identify systematic estimation characteristics that are difficult to isolate using 485 
+
+empirical data alone. 486 
+
+More broadly, simulations expose behaviour that analyses of aggregated empirical datasets 487 
+
+can not address. While empirical datasets typically provide access only to aggregate estimation 488 
+
+outcomes, simulations show how uncertainty propagates through individual pRF parameters 489 
+
+across the visual field. Such analyses can help identify regions of systematic estimation bias, 490 
+
+reveal parameter-specific limitations of a stimulus design, and link population-level variability 491 
+
+trends observed to local estimation behaviour. In this sense, the RMS maps complement the 492 
+
+MAD-based analyses by linking global variability patterns to local estimation behaviour across 493 
+
+the visual field. 494 
+
+4.4 Implications for simulation-driven evaluation of retinotopic stimuli 495 
+
+Because simulations provide access to known ground-truth parameters, they can be used to 496 
+
+compare stimulation paradigms before empirical data are collected. For example, simulation 497 
+
+can reveal whether a specific stimulus design systematically increases uncertainty in particular 498 
+
+regions of the visual field, information that is difficult to obtain empirically, where the true 499 
+
+underlying pRF parameters are unknown. 500 
+
+An important aspect of the present simulation framework is the normalization strategy 501 
+
+applied. It removes the trivial amplitude scaling introduced by pRF size, so noise can be 502 
+
+injected at consistent CNR across sizes, while preserving amplitude differences arising from the 503 
+
+stimulus-pRF interaction. This is particularly important for future comparisons of retinotopic 504 
+
+stimulation paradigms, as normalization schemes based on peak response amplitude would 505 
+
+discard exactly the stimulus-dependent response differences that distinguish one paradigm from 506 
+
+another, and that may themselves affect estimation performance. 507 
+
+4.5 Limitations and future work 508 
+
+Some limitations should be considered when interpreting the present findings. First, the anal-509 
+
+yses used only focused on a single retinotopic stimulation paradigm from the NYU retinotopy 510 
+
+dataset. The large-scale simulations can reproduce the variability trends for this stimulus, but 511 
+
+whether similar correspondence is obtained for other paradigms, such as wedge/ring stimuli 512 
+
+[Linhardt et al., 2021] or designs incorporating cortical magnification principles [Chang et al., 513 
+
+2025a], remains to be tested. Second, the simulations used additive white Gaussian noise 514 
+
+and did not explicitly model physiological fluctuations, motion artifacts, or scanner-specific 515 
+
+noise sources [Poldrack et al., 2011]. While these are not necessary to reproduce the domi-516 
+
+nant empirical variability trends, they may contribute to finer-scale estimation behaviour and 517 
+
+parameter-specific biases. Future work should therefore investigate whether more realistic noise 518 
+
+Mittal et al. : Preprint Page 14 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+models improve correspondence between simulated and empirical data. Third, empirical val-519 
+
+idation was performed using the NYU retinotopy dataset alone. Although validation using 520 
+
+independent datasets would be desirable, assessing within-subject variability requires multiple 521 
+
+repeated measurements of the same subject and stimulus condition, a combination rarely avail-522 
+
+able. While some datasets include large numbers of subjects, they often provide only a small 523 
+
+number of runs per subject, making reliable estimation of within-subject variability difficult. 524 
+
+Future work would therefore benefit from independent datasets containing extensive repeated 525 
+
+measurements acquired with different retinotopic stimulation paradigms. Despite these limi-526 
+
+tations, the present framework extends naturally to alternative paradigms and noise models, 527 
+
+toward establishing simulation-driven evaluation as a complementary tool for optimizing retino-528 
+
+topic mapping. 529 
+
+# 5 Conclusion 530 
+
+Variability is a fundamental characteristic of population receptive field mapping, yet its origins 531 
+
+have remained difficult to disentangle based on in vivo measurements alone. In this study, we 532 
+
+demonstrated that the characteristic eccentricity-dependent variability observed in empirical 533 
+
+pRF estimates can be reproduced by large-scale simulations computed under controlled noise 534 
+
+conditions. This finding suggests that a substantial component of the observed variability 535 
+
+emerges from the interaction between stimulus properties, signal quality, and the estimation 536 
+
+process itself, rather than being solely determined by physiological factors. By establishing a 537 
+
+close correspondence between simulated and empirical variability trends and by enabling direct 538 
+
+investigation of parameter-specific uncertainty, this work provides a new framework for studying 539 
+
+the mechanisms that shape pRF estimation. And, this framework turns retinotopic stimulus 540 
+
+design into a testable variable: paradigms can be evaluated, and their parameter-specific biases 541 
+
+identified, before data are collected. It can complement in vivo retinotopic mapping studies and 542 
+
+support the systematic evaluation of retinotopic mapping paradigms. 543 
+
+# Acknowledgements 544 
+
+This work was supported by the Austrian Science Fund (FWF; grant https://doi.org/10.55776/P35583). 545 
+
+# Code Availability Statement 546 
+
+GEMSim-pRF will be available on GitHub as an open-source software package upon publication. 547 
+
+It depends on GEM-pRF libraries for pRF estimation, which are also available publicly on 548 
+
+GitHub as well as PyPI (https://pypi.org/project/gemprf/). Further instructions, usage guide 549 
+
+and configuration tools of GEMSim-pRF and GEM-pRF are part of the documentation website 550 
+
+(https://gemprf.github.io/). 551 
+
+Mittal et al. : Preprint Page 15 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+# AI Statement 552 
+
+The authors used AI-based tools (ChatGPT and Grammarly) to assist with language editing 553 
+
+and software development. All generated content was carefully reviewed and verified by the 554 
+
+authors, who take full responsibility for the final manuscript. 555 
+
+Mittal et al. : Preprint Page 16 of 25 
+
+.CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint Figure 1: Overview of the GEMSim-pRF framework. 
+
+Mittal et al. : Preprint Page 17 of 25 
+
+.CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint Figure 2: Distribution CNR values of empirical data from NYU retinotopy dataset. 
+
+Mittal et al. : Preprint Page 18 of 25 
+
+.CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint Figure 3: Distribution of pRF parameter estimates for simulated time courses across different ground-truth configurations and CNR levels. Each panel shows the recovered pRF centers (blue) for a fixed ground-truth location ( x, y ), indicated by the red marker. The top row corresponds to higher signal quality (CNR = 3.5), the middle row shows the results at CNR = 2.5, while the bottom row shows the results for noisier cases at CNR = 1.5. The dashed circle represents the stimulus aperture (24.8 ◦ visual field diameter), and the outer boundary indicates the extended model search space used during pRF estimation. 
+
+Mittal et al. : Preprint Page 19 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+Figure 4: Simulated variability trends reproduce empirical observations. Median absolute deviation (MAD) of the eccentricity as a function of eccentricity for empirical pRF estimates (grey) and simulations performed using spatially uniform pRF distributions at CNR = 1.5 (blue), 2.5 (green), and 3.5 (orange). Results represent averages across bins of 0.5 ° width. The simulations reproduce the characteristic eccentricity-dependent increase in variability observed in the empirical data. 
+
+Mittal et al. : Preprint Page 20 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+Figure 5: Spatial distribution of stimulus-dependent RMS pRF estimation errors. Visual field maps of RMS error for individual pRF parameters are shown for bar-type stimulation paradigms. Columns correspond to different ground-truth pRF size ( σ) values, evaluated on the same spatial grid of simulated pRF locations for each σ,while rows show RMS error for pRF center position, eccentricity, polar angle, and pRF size (Section ?? ). All simulations were performed under identical noise (CNR = 2.5), model, and analysis settings. 
+
+Mittal et al. : Preprint Page 21 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+Table 1: Correlation coefficients between the median MAD values obtained from the empirical data and each simulated CNR condition across eccentricity bins. 
+
+Simulated CNR Spearman ρ Pearson ρ
+
+1.5 0.78 0.97 2.5 0.91 0.95 3.5 0.89 0.90 Mittal et al. : Preprint Page 22 of 25 
+
+.CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint References 556 
+
+Ivan Alvarez, Benjamin De Haas, Chris A. Clark, Geraint Rees, and D. Samuel Schwarzkopf. 557 
+
+Comparing different stimulus configurations for population receptive field mapping in hu-558 
+
+man fMRI. Frontiers in Human Neuroscience , 9, February 2015. ISSN 1662-5161. doi: 559 
+
+10.3389/fnhum.2015.00096. URL http://journal.frontiersin.org/Article/10.3389/ 560 
+
+fnhum.2015.00096/abstract .561 
+
+Noah C. Benson, Keith W. Jamison, Michael J. Arcaro, An T. Vu, Matthew F. Glasser, Tim-562 
+
+othy S. Coalson, David C. Van Essen, Essa Yacoub, Kamil Ugurbil, Jonathan Winawer, and 563 
+
+Kendrick Kay. The Human Connectome Project 7 Tesla retinotopy dataset: Description and 564 
+
+population receptive field analysis. Journal of Vision , 18(13):23, December 2018. ISSN 1534-565 
+
+7362. doi: 10.1167/18.13.23. URL http://jov.arvojournals.org/article.aspx?doi=10. 566 
+
+1167/18.13.23 .567 
+
+Kelly Chang, Ione Fine, and Geoffrey M. Boynton. Improving the reliability and accuracy 568 
+
+of population receptive field measures using a logarithmically warped stimulus. Journal of 569 
+
+Vision , 25(1):5, January 2025a. ISSN 1534-7362. doi: 10.1167/jov.25.1.5. URL https: 570 
+
+//jov.arvojournals.org/article.aspx?articleid=2802415 .571 
+
+Kelly Chang, Ione Fine, and Geoffrey M. Boynton. CHN Retinotopic Mapping Dataset, 2025b. 572 
+
+URL https://openneuro.org/datasets/ds004698/versions/3.0.0 .573 
+
+Gilles de Hollander, Maike Renkert, Tomas H Knapen, and Christian C Ruff. braincoder: A 574 
+
+package for fitting encoding models to neural data and decoding stimulus features, March 575 
+
+2024. URL https://zenodo.org/doi/10.5281/zenodo.10778413 .576 
+
+Kevin DeSimone, Ariel Rokem, and Keith Schneider. popeye: a population receptive field 577 
+
+estimation tool. The Journal of Open Source Software , 1(8):103, December 2016. ISSN 2475-578 
+
+9066. doi: 10.21105/joss.00103. URL http://joss.theoj.org/papers/10.21105/joss. 579 
+
+00103 .580 
+
+Serge O. Dumoulin and Brian A. Wandell. Population receptive field estimates in hu-581 
+
+man visual cortex. NeuroImage , 39(2):647–660, January 2008. ISSN 10538119. doi: 582 
+
+10.1016/j.neuroimage.2007.09.034. URL https://linkinghub.elsevier.com/retrieve/ 583 
+
+pii/S1053811907008269 .584 
+
+Oscar Esteban, Christopher J. Markiewicz, Ross W. Blair, Craig A. Moodie, A. Ilkay Isik, 585 
+
+Asier Erramuzpe, James D. Kent, Mathias Goncalves, Elizabeth DuPre, Madeleine Snyder, 586 
+
+Hiroyuki Oya, Satrajit S. Ghosh, Jessey Wright, Joke Durnez, Russell A. Poldrack, and 587 
+
+Krzysztof J. Gorgolewski. fMRIPrep: a robust preprocessing pipeline for functional MRI. 588 
+
+Nature Methods , 16(1):111–116, January 2019. ISSN 1548-7091, 1548-7105. doi: 10.1038/ 589 
+
+s41592-018-0235-4. URL https://www.nature.com/articles/s41592-018-0235-4 .590 
+
+K.J. Friston, P. Fletcher, O. Josephs, A. Holmes, M.D. Rugg, and R. Turner. Event-591 
+
+Related fMRI: Characterizing Differential Responses. NeuroImage , 7(1):30–40, January 1998. 592 
+
+Mittal et al. : Preprint Page 23 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+ISSN 10538119. doi: 10.1006/nimg.1997.0306. URL https://linkinghub.elsevier.com/ 593 
+
+retrieve/pii/S1053811997903062 .594 
+
+Ben M. Harvey and Serge O. Dumoulin. The Relationship between Cortical Magnification 595 
+
+Factor and Population Receptive Field Size in Human Visual Cortex: Constancies in Cortical 596 
+
+Architecture. The Journal of Neuroscience , 31(38):13604–13612, September 2011. ISSN 0270-597 
+
+6474, 1529-2401. doi: 10.1523/JNEUROSCI.2572-11.2011. URL https://www.jneurosci. 598 
+
+org/lookup/doi/10.1523/JNEUROSCI.2572-11.2011 .599 
+
+Marc Himmelberg, Jan Kurzawski, Noah Benson, Denis Pelli, Marisa Carrasco, and Jon 600 
+
+Winawer. NYU Retinotopy Dataset, 2021a. URL https://openneuro.org/datasets/ 601 
+
+ds003787/versions/1.0.1 .602 
+
+Marc M. Himmelberg, Jan W. Kurzawski, Noah C. Benson, Denis G. Pelli, Marisa Carrasco, and 603 
+
+Jonathan Winawer. Cross-dataset reproducibility of human retinotopic maps. NeuroImage ,604 
+
+244:118609, December 2021b. ISSN 10538119. doi: 10.1016/j.neuroimage.2021.118609. URL 605 
+
+https://linkinghub.elsevier.com/retrieve/pii/S105381192100882X .606 
+
+Kendrick N. Kay, Jonathan Winawer, Aviv Mezer, and Brian A. Wandell. Compressive spatial 607 
+
+summation in human visual cortex. Journal of Neurophysiology , 110(2):481–494, July 2013. 608 
+
+ISSN 0022-3077, 1522-1598. doi: 10.1152/jn.00105.2013. URL https://www.physiology. 609 
+
+org/doi/10.1152/jn.00105.2013 .610 
+
+Garikoitz Lerma-Usabiaga, Noah Benson, Jonathan Winawer, and Brian A. Wandell. A vali-611 
+
+dation framework for neuroimaging software: The case of population receptive fields. PLOS 612 
+
+Computational Biology , 16(6):e1007924, June 2020. ISSN 1553-7358. doi: 10.1371/journal. 613 
+
+pcbi.1007924. URL https://dx.plos.org/10.1371/journal.pcbi.1007924 .614 
+
+David Linhardt, Maximilian Pawloff, Allan Hummer, Michael Woletz, Martin Tik, Markus 615 
+
+Ritter, Ursula Schmidt-Erfurth, and Christian Windischberger. Combining stimulus types for 616 
+
+improved coverage in population receptive field mapping. NeuroImage , 238:118240, September 617 
+
+2021. ISSN 10538119. doi: 10.1016/j.neuroimage.2021.118240. URL https://linkinghub. 618 
+
+elsevier.com/retrieve/pii/S1053811921005176 .619 
+
+Siddharth Mittal, Michael Woletz, David Linhardt, and Christian Windischberger. GEM-pRF: 620 
+
+GPU-empowered mapping of population receptive fields for large-scale fMRI analysis. Medical 621 
+
+Image Analysis , 109:103891, March 2026. ISSN 13618415. doi: 10.1016/j.media.2025.103891. 622 
+
+URL https://linkinghub.elsevier.com/retrieve/pii/S1361841525004372 .623 
+
+Russell A. Poldrack, Jeanette A. Mumford, and Thomas E. Nichols. Handbook of Functional 624 
+
+MRI Data Analysis . Cambridge University Press, 1 edition, August 2011. ISBN 978-625 
+
+0-521-51766-9 978-0-511-89502-9. doi: 10.1017/CBO9780511895029. URL https://www. 626 
+
+cambridge.org/core/product/identifier/9780511895029/type/book .627 
+
+Gokulraj T. Prabhakaran, Khaldoon O. Al-Nosairy, Claus Tempelmann, Hagen Thieme, and 628 
+
+Michael B. Hoffmann. Mapping Visual Field Defects With fMRI – Impact of Approach and 629 
+
+Mittal et al. : Preprint Page 24 of 25 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 20, 2026. ;https://doi.org/10.64898/2026.07.14.738461 doi: bioRxiv preprint
+
+Experimental Conditions. Frontiers in Neuroscience , 15:745886, September 2021. ISSN 1662-630 
+
+453X. doi: 10.3389/fnins.2021.745886. URL https://www.frontiersin.org/articles/10. 631 
+
+3389/fnins.2021.745886/full .632 
+
+D. Sam Schwarzkopf. SamSrf X - Matlab toolbox for pRF &amp; CF analysis. 2018. doi: 633 
+
+10.17605/OSF.IO/2RGSM. URL https://osf.io/2rgsm/ .634 
+
+W. Zuiderbaan, B. M. Harvey, and S. O. Dumoulin. Modeling center-surround configurations 635 
+
+in population receptive fields using fMRI. Journal of Vision , 12(3):10–10, March 2012. ISSN 636 
+
+1534-7362. doi: 10.1167/12.3.10. URL http://jov.arvojournals.org/Article.aspx?doi= 637 
+
+10.1167/12.3.10 .638 
+
+Mittal et al. : Preprint Page 25 of 25
