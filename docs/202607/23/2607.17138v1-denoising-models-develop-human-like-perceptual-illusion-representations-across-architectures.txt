@@ -1,0 +1,889 @@
+Title: Denoising Models Develop Human-Like Perceptual Illusion Representations Across Architectures
+
+URL Source: https://arxiv.org/pdf/2607.17138v1
+
+Published Time: Tue, 21 Jul 2026 01:11:50 GMT
+
+Number of Pages: 26
+
+Markdown Content:
+# Denoising Models Develop Human-Like Perceptual Illusion Representations Across Architectures 
+
+Gautam Ranka 1 , Paras Chopra 11Lossfunk 
+
+gautam.ranka@lossfunk.com , paras@lossfunk.com 
+
+## Abstract 
+
+Deep neural networks trained on natural images are shown to produce outputs consistent with human observers for brightness illusions. While this phenomenon has been documented across architectures, all evidence, to date, is measured at the output level: restored pixels, decoded trajectories, or classification decisions. Whether these models actually represent illusions internally, and if so where and how, remains unknown. We show that denoising models develop illusion-sensitive representations at specific internal layers, across varied architectures. Specifically, we identify the layers and channels that discriminate illusory from physically matched control regions. We show that the denoising objective is a more important driver of the effect than the architecture. On domain-appropriate stimuli, these activations track a validated psychophysical model of human brightness perception (FLODOG; Spearman ρ ≥ 0.70 ) and scale monotonically with parametric illusion strength. Leveraging these findings, we provide causal evidence via channel ablation showing that illusion-sensitive channels specifically and substantially affect the internal signal. Yet injecting these representations into the generation pipeline produces no measurable pixel shift across all tested architectures; we term such representations perceptual phantoms : active in internal processing yet invisible to any output-based evaluation. While related internal-output dissociations have been characterized in language models, this is the first such characterization for perceptual representations in denoising vision models. 
+
+## 1 Introduction 
+
+Human visual illusions are not bugs in perception - they are probes of its computational architec-ture. The same contextual integration that makes an identically gray patch appear lighter or darker depending on its surround underlies robust scene understanding. Recent discoveries that deep neural networks trained on natural images spontaneously replicate human illusion sensitivity [Gomez-Villa et al., 2019, Ward, 2019, Jaini et al., 2024, Gomez-Villa et al., 2025] suggest these biases may be a necessary consequence of learning efficient representations of natural scene statistics [Weiss et al., 2002]. But does the model actually encode the illusion, or merely produce correlated statistics? [Gomez-Villa et al., 2025] show DDIM trajectories exhibit human-like color shifts, an important advance beyond purely output-level analysis, but still measured in decoded pixel intensity at intermediate 
+
+> Preprint. arXiv:2607.17138v1 [cs.CV] 19 Jul 2026
+
+Figure 1: Illusion encoding traced through a denoising U-Net. (A) A GVIL color contrast illusion: UP: the two elliptical regions ( illusion_a , red; illusion_b , blue) are physically the same color but appear different due to the context. DOWN: same image with illusive feature removed (B) Spatial activation maps at four layers tracing the signal through the network for the UP and DOWN images. 
+
+∆ denotes the raw mean activation difference between illusion_a and illusion_b . The illusion differential peaks at the mid-block bottleneck and is nearly absent at the output, a perceptual phantom. (C) Peak |d| (Cohen’s d) across nine models: every denoising model above the medium-effect threshold ( |d| ≥ 0.5) compared to discriminative models falling at or below. timesteps, not layer-resolved internal activations. To the best of our knowledge, no published work has performed fine-grained causal interventions on illusion representations inside a denoising neural network, nor tested whether such representations generalize beyond U-Net architectures. We close the gap between “the model’s outputs look human-like” and “the model’s internal computations are organized like human perception.” To answer this question we probe internal activations layer by layer across nine models: six denoising models spanning three architecture families (pixel-space DDPMs, latent diffusion U-Nets, and diffusion transformers) plus three discriminative baselines. Our findings organize around three claims: 1. Denoising models encode illusions internally, regardless of architecture. Every denoising model we test, including both U-Nets and diffusion transformers, develop illusion-sensitive representations at specific layers. Similar discriminative models, however, show consistently weaker effects. The denoising objective, not architecture, appears to be what matters. 2. The encoding is causally involved in internal processing. Targeted channel ablation demonstrates that illusion-sensitive channels play a causal role in shaping the internal representations. Specific channels dominate the effect, and the signal concentrates at the bottleneck rather than in output-bound pathways. 3. Illusion encoding causally attenuates en route to the output. The encoding propagates downstream, but with progressively diminishing output coupling to finally reach a point when illusion specific channels disturb pixel reconstruction less than matched random channels. We term these representations Perceptual Phantoms in denoising models, extending the phenomenon to generative vision. 22 Related Work 
+
+Visual illusions in neural networks. A growing body of work has established that DNNs produce outputs consistent with human illusion perception. [Gomez-Villa et al., 2019] trained CNNs on image restoration (denoising, deblurring) and measured brightness and color shifts in the restored output images. [Ward, 2019] showed VGG and ResNet classification decisions are biased by illusions in the same direction as human perception. [Gomez-Villa et al., 2022] extended illusion analysis to GANs via generated outputs, and [Jaini et al., 2024] converted diffusion models into zero-shot classifiers, showing that classification accuracy and shape bias match human levels. [Bai et al., 2021] showed predictive coding feedback is necessary for illusory contour perception in recurrent CNNs via coarse on/off ablation. Theoretically, [Weiss et al., 2002] established that visual illusions arise naturally as Bayes-optimal percepts under natural scene priors, the same priors that reconstruction objectives implicitly learn. Most relevant to our work, [Gomez-Villa et al., 2025] measured DDIM inversion trajectories at intermediate denoising steps and found human-like color shifts - the first evidence that illusion-consistent signals exist beyond the final output. Their analysis also suggested that the training objective may be driving the effect. However, their metric is decoded pixel intensity at intermediate timesteps, not layer-resolved internal activations: they show illusion effects exist along the latent trajectory but not where inside the model they arise. We show (Section 4) where the encoding resides, which channels carry it, and whether it necessarily reaches the output. 
+
+Mechanistic interpretability of generative models: semantic attributes, not perceptual represen-tations. Causal tracing methods developed for language models [Meng et al., 2022, Geiger et al., 2021, Conmy et al., 2023] have been adapted to diffusion models: [Basu et al., 2024] performed causal mediation in text-to-image models, finding distributed rather than localized knowledge; [Kwon et al., 2023] identified the U-Net bottleneck as a semantic latent space; [Hertz et al., 2023] showed cross-attention causally controls spatial layout. However, all this work targets semantic attributes -object identity, style, spatial relations. No causal tracing of perceptual representations (encoding how 
+
+stimuli are perceived, not what they depict) has been reported. Standard causal tracing [Meng et al., 2022, Basu et al., 2024] works by patching activations and measuring the output change by construction, and is therefore structurally unable to detect represen-tations that do not propagate to outputs (Section 4.3). We use internal-to-internal causal methods that measure intervention effects at intermediate layers. 
+
+Internal-output dissociation in interpretability. The observation that internal representations can be detectable yet absent from model behavior has a substantial prior literature. [Hewitt and Liang, 2019] formalized this as a probing concern, introducing control tasks for selectivity. [Elazar et al., 2021] used iterative null-space projection to remove probe-detected linguistic properties from language model representations and found several were not behaviorally used. [Makelov et al., 2024] formalized "harmless" (null-space) versus "pernicious" (hidden-pathway) divergences from causal interventions. [Fakhar et al., 2024] demonstrated that activity-causal contribution dissociation may be generic in nonlinear networks. On the methodology side, [Canby et al., 2024] showed nullifying interventions are systematically less complete than counterfactual ones, and [Zhang and Nanda, 2024] recommend evaluating multiple intervention modalities. Our work characterizes this phenomenon for perceptual representations in denoising vision models, a domain not covered by prior literature, with cross-architecture replication and an attenuation-gradient analysis that goes beyond binary internal/output dissociation. 
+
+## 3 Methods 
+
+3.1 Models and Stimuli Denoising models and Baselines. We study three architecture families: (1) Pixel-space DDPMs : google/ddpm-ema-church-256 [Ho et al., 2020] (113.7M parameters, 256 ×256, LSUN Churches; primary model), google/ddpm-ema-bedroom-256 (LSUN Bedrooms), and google/ddpm-ema-celebahq-256 (CelebA-HQ faces); (2) Latent diffusion U-Nets :
+
+CompVis/ldm-celebahq-256 [Rombach et al., 2022] and Stable Diffusion 1.5 (latent 64 ×64, 3VAE encoder/decoder); (3) Vision transformer : DiT-XL/2 [Peebles and Xie, 2023] (28 transformer blocks, 675M parameters, ImageNet class-conditioned, no U-Net structure). Discriminative models of different architectures are chosen as baselines to evaluate effect of training objective. (Appendix C) All models are frozen throughout with single forward pass per image per timestep. 
+
+Stimuli. We use two stimulus sets. The GVIL dataset [Zhang et al., 2023] provides N =35 base color illusion images containing 2 illusion regions, together with matched real-counterpart images 
+
+Xr in which the illusory context is removed and objects are placed on a uniform white background. The original dataset was larger ( N = 72 ), but had flip augmentations which we don’t include in our analysis due to potential inflation of results (Appendix A). The Pyllusion parametric stimuli 
+
+[Makowski et al., 2021] provide synthetic Ebbinghaus and Ponzo illusions at 10 strength levels (N =10 images per level) for dose-response analysis (Appendix N). 
+
+3.2 Activation Probing Protocol Single-step forward probing. For each image at timestep t, we construct a noisy input 
+
+xt = √¯αt x0 + √1 − ¯αt ϵ
+
+,where ϵ ∼ N (0 , I ) and perform a single forward pass through the frozen model, capturing intermedi-ate activations via registered forward hooks.(Appendix D) Primary claims are based on t ∈ { 50 , 150 };
+
+t > 700 is excluded due to a heavy-noise confound (Appendix B). 
+
+Channel aggregation metrics. Four methods reduce the activation tensor to a spatial (H, W )
+
+map: L2-norm, mean, max, and std across channels. The max metric is primary for observational experiments (strongest signal-to-noise at N =35 ); all four are reported in supporting tables. 
+
+Effect sizes. For each layer and timestep, ∆ is computed per image. We report all three standard-ized effect size metrics: Cohen’s d (standard paired), Hedge’s g (bias corrected) , and Glass’s ∆
+
+(normalised by SD). (Appendix D) Thresholds: < 0.2 negligible, 0.2–0.5 small, 0.5–0.8 medium, > 0.8 large. 
+
+A-priori layers. We define three a-priori layers based on known architectural significance: 
+
+mid_attn_0 (bottleneck attention), mid_resnet_0 (bottleneck ResNet), and down_5_resnet_1 
+
+(deepest encoder layer). These were selected before observational analysis based on the architectural hypothesis that the bottleneck concentrates illusion information; all subsequent analyses at these layers are confirmatory, not exploratory. 
+
+3.3 Control Experiments 
+
+We run (i) Pixel-Shuffle within illusion_a to dissociate gestalt vs. feature processing followed by (ii) Real-Counterpart comparison ( ∆ill/ ∆real ) to seperate illusion effect from image context; (iii) 
+
+Random Initialization to separate training from architecture; (iv) Random-Image baselines with matched mask geometry, formally tested via d_excess AL; Finally, we do (v) Multiple-Hypothesis correction via 10,000-permutation tests with FDR to strengthen the claims (Appendix AO). More details are mentioned in Appendix E 
+
+3.4 Correlational Protocol Psychophysical correlation. FLODOG [Robinson et al., 2007] is a validated computational model of human brightness perception using oriented Difference-of-Gaussian filters with divisive normal-isation, which produces pixel-level predicted brightness maps. Spearman ρ is computed between FLODOG predictions and activation magnitudes. However, FLODOG is a luminance model and hence is applicable only to grayscale brightness stimuli (SBC, Hermann grid). (Appendix L) 
+
+Dose-response. Pyllusion[Makowski et al., 2021] provides us with illusions at different strength levels. We use it to create stimuli at 10 strength levels, all processed through the same single-step forward probing, region comparison, and effect-size computation described earlier. Spearman ρ
+
+4between illusion strength and Glass’s ∆ (or Cohen’s d) quantifies the monotonicity of the dose-response relationship. 
+
+3.5 Causal Intervention Protocol Channel ablation. Channels at mid_resnet_0 that exceed |d| ≥ 0.5 per the per-channel analysis are zeroed, and the percentage reduction in ∆ at mid_attn_0 , identified as the peak observational layer, is measured. Separate ablations are performed for pos_d (d ≥ 0.5), neg_d (d ≤ − 0.5), and 
+
+all_sig (|d| ≥ 0.5) channels. To ensure results are not threshold-specific, we repeat the analysis across six effect-size cutoffs ( |d| ∈ { 0.2, 0.3, 0.5, 0.8, 1.0, 1.2}). To test whether the ablation reduction is specific to illusion-sensitive channels or reflects generic capacity degradation, we ablate 500 random channel sets of matched count (140 channels each) at 
+
+mid_resnet_0 and measure the resulting ∆ reduction at mid_attn_0 , constructing a null distribu-tion (Appendix AG). To address the concern that channels are selected and evaluated on the same N =35 images, we perform 5-fold and leave-one-out (LOO) cross-validation (Appendix AH). 
+
+Skip-connection probing. To test whether the illusion signal propagates via U-Net skip connections, we compare |d| at the bottleneck ( mid_attn_0 ), skip-proxy layers (encoder last-resnets), and decoder-entry layers. Concentration at the bottleneck with low skip-proxy values indicates the signal is not transmitted to the decoder via skip connections. 
+
+Phantom injection. (a) DDIM 20-step injection: each Xr is reconstructed via DDIM inversion and its denoising trajectory is modified by replacing activations at specified layers/timesteps with those from X. The pixel-level shift fraction measures whether injecting illusion representations into a clean trajectory produces visible perceptual effects. (b) Single-step injection: Xr is noised to t=50 via a single forward diffusion step and the same activation injection is performed; the pixel shift is measured after exactly one denoising step to rule out iterative correction. A second variant noises Xr to tfirst ≈ 980 (SNR ≈ 0.001 ), testing whether the phantom result holds even when the starting signal is almost entirely noise. 
+
+Read only Test Injection methods test illusion-directional pixel change but not whether illusion channels are more or less output-coupled than baseline. We measure full-image reconstruction MSE under matched ablation. The illusion image X is noised to t_start ∈ {50 , 150 , 300 , 600 , 900 }
+
+and reconstructed via DDIM. We zero-ablate (i) all 140 illusion-sensitive channels at mid_attn_0 (|d| ≥ 0.5), (ii) the pos_d and neg_d subsets separately, and (iii) five matched-count random channel sets per timestep. The primary metric is full-image MSE between the ablated reconstruction and the unablated reconstruction; lower MSE under illusion-channel ablation than under random-channel ablation indicates the illusion channels are more read-only than the population baseline 
+
+## 4 Results 
+
+4.1 Illusion-Sensitive Activations Are Localized 
+
+Figure 2 shows the landscape of how the effect is spread across the architecture of 
+
+google/ddpm-ema-church-256 model. Across 41 U-Net layers and 6 timesteps, the illusion signal is not spread uniformly and concentrates sharply at the bottleneck. The mid_attn_0 layer at t=50 shows a medium-large effect ( d=0 .663 [max], g=0 .648 , Glass’s ∆=+1 .392 ), consistent at 
+
+t=150 (d=0 .531 [max], Glass’s ∆=+1 .069 ). Bootstrap resampling confirms this as robust, firmly excluding zero. The max channel-aggregation metric is not cherry-picked: the direction is consistent across all aggregation methods at this layer (Appendix X, U). These effects are specific to illusory context, not to image region statistics: the real-counterpart control shows the illusion image evokes 2.2–4.5 × more differential activation between the two bounding-box regions than the matched image with the illusory context removed. The real-counterpart effect at 
+
+mid_attn_0 (d =0 .330 [L2]) is directionally consistent but underpowered at N =35 (Appendix U) . 5t=50          
+
+> t=150
+> t=300
+> t=500
+> D5R1 mA0
+> mR0
+> U1A0
+> Encoder Mid Decoder
+> (A) |Cohen's d|, max metric (N=35)
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> |Cohen's d|
+> mid_attn_0 mid_resnet_0 down_5
+> resnet_1
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Mean activation
+> 2.3× 3.6×
+> 4.5×
+> (B) Illusion X vs matched control X_r
+> (mean ± SE, t=50 and t=150)
+> Illusion X
+> Control X_r
+
+Figure 2: Layer-resolved illusion sensitivity. (A) Heatmap of |Cohen’s d| across all 41 U-Net layers and 6 timesteps (max metric, N =35 base color images). mid_attn_0 and up_1_attn_0 (largest attention effect) are highlighted. (B) Paired bar chart comparing ∆ill vs. ∆real at the three a-priori layers, showing 2.3–4.5 × specificity to illusory context. The illusion effect at mid-block layers also substantially exceeds what mask geometry alone can explain. We find that random-pixel images with identical spatial masks produce lower (often negative) d at these layers; the dexcess = dillusion − drandom at mid_attn_0 , t=50 is +1 .100 , and at 
+
+mid_resnet_0 : +1 .092 , both CIs well above zero (Appendix AL). Early decoder layers, however, show significantly negative dexcess (random pixels > illusion images), confirming that mid-block illusion sensitivity is not a mask-shape artifact. The peak claim also survives multiple-hypothesis correction. Permutation testing across all 246 layer ×timestep combinations yields p < 0.0001 for the overall peak. At the a-priori mid_attn_0 ,
+
+t=50 : permutation p=0 .028 ; at mid_resnet_0 , t=50 : p=0 .017 (Appendix AO). We find that this localization reflects two distinct processing modes. Pixel Shuffling within the 
+
+illusion_a region, preserving their local marginal statistics but destroying spatial arrangement, leads to mid-block effect collapse In contrast, down_5_resnet_1 (deep encoder) is preserved after shuffling, identifying a feature-based pathway that responds to local texture and contrast statistics. 
+
+4.2 Activations Track Psychophysical Perceptions 
+
+FLODOG [Robinson et al., 2007] is a computational model of human brightness perception, validated for luminance-based grayscale illusions (SBC, White’s Effect, Hermann grid) but not for chromatic contrast effects. On domain-appropriate programmatic stimuli, U-Net activations show strong psychophysical alignment: ρ=0 .78 at up_1_attn_2 , t=50 for SBC, and ρ=0 .70 at up_2_resnet_1 ,
+
+t=700 for Hermann-grid stimuli. Multiple layers at different timesteps exceed ρ ≥ 0.65 (Figure 3B). This means that regions where humans perceive stronger brightness contrast show proportionally higher U-Net activation pointing towards a continuous, graded correspondence, not merely a binary detection. When tested across the full N =35 GVIL color illusion dataset, which includes chromatic contrast effects outside FLODOG’s valid domain, the aggregate correlation collapses to near zero (mean 
+
+ρ=−0.019 ). This domain mismatch is expected and informative: it suggests the U-Net separates luminance and chromatic processing, paralleling known V1/V2 vs. V4 dissociations in human vision though this is currently speculative. (see Appendix L). To compare the alignment on geometric illusions as an exploratory study, we use the Dose-Response experiment which uses different strength illusions to obtain correlation between strength and Glass’s 
+
+∆ (Figure 4). Overall, we find that dose-response results show clean monotonic scaling. For Ebbinghaus illusions, Glass’s ∆ at up_1_attn_2 , t=50 rises with Spearman ρ=0 .976 on 10 strength levels ( N =10 per level). For Ponzo, conv_norm_out at t=150 achieves a perfectly monotone dose-response ( ρ=1 .000 ), with Glass’s ∆ rising from −0.77 to −1.56 .62 0 2 4 
+
+> FLODOG brightness prediction
+> 2
+> 1
+> 0
+> 1
+> 2
+> 3
+> Activation (up_1_attn_2, t=50)
+> Spearman = 0.78
+> Where FLODOG predicts
+> higher brightness,
+> U-Net activates more strongly
+
+(A) SBC per-pixel = 0.78       
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Spearman (FLODOG vs. activation)
+> up_1_attn_2
+> (t=50)
+> up_0_resnet_1
+> (t=50)
+> up_2_resnet_1
+> (t=700)
+> up_1_attn_0
+> (t=50)
+> up_1_attn_2
+> (t=150)
+> =0.70
+> 0.781
+> 0.732
+> 0.702
+> 0.681
+> 0.654
+
+(B) Top layers, brightness stimuli  
+
+> SBC stimulus Hermann grid
+
+Figure 3: Psychophysical alignment of U-Net activations. (A) Per-pixel scatter plot of FLODOG-predicted brightness vs. U-Net activation magnitude within the illusion region for a representative SBC image, at up_1_attn_2 , t=50 (ρ=0 .78 ). (B) Top layers by Spearman ρ on programmatic SBC and Hermann-grid stimuli. 0 1 2 3 
+
+> Illusion strength
+> 1
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Glass's
+> threshold
+> str=0.2
+> Spearman = 0.976
+
+(A) Ebbinghaus = 0.976     
+
+> Trained DDPM
+> 0123
+> Illusion strength
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 1.25
+> 1.50
+> |Glass's  |
+> Spearman = 1.000
+> 10/10 levels
+> same sign (all negative)
+> perfectly monotone
+
+(B) Ponzo = 1.000 (| |)    
+
+> Trained DDPM
+> 0123
+> Illusion strength
+> 1.5
+> 1.0
+> 0.5
+> 0.0
+> 0.5
+> 1.0
+> Glass's  (Ponzo)
+> Monotone &
+> sign-consistent
+> (t=150)
+> Sign-unstable
+> (t=300)
+
+(C) Trained vs random init 
+
+(three discriminating signatures) 
+
+> Trained DDPM
+> Random seed 0
+> Random seed 1
+> Random seed 2
+
+Figure 4: Monotonic dose-response to parametric illusion strength. (A) Ebbinghaus: Glass’s ∆ vs. illusion strength at up_1_attn_2 , t=50 . Signal is suppressed at low strengths (str <0.2) and rises monotonically above a threshold. (B) Ponzo: perfectly monotone dose-response at conv_norm_out ,
+
+t=150 (C) Trained vs. random-initialization comparison at the trained model’s best layer. Untrained U-Nets also achieve high ρ ≈ 0.95 on these stimuli but with seed-inconsistent direction, confirming that the signed dose-response, not the absolute correlation, carries the training-specific signal (Figure 4C). 
+
+4.3 Causal Flow and Phantom Property 
+
+We trace the illusion signal causally through the U-Net using channel ablation. The pattern is one of progressive attenuation: the signal causally propagates from upstream layers but with diminishing effect on output, terminating in a complete phantom at the pixel level. We document this attenuation in three steps: (i) ablating illusion-sensitive channels at mid_resnet_0 reduces ∆ at mid_attn_0 by 43.8%, (ii) ablating illusion-sensitive channels at mid_attn_0 produces less output disturbance than random channels (the read-only asymmetry), and (iii) cross-architecture injection produces no measurable pixel shift. 750 150 300 600 900         
+
+> tstart
+> 20
+> 0
+> 20
+> 40
+> 60
+> % decrease vs random_null
+> (A) MSE reduction on ablation at mid_resnet_0
+> 50 150 300 600 900
+> tstart
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> % decrease vs random_null
+> (B) MSE reduction on ablation at mid_attn_0
+> pos_d neg_d random_null
+
+Figure 5: Percentage decrease in Reconstruction MSE on ablating specific channels vs random channels in (A) mid _resnet _0 and (B) mid _attn _0. Higher decrease means more read-only. Encoded signal becomes more read-only as signal moves downstream. 
+
+Channel ablation. Per-channel analysis identifies ∼27% of channels (408/1,536 across three a-priori layers) with |d| ≥ 0.5. Zeroing all 140 significant channels at mid_resnet_0 (|d| ≥ 0.5)reduces the illusion signal at mid_attn_0 by 43.8% (CI excludes zero) (Appendix P). This reduction is specific to illusion-sensitive channels: ablating 500 random channel sets of matched count (140 channels) produces a mean reduction of only 4.7% (specificity ratio 8.3×, p=0.008; Appendix AG). The effect survives LOO cross-validation with expected shrinkage (median +21 .8% , 91% of held-out images positive; Appendix AH). The primary driver is the neg_d (suppressor) subset; pos_d alone produces near-null internal effects, foreshadowing their phantom signature at output. 
+
+Read-only signature at the output-coupled layer. While ablation at mid_resnet_0 propagates downstream to mid_attn_0, ablation at mid_attn_0 – the peak observational layer and the closest U-Net layer to the decoder – reveals the read-only signature. We measure full-image reconstruction MSE under matched ablation across multiple start timesteps for the 140 illusion-sensitive channels, the pos_d and neg_d subsets, and five matched-count random channel sets per timestep. At the primary timesteps t ∈ { 50 , 150 }, illusion channels produce 9–14% lower MSE than random channels, with the pos_d subset alone 57–61% lower. Crucially, the same pos_d channels measured one layer upstream at mid_resnet_0 are only 22–36% read-only (Figure 5, Appendix AP). The read-only effect strengthens as the signal flows downstream. 
+
+Phantom at output. To understand the significance of the MSE signature, we test these via the Phantom Injection tests by measuring the shift fractions. 
+
+shif t _f rac = (∆ _patched − ∆_clean )/(∆ _X − ∆_Xr + ϵ)
+
+Shift fraction measures the pixel transfer ratio for activations injected into a clean reconstruction trajectory. A value of 0 means zero pixel-level effect; a value of 1 would mean complete transfer of the illusion’s pixel signature. Across four architectures (Church DDPM, Bedroom DDPM, LDM-CelebA-HQ, DiT-XL/2), shif t _f rac ≈ 0 with all CIs including zero (Appendix S, T, O). We also rule out iterative correction via single step injections and off-manifold injections via separate within-manifold ablation (Appendix AK). The perceptual phantom is universal. 
+
+Robustness across intervention modalities. Recent work has shown that nullifying interventions (e.g., zero-ablation) can be systematically incomplete: ablated information may remain recoverable via residual pathways, producing spurious null results [Canby et al., 2024]. We rule this out by repli-cating the phantom under counterfactual interventions: cross-image activation patching mentioned above, and multiplicative amplification up to 3× (Appendix AI) both produce no measurable pixel shift. The MSE asymmetry runs opposite to the direction predicted by incomplete nullification i.e. the illusion channels disturb output less than random. 8Church              
+
+> DDPM
+> Bedroom
+> DDPM
+> CelebA-HQ
+> DDPM LDM
+> CelebA SD1.5
+> DiT-XL/2
+> ResNet-50
+> VGG-19
+> ViT-B/16
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> |Cohen's d|  (max metric, t=50)
+> medium
+> threshold
+> denoising | discriminative
+> 0.663
+> 0.573
+> 0.722
+> 0.982
+> 0.656
+> 0.711
+> 0.485
+> 0.269 0.288
+> (A) Peak illusion sensitivity 9 models
+> Denoising Discriminative
+> 0510 15 20 25
+> DiT transformer block index
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> |Cohen's d|
+> block 26
+> (peak)
+> (B) DiT-XL/2 block profile
+> DiT-XL/2
+> (denoising)
+> ViT-B/16
+> (discriminative)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> |Cohen's d|
+> 0.711
+> 0.288
+> Same attention
+> mechanism
+> 2.5x difference
+> ViT: discriminative training
+> DiT: denoising training
+> (C) Architecture controlled:
+> only objective differs
+
+Figure 6: Architecture generalization across denoising and discriminative models. (A) Peak |d|
+
+bar chart across all nine models, colored by family (denoising vs. discriminative). (B) DiT-XL/2 block profile: |d| across 28 transformer blocks, peaking at block 26. (C) ViT-B/16 vs. DiT-XL/2, 
+
+2.5× difference in illusion sensitivity. 
+
+Mechanism We then try to analyze the effect mechanistically. For DiT, we trace injected activations block by block. Injection at block 26 produces a massive perturbation at block 27, but self-attention and LayerNorm within that single block absorb it entirely (Appendix AM). The transformer’s self-correcting dynamics provide a mechanistic explanation for the DiT phantom. For diffusion U-Nets, the skip-connection dissociation (Appendix AC ,P) shows the illusion signal concentrates at the bottleneck but is not transmitted via skip connections to the decoder and stays localized. We term such representations as Perceptual Phantoms found in denoising models: internally encoded perceptual properties that are involved in internal processing but progressively attenuate to zero before reaching the generated image. To our knowledge, this is the first characterization of the phenomenon for perceptual representations in generative vision models, and the first to document the attenuation gradient through cross-layer causal analysis. 
+
+4.4 Architecture Generalization and Effect of Training Objective 
+
+All U-Net denoising models develop medium-to-large illusion sensitivity compared to the discrim-inative models being less than the medium threshold. However the locus in denoising models vary with training domain and architecture (Figure 6A, Appendix O). To solve the potential con-found of asymmetric input, we also probe clean and noisy inputs on denoising and discriminatory models respectively finding the discriminative models to peak below the DDPM clean baseline (Appendix AN). DiT-XL/2 shows max |d| = 0 .711 at block 26, t=50 , with 11/28 blocks exceeding |d| ≥ 0.5. ViT-B/16 and ViT-L/16 also uses the same patch-based self-attention as DiT-XL/2, but peaks at |d|=0 .288 
+
+and |d|=0 .207 respectively, decoupling the effect from number of parameters (Figure 6C). The architectural mechanism is shared between them and what differs is the objective (classification vs. denoising), making this a clean evidence that the denoising objective drives the effect heavily. Finally, to isolate the effect of architecture from training, we compare the models with their randomly initialized seeds. For Church-DDPM, up_1_attn_0 layer shows higher d = +0 .952 than random seeds with opposite signs, pointing that training reverses the architectural default. Trained DiT shows peak |d|=0 .711 , higher than the median d=0 .364 . However seed 0 ( |d| = 0 .741 ) approximates the trained effect(Appendix AQ, AD). We also try to investigate the source of the phantom effect in DiT. We do a block-by-block tracking after injection at block 26, At block 27 (first to see injected activations), the injection creates a massive perturbation. However, the self-attention and LayerNorm within block 27 absorb it the activation 9distribution is restored to near-native, and the signal does not survive to the output. Even saturating six consecutive blocks cannot overcome the network’s self-correcting dynamics. Across all comparisons, the denoising objective is the common thread. Architecture and training on natural images may shape where the effect manifests, but the denoising reconstruction task makes it large. 
+
+## 5 Discussion 
+
+[Gomez-Villa et al., 2025] report that DDIM inversion trajectories exhibit human-like brightness and color shifts at intermediate denoising steps, attributing this to diffusion models mapping illusory stimuli onto the learned natural image manifold. This appears in tension to our findings of internal computations that never reach outputs. We believe their trajectory-level shifts likely reflect frequency-dependent noise destroying context faster than target. Together, the two findings suggest that diffusion models process illusion-relevant information at multiple levels (trajectory-level and representation-level). Overall, our results show that training objective is a much higher contributor to human-like illusion sensitivity, than the architecture. We show this by using multiple architectures and especially the ViT-B/16 and ViT-L/16 vs. DiT-XL/2 gap, which share a similar attention based mechanism. FLODOG alignment on luminance stimuli, monotonic dose-response and mask-geometry baselines together rule out other trivial explanations. Our findings extend a growing literature on internal-output dissociation in neural networks. Prior work has characterized this for linguistic properties [Elazar et al., 2021] and as a generic activity-causal phenomenon in nonlinear networks [Fakhar et al., 2024]. We show the first characterization of this phenomenon for perceptual representations in generative vision models via cross-architecture replication across different architectures and an attenuation-gradient analysis showing that the dissociation is not binary. 
+
+Broader Impacts. Denoising training appears to produce richer internal perceptual representations than discriminative training on matched architectures for some specific cases, while simultaneously attenuating a subset of these representations before output. Generative vision models may therefore encode features that are active in internal processing but undetectable from outputs alone. This internal-output asymmetry is a positive contribution toward more rigorous interpretability, but also a caution: behavioral evaluations may systematically miss what these models have actually learned to encode. 
+
+Limitations and future work. 
+
+1. Small N . N =35 is the primary limitation. While bootstrap CIs confirm headline claims, some secondary results do remain underpowered. We avoided using synthetic and ablated images to avoid inflated results like the 89% increase in measured ablation reduction. (Appendix A). 2. Psychophysical alignment limited to luminance. FLODOG ρ applies only to SBC/Hermann. Developing or adapting chromatic models would enable graded psychophys-ical validation on the full GVIL stimulus set. 3. Training-vs-architecture is complex. Trained models consistently exceed random median, but some random seeds match trained performance in DiT and dose response ( ρ ≈ 0.95 , sign inconsistent) The denoising objective lies as the common thread, however individual-seed variability means we cannot fully separate effect of architecture from training. 4. Phantom characterization is empirical, not exhaustive. We establish the phantom prop-erty for one specific class of representations specifically. We do not claim that all perceptual representations in denoising models are phantoms, nor that the phenomenon is unique to perception. Characterizing which representations are read-only versus read-write remains open. 10 6 Acknowledgements 
+
+We thank the JarvisLabs Team for providing the compute resources that made this project possi-ble, as well as AWS team for providing claude resources that helped in brainstorming and code implementation. 
+
+## 7 Code 
+
+Relevant reproduction scripts and data are provided at the GitHub Repository: https://github. com/Lossfunk/Denoising-models-illusion-representations .
+
+## References 
+
+Zhaoyang Bai, Mitsuo Nakamura, and Hidehiko Kaneko. Predictive coding feedback results in perceived illusory contours in a recurrent neural network. arXiv preprint arXiv:2102.01955 , 2021. Samyadeep Basu, Nanxuan Zhao, Vlad I. Morariu, Soheil Feizi, and Varun Manjunatha. Localizing and editing knowledge in text-to-image generative models. In International Conference on Learning Representations (ICLR) , 2024. Marc Canby, Adam Davies, Chirag Rastogi, and Julia Hockenmaier. Measuring the reliability of causal probing methods: Tradeoffs, limitations, and the plight of nullifying interventions. In 
+
+Interpretable AI: Past, Present and Future Workshop at NeurIPS 2024 , 2024. URL https: //openreview.net/forum?id=tmpMQLxVHh .Arthur Conmy, Augustine N. Mavor-Parker, Aengus Lynch, Stefan Heimersheim, and Adrià Garriga-Alonso. Towards automated circuit discovery for mechanistic interpretability. In Advances in Neural Information Processing Systems (NeurIPS) , 2023. arXiv:2304.14997. Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Representations (ICLR) , 2021. Yanai Elazar, Shauli Ravfogel, Alon Jacovi, and Yoav Goldberg. Amnesic probing: Behavioral explanation with amnesic counterfactuals. Transactions of the Association for Computational Linguistics , 9:160–175, March 2021. doi: 10.1162/tacl_a_00359. URL https://aclanthology. org/2021.tacl-1.10/ .Kayson Fakhar, Shrey Dixit, Fatemeh Hadaeghi, Konrad P. Kording, and Claus C. Hilgetag. Downstream network transformations dissociate neural activity from causal functional contri-butions. Scientific Reports , 14:2103, January 2024. doi: 10.1038/s41598-024-52423-7. URL 
+
+https://www.nature.com/articles/s41598-024-52423-7 .Atticus Geiger, Hanson Lu, Thomas Icard, and Christopher Potts. Causal abstractions of neural networks. In Advances in Neural Information Processing Systems (NeurIPS) , 2021. Alex Gomez-Villa, Adrián Martín, Javier Vazquez-Corral, and Marcelo Bertalmio. Convolutional neural networks can be deceived by visual illusions. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 12309–12317, 2019. Alex Gomez-Villa, Adrián Martín, Javier Vazquez-Corral, Marcelo Bertalmio, and Jesús Malo. On the synthesis of visual illusions using deep generative models. Journal of Vision , 22(8), 2022. Alex Gomez-Villa, Marcelo Bertalmio, and Jesús Malo. The art of deception: Color visual illusions and diffusion models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2025. arXiv:2412.10122. Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 770–778, 2016. 11 Amir Hertz, Ron Mokady, Jay Tenenbaum, Kfir Aberman, Yael Pritch, and Daniel Cohen-Or. Prompt-to-prompt image editing with cross attention control. In International Conference on Learning Representations (ICLR) , 2023. John Hewitt and Percy Liang. Designing and interpreting probes with control tasks. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) , pages 2733– 2743, Hong Kong, China, November 2019. Association for Computational Linguistics. doi: 10.18653/v1/D19-1275. URL https://aclanthology.org/D19-1275/ .Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. In Advances in Neural Information Processing Systems (NeurIPS) , volume 33, pages 6840–6851, 2020. Priyank Jaini, Kevin Clark, and Robert Geirhos. Intriguing properties of generative classifiers. In 
+
+International Conference on Learning Representations (ICLR) , 2024. arXiv:2309.16779. Mingi Kwon, Jeonghyo Jeong, and Youngjung Uh. Diffusion models already have a semantic latent space. In International Conference on Learning Representations (ICLR) , 2023. Aleksandar Makelov, Georg Lange, and Neel Nanda. Is this the subspace you are looking for? An interpretability illusion for subspace activation patching. In The Twelfth International Conference on Learning Representations , 2024. URL https://openreview.net/forum?id=Ebt7JgMHv1 .D. Makowski, Z. J. Lau, T. Pham, W. Paul Boyce, and S. H. Annabel Chen. A parametric framework to generate visual illusions using python. Perception , 50(11):950–965, 2021. Kevin Meng, David Bau, Alex Andonian, and Yonatan Belinkov. Locating and editing factual associations in GPT. In Advances in Neural Information Processing Systems (NeurIPS) , 2022. William Peebles and Saining Xie. Scalable diffusion models with transformers. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) , pages 4195–4205, 2023. Arthur E. Robinson, Pamela S. Hammon, and Virginia R. de Sa. FLODOG: A spatially-oriented filtering model of brightness with overlapping receptive field sizes. Vision Research , 47(10): 1382–1396, 2007. Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn Ommer. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF Confer-ence on Computer Vision and Pattern Recognition (CVPR) , pages 10684–10695, 2022. Karen Simonyan and Andrew Zisserman. Very deep convolutional networks for large-scale image recognition. arXiv preprint arXiv:1409.1556 , 2015. Emily J. Ward. Simplicity as a cue to deception: Visual illusions in CNNs. In Cognitive Science Annual Conference , 2019. Yair Weiss, Eero P. Simoncelli, and Edward H. Adelson. Motion illusions as optimal percepts. Nature Neuroscience , 5(6):598–604, 2002. Fred Zhang and Neel Nanda. Towards best practices of activation patching in language models: Metrics and methods. In The Twelfth International Conference on Learning Representations , 2024. URL https://openreview.net/forum?id=Hf17y6u9BC .Yupei Zhang et al. GVIL: A general visual illusion language benchmark. In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP) , 2023. 12 A Dataset: N=35 Base Images 
+
+The GVIL dataset [Zhang et al., 2023] contains 72 color images: 35 base images, 35 horizontally flipped versions, and 2 additional images. All analyses use only the 35 base images (filter: ’flip’ not in name and not name.endswith(’_r’) ). Flipped versions are excluded to prevent near-duplicate image pairs from inflating effect size estimates. When N=72 is used, for channel ablation, there is an 89% increase in reduction of downstream signal from channel ablation, when using FDR significance as the threshold. This shows how augmented and similar illusion images can inflate the signal unnecessarily. This is why we chose to use N=35 images constantly within our experiments, rather than increase the data with synthetic images and datasets. 
+
+Region definitions. Each GVIL image has annotated bounding boxes: illusion_a and 
+
+illusion_b , two physically identical regions that appear perceptually different due to their contrast-ing surrounds. The within-image difference ∆ = mean_act (illusion_a )−mean_act (illusion_b )
+
+measures the total illusion-driven activation differential. Bounding boxes are eroded 10% inward to reduce background gradient contamination from heavy noise timesteps. 
+
+## B Heavy Noise Confound 
+
+At t=900 (90% noise fraction), low-frequency background gradients leak into small bounding box regions, creating spurious activation differentials independent of illusion content. Evidence: bbox erosion reduces but cannot eliminate the effect; sign flips occur above t=700 and the magnitude scales with noise level. All primary GVIL claims are reported mostly on t ∈ { 50 , 150 }. Domain-specific analyses on programmatic stimuli with larger, uniform backgrounds are reported at all timesteps, as the bounding-box confound is less severe for these stimuli. 
+
+## C Discriminative Models 
+
+ResNet-50 [He et al., 2016] and VGG-19 [Simonyan and Zisserman, 2015] (ImageNet-pretrained CNNs), and ViT-B/16 [Dosovitskiy et al., 2021] (ImageNet-pretrained vision transformer). ViT-B/16 uses the same patch-based self-attention mechanism as DiT-XL/2 but is trained with a classification objective, enabling a controlled comparison of training objective with matched architecture. 
+
+## D Probing Methodology details 
+
+For U-Nets, we capture all 41 ResNet and Attention blocks. For DiT-XL/2, activations at each of the 28 transformer blocks are captured as (B, 256 , 1152) tensors, reshaped to 16 ×16 spatial maps and L2-normalized. For ViT-B/16, the CLS token is stripped; 196 patches are reshaped to 14 ×14 spatial maps and L2-normalized. The primary observational metric is |d| (unsigned, for detecting effects regardless of direction); causal experiments use signed d (direction matters). Glass’s ∆ is used for cross-experiment comparisons where different baselines make Cohen’s d non-comparable. Because different aggregation metrics capture different aspects of the signal, the same layer may show different d-values depending on the channel aggregation metric (L2-norm, mean, max, or std) used; we specify the metric for each reported value. 
+
+## E Control Experiments 
+
+Pixel-shuffle control. Pixels within illusion_a are randomly permuted, preserving marginal color/brightness statistics while destroying spatial arrangement. A large drop in effect size after shuffling indicates gestalt-dependence; survival indicates feature-based processing. 
+
+Real-counterpart control. For each illusion image X, its matched real counterpart Xr ( same image with illusion inducing components removed) undergoes the same probing. We compare ∆ill 
+
+(from X) to ∆real (from Xr at the same bounding-box positions); the ratio ∆ill /∆real quantifies specificity to illusory context. 13 Random initialization controls. The complete probing pipeline is repeated with three randomly initialized seeds of the same U-Net architecture. Both activation and attention experiments are compared: seed-stable differences from trained models establish training-specific effects. 
+
+Random image baseline and geometry excess. Images with uniform random pixel content (same masks) are processed through all four model initializations to quantify the spatial bias introduced by mask geometry alone. To formally test whether the illusion effect exceeds this geometry-driven baseline, we compute dexcess = dillusion − drandom at each layer and timestep, with 95% CIs via 10,000 bootstrap resamples (Appendix AL). 
+
+Multiple-hypothesis correction. To address the concern that peak claims are selected from 246 layer ×timestep combinations, we perform 10,000 permutation tests shuffling illusion_a/illusion_b labels and compute max-|d| across all combinations under the null. FDR correction (Benjamini-Hochberg) is applied across all 246 p-values (Appendix AO). 
+
+Noise-matched discriminative probing. To control for the input asymmetry between denoising and discriminative models (noisy xt vs. clean x0), we probe the DDPM on clean images ( t=0 , no noise) and discriminative models (ViT-B/16, ResNet-50, VGG-19) on noise-corrupted inputs at matched timesteps t ∈ { 50 , 150 , 300 , 500 } (Appendix AN). 
+
+Scrambled-context control. For each image X, a surrogate Xsc is created by rotating the full image 180 ◦ (np.rot90(img, 2) ) and pasting back the original bounding-box crops from illusion_a 
+
+and illusion_b at their original positions. This preserves the local target-object appearance while disrupting the far surround context. Since the boundary boxes contain local background pixels which are generally the illusion drivers, this control does not isolate the contribution of immediate local context, but it tests whether the far surround is the cause of the observed effects. The metric 
+
+∆ill (X) − ∆ill (Xsc ) tests whether surround disruption selectively reduces mid-block activation differences. 
+
+## F Full Layer × Timestep Tables 
+
+Full tables of Cohen’s d, Hedge’s g, and Glass’s ∆ for all 246 layer ×timestep combinations across all main experiments are provided in the supplementary data files (available with code release). 
+
+## G Per-Channel Rankings 
+
+Per-channel analysis across the three a-priori layers (512 channels each): ∼27% of channels (408/1,536) show |d| ≥ 0.5; ∼8% (123/1,536) show |d| ≥ 0.8. Channel 311 achieves the largest single-channel effect across all three layers simultaneously ( mid_resnet_0 : d=1 .636 ;
+
+down_5_resnet_1 : d=1 .619 ; mid_attn_0 : d=1 .590 ), suggesting it is the dominant illusion-sensitive feature. 
+
+## H SD1.5 Full Results 
+
+SD1.5 mask alignment was verified: 256 →512 →64 (VAE encode) and 256 →64 (direct downsam-pling) produce identical spatial positions (100% pixel agreement). Three images (10_01, 10_02, 13_02) have empty masks at 64 ×64 and are excluded. At 8 ×8 resolution (mid-block), 21/50 images have empty masks; results at this scale are interpreted with caution. Full result tables for sd15/01, sd15/02, and sd15/04 are provided in supplementary data. 
+
+## I CelebA-HQ Cross-Domain Results 
+
+The google/ddpm-ema-celebahq-256 model (trained on face photographs) shows comparable peak effect sizes to the church-trained model at N =35 (Mean metric, up_0_resnet_1 t=150 :
+
+d=0 .722 , g=0 .706 , Glass’s ∆=0 .803 ), confirming the perceptual bias is not domain-specific. Im-portantly, the church-specific a-priori layers ( mid_attn_0 , mid_resnet_0 ) show negligible effects 14 in CelebA-HQ - the bias is present but re-encoded to different layers when the training distribution changes, suggesting that training distribution shapes the specific locus of encoding while the overall perceptual bias is conserved. 
+
+## J Random Initialization Full Comparison 
+
+Three random seeds (PyTorch default initialization) were tested across all main experimental con-ditions. The seed-stable findings are: (1) DDPM color attention at up_1_attn_0 t=50 : trained positive ( +0 .952 ), all 3 random seeds negative ( −0.305 , −0.678 , −0.167 ) - confirmed sign flip; (2) DDPM geometric effects peak at t=300 for random models vs. t=50 /150 for trained; (3) SD1.5 color attention: random seeds’ best effects are at t=300 (negative), trained is at t=50 (positive). The seed-unstable finding is DDPM activation at mid_attn_0 t=50 (random seed 2 exceeds threshold), which should not be used as a primary training discriminator. 
+
+## K Random Image Baseline 
+
+At the primary result layer ( up_1_attn_0 t=50 ): trained model on random images: d=+0 .231 (vs. 
+
++0 .952 on real illusions, 4× larger); random seeds on random images: d≈ − 0.15 to −0.21 (vs. 
+
+−0.17 to −0.68 on real illusions). Hence, The sign of the effect is determined by the model (trained vs. random), not by mask geometry. 
+
+## L FLODOG Analysis and Domain Mismatch 
+
+FLODOG applies oriented Difference-of-Gaussians filters at 6 orientations and 5 spatial scales (σcenter capped at 32px) followed by divisive normalization to grayscale luminance. It is validated for luminance-based illusions (SBC, White’s Effect, Hermann grid, Mach bands) and is explicitly 
+
+not a model of chromatic contrast. The 35 GVIL color illusion images include simultaneous color contrast effects (colored backgrounds, chromatic surrounds) where luminance is not the primary illusion driver. Future work could use chromatic psychophysical models (e.g., opponent-color divisive normalisation) as ground truth for color contrast illusions. The per-image FLODOG correlation (Appendix U) reports N =26 rather than 35 because 9 GVIL images are pure chromatic contrast stimuli with negligible luminance variation; FLODOG produces near-uniform brightness maps for these images, making the per-pixel Spearman ρ undefined or degenerate. These 9 images are excluded from the per-image FLODOG analysis but included in all other experiments. FDR correction (Benjamini-Hochberg) across 246 layer ×timestep combinations on the N=35 ag-gregate: a-priori layers ( mid_attn_0 , mid_resnet_0 ) do not survive at α=0 .05 . Decoder ResNet layers show significant negative correlation ( ρ ≈ − 0.29 ), likely reflecting chromatic (hue) encoding in the decoder reconstruction pathway. Importantly, activation magnitude and attention routing are mechanistically separable: attention maps correlate near-zero with FLODOG (mean ρ=−0.06 globally, max ρ=0 .25 at up_1_attn_2 ), while activations reach ρ=0 .70 . The two subsystems encode different aspects of the perceptual computation. 
+
+## M Channel Amplification Null 
+
+A variant experiment tested whether amplifying the top illusion-sensitive channels (rather than ablating them) strengthens the pixel-level illusion effect in generated images. Result: ≈ null .Channel amplification does not produce measurable changes in generated pixel statistics, consistent with the phantom finding. 
+
+## N Pyllusion Stimulus Generation 
+
+Ebbinghaus and Ponzo stimuli were generated using the Pyllusion library at 10 strength levels: 
+
+[0 .0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0] with N =10 images per level (random flanker positions 15 50 40 30 20 10 0 10 20           
+
+> % change in illusion signal
+> (baseline = 3.247 at mid_attn_0)
+> mid_resnet_0 |d| 0.5 (140ch)
+> mid_resnet_0 neg_d (84ch)
+> down_5_resnet_1 pos_d (63ch)
+> mid_resnet_0 pos_d (56ch)
+> down_5_resnet_1 |d| 0.5 (127ch)
+> down_5_resnet_1 neg_d (64ch)
+> -43.8%
+> -36.2%
+> -7.6%
+> -3.6%
+> -0.1%
+> +7.2%
+> REDUCES
+> illusion
+> signal
+> INCREASES
+> signal
+> (suppressor)
+> (A) Channel ablation
+> mid_attn_0
+> (bottleneck)
+> down_5_resnet_1
+> (skip proxy)
+> up_0_resnet_0
+> (decoder entry)
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> |Cohen's d|  (t=50)
+> medium
+> 0.663
+> 0.316
+> 0.041
+> (B) Effect concentration at bottleneck
+
+Figure 7: Causal evidence. (A) Channel ablation : percentage ∆ reduction at mid_attn_0 per ablation group. (B) Skip-connection dissociation : |d| comparison across bottleneck, skip-proxy layers, and decoder-entry layers. The illusion signal concentrates at the bottleneck, not in skip connections. within each level). All stimuli are 256 ×256 RGB, normalized to [−1, 1] to match model input conventions. 
+
+## O Per Model Peak and Locus 
+
+Model Peak Layer Peak |d| Architecture Church DDPM (primary) mid_attn_0 0.663 Pixel-space Bedroom DDPM up_5_resnet_1 0.573 Pixel-space CelebA-HQ DDPM up_0_resnet_1 0.722 Pixel-space LDM-CelebA-HQ up_0_attn_2 0.982 Latent SD1.5 sd15_mid_attentions.0_sa 0.656 Latent ResNet-50 layer4_block0 0.485 Discriminative VGG-19 vgg_pool1 0.269 Discriminative ViT-B/16 vit_block_08 0.288 Discriminative ViT-L/16 vit_block_00 0.207 Discriminative 
+
+## P Channel Ablation 
+
+Per-channel analysis identifies ∼27% of channels (408/1,536 across three a-priori layers) with |d| ≥ 
+
+0.5, with the most illusion-sensitive individual channel(ch. 311, mid_resnet_0 ) reaching d=1 .636 ,
+
+g=1 .600 , Glass’s ∆=1 .790 , nearly 3 × the layer-level effect. Zeroing all 140 significant channels at mid_resnet_0 (|d| ≥ 0.5) reduces the illusion signal at mid_attn_0 by 43.8% (bootstrap 95% CI: [23 .4% , 180 .2%] ; CI excludes zero; Cohen’s d=0 .849 , CI [+0 .553 , +1 .239] ) (Figure 7A). The upper CI bound exceeding 100% indicates that in some bootstrap samples, ablation reverses the sign of the illusion signal, consistent with the neg_d channels’ inhibitory role. This reduction is specific to illusion-sensitive channels. Ablating 500 random channel sets of matched count (140 channels) produces a mean reduction of only 4.7% (null 95% CI: [−21 .4% , +28 .2%] )(Appendix AG). The effect survives cross-validation with expected shrinkage (Appendix AH). Leave-one-out CV yields a median reduction of +21 .8%, with 91% of held-out images (32/35) showing positive reduction, confirming the downstream causal claim survives selection bias with a medium effect. All 140 channels are maximally stable across all CV splits. A threshold sensitivity analysis sweeping shows the effect is not threshold-specific with both the 
+
+neg_d and all_sig groups produce reliable positive reductions across all thresholds 0.2–0.8, with CIs excluding zero (Appendix W). The primary driver is the neg_d channel group and ablating 16 pos_d channels alone produces near-null effects. The causal pathway runs down_5_resnet_1 →
+
+mid_resnet_0 → mid_attn_0 , distributed across hundreds of channels rather than concentrated in a sparse set. 
+
+## Q Pixel Shuffling 
+
+We find that this localization reflects two distinct processing modes. Pixel Shuffling within the 
+
+illusion_a region, preserving their local marginal statistics but destroying spatial arrangement, leads to mid-block effect collapse ( mid_attn_0 : d=0 .663 to d=0 .206 , Glass’s ∆: 1.392 →
+
+0.076 ; mid_resnet_0 : d=0 .479 → d=0 .218 , Glass’s ∆: 1.009 → 0.081 ). In contrast, 
+
+down_5_resnet_1 (deep encoder) is preserved after shuffling ( d: 0.191 → 0.384 at t=150 ). This pixel-shuffling test identifies a feature-based pathway that responds to local texture and contrast statistics. 
+
+## R The Perceptual Phantom 
+
+The natural next question is whether any of this affects what the model actually generates. We test these via the Phantom Injection tests by measuring the shift fractions. 
+
+shif t _f rac = (∆ _patched − ∆_clean )/(∆ _X − ∆_Xr + ϵ)
+
+where, 
+
+X: Illusion image, X 
+
+Xr : Image X with illusory content removed 
+
+∆: mean luminance (illusion a region ) − mean luminance (illusion b region )∆clean : pixel_delta of Xr after clean DDIM reconstruction. Baseline to account for any reconstruction error 
+
+∆_patched : pixel_delta of Xr after patched DDIM reconstruction (activation from X injected into Xr diffusion path) 
+
+ϵ: arbitrary constant Shift fraction measures the pixel transfer ratio for activations injected into a clean reconstruction trajectory. A value of 0 means zero pixel-level effect; a value of 1 would mean complete transfer of the illusion’s pixel signature. In Church-DDPM model, DDIM injection produces shift_frac ≈ 0 across all conditions; the single-step test confirms that all CIs include zero, ruling out iterative correction (Appendix S). This effect is seen across (Bedroom DDPM, LDM-CelebA-HQ, DiT-XL/2) as well (Appendix T), proving the phantom is universal. No model architecture converts its illusion-sensitive internal representation into a pixel-level effect. In theory, cross-domain injection tests could reflect pipeline limitations such as off-manifold injections rather than a genuine phantom property (Appendix AJ), causing the network to ignore them. We address this with a within-manifold generative ablation that eliminates the domain gap entirely (Appendix AK) and still show the phantom effect. The read-only test 3.5 sharpens this further. At the primary timesteps t ∈ { 50 , 150 }, illusion channels produce 9–14% lower MSE, and the pos_d subset alone produces 57–61% lower MSE than random channels, meaning illusion-sensitive channels are demonstrably more read-only than the population baseline (Appendix AP). We then try to analyze the effect mechanistically. For DiT, we trace injected activations block by block. Injection at block 26 produces a massive perturbation at block 27, but self-attention and LayerNorm within that single block absorb it entirely Appendix AM).Even saturating six consecutive blocks (22–27) with the illusion image’s activations produces mean pixel shift ≈ 0 with random directionality. The transformer’s self-correcting dynamics provide a mechanistic explanation for the DiT phantom. For diffusion U-Nets, the skip-connection dissociation (§4.3) shows the illusion signal concentrates at the bottleneck but is not transmitted via skip connections 17 We term this a perceptual phantom : a representation that is causally involved in internal feature processing but never expressed in model outputs. The evidence has three independent tiers: ob-servational (cross-architecture null), mechanistic (internal-to-output MSE asymmetry, DiT signal absorption), and structural (skip-connection dissociation). We note that this property is established for the illusion-sensitive channel subset ( |d| ≥ 0.5 at mid_resnet_0 and mid_attn_0 ) and all claims of the whole layers being read-only is purely speculative at this moment. 
+
+## S Single-Step Phantom Test - Full Results 
+
+Purpose: Rules out iterative DDIM correction as an alternative explanation for the multi step injection null. 
+
+Method A (t=50 DDPM): Xr noised to t=50 via single forward step; X’s activations injected at target layer; one denoising step performed; pixel shift_frac measured. Method B (t_first ≈980): equivalent procedure at near-total noise. Method Inject layer Mean shift_frac 95% CI A (t=50 DDPM) mid_attn_0 +0 .0043 [−0.0012 , +0 .0137] 
+
+A (t=50 DDPM) mid_resnet_0 +0 .0037 [−0.0018 , +0 .0133] 
+
+A (t=50 DDPM) up_3_resnet_0 (ctrl) −0.0020 [−0.0047 , +0 .0004] 
+
+B (t_first) mid_attn_0 −0.0001 [−0.0002 , +0 .0001] 
+
+B (t_first) mid_resnet_0 −0.0001 [−0.0002 , +0 .0001] 
+
+B (t_first) up_3_resnet_0 (ctrl) +0 .0014 [−0.0008 , +0 .0055] 
+
+All six conditions: CIs include zero. The phantom hypothesis is supported across all methods and injection layers. 
+
+## T Architectural Generalization for phantom test 
+
+Model shift_frac 95% CI 100% < 0.1?Bedroom DDPM +0 .005 [−0.004 , +0 .016] Yes LDM-CelebA-HQ −0.0004 [−0.001 , +0 .000] Yes DiT-XL/2 −0.0004 [−0.001 , +0 .001] Yes 
+
+## U Bootstrap Confidence Intervals - Full Table 
+
+Purpose: Quantifies uncertainty around headline effect sizes given N =35 ; 10,000 bootstrap resam-ples. Claim N Cohen’s d Hedge’s g 95% CI ( d) CI excl. 0 Observational: mid_attn_0 max, t=50 35 +0.663 +0.649 [+0 .282 , +1 .256] Yes 
+
+Ablation: mid_resnet_0 all_sig, t=50 35 +0.849 +0.830 [+0 .553 , +1 .239] Yes 
+
+Real-counterpart: mid_attn_0 L2, t=50 35 +0.330 +0.323 [−0.004 , +0 .727] No (barely) Attention: up_1_attn_0 L2, t=50 35 +0.043 +0.042 [−0.298 , +0 .398] No FLODOG per-image rho, mid_attn_0, t=50 26 +0.331 +0.321 [−0.050 , +0 .859] No 
+
+Ablation % reduction (all_sig, |d| ≥ 0.5, 140 channels): The d = 0.849 is a paired (within-subject) Cohen’s d — each of the 35 images is measured twice (with and without ablation), and d is computed from the paired differences: 
+
+d = mean (∆ unablated − ∆ablated )/SD (paired dif f )
+
+Mean=43.8%, 95% CI = [23 .4% , 180 .2%] , CI excludes zero (values match threshold sweep table, Appendix W, more explanation in Appendix P). 18 Note on attention d=0.952: The large attention effect is measured from raw post-softmax at-tention weights via AttentionCaptureProcessor . Bootstrapping the L2-magnitude proxy at 
+
+up_1_attn_0 yields a null because the L2-norm over activation magnitudes does not capture atten-tion routing, which operates on query-key similarity scores. The headline d=0.952 is a real and large effect; it is simply not bootstrappable from the L2-proxy CSVs available at N=35. 
+
+## V Scrambled-Context Control - Full Results 
+
+Purpose: Tests whether the global surround outside the bbox regions drives the mid-block signal. 
+
+Design limitation: bbox crops include local background pixels from the original scene, so the experiment tests far-surround contribution only; immediate local context is preserved in Xsc and cannot be assessed from this design. Method: 180 ◦ image rotation with original bbox crops pasted back at original positions. Layer t ∆ill (X) ∆sc (Xsc ) Mean diff Frac( >0) 95% CI 
+
+mid_attn_0 50 3.240 3.492 −0.252 0.60 [−3.872 , +2 .950] 
+
+mid_attn_0 150 2.946 3.576 −0.630 0.66 [−5.038 , +3 .245] 
+
+mid_resnet_0 50 3.472 3.778 −0.306 0.60 [−3.834 , +2 .853] 
+
+mid_resnet_0 150 3.247 3.814 −0.567 0.66 [−4.998 , +3 .295] 
+
+up_1_attn_0 50 0.214 1.259 −1.044 0.49 [−2.577 , +0 .344] 
+
+up_1_attn_0 150 −0.208 2.694 −2.902 0.43 [−4.876 , −1.243] 
+
+Mid-block CIs all mostly include zero: the far surround outside the bbox regions does not drive the mid-block signal. The design does not isolate the illusion object from its immediate local background; a stronger control (e.g., surround replaced with spatially-matched noise) would be required to separate object-level from local-context-level contributions. 
+
+## W Channel Ablation Threshold Sensitivity Sweep 
+
+Purpose: Tests robustness of the channel ablation result to the choice of significance threshold; sweeps |d| ∈ { 0.2, 0.3, 0.5, 0.8, 1.0, 1.2}; groups: neg_d, all. Threshold Group N channels Mean % reduction 95% CI 0.2 neg_d 186 +56 .6% [+34 .1% , +204 .9%] 
+
+0.2 all 341 +59 .5% [+43 .0% , +154 .0%] 
+
+0.3 neg_d 147 +45 .1% [+26 .2% , +171 .7%] 
+
+0.3 all 268 +49 .4% [+31 .0% , +155 .9%] 
+
+0.5 neg_d 84 +36 .2% [+ 19 .6%, +144 .0%] 
+
+0.5 all 140 +43 .8% [+ 23 .4%, +180 .2%] 
+
+0.8 neg_d 19 +9 .3% [+3 .7% , +44 .8%] 
+
+0.8 all 44 +9 .1% [+2 .7% , +38 .2%] 
+
+1.0 neg_d 5 +5 .4% [+1 .6% , +29 .6%] 
+
+Bold = published threshold (0.5). pos_d group omitted; all CIs include zero at all thresholds. 
+
+Subgroup analysis reveals the primary driver in downstream signal transfer to be neg_d suppressor channels (104 channels) which produce a significant reduction ( p=0 .010 ), while pos_d channels alone show weak downstream effect ( p=0 .765 ). The neg_d group (suppressor channels) drives the ablation effect consistently across thresholds 0.2–0.8. The published threshold is not cherry-picked. 
+
+## X Metric Robustness 
+
+Purpose: Verifies the max channel-aggregation metric is not cherry-picked. 19 Layer ( t=50 ) L2 mean max std attention 
+
+mid_attn_0 0.381 0.356 0.663 ⋆ 0.388 0.500 
+
+mid_resnet_0 0.403 0.248 0.479 0.415 -
+
+down_5_resnet_1 0.279 0.005 0.316 0.296 -
+
+up_1_attn_0 0.043 0.040 0.095 0.027 0.952 ⋆⋆|d| ≥ 0.5. The effect direction at mid_attn_0 is consistent across all four spatial-aggregation metrics. The max metric produces the highest value because it selects the single most illusion-sensitive channel (ch. 311, d=1 .590 at mid_attn_0 ; d=1 .636 at mid_resnet_0 ). The attention effect ( d=0 .952 ) is visible only under the raw attention metric, confirming that attention routing and activation magnitude are distinct measurement axes. 
+
+## Y Additional U-Net Models 
+
+Bedroom DDPM ( google/ddpm-ema-bedroom-256 ) peaks at up_5_resnet_1 (|d|=0 .573 , t=50 ). LDM-CelebA-HQ ( CompVis/ldm-celebahq-256 ) peaks at up_0_attn_2 (|d|=0 .982 , t=50 ) - the largest effect across all models. The locus of peak encoding varies with training domain: church DDPM concentrates at the bottleneck, bedroom DDPM at a decoder layer, and LDM at a decoder attention layer. The effect is universal but the specific layer varies. Full layer ×timestep tables are provided in supplementary data. 
+
+## Z DiT-XL/2 Full Block Profile 
+
+DiT-XL/2 [Peebles and Xie, 2023] is a 28-block vision transformer with 675M parameters, class-conditioned on ImageNet. It has no encoder-decoder structure, no skip connections, and no bottleneck. Activations are captured as (B, 256 , 1152) tensors at each block, reshaped to 16 ×16 spatial maps. Max |d| = 0 .711 at block 26, t=50 . 11 of 28 blocks exceed |d| ≥ 0.5. The effect concentrates in late blocks (blocks 22–27), consistent with deeper processing. 
+
+## AA ViT-B/16 Discriminative Baseline 
+
+ViT-B/16 [Dosovitskiy et al., 2021] (ImageNet-pretrained) uses the same patch-based self-attention mechanism as DiT-XL/2 but is trained with a classification objective. CLS token is stripped; 196 patches reshaped to 14 ×14 . Peak |d| = 0 .288 - well below the medium-effect threshold and 2.5×
+
+below DiT-XL/2 ( |d|=0 .711 ). This comparison isolates the denoising objective: the same attention mechanism produces qualitatively different illusion sensitivity depending on the training objective. 
+
+## AB CNN Discriminative Baselines 
+
+ResNet-50 [He et al., 2016]: max |d| = 0 .485 (layer4, block 2). VGG-19 [Simonyan and Zisserman, 2015]: max |d| = 0 .269 (conv5_4). Both fall below the medium-effect threshold ( |d| ≥ 0.5), consistent with the finding that discriminative training does not produce comparable illusion sensitivity regardless of CNN architecture. 
+
+## AC Skip-Connection Probing 
+
+Purpose: Test whether illusion signal propagates via U-Net skip connections. Layer d
+
+Bottleneck: mid_attn_0 0.381 Best skip proxy: down_5_resnet_1 0.279 Most skip proxies < 0.2
+
+Decoder entry: up_0_resnet_0 0.333 20 The illusion signal concentrates at the bottleneck. Skip proxies carry attenuated signals; the decoder entry partially reflects bottleneck information. This structural dissociation explains why the illusion encoding does not propagate to output pixels: the decoder reconstructs primarily from skip tensors that carry little illusion information. 
+
+## AD DiT-XL/2 Multi-Seed Training Control 
+
+Five random seeds tested for DiT-XL/2. Trained model: |d|=0 .711 at block 26. Random seeds: |d| ∈ {0.741 , 0.422 , 0.364 , 0.098 , 0.130 } (median =0 .364 ). Seeds 3–4 are near zero; seed 0 ( |d|=0 .741 )was an outlier that initially appeared architecture-driven. The trained model is consistently above the random median, but the high variability across seeds means we cannot fully attribute the DiT effect to training alone. The denoising objective contributes significantly; architecture provides a variable baseline. 
+
+## AE Cross-Architecture Phantom Replication 
+
+Single-step phantom injection repeated on three additional architectures. All shift fractions have CIs including zero. 100% of image pairs show shift_frac < 0.1 for all three models. The phantom property is architecture-general, not a U-Net-specific artifact. 
+
+## AF Compute Resources 
+
+Experiment cluster Estimate 
+
+Primary observational probing (10 models × 41 layers × 6 timesteps × 35 images) ∼22 h Random-init seed controls (3 DDPM seeds + 5 DiT seeds × full probing pipeline) ∼18 h Pyllusion dose-response sweeps (Ebbinghaus + Ponzo, 10 strengths × 10 images ×
+
+multiple models incl. random seeds;) 
+
+∼10 h Channel ablation: base + threshold sweep + 500-sample random null + 5-fold/LOO CV ∼18 h Phantom injection: DDIM 20-step + single-step across 4 architectures ∼12 h Read-only MSE phantom test (35 images × 5 timesteps × 4 channel groups × 5 random sets × 2 layers) 
+
+∼10 h Within-manifold generative ablation + amplification sweep ∼5 h Cross-architecture and DiT mechanism analysis (block-by-block tracing, multi-block injection) 
+
+∼3 h Heavy-noise / scrambled-context / pixel-shuffle / real-counterpart / noise-matched discriminative controls 
+
+∼6 h FLODOG correlation, permutation tests, bootstrap CIs ∼2 h 
+
+Reported subtotal ∼106 h 
+
+Preliminary experiments, failed runs, excluded architectures, alternative timestep grids ∼44 h 
+
+Project total ∼150 h 
+
+Table 1: Approximate GPU-hour breakdown by experiment cluster on a single NVIDIA L4. 
+
+## AG Random-Channel Ablation Control 
+
+Purpose: Test whether the 43.8% ∆ reduction from ablating 140 illusion-sensitive channels is specific to those channels or a generic capacity effect. 
+
+Method: 500 random-channel ablations at mid_resnet_0 (140 channels each), measuring % ∆
+
+reduction at mid_attn_0 .21 Metric Value Random null mean 4.7% Random null std 12.6% Random null 95% CI [−21 .4% , +28 .2%] 
+
+z-score +2 .70 
+
+Empirical p 0.008 Specificity ratio 8.3×
+
+Subgroup analysis: neg_d channels (104ch) produce significant reduction ( p=0 .010 ); pos_d chan-nels (81ch) produce no significant reduction ( p=0 .765 ), with a slightly negative effect (zeroing them slightly increases the measured ∆). This is mechanistically consistent: neg_d channels are more active in the control region; zeroing them disproportionately reduces control-region activation, amplifying the measured differential. A threshold sweep across |d| ∈ { 0.2, 0.3, 0.5, 0.8, 1.0, 1.2} shows the specificity effect is strongest at moderate thresholds (0.2–0.5, all p < 0.01 ); loses significance at 0.8–1.0 due to small channel counts; recovers at 1.2 (top-4 channels alone give 3.5% reduction, p=0 .025 ). 
+
+## AH Cross-Validated Channel Selection 
+
+Purpose: Test whether the ablation causal claim survives cross-validation, addressing the concern that channels are selected and evaluated on the same 35 images. We perform 5-fold and leave-one-out (LOO) cross-validation: channels are selected ( |d| ≥ 0.5) on “training” images and the ablation effect is evaluated on held-out images. Channel stability (fraction appearing as significant in all folds) is reported Method Estimate Notes In-sample (Exp 6) 43.8% Selection bias present 5-fold CV median +8 .7% 4/5 folds positive LOO median +21 .8% IQR [8 .2% , 30 .8%] 
+
+LOO frac > 0 0.91 32/35 images positive Stable channels 140/140 All maximally stable Extreme outliers in both 5-fold and LOO are caused by near-zero baseline ∆ in held-out splits, making percentage reduction unstable. Median and sign-fraction are the appropriate summaries. The cross-validated estimate ( +21 .8% ) shows ∼43% shrinkage from the in-sample figure, as expected with selection bias, but the core causal claim survives with a medium effect. 
+
+## AI Positive Injection Control 
+
+Purpose: Test whether any activation injection produces pixel shifts via the single-step DDIM pipeline, establishing whether Single step injection’s null reflects a pipeline ceiling or the phantom property. Two candidates tested ( N =35 , t=50 ): (A) +2 SD brightness offset injected into illusion re-gion; (B) cross-image activation replacement (swap Xr ’s mid_attn_0 with X’s). Both produce shift_frac ≈ 0 (medians +0 .002 and +0 .001 ), confirming single-step DDIM does not transmit any 
+
+injected activation difference into pixels. 
+
+## AJ On-Manifold Diagnostics 
+
+Purpose: Test whether activations injected in cross-domain patching ( X → Xr ) are on- or off-manifold relative to native Xr activations. 22 Layer Cosine sim PCA var expl. EMD ratio Verdict 
+
+mid_attn_0 0.582 ± 0.102 0.442 0.865 Off-manifold 
+
+mid_resnet_0 0.584 ± 0.101 0.447 0.831 Off-manifold Cosine similarity ∼0.58 (well below the on-manifold threshold of ∼0.9) confirms the X →Xr domain gap is substantial. Moment-matching (mean + variance) does not fix it (shift_frac still ≈ 0). This explains why cross-domain patching specifically fails, but is not the primary explanation for the overall phantom: the within-manifold test (Appendix AK) shows the null persists even without any domain gap. 
+
+## AK Within-Manifold Generative Ablation 
+
+Purpose: Test whether the 140 illusion-sensitive channels at mid_resnet_0 causally shape pixel output when operating entirely within the illusion image’s own manifold. 
+
+Part A — Zero-ablation (N =35 , tstart =150 , 20 DDIM steps): Group N ch Mean shift_frac 95% CI all_sig 140 +0 .011 [+0 .001 , +0 .025] 
+
+neg_d 84 +0 .008 [+0 .001 , +0 .021] 
+
+pos_d 56 +0 .001 [−0.000 , +0 .003] 
+
+random_ctrl_0 140 −0.001 [−0.010 , +0 .004] 
+
+random_ctrl_1 140 +0 .006 [+0 .000 , +0 .013] 
+
+random_ctrl_2 140 +0 .017 [−0.000 , +0 .043] 
+
+The all_sig CI excludes zero but in the positive direction: ablation slightly increased the pixel differential (opposite to expected). One random control also nearly excludes zero, the effect is not cleanly specific. 
+
+Part B — Amplification (α ∈ { 0.0, 0.5, 1.0, 1.5, 2.0, 3.0}): All ρ(α, pixel_delta ) values cluster near zero; all CIs span zero. No monotonic dose-response even at 3× amplification. 
+
+Part C — MSE/Localization/Direction: Global MSE ≈ 2.7 × 10 −5 (4.6% of reconstruction noise floor); localization ratio CI [0 .82 , 2.88] includes 1.0; direction cosine toward Xr ≈ 0.000 . Effect is indistinguishable from random-channel ablation. 
+
+## AL Geometry Excess (Random-Pixel Baseline) 
+
+Purpose: Formally test whether the illusion effect exceeds mask-geometry baseline. Layer t dill drand dexcess 95% CI 
+
+mid_attn_0 50 +0 .381 −0.719 +1 .100 [+0 .642 , +1 .719] 
+
+mid_resnet_0 50 +0 .403 −0.689 +1 .092 [+0 .632 , +1 .706] 
+
+down_5_resnet_1 50 +0 .279 −0.214 +0 .493 [+0 .032 , +1 .155] 
+
+mid_attn_0 150 +0 .318 −0.137 +0 .455 [−0.025 , +0 .991] 
+
+mid_resnet_0 150 +0 .348 −0.145 +0 .493 [+0 .013 , +1 .024] 
+
+down_5_resnet_1 150 +0 .214 +0 .535 −0.321 [−0.857 , +0 .228] 
+
+4/6 a-priori combinations show dexcess CI excluding zero, all at the primary t=50 timestep. Early decoder layers ( up_0_* ) show significantly negative dexcess , confirming the illusion effect is not simply a mask-shape effect. 
+
+## AM DiT Phantom Mechanism 
+
+Purpose: Investigate why DiT’s phantom occurs despite having no skip connections. 23 Block-by-block tracking after injection at block 26: blocks 0–26 are identical to native by construction. At block 27 (first to see injected activations): perturbation L2 =41 ,017 , cosine similarity drops to 
+
+0.819 i.e. the injection creates a massive perturbation. But self-attention and LayerNorm within block 27 absorb it: the activation distribution is restored to near-native, and the signal does not survive to the output. Multi-block injection (blocks 22–27 simultaneously): mean pixel shift =+0 .000040 (±0.000404 ); fraction same direction as baseline: 0.45 (random). Even saturating six consecutive blocks cannot overcome the network’s self-correcting dynamics. 
+
+## AN Noise-Matched Discriminative Probing 
+
+Purpose: Rule out the input asymmetry confound between denoising and discriminative models. Model Clean ( t=0 ) t=50 t=150 t=300 t=500 
+
+DDPM (church) 0.473 0.464 0.450 — —ResNet-50 0.440 0.374 0.327 0.485 0.772 VGG-19 0.337 0.303 0.235 0.489 0.981 DDPM on clean images: peak |d|=0 .473 : strong effect without any noise even though out of domain for diffusion models. Discriminative models at heavy noise ( t=500 ) show large |d| (0.77–0.98) but at mostly spatially uninformative early layers responding to noise statistics, not illusion content. At 
+
+t=50 (the primary analysis regime): DDPM ≥ 0.45 ; discriminative ≤ 0.37 . The gap is not an input asymmetry artifact. 
+
+## AO Permutation Correction for Peak Claims 
+
+Purpose: Test whether the peak observational claim survives correction for searching 246 layer ×timestep combinations. 10,000 permutations shuffling illusion_a/illusion_b labels: Metric Value FDR-significant combos 28/246 (11.4%) Bonferroni-significant 16/246 (6.5%) Observed max |d| (peak) 1.747 ( down_3_resnet_0 , t=900 )Null 95th percentile 0.694 Permutation p (peak) < 0.0001 
+
+A-priori layers at t=50 : mid_attn_0 p=0 .028 ; mid_resnet_0 p=0 .017 ; down_5_resnet_1 
+
+p=0 .116 . The overall peak is at t=900 (consistent with the known heavy-noise confound, Ap-pendix B). The a-priori mid-block claims at t=50 survive permutation at conventional thresholds. 
+
+## AP Phantom effect on reconstruction MSE 
+
+Purpose: Test whether the channels found significant are truly perceptual phantoms by zero ablating them against same number of random channels (mean of 5) over multiple denoising steps. 24 Table 2: mid_resnet_0 metrics 
+
+t_start Group MSE_image % Decrease vs Null 
+
+50 all_sig 3.83 × 10 −5 -17.85% pos_d 2.54 × 10 −5 21.85% neg_d 3.22 × 10 −5 0.92% random_null 3.25 × 10 −5 0.00% 150 all_sig 7.09 × 10 −5 -21.20% pos_d 3.75 × 10 −5 35.90% neg_d 4.56 × 10 −5 22.05% random_null 5.85 × 10 −5 0.00% 300 all_sig 1.09 × 10 −4 -15.59% pos_d 4.67 × 10 −5 50.48% neg_d 8.51 × 10 −5 9.76% random_null 9.43 × 10 −5 0.00% 600 all_sig 1.03 × 10 −3 -10.75% pos_d 5.19 × 10 −4 44.19% neg_d 6.17 × 10 −4 33.66% random_null 9.30 × 10 −4 0.00% 900 all_sig 2.88 × 10 −3 -9.09% pos_d 1.04 × 10 −3 60.61% neg_d 3.17 × 10 −3 -20.08% random_null 2.64 × 10 −3 0.00% Table 3: mid_attn_0 metrics 
+
+t_start Group MSE_image % Decrease vs Null 
+
+50 all_sig 3.16 × 10 −5 14.36% pos_d 1.60 × 10 −5 56.64% neg_d 3.40 × 10 −5 7.86% random_null 3.69 × 10 −5 0.00% 150 all_sig 5.92 × 10 −5 8.78% pos_d 2.54 × 10 −5 60.86% neg_d 6.56 × 10 −5 -1.08% random_null 6.49 × 10 −5 0.00% 300 all_sig 1.03 × 10 −4 0.96% pos_d 5.12 × 10 −5 50.77% neg_d 7.56 × 10 −5 27.31% random_null 1.04 × 10 −4 0.00% 600 all_sig 8.32 × 10 −4 12.61% pos_d 5.29 × 10 −4 44.43% neg_d 5.05 × 10 −4 46.95% random_null 9.52 × 10 −4 0.00% 900 all_sig 2.58 × 10 −3 2.27% pos_d 7.29 × 10 −4 72.39% neg_d 2.06 × 10 −3 21.97% random_null 2.64 × 10 −3 0.00% 25 AQ General architectural effects of training vs architecture 
+
+Architecture Training contribution Church DDPM Sign-flip, layer-localization DiT-XL/2 trained ≫ Random median, variable across seeds LDM-CelebA-HQ Architectural baseline exists; training doubles effect Bedroom DDPM Different layer locus, not absent Discriminative (CNN/ViT) Weak 
+
+## AR Licenses for Existing Assets 
+
+All assets used in this work are publicly available and used in accordance with their respective licenses. We use them solely for non-commercial academic research. 
+
+Asset License Source 
+
+google/ddpm-ema-church-256 ,
+
+bedroom-256 , celebahq-256 
+
+Apache 2.0 HuggingFace Ho et al. [2020] 
+
+CompVis/ldm-celebahq-256 Apache 2.0 HuggingFace Rombach et al. [2022] 
+
+runwayml/stable-diffusion-v1-5 CreativeML OpenRAIL-M HuggingFace Rombach et al. [2022] 
+
+facebook/DiT-XL/2-256 CC BY-NC 4.0 facebookresearch/DiT 
+
+Peebles and Xie [2023] 
+
+torchvision.models.resnet50 
+
+(IMAGENET1K_V1) BSD-3-Clause PyTorch torchvision He et al. [2016] 
+
+torchvision.models.vgg19 
+
+(IMAGENET1K_V1) BSD-3-Clause PyTorch torchvision Si-monyan and Zisserman [2015] 
+
+google/vit-base-patch16-224 (ViT-B/16) Apache 2.0 HuggingFace Dosovitskiy et al. [2021] 
+
+google/vit-large-patch16-224 (ViT-L/16) Apache 2.0 HuggingFace Dosovitskiy et al. [2021] 
+
+Asset License Source 
+
+GVIL stimulus dataset Not specified by authors; used for aca-demic research only Zhang et al. [2023], 
+
+vl-illusion/GVIL 
+
+Pyllusion (parametric stimuli li-brary) MIT RealityBending/Pyllusion 
+
+Makowski et al. [2021] FLODOG (psychophysical model) Reference implementation reproduced from Robinson et al. [2007] Vision Research, 2007 
+
+License compliance notes. The CC BY-NC 4.0 license on DiT-XL/2 restricts use to non-commercial purposes, which our research-only use complies with. The CreativeML OpenRAIL-M license on Stable Diffusion 1.5 includes use-based behavioral restrictions (no harmful or deceptive use), which our diagnostic probing does not violate. The GVIL repository does not specify an explicit license; we use it strictly for academic research purposes consistent with its public release through the EMNLP 2023 paper, and will remove any re-use on request from the authors. 26

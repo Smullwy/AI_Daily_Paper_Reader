@@ -1,0 +1,24 @@
+---
+title: Estimating trial-wise modulation of functional connectivity using event-related fMRI
+title_zh: 利用事件相关fMRI估计试验水平的功能连接调制
+authors: "Hwang, K., Stokes, S. E., Leach, S. C., Jiang, J."
+date: 2026-07-21
+pdf: "https://www.biorxiv.org/content/10.64898/2026.07.15.738746v1.full.pdf"
+tags: ["query:fclip"]
+score: 8.0
+evidence: 逐试次fMRI功能连接方法
+tldr: 针对事件相关fMRI中试次变量调节功能连接的分析需求，本文开发了beta-PPI方法，通过单试次响应估计量化调节效应。模拟评估证实其检测灵敏度高、参数恢复准确，尤其在低信噪比下统计功效优于传统gPPI；实证分析显示不同认知变量在对应试次阶段选择性调节功能连接，体现时间特异性。该方法为基于模型fMRI的连接分析提供统一框架，促进激活、连接与表征研究的整合。
+source: biorxiv
+selection_source: fresh_fetch
+figures_json: "[{\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-001.webp\", \"caption\": \"\", \"page\": 8, \"index\": 1, \"width\": 729, \"height\": 554}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-002.webp\", \"caption\": \"\", \"page\": 16, \"index\": 2, \"width\": 611, \"height\": 832}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-003.webp\", \"caption\": \"\", \"page\": 19, \"index\": 3, \"width\": 1256, \"height\": 312}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-004.webp\", \"caption\": \"\", \"page\": 20, \"index\": 4, \"width\": 1256, \"height\": 344}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-005.webp\", \"caption\": \"\", \"page\": 21, \"index\": 5, \"width\": 1192, \"height\": 333}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-006.webp\", \"caption\": \"\", \"page\": 22, \"index\": 6, \"width\": 571, \"height\": 359}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-007.webp\", \"caption\": \"\", \"page\": 23, \"index\": 7, \"width\": 1254, \"height\": 630}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-008.webp\", \"caption\": \"\", \"page\": 24, \"index\": 8, \"width\": 836, \"height\": 362}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-009.webp\", \"caption\": \"\", \"page\": 26, \"index\": 9, \"width\": 757, \"height\": 568}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-07-15-738746-v1/fig-010.webp\", \"caption\": \"\", \"page\": 28, \"index\": 10, \"width\": 918, \"height\": 609}]"
+motivation: 事件相关fMRI设计缺少有效方法研究试次变量如何调节功能连接。
+method: 提出beta-PPI方法，利用单试次响应估计量化试次变量对功能连接的调节。
+result: 模拟表明beta-PPI灵敏度高、参数恢复好，低信噪比下统计功效优于gPPI；实证数据验证了时间特异性和灵活性。
+conclusion: beta-PPI将任务态连接分析扩展到基于模型fMRI，提供统一试次框架，可整合连接、激活和表征分析。
+---
+
+## 摘要
+理解人类认知的神经基础不仅需要测量局部的脑活动，还需要了解脑区间功能交互如何响应不同认知需求而变化。事件相关fMRI是一种将试次水平的行为和计算变量与脑活动联系起来的有效设计，但用于检验它们对功能连接影响的同类方法仍然有限。在此，我们开发了beta-PPI（beta系列心理生理交互作用），该方法利用事件相关fMRI的单试次响应估计来量化试次水平变量如何调节功能连接。这种基于任务的功能连接方法为事件相关fMRI设计提供了一种灵活的研究功能连接的途径。我们通过跨多种实验条件和信号质量的综合模拟评估了beta-PPI。Beta-PPI能够灵敏地检测真实效应，并表现出良好的参数恢复能力。与广义心理生理交互作用相比，beta-PPI在大多数条件下取得了可比的性能，同时在较低信噪比条件下展示了更高的统计效力。我们进一步使用实证事件相关fMRI数据验证了beta-PPI。不同的试次水平认知变量在其对应的试次时段内选择性地调节功能连接，证实了该方法的时间特异性和灵活性。通过检验试次水平变量如何调节功能连接，beta-PPI将基于任务的连接分析扩展到了基于模型的fMRI，并提供了一个通用的单试次框架，该框架可能促进事件相关fMRI中连接、激活和表征分析的整合。
+
+## Abstract
+Understanding the neural basis of human cognition requires measuring not only localized brain activity but also how functional interactions between brain regions change in response to different cognitive demands. Event-related fMRI is an efficient design for linking trial-wise behavioral and computational variables to brain activity, but comparable methods for examining their effects on functional connectivity remain limited. Here, we develop beta-PPI (beta-series psychophysiological interaction), a method that leverages single-trial response estimates from even-related fMRI to quantify how trial-wise variables modulate functional connectivity. This task-based functional connectivity method provides a flexible approach for studying functional connectivity for event-related fMRI designs. We evaluated beta-PPI using comprehensive simulations across several experimental conditions and signal qualities. Beta-PPI can sensitively detect ground-truth effects and exhibited good parameter recovery. Compared with generalized psychophysiological interaction, beta-PPI achieved comparable performance across most conditions while demonstrating improved statistical power under lower signal-to-noise conditions. We further validated beta-PPI using empirical event-related fMRI data. Distinct trial-wise cognitive variables selectively modulated functional connectivity during their corresponding trial epochs, demonstrating the temporal specificity and flexibility of the approach. By testing how trial-wise variables modulate functional connectivity, beta-PPI extends task-based connectivity analysis to model-based fMRI and provides a common single-trial framework that could facilitate the integration of connectivity, activation, and representational analyses in event38 related fMRI.

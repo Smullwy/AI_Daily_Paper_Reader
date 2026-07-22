@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-23</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-23 05:33 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读与速读共16篇脑科学论文，聚焦神经信号解码与视觉语义理解。</p>
-<p>最值得关注端到端深度学习与脉冲神经网络直接从ECoG/fMRI解码视觉语义的高分突破。</p>
-<p>建议普通读者把目光投向脑机接口中的视觉重建，尝试理解并追踪从脑活动到画面内容的完整通路。</p>
+      <p>今日解码大脑视觉：两项9分精读分别用端到端深度学习和脉冲神经网络，从皮层电图与功能磁共振成像中重建视觉语义。</p>
+<p>速读亮点包括视觉特征的群体均值方差编码、事件相关功能连接动态调制，以及灵长类海马体中位置与空间视图的双重编码。</p>
+<p>建议追踪视觉脑解码的跨模态对比，并关注脉冲网络在医疗神经信号处理中的落地可能。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/23/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -168,3 +167,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
