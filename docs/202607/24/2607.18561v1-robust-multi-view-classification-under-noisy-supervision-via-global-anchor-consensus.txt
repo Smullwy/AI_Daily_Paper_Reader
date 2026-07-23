@@ -1,0 +1,321 @@
+Title: Robust Multi-View Classification under Noisy Supervision via Global Anchor Consensus
+
+URL Source: https://arxiv.org/pdf/2607.18561v1
+
+Published Time: Wed, 22 Jul 2026 00:23:43 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# Robust Multi-View Classification under Noisy Supervision via Global Anchor Consensus 
+
+Yuliang Yang 1, Hongzhe Zhang 2, Huiru Wang 1,∗
+
+> 1
+
+College of Science, Beijing Forestry University, Beijing 100083, China 
+
+> 2
+
+School of Software, North University of China, Taiyuan, Shanxi 030051, China 
+
+yangyuliang@bjfu.edu.cn 23130408492@st.nuc.edu.cn whr2019@bjfu.edu.cn 
+
+> ∗
+
+Corresponding author 
+
+# Abstract 
+
+In recent years, multi-view learning has attracted increasing attention, as it integrates the complementary information of heterogeneous views. Most existing multi-view classifica-tion methods rely on accurate annotations to guarantee per-formance. However, noisy labels are ubiquitous in practice due to imperfect annotation, and the refinement signals that existing methods derive from models trained on such noisy supervision can gradually lose their reliability. To deal with this problem, we propose a novel Global Anchor-based La-bel Auditing method (GALA) for multi-view classification to resist the negative impact of noisy labels. Specifically, we construct a global anchor for each class in every view, which aggregates the samples of the whole class and thus offers a stable reference insensitive to individual predictions. Then, each view measures how close an instance is to the anchor of its observed label relative to the nearest competing anchor, and the per-view evaluations are fused with the classifier confidence into a cross-view audit score. Based on the audit scores, suspicious samples are assigned small weights, and an adaptive correction strategy rewrites a label only when the anchor-based candidate agrees with the classifier predic-tion. Finally, the corrected labels in turn refine the anchors and supervise noise-robust representation learning. Exten-sive experiments on six datasets demonstrate that GALA outperforms eight state-of-the-art methods, especially under high noise rates. 
+
+# Introduction 
+
+In recent years, multi-view data have become ubiquitous in real-world applications, where the same object is described by several heterogeneous sources or feature extractors [Li et al., 2019, Yan et al., 2021b]. For example, an image can be described by texture, shape, and color descriptors, and a social-media post may contain textual, visual, and acoustic content. By integrating the consistent and complementary information among views, multi-view learning has achieved promising performance in many tasks, such as classification [Zhang et al., 2019, 2022, Liu et al., 2023], clustering [Lin et al., 2021, Jin et al., 2023, Yan et al., 2023], and retrieval [Yan et al., 2021a, Hu et al., 2021, Feng et al., 2023]. To further improve the reliability of multi-view decisions, recent studies estimate view-wise uncertainty or resolve the conflicts among views [Han et al., 2021, Xu et al., 2024a, Duan et al., 2025, Liu et al., 2025], and handle incomplete data by recovering missing views or modeling their uncer-tainty [Lin et al., 2023, Xie et al., 2023]. These methods, however, implicitly assume that the training labels are accu-rate. In practice, manual annotation is expensive, subjective, and error-prone, so noisy labels are unavoidable. More importantly, annotation errors are rarely random. Annotators tend to mislabel the instances that are genuinely ambiguous, so realistic label noise is instance-dependent noise (IDN) [Xia et al., 2020, Chen et al., 2021]. Since an ambiguous instance is usually assigned to a class that it truly resembles, its wrong label looks plausible and is easy to fit. As training proceeds, deep networks gradually memo-rize such corrupted supervision and produce predictions that agree with the wrong labels [Zhang et al., 2017, Arpit et al., 2017]. To alleviate the influence of noisy labels, several ro-bust multi-view classification methods have been proposed. LNRMC [Liang et al., 2023] designs a noise-robust regres-sion model, TMNR [Xu et al., 2024b] learns view-specific noise correlation matrices that align the aggregated opinions with the noisy labels, and NLC [Xu et al., 2025] detects and corrects noisy labels according to the predictions of near-est neighbors in the fused representation space. However, the signals that these methods rely on are produced by the model trained on the same observed labels. Taking NLC as an example, once the network begins to fit the corrupted la-bels, the neighboring predictions also drift toward the wrong labels and become less useful for detecting them. Consistent with this concern, Fig. 1 shows that the neighbor-based de-tection AUC of NLC declines after the warm-up stage and never recovers. This motivates us to audit the observed labels with a reference that is more stable than the predictions of individual samples. In this paper, we propose a Global Anchor-based Label Auditing method (GALA) for multi-view classification with noisy labels. Our key idea is that a global class anchor, which aggregates the representations of a whole class in each view, offers a reference that no individual prediction can easily dis-tort. Specifically, as illustrated in Fig. 2, GALA constructs a global anchor for each class in every view, and measures how close an instance is to the anchor of its observed label relative to the nearest competing anchor. The per-view evaluations are then averaged and fused with the classifier confidence 1arXiv:2607.18561v1 [cs.LG] 20 Jul 2026 Figure 1: Detection AUC of label-auditing evidence on Mfeat under 50% IDN. The dashed line marks the end of the shared 20-epoch warm-up. Starting from comparable quality, NLC’s neighbor-based evidence deteriorates, whereas GALA’s anchor-based evidence im-proves. 
+
+to form a cross-view audit score. Based on the audit scores, suspicious samples are assigned small weights, and a label is rewritten only when the anchor-based candidate agrees with the classifier prediction. Finally, the corrected labels in turn refine the anchors and supervise noise-robust representation learning, so that the label quality and the representations improve together during training. The main contributions of this paper are summarized as follows: 
+
+• To the best of our knowledge, we propose GALA as the first work to audit noisy labels in multi-view classification by leveraging view-specific global class anchors and cross-view consensus. 
+
+• We design an adaptive label correction strategy that cou-ples soft sample weighting with a conservative rewriting rule, and alternately refines the noisy labels and the global anchors during training. 
+
+• Extensive experiments on six datasets show that GALA outperforms eight state-of-the-art methods, ranking first in 33 of 36 settings and surpassing the strongest baseline by 7.34 percentage points on average under 50% noise. 
+
+# Related Work 
+
+Multi-View Learning 
+
+Multi-view learning methods exploit the consistency and complementarity among views to obtain a more compre-hensive description of the data [Zhang et al., 2019, 2022, Yan et al., 2023]. One line of research focuses on improv-ing the reliability of multi-view decisions. TMC [Han et al., 2021] estimates view-specific uncertainty and dynamically integrates the resulting opinions, while ETMC [Han et al., 2023] extends this idea through dynamic evidential fusion. To handle disagreement among views, ECML [Xu et al., 2024a] introduces a conflict-aware opinion aggregation strat-egy, FUML [Duan et al., 2025] models view-specific reli-ability through fuzzy memberships, and Liu et al. [2025] develop an adaptive rejection mechanism for unreliable de-cisions. Another line of research addresses incomplete ob-servations. DCP [Lin et al., 2023] recovers missing views through dual contrastive prediction under an information-theoretic framework, whereas UIMC [Xie et al., 2023] mod-els the uncertainty introduced during view imputation. More recently, NCPD-TSMVC combines neural-collapse-inspired prototype priors with evidential fusion to improve repre-sentation learning and prediction reliability under limited supervision [Guo et al., 2026]. Although these methods im-prove robustness to view uncertainty, cross-view conflict, missing observations, or limited labels, none addresses the central problem considered here: corrupted supervision in multi-view classification. 
+
+Learning with Noisy Labels 
+
+Label noise is commonly divided into class-conditional noise (CCN) and instance-dependent noise (IDN) [Song et al., 2023]. Under CCN, the corruption is independent of the instance features given the true class and can therefore be addressed by estimating a class-transition matrix for loss correction [Patrini et al., 2017]. Under IDN, by contrast, the probability of mislabeling depends on the instance itself, making ambiguous samples more likely to be corrupted; this setting more closely reflects annotation errors in practice [Xia et al., 2020, Chen et al., 2021]. We therefore focus on IDN. Existing approaches include robust sample selec-tion, semi-supervised learning, and input interpolation. Co-teaching [Han et al., 2018] trains two peer networks that exchange small-loss samples, DivideMix [Li et al., 2020] separates clean and noisy examples through loss modeling and learns from the latter in a semi-supervised manner, and MixUp [Zhang et al., 2018] reduces overfitting to corrupted labels by interpolating both inputs and targets. Class-level prototypes provide another way to reduce re-liance on individual noisy examples. CleanNet [Lee et al., 2018] verifies labels against class reference embeddings but requires manually verified examples for a subset of classes. Deep Self-Learning [Han et al., 2019] extracts multiple pro-totypes for each class and uses them to refine noisy super-vision, while MoPro [Li et al., 2021] maintains momentum prototypes for online label correction in webly supervised learning. More recent studies have extended prototype-based robustness to pretrained vision-language models and graph learning. NLPrompt treats text embeddings as class proto-types and uses prototype-guided optimal transport to sep-arate clean from noisy examples for robust prompt learn-ing [Pan et al., 2025]. Prototype-Guided Supervision instead constructs class-level semantic anchors from node represen-tations and replaces direct supervision from potentially cor-rupted node labels with prototype-level supervision [Li et al., 2026]. These studies further demonstrate the value of class-level structure under noisy supervision, but they are tailored to vision-language adaptation or graph learning. They nei-ther maintain a separate class-anchor space for each view nor exploit agreement across views to audit observed labels, leaving the problem addressed by GALA unresolved. 2Figure 2: The framework of the proposed GALA. GALA comprises global anchor construction, cross-view consensus label auditing, adaptive label correction, and noise-robust representation learning. View-specific class anchors are initialized by class-wise aggregation and updated with low-risk samples. GALA compares each instance with its assigned and competing anchors across views, fuses the resulting evidence with classifier confidence, and uses the audit score for soft re-weighting and conservative label correction. The corrected labels and weights supervise weighted classification, supervised contrastive learning, and prototypical contrastive learning. 
+
+Multi-View Learning with Noisy Labels 
+
+Noisy supervision has been studied in cross-modal retrieval [Hu et al., 2021, Feng et al., 2023] and in incomplete multi-view multi-label learning [Wang et al., 2025], but only a few methods target multi-view classification. LNRMC [Liang et al., 2023] builds a label-noise robust regression model with robust losses, without explicitly sepa-rating clean and corrupted samples. TMNR [Xu et al., 2024b] constructs evidential opinions for each view and learns view-specific noise correlation matrices that align the aggregated opinion with the noisy labels; the matrices are themselves fitted to the corrupted supervision and provide no per-sample auditing. NLC [Xu et al., 2025] detects a noisy label by com-paring it with the predictions of its nearest neighbors in the fused representation space and relabels flagged samples by neighbor voting; since the neighboring predictions are pro-duced by the model trained on the same observed labels, this evidence can weaken once the network fits the corrupted labels. GALA differs from single-view prototype methods in that it maintains an anchor set for each view and audits labels through cross-view agreement. It also differs from NLC: the auditing evidence comes from class-level anchors rather than the predictions of individual neighbors, and a conservative rule changes a label only when the anchor candidate agrees with the classifier. 
+
+# Method 
+
+Problem Formulation 
+
+Consider a multi-view training set D = {( x𝑖 , ˜𝑦 𝑖 )} 𝑁 𝑖 =1 of 𝑁 
+
+instances, where each instance x𝑖 = {x𝑣 𝑖 }𝑉 𝑣 =1 is observed in 𝑉 views and ˜𝑦 𝑖 ∈ { 1, . . . , 𝐾 } denotes its observed label over 𝐾 classes. Since manual annotation is error-prone, ˜𝑦 𝑖 
+
+may disagree with the latent ground-truth label. We aim to train a multi-view classifier that remains accurate on test data despite such corrupted supervision. For view 𝑣 , an encoder 𝑓 𝑣 (·) maps x𝑣 𝑖 to a representation 
+
+z𝑣 𝑖 = 𝑓 𝑣 (x𝑣 𝑖 ) ∈ R𝑑 , where 𝑑 is the dimension of the latent space. We denote its ℓ2-normalized form by ¯z𝑣 𝑖 . The fused representation is the average of all view-specific representa-tions, i.e., z𝑖 = 1
+
+> 𝑉
+
+Í𝑉 𝑣 =1 z𝑣 𝑖 . A shared classifier 𝑔 (·) outputs the class-probability vector p𝑖 = softmax (𝑔 (z𝑖 )) , where 𝑝 𝑖,𝑐 ,the 𝑐 -th element of p𝑖 , denotes the predicted probability that instance 𝑖 belongs to class 𝑐 .
+
+Global Anchor Construction 
+
+GALA summarizes class-level structure with global anchors rather than consulting individual neighbors. Exploiting the early-learning behavior of DNNs [Arpit et al., 2017], we warm up the model with standard cross-entropy before ini-tializing the anchor of class 𝑐 in view 𝑣 as the normalized class mean: 
+
+a𝑣 𝑐 =
+
+Í𝑖 ∈ N 𝑐 ¯z𝑣 𝑖 
+
+Í𝑖 ∈ N 𝑐 ¯z𝑣 𝑖 2
+
+, N𝑐 = {𝑖 | ˜𝑦 𝑖 = 𝑐 }. (1) 3Initialization uses the observed labels, but each anchor pools representations across a class and is therefore less sensitive to any individual sample. The anchor remains useful provided that corrupted samples do not dominate the class. After warm-up, each anchor is updated by momentum using the samples judged as clean: 
+
+a𝑣 𝑐 ← 𝜇 a𝑣 𝑐 + ( 1 − 𝜇 ) 1
+
+|C 𝑐 |∑︁ 𝑖 ∈ C 𝑐 
+
+¯z𝑣 𝑖 , (2) followed by ℓ2 normalization, where C𝑐 contains the clean samples with corrected label 𝑐 in the current mini-batch and 𝜇 is the momentum coefficient. If C𝑐 is empty, the corre-sponding anchor remains unchanged. The warm-up stage and the conservative correction rule introduced below stabilize the feedback between label correction and anchor refinement. 
+
+Cross-View Consensus Label Auditing 
+
+An observed label is suspicious if the corresponding instance lies far from the anchor of its labeled class (the assigned an-chor) but close to a competing anchor, consistently across views. Since both representations and anchors are normal-ized, we measure their distance by 
+
+𝑑 𝑣 𝑖,𝑐 = 1 − ⟨ ¯z𝑣 𝑖 , a𝑣 𝑐 ⟩, (3) where ⟨· , ·⟩ denotes the inner product. To account for relative class separation, each view contrasts the assigned anchor with the nearest competing one: 
+
+𝑠 𝑣 𝑖 = 𝑑 𝑣 𝑖, ˜𝑦 𝑖 
+
+𝑑 𝑣 𝑖, ˜𝑦 𝑖 + min 𝑐 ≠ ˜𝑦 𝑖 𝑑 𝑣 𝑖,𝑐 + 𝛿 , (4) where 𝛿 = 10 −8 is a small constant for numerical stabil-ity. This ratio places the view-specific scores on a common bounded scale. We then average the scores across views and combine them with the classifier confidence: 
+
+𝑠 𝑖 = 𝛼 𝑉 
+
+> 𝑉
+
+∑︁ 
+
+> 𝑣 =1
+
+𝑠 𝑣 𝑖 + ( 1 − 𝛼 )  1 − 𝑝 𝑖, ˜𝑦 𝑖 
+
+, (5) where 𝛼 balances the anchor-based and classifier-based evi-dence. After warm-up, corrected labels and soft weights re-fine the classifier, whose confidence complements the anchor score. A larger 𝑠 𝑖 indicates a higher risk that ˜𝑦 𝑖 is corrupted. 
+
+Adaptive Label Correction 
+
+The audit score controls both sample re-weighting and label correction. Each sample receives a soft weight 
+
+𝑤 𝑖 = max (1 − 𝑠 𝑖 , 𝜖 ), (6) where 𝜖 avoids zero weights. Down-weighting suppresses unreliable supervision but cannot recover the potentially use-ful class information of a corrupted sample. We therefore derive an anchor-based candidate by aggregating similari-ties across views: 
+
+ˆ𝑦 𝑖 = arg max 
+
+> 𝑐 𝑉
+
+∑︁ 
+
+> 𝑣 =1
+
+⟨¯z𝑣 𝑖 , a𝑣 𝑐 ⟩. (7) Within a mini-batch of size 𝐵 , the ⌈𝜂𝐵 ⌉ largest scores are flagged as suspicious, where 𝜂 controls the correction budget. We denote the smallest flagged score by 𝜃 𝜂 and the classifier prediction by 𝑐 𝑖 = arg max 𝑐 𝑝 𝑖,𝑐 . The corrected label is 
+
+¯𝑦 𝑖 =
+
+( ˆ𝑦 𝑖 , if 𝑠 𝑖 ≥ 𝜃 𝜂 , 𝑐 𝑖 ≠ ˜𝑦 𝑖 , and ˆ𝑦 𝑖 = 𝑐 𝑖 ,
+
+˜𝑦 𝑖 , otherwise . (8) When 𝜂 = 0, no sample is flagged as suspicious, and all observed labels remain unchanged. A label is rewritten only when the sample is suspicious and the classifier agrees with the anchor-based candidate on an alternative class. This con-servative rule avoids injecting an additional error, while an uncorrected noisy label is still down-weighted by Eq. (6). The lowest-scoring (1 − 𝜂 ) fraction is treated as clean for the anchor update in Eq. (2). 
+
+Noise-Robust Representation Learning 
+
+The corrected labels and soft weights supervise both classi-fication and representation learning. We train the classifier with weighted cross-entropy: 
+
+Lce =
+
+Í𝑖 𝑤 𝑖 ℓce (p𝑖 , ¯𝑦 𝑖 )
+
+Í𝑖 𝑤 𝑖 
+
+, (9) where ℓce is the cross-entropy loss. We also use a weighted supervised contrastive loss [Khosla et al., 2020]. Let 
+
+ℓsup (¯z𝑣 𝑖 , ¯𝑦 𝑖 ) denote the standard supervised contrastive loss over all view-specific features in the mini-batch, where fea-tures sharing the same corrected label form positive pairs. We define 
+
+Lscl = 1
+
+𝑉 Í𝑖 𝑤 𝑖 𝐵 ∑︁ 
+
+> 𝑖 =1
+> 𝑉
+
+∑︁ 
+
+> 𝑣 =1
+
+𝑤 𝑖 ℓsup (¯z𝑣 𝑖 , ¯𝑦 𝑖 ). (10) A prototypical contrastive loss keeps features compact around their anchors: 
+
+Lpcl = 1
+
+𝑉 
+
+> 𝑉
+
+∑︁ 
+
+> 𝑣 =1
+
+1
+
+𝐵 
+
+> 𝐵
+
+∑︁ 
+
+> 𝑖 =1
+
+h
+
+𝑤 𝑖 ℓ𝑣 𝑖 ( ¯𝑦 𝑖 ) + ( 1 − 𝑤 𝑖 ) ℓ𝑣 𝑖 ( ˆ𝑦 𝑖 )
+
+i
+
+, (11) where ℓ𝑣 𝑖 (𝑦 ) is the cross-entropy loss for target 𝑦 computed from the anchor-similarity logits ⟨¯z𝑣 𝑖 , a𝑣 𝑐 ⟩/ 𝜏 over classes 𝑐 ,and 𝜏 is the temperature. Thus, reliable samples follow their corrected labels, whereas suspicious samples rely more on the anchor-based candidates. 
+
+Overall Loss 
+
+The overall training objective of GALA is 
+
+L = Lce + 𝜆 1 Lscl + 𝜆 2 Lpcl , (12) where 𝜆 1 and 𝜆 2 are balance parameters. During warm-up, GALA uses only standard cross-entropy on the observed la-bels. Label auditing, correction, anchor updating, and the full objective in Eq. (12) are activated afterwards. The anchors are updated without gradient computation. 4Experiments 
+
+Experimental Setup Datasets. We evaluate GALA on six multi-view datasets: LandUse21, Leaves100, Scene15, BBC, Mfeat, and Digit4k. 
+
+LandUse21 contains 2,100 samples from 21 classes with three views; Leaves100 contains 1,600 samples from 100 classes with three views; Scene15 contains 4,485 samples from 15 classes with three views; BBC contains 685 doc-uments from five classes with four views; Mfeat contains 2,000 handwritten-digit samples from 10 classes with six views; and Digit4k contains 4,000 samples from four classes with two views. Following the IDN protocol of TMNR [Xu et al., 2024b], we randomly split each dataset into 80% train-ing and 20% testing samples and corrupt the training labels at rates of {0, 0.1, 0.2, 0.3, 0.4, 0.5}, where 0 corresponds to training with clean labels. The protocol assigns feature-dependent corruption probabilities and maps a selected sam-ple to its most confusable class. The test labels are always kept clean. 
+
+Compared Methods. We compare GALA with eight rep-resentative methods. DCCAE [Wang et al., 2015] learns cor-related representations with deep canonically correlated au-toencoders, and DCP [Lin et al., 2023] enforces cross-view consistency through dual contrastive prediction. TMC [Han et al., 2021], ETMC [Han et al., 2023], ECML [Xu et al., 2024a], and UIMC [Xie et al., 2023] improve the reliabil-ity of multi-view decisions through uncertainty estimation, dynamic evidential fusion, conflictive opinion aggregation, and uncertainty-aware imputation, respectively. TMNR [Xu et al., 2024b] and NLC [Xu et al., 2025] are designed for multi-view learning with noisy labels: TMNR models the corruption process with view-specific noise correlation ma-trices over evidential opinions, while NLC verifies and cal-ibrates labels with the predictions of reliable neighbors. For a fair comparison, all compared methods use their official implementations with the parameters recommended in the original papers; if no recommendation is available, we care-fully tune them. All methods are evaluated with identical data splits and random seeds. 
+
+Implementation Details. GALA is implemented in Py-Torch 2.5.1 and trained on an NVIDIA GeForce RTX 4090. Each view has an independent MLP encoder with batch normalization, ReLU, and 0.3 dropout, producing a 128-dimensional representation; mean fusion and a shared linear classifier follow. We train for 100 epochs with a batch size of 128, using the Adam optimizer with an initial learning rate of 
+
+10 −3, a weight decay of 10 −4, and a cosine annealing sched-ule; the first 20 epochs serve as warm-up. For all datasets, 
+
+𝛼 = 0.5, 𝜇 = 0.9, 𝜏 = 0.1, 𝜖 = 0.05 , and 𝜆 1 = 𝜆 2 = 0.5. The correction budget 𝜂 is set to the known noise rate, which can otherwise be estimated from noisy training data [Garg et al., 2024]. We report mean accuracy and standard deviation over five random seeds. 
+
+Overall Performance 
+
+Table 1 reports the classification accuracy under different noise rates. GALA ranks first in 33 of the 36 settings and second in the remaining three, and its advantage grows as the noise rate increases. At 50% noise, GALA outperforms the strongest competing method by 7.34 percentage points on av-erage, and its average margin over NLC increases from 1.52 points on clean data to 10.17 points. On the clean datasets, GALA ranks first on four and second on the other two, show-ing that its robustness to label noise does not come at the cost of clean-data accuracy. 
+
+Label Auditing Analysis 
+
+As shown in Fig. 3, under 50% IDN noisy samples receive clearly higher audit scores than clean samples, and the gap between their means ranges from 0.45 to 0.60 across the four datasets. In Fig. 1, we treat the corrupted labels as the positive class and compute the detection AUC after every epoch following warm-up, using GALA’s audit score and one minus NLC’s label-verification probability; the curves report the mean over five runs. GALA’s detection AUC rises during training, whereas NLC’s declines, indicating that the anchor-based evidence stays informative even as the model fits the noisy labels. 
+
+Parameter Sensitivity 
+
+We study 𝛼 , 𝜇 , 𝜆 1, and 𝜆 2 on Leaves100 and LandUse21 under 0%, 30%, and 50% IDN. As shown in Fig. 4, 𝛼 has a more visible effect under high noise, whereas its clean-data curves remain nearly flat. Performance changes little across different values of 𝜇 and 𝜆 2, while 𝜆 1 causes mod-erate variation under noisy labels. No parameter causes a sharp performance drop near the adopted values. We there-fore use 𝛼 = 0.5, 𝜇 = 0.9, and 𝜆 1 = 𝜆 2 = 0.5 throughout the experiments. 
+
+Ablation Study 
+
+Under 50% IDN, we compare the full GALA with four variants. GALA-1 replaces anchor auditing with NLC-style neighbor-based detection, which scores each label by how much the predictions of its 20 nearest neighbors disagree with the given label. GALA-2 removes label correction but retains sample re-weighting. GALA-3 freezes the anchors af-ter initialization. GALA-4 removes both contrastive losses. As shown in Table 2, the full model achieves the highest average accuracy of 79.29% and performs best on five of the six datasets. Replacing anchor auditing with neighbor-based detection in GALA-1 lowers the average by 2.60 points, supporting the use of class-level anchors. GALA-2 causes the largest drop of 6.09 points, showing that re-weighting alone cannot recover the useful supervision in corrupted samples. Freezing the anchors in GALA-3 and removing both contrastive losses in GALA-4 reduce the average by 5.12 and 4.91 points. On BBC, the small gap between GALA and GALA-2 suggests that label correction helps less there than on the other datasets. 5Dataset Noise DCCAE TMC ETMC DCP UIMC ECML TMNR NLC GALA Year ICML’15 ICLR’21 TPAMI’23 TPAMI’23 CVPR’23 AAAI’24 IJCAI’24 AAAI’25 Ours LandUse21 0% 32.62 ±1.74 49.62 ±3.26 45.00 ±3.04 71.38 ±2.29 68.00 ±1.58 37.95 ±1.94 41.71 ±2.46 75.19 ±1.19 73.29 ±0.96 10% 30.48 ±1.23 48.71 ±4.10 43.33 ±3.92 55.10 ±0.82 54.10 ±1.10 34.10 ±2.43 39.00 ±2.91 70.14 ±1.92 69.90 ±1.50 20% 29.33 ±1.53 46.48 ±2.49 41.33 ±2.75 44.67 ±2.39 47.24 ±1.27 31.52 ±1.92 35.95 ±2.27 65.52 ±1.75 68.43 ±2.10 
+
+30% 29.24 ±1.92 43.24 ±3.54 39.76 ±2.76 34.00 ±1.94 40.14 ±1.45 30.43 ±1.39 36.71 ±2.28 57.76 ±3.00 65.29 ±0.92 
+
+40% 26.00 ±1.59 40.10 ±1.76 37.19 ±2.89 27.90 ±1.14 28.62 ±1.03 26.19 ±1.68 33.10 ±1.70 52.24 ±2.48 62.76 ±2.43 
+
+50% 26.29 ±0.98 36.57 ±2.34 35.24 ±2.45 21.86 ±1.75 25.48 ±0.77 25.43 ±1.60 29.38 ±3.07 48.29 ±2.41 59.48 ±2.42 
+
+Leaves100 0% 62.00 ±4.17 94.19 ±0.32 90.56 ±1.29 97.25 ±0.67 97.06 ±0.47 73.19 ±1.46 73.75 ±2.55 98.50 ±0.46 99.88 ±0.25 
+
+10% 61.31 ±2.50 93.25 ±0.61 89.25 ±1.20 84.56 ±1.50 92.06 ±0.51 73.00 ±2.15 68.88 ±2.17 96.69 ±0.61 99.50 ±0.54 
+
+20% 56.88 ±3.55 89.56 ±1.23 86.00 ±2.01 72.75 ±2.53 87.00 ±1.49 72.06 ±1.08 64.19 ±2.03 93.25 ±1.93 99.50 ±0.38 
+
+30% 55.19 ±2.69 85.38 ±1.65 81.56 ±2.30 59.25 ±3.54 80.44 ±1.56 67.88 ±1.50 60.94 ±2.04 87.25 ±1.93 96.69 ±0.88 
+
+40% 53.00 ±2.58 81.56 ±2.41 76.44 ±2.91 48.00 ±1.35 71.06 ±2.16 65.38 ±2.52 57.75 ±2.12 82.25 ±2.64 94.75 ±1.51 
+
+50% 50.19 ±2.18 73.81 ±3.61 68.50 ±2.47 39.75 ±2.14 65.50 ±1.02 59.25 ±1.46 55.63 ±2.91 75.19 ±3.23 92.25 ±2.28 
+
+Scene15 0% 49.50 ±1.54 72.11 ±1.14 70.30 ±1.31 74.52 ±2.41 75.25 ±0.33 59.49 ±1.39 63.84 ±1.40 80.13 ±1.20 79.82 ±0.88 10% 48.23 ±1.76 72.02 ±1.28 69.99 ±1.25 53.07 ±2.24 74.18 ±1.51 58.66 ±0.97 63.34 ±1.20 77.99 ±1.00 78.89 ±0.66 
+
+20% 48.32 ±1.68 72.06 ±1.13 69.65 ±0.81 42.63 ±1.10 71.42 ±1.12 60.13 ±0.74 62.74 ±1.85 76.54 ±1.00 77.86 ±0.21 
+
+30% 47.42 ±1.34 71.82 ±1.09 69.21 ±1.48 33.89 ±1.27 69.94 ±1.44 59.26 ±1.30 59.40 ±1.96 73.76 ±1.10 77.68 ±0.50 
+
+40% 47.76 ±1.32 68.83 ±0.38 66.47 ±1.29 25.71 ±0.53 67.89 ±0.82 57.64 ±1.16 53.13 ±2.07 70.77 ±1.87 77.32 ±0.86 
+
+50% 46.58 ±2.23 65.15 ±1.72 63.63 ±2.27 19.60 ±1.60 63.61 ±2.34 54.49 ±0.94 52.13 ±3.53 68.61 ±1.74 75.23 ±1.15 
+
+BBC 0% 86.42 ±1.94 95.77 ±1.42 95.77 ±1.49 91.68 ±2.10 96.20 ±1.42 94.45 ±2.29 94.01 ±2.46 91.53 ±2.40 98.10 ±1.09 
+
+10% 83.06 ±1.81 92.55 ±2.82 92.99 ±2.87 87.88 ±3.08 93.87 ±1.76 90.22 ±2.64 91.09 ±3.25 88.17 ±4.04 96.20 ±1.49 
+
+20% 82.19 ±1.88 92.55 ±2.03 92.55 ±1.56 83.21 ±3.13 93.28 ±0.85 89.63 ±2.33 91.09 ±1.87 84.23 ±5.28 94.01 ±0.85 
+
+30% 72.41 ±2.23 81.31 ±1.76 82.33 ±2.46 74.45 ±4.71 80.58 ±2.79 79.12 ±2.83 80.44 ±2.59 75.47 ±4.86 87.01 ±1.56 
+
+40% 68.61 ±2.01 75.33 ±1.98 76.20 ±2.94 68.90 ±4.96 74.89 ±2.04 72.41 ±1.81 74.16 ±1.50 71.97 ±9.57 81.61 ±2.59 
+
+50% 58.10 ±1.99 64.81 ±2.82 64.96 ±2.53 60.00 ±3.04 63.21 ±1.35 63.06 ±1.35 63.06 ±2.79 56.05 ±3.84 70.51 ±4.44 
+
+Mfeat 0% 97.40 ±0.58 97.95 ±0.62 98.25 ±0.65 98.80 ±0.19 98.80 ±0.10 97.15 ±0.77 96.75 ±0.32 97.55 ±0.46 99.40 ±0.30 
+
+10% 97.50 ±0.45 97.65 ±0.37 97.70 ±0.24 96.50 ±1.17 97.95 ±0.33 96.35 ±0.37 96.55 ±0.51 97.20 ±0.51 98.70 ±0.24 
+
+20% 96.70 ±0.33 97.65 ±0.86 97.55 ±0.89 92.05 ±0.66 97.65 ±0.60 96.35 ±0.97 96.50 ±0.57 96.85 ±0.60 98.25 ±0.35 
+
+30% 95.60 ±0.85 95.85 ±0.44 95.70 ±0.70 82.30 ±3.90 95.85 ±0.56 94.30 ±0.89 95.25 ±0.71 95.55 ±1.08 97.85 ±0.77 
+
+40% 91.95 ±1.07 94.30 ±0.51 94.25 ±0.16 76.45 ±0.62 93.95 ±0.76 92.85 ±0.68 93.60 ±0.51 95.00 ±1.77 96.70 ±0.24 
+
+50% 82.20 ±3.18 89.50 ±2.26 90.05 ±1.34 62.05 ±1.58 88.00 ±2.16 87.80 ±2.68 86.80 ±2.35 89.55 ±3.43 92.10 ±1.69 
+
+Digit4k 0% 91.10 ±0.39 88.70 ±0.76 88.98 ±0.64 88.85 ±2.09 90.35 ±0.46 88.62 ±0.69 87.52 ±0.78 90.20 ±1.06 91.75 ±0.50 
+
+10% 91.02 ±0.37 88.60 ±0.82 88.80 ±0.84 84.90 ±0.99 90.08 ±0.88 88.55 ±0.74 87.18 ±0.92 87.95 ±2.15 91.45 ±0.39 
+
+20% 90.83 ±0.33 89.27 ±0.72 89.40 ±0.75 76.43 ±2.98 89.55 ±0.74 89.05 ±0.70 88.00 ±0.84 86.65 ±2.82 91.10 ±0.63 
+
+30% 89.77 ±0.47 88.20 ±0.70 88.38 ±0.77 71.10 ±4.71 89.33 ±0.56 88.23 ±0.71 87.20 ±0.59 85.80 ±2.98 90.53 ±0.53 
+
+40% 87.22 ±0.51 87.72 ±0.59 87.65 ±0.39 68.20 ±9.41 87.47 ±0.41 87.60 ±0.42 86.87 ±0.45 84.75 ±2.76 89.10 ±0.37 
+
+50% 79.17 ±1.05 84.60 ±0.74 84.52 ±0.57 56.23 ±15.73 83.95 ±0.86 84.58 ±0.74 83.52 ±0.76 77.05 ±5.08 86.17 ±2.13 
+
+Table 1: Classification accuracy (%) of GALA and eight compared methods on six datasets with different proportions of instance-dependent noise. The “Noise” column denotes the percentage of corrupted training labels, with 0% indicating clean training data. The best and second-best results are indicated by boldface and underlining, respectively. 
+
+Figure 3: Distributions of audit scores for clean and noisy training samples on four datasets under 50% IDN. A larger score indicates a higher estimated risk of label corruption. 
+
+Representation Visualization 
+
+Fig. 5 compares representations on Digit4k using the same split, seed, and t-SNE configuration. Under 50% IDN, ECML, TMNR, and NLC show partially mixed classes: samples with corrupted labels are pulled toward the wrong classes and blur the boundaries between neighboring groups. 6Figure 4: Parameter sensitivity on Leaves100 (top) and LandUse21 (bottom) under different IDN rates. Shaded regions denote the standard deviation over five runs.                                         
+
+> Figure 5: t-SNE visualization on Digit4k using the same data split, random seed, and t-SNE configuration. The first four panels are trained under 50% IDN, while the last panel shows GALA trained with clean labels. Dataset GALA-1 GALA-2 GALA-3 GALA-4 GALA LandUse21 55.43 59.25 53.95 57.48 59.48
+> Leaves100 83.50 83.19 92.19 92.00 92.25
+> Scene15 75.20 74.94 72.22 74.52 75.23
+> BBC 69.64 70.95 70.80 67.30 70.51 Mfeat 91.10 70.10 82.85 77.45 92.10
+> Digit4k 85.25 80.78 72.98 77.50 86.17
+> Average 76.69 73.20 74.17 74.38 79.29
+> Table 2: Ablation results under 50% IDN. Each entry is the average classification accuracy (%) over five runs, and the best result in each row is indicated by boldface.
+
+In contrast, GALA forms more compact groups with clearer separation, because the prototypical contrastive loss pulls features toward their class anchors and the sample weights limit the influence of suspicious samples. Although some dispersion remains, the representation of GALA is much closer to the clean-label reference, in line with the accuracy results in Table 1. 
+
+# Conclusion 
+
+We presented GALA, a global-anchor-based framework for multi-view classification with noisy labels. Instead of relying on the changing predictions of individual neighbors, GALA audits each observed label by comparing the instance with its assigned and competing anchors in every view and com-bining this evidence with the classifier confidence. The audit score is used for soft sample weighting and conservative la-bel correction, and the corrected labels update the anchors and guide representation learning. Across six benchmarks and six noise settings, GALA ranks first in 33 of 36 settings and outperforms the strongest baseline by 7.34 points on av-erage at 50% noise. Overall, global anchors and cross-view consensus offer a dependable reference under label noise. 
+
+# Acknowledgments 
+
+This work was supported by the National Natural Science Foundation of China (Grant No. 12501719), the Fundamen-tal Research Funds for the Central Universities (Grant No. QNTD202510), and the Beijing Training Program of Inno-vation and Entrepreneurship for Undergraduates (Grant No. 202510022420). 
+
+# References 
+
+D. Arpit, S. Jastrzebski, N. Ballas, D. Krueger, E. Bengio, M. S. Kanwal, T. Maharaj, A. Fischer, A. C. Courville, 7Y. Bengio, and S. Lacoste-Julien. A closer look at memo-rization in deep networks. In Proceedings of the 34th In-ternational Conference on Machine Learning , pages 233– 242, 2017. P. Chen, J. Ye, G. Chen, J. Zhao, and P. Heng. Beyond class-conditional assumption: A primary attempt to com-bat instance-dependent label noise. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 35, pages 11442–11450, 2021. S. Duan, Y. Sun, D. Peng, G. Duan, X. Peng, and P. Hu. Deep fuzzy multi-view learning for reliable classification. In Proceedings of the 42nd International Conference on Machine Learning , pages 14735–14758, 2025. Y. Feng, H. Zhu, D. Peng, X. Peng, and P. Hu. RONO: robust discriminative learning with noisy labels for 2d-3d cross-modal retrieval. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 11610–11619, 2023. A. Garg, C. Nguyen, R. Felix, T. Do, and G. Carneiro. Instance-dependent noisy-label learning with graphical model based noise-rate estimation. In Proceedings of the European Conference on Computer Vision , pages 372– 389, 2024. T. Guo, H. Yuan, X. Zhao, Y. Sun, D. Wang, Z. Ren, and X. Li. Neural collapse priors driven trust semi-supervised multi-view classification. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 40, pages 21477–21485, 2026. B. Han, Q. Yao, X. Yu, G. Niu, M. Xu, W. Hu, I. W. Tsang, and M. Sugiyama. Co-teaching: Robust training of deep neural networks with extremely noisy labels. In Advances in Neural Information Processing Systems , volume 31, pages 8536–8546, 2018. J. Han, P. Luo, and X. Wang. Deep self-learning from noisy labels. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 5137–5146, 2019. Z. Han, C. Zhang, H. Fu, and J. T. Zhou. Trusted multi-view classification. In International Conference on Learning Representations , 2021. Z. Han, C. Zhang, H. Fu, and J. T. Zhou. Trusted multi-view classification with dynamic evidential fusion. IEEE Trans-actions on Pattern Analysis and Machine Intelligence , 45 (2):2551–2566, 2023. P. Hu, X. Peng, H. Zhu, L. Zhen, and J. Lin. Learning cross-modal retrieval with noisy labels. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 5403–5413, 2021. J. Jin, S. Wang, Z. Dong, X. Liu, and E. Zhu. Deep incom-plete multi-view clustering with cross-view partial sample and prototype alignment. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 11600–11609, 2023. P. Khosla, P. Teterwak, C. Wang, A. Sarna, Y. Tian, P. Isola, A. Maschinot, C. Liu, and D. Krishnan. Supervised con-trastive learning. In Advances in Neural Information Pro-cessing Systems , volume 33, pages 18661–18673, 2020. K. Lee, X. He, L. Zhang, and L. Yang. Cleannet: Transfer learning for scalable image classifier training with label noise. In Proceedings of the IEEE Conference on Com-puter Vision and Pattern Recognition , pages 5447–5456, 2018. J. Li, R. Socher, and S. C. H. Hoi. Dividemix: Learning with noisy labels as semi-supervised learning. In International Conference on Learning Representations , 2020. J. Li, C. Xiong, and S. C. H. Hoi. Mopro: Webly supervised learning with momentum prototypes. In International Conference on Learning Representations , 2021. Q. Li, X. Li, D. Li, and J. Wang. Prototype-guided supervi-sion for graph learning with noisy and sparse labels. In 
+
+Proceedings of the AAAI Conference on Artificial Intelli-gence , volume 40, pages 23105–23113, 2026. Y. Li, M. Yang, and Z. Zhang. A survey of multi-view representation learning. IEEE Transactions on Knowledge and Data Engineering , 31(10):1863–1883, 2019. N. Liang, Z. Yang, L. Li, Z. Li, and S. Xie. Label-noise robust classification with multi-view learning. Science China Technological Sciences , 66(6):1841–1854, 2023. Y. Lin, Y. Gou, Z. Liu, B. Li, J. Lv, and X. Peng. COMPLETER: incomplete multi-view clustering via con-trastive prediction. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 11174–11183, 2021. Y. Lin, Y. Gou, X. Liu, J. Bai, J. Lv, and X. Peng. Dual con-trastive prediction for incomplete multi-view representa-tion learning. IEEE Transactions on Pattern Analysis and Machine Intelligence , 45(4):4447–4461, 2023. W. Liu, Y. Chen, X. Yue, C. Zhang, and S. Xie. Safe multi-view deep classification. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 37, pages 8870–8878, 2023. W. Liu, Y. Chen, and X. Yue. Enhancing multi-view classifi-cation reliability with adaptive rejection. In Proceedings of the AAAI Conference on Artificial Intelligence , vol-ume 39, pages 18969–18977, 2025. B. Pan, Q. Li, X. Tang, W. Huang, Z. Fang, F. Liu, J. Wang, J. Yu, and Y. Shi. Nlprompt: Noise-label prompt learn-ing for vision-language models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 19963–19973, 2025. 8G. Patrini, A. Rozza, A. K. Menon, R. Nock, and L. Qu. Making deep neural networks robust to label noise: A loss correction approach. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition ,pages 2233–2241, 2017. H. Song, M. Kim, D. Park, Y. Shin, and J. Lee. Learning from noisy labels with deep neural networks: A survey. IEEE Transactions on Neural Networks and Learning Systems ,34(11):8135–8153, 2023. K. Wang, X. Ding, and F. Yang. Dynamic multiple high-order correlations fusion with noise filtering for incom-plete multi-view noisy-label learning. In Proceedings of the Thirty-Fourth International Joint Conference on Arti-ficial Intelligence , pages 6316–6324, 2025. W. Wang, R. Arora, K. Livescu, and J. A. Bilmes. On deep multi-view representation learning. In Proceedings of the 32nd International Conference on Machine Learning ,pages 1083–1092, 2015. X. Xia, T. Liu, B. Han, N. Wang, M. Gong, H. Liu, G. Niu, D. Tao, and M. Sugiyama. Part-dependent label noise: Towards instance-dependent label noise. In Advances in Neural Information Processing Systems , volume 33, pages 7597–7610, 2020. M. Xie, Z. Han, C. Zhang, Y. Bai, and Q. Hu. Exploring and exploiting uncertainty for incomplete multi-view classifi-cation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 19873– 19882, 2023. C. Xu, J. Si, Z. Guan, W. Zhao, Y. Wu, and X. Gao. Reliable conflictive multi-view learning. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pages 16129–16137, 2024a. C. Xu, Y. Zhang, Z. Guan, and W. Zhao. Trusted multi-view learning with label noise. In Proceedings of the Thirty-Third International Joint Conference on Artificial Intelligence , pages 5263–5271, 2024b. S. Xu, Y. Sun, X. Li, S. Duan, Z. Ren, Z. Liu, and D. Peng. Noisy label calibration for multi-view classification. In 
+
+Proceedings of the AAAI Conference on Artificial Intelli-gence , volume 39, pages 21797–21805, 2025. C. Yan, B. Gong, Y. Wei, and Y. Gao. Deep multi-view enhancement hashing for image retrieval. IEEE Transac-tions on Pattern Analysis and Machine Intelligence , 43(4): 1445–1451, 2021a. W. Yan, Y. Zhang, C. Lv, C. Tang, G. Yue, L. Liao, and W. Lin. Gcfagg: Global and cross-view feature aggre-gation for multi-view clustering. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 19863–19872, 2023. X. Yan, S. Hu, Y. Mao, Y. Ye, and H. Yu. Deep multi-view learning methods: A review. Neurocomputing , 448: 106–129, 2021b. C. Zhang, S. Bengio, M. Hardt, B. Recht, and O. Vinyals. Understanding deep learning requires rethinking general-ization. In International Conference on Learning Repre-sentations , 2017. C. Zhang, Z. Han, Y. Cui, H. Fu, J. T. Zhou, and Q. Hu. Cpm-nets: Cross partial multi-view networks. In Advances in Neural Information Processing Systems , volume 32, pages 557–567, 2019. C. Zhang, Y. Cui, Z. Han, J. T. Zhou, H. Fu, and Q. Hu. Deep partial multi-view learning. IEEE Transactions on Pattern Analysis and Machine Intelligence , 44(5):2402– 2415, 2022. H. Zhang, M. Cissé, Y. N. Dauphin, and D. Lopez-Paz. mixup: Beyond empirical risk minimization. In Inter-national Conference on Learning Representations , 2018. 9

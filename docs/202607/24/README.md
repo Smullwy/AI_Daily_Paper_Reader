@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-24</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-24 05:12 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>深入解读巨型海马体如何从单一结构演化为“系统中的系统”，并速览了离心率约束视觉编码与听觉注意力的扩散解码等前沿方法。</p>
-<p>最值得关注：大脑海马体并非铁板一块，而是功能分化的多系统集合；视觉皮层也会根据视野离心率自适应调整信息编码策略。</p>
-<p>推荐你从“系统之系统”的视角重新理解自己记性与注意力的波动，试试把每次分心都看作大脑不同子系统在切换任务。</p>
+      <p>今日拆解5篇脑科学与计算论文，深度研读“巨型海马体”如何从结构单一走向系统之系统。</p>
+<p>海马体正被重塑为多系统协作体，且视觉偏心训练揭示周边视野的自适应信息编码新机制，是今日核心亮点。</p>
+<p>若想触及前沿，不妨从海马体系统演进入手，再关注低数据下听觉解码的生成模型突破。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/24/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -69,3 +68,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
