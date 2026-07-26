@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-27</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-27 04:39 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日研读视觉空间注意与语义记忆的脑网络分离整合机制，并速览了三项脑电研究，涵盖叙事理解、自监督基础模型和脑机接口变异性。</p>
-<p>最值得深入的方向来自9.0分精读论文：大规模网络中视觉空间注意与语义记忆的分离和整合规律。</p>
-<p>建议读者聚焦该论文揭示的注意-记忆交互模式，以此为跳板去理解更复杂的认知过程。</p>
+      <p>今日精读一篇揭示视觉空间注意与语义记忆在脑网络中的分离与整合机制，并速览叙事理解脑电标记、多尺度自监督脑模型与BCI同步化变异性量化三项前沿研究。</p>
+<p>注意力与记忆的“分合”规律和多尺度脑电表征学习是当下最具突破性的双方向，可能颠覆传统认知边界。</p>
+<p>读者可优先追踪大规模网络动态整合的方法论，再结合新型脑电解码思路，理解认知功能的底层架构。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/27/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -60,3 +59,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
