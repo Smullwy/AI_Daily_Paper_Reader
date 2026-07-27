@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-28</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-28 04:11 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读聚焦功能性磁共振解码与多被试张量分析，用高分辨率脑信号重建动态人脸，并探索了变分低秩分解的时空建模。</p>
-<p>最值得关注：fMRI2Face 实现了从全高清脑视频到人脸动态的几何引导重建，变分低秩张量分解则为多被试脑数据提供了新的高效分析框架。</p>
-<p>建议普通读者留意“读脑成像”在视觉恢复上的进展，这只试验雏形未来或能辅助沟通障碍患者“画出”所想的面孔。</p>
+      <p>今日精读两篇重磅脑解码与数据分析研究，速读4篇涉及表征解构、自适应ICA和脑网络智能分析。</p>
+<p>最值得关注的方向是利用几何引导的神经解码从fMRI信号直接生成全高清人脸动态视频，以及多被试时空数据的变分低秩张量分解新方法。</p>
+<p>建议读者重点关注脑信号到高清视觉的生成式解码突破，这一进展可能重塑脑机交互与人脸再现技术。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/28/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -78,3 +77,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
