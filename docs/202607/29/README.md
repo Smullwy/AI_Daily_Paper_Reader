@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-29</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-29 04:50 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦脑机接口与多模态学习的双突破，精读6篇中两项9分研究直击神经解码泛化与脑电基础模型临床压力测试。</p>
-<p>最值得看的方向是自监督一致性解耦如何让脑机接口跨时段更稳定，以及用靶向负控实验审视大模型的真实能力。</p>
-<p>建议跟进多会话运动想象分类与多视角随机向量网络的技术落地，把解码鲁棒性推向实际应用。</p>
+      <p>今日精读两篇高分论文，聚焦脑机接口神经解码的泛化瓶颈与脑电基础模型在临床场景的鲁棒性验证。</p>
+<p>最值得关注的方向：利用自监督一致性解耦学习提升跨时段运动想象解码的稳定性，以及通过目标负对照揭示脑电基础模型易被数据集身份信息干扰的伪相关性陷阱。</p>
+<p>建议读者从速读论文切入，追踪多视角残差网络、跨会话注意力机制与解耦语义偏差等近期范式交叉的实证进展。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/29/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -150,3 +149,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
