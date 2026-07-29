@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-30</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-30 05:06 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,9 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日脑机接口日：深入拆解抓握力跨被试解码与</p>
+      <p>今日精读5篇论文，聚焦脑电解码、跨模态对齐与迁移学习等前沿方向。</p>
+<p>最值得关注的是：EEGForceFusion 首次实现跨受试者抓握力解码，而联合文本-音频对齐则推动中文脑电到文本解码落地。</p>
+<p>建议读者优先追踪脑机接口中“主体无关”的表示学习，或探索多模态对齐在语言解码中的应用路径。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/30/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -67,3 +68,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
