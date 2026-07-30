@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-07-31</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-07-31 05:44 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦脑机接口与神经模型验证，精读一篇皮层内脑-文本解码的高分研究，速读两篇关于神经质量模型审计和阿尔茨海默病分类的论文。</p>
-<p>最值得关注的是：音素级目标搭配选择性状态空间模型在脑到文本任务中展现出优于字符级方案的潜力。</p>
-<p>对脑机交互感兴趣的读者，可深入阅读该精读论文的方法对比，并留意仿真推断的验证框架如何提高模型可信度。</p>
+      <p>今日聚焦植入式脑机接口的高精度文本解码，兼及神经模型验证与阿尔茨海默病分类框架。</p>
+<p>最值得关注的是，在皮层脑-文本任务中，音素级目标搭配选择性状态空间模型（Mamba）显著优于字符级建模，实现更快更准的解码。</p>
+<p>下一步别错过该模型中状态空间结构如何在维持长程依赖的同时大幅提升实时推理效率。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202607/31/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -51,3 +50,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
