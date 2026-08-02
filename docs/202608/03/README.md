@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-03</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-03 04:14 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读了 EEG 基础模型迁移至语音解码的基准，并深入分析了多视图图—文本对齐中显式路由的有效条件。</p>
-<p>最值得关注的是 EEG 模型在显式与想象语音解码上的迁移边界，以及视图路由仅在对齐先验充足时才起效的结论。</p>
-<p>如想进一步探索，推荐结合脑信号解码与可控多视图融合，为下一代非侵入式交互提供新思路。</p>
+      <p>今日聚焦脑电基础模型跨模态迁移与多视图对齐，精读两篇高分研究。</p>
+<p>最值得看：EEG大模型能否直接解码语音、显式视图路由何时有效，两个结论均指向模态对齐的可控性边界。</p>
+<p>建议关注少样本语音脑电解码与可解释路由联合优化的前沿进展。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/03/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -69,3 +68,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

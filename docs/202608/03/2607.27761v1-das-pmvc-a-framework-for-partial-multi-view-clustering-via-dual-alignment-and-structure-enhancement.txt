@@ -1,0 +1,887 @@
+Title: DAS-PMVC: A Framework for Partial Multi-View Clustering via Dual Alignment and Structure Enhancement
+
+URL Source: https://arxiv.org/pdf/2607.27761v1
+
+Published Time: Fri, 31 Jul 2026 00:35:05 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# DAS-PMVC: A Framework for Partial Multi-View Clustering via Dual Alignment and Structure Enhancement 
+
+# Shubin Ma 
+
+Dalian University of Technology Dalian, Liaoning, China shubinma@mail.dlut.edu.cn 
+
+# Liang Zhao ✉
+
+Dalian University of Technology Dalian, Liaoning, China liangzhao@dlut.edu.cn 
+
+# Chuanye He 
+
+Dalian University of Technology Dalian, Liaoning, China 2838527538@mail.dlut.edu.cn 
+
+# Zhenjiao Liu 
+
+Inspur Group Co., Ltd. Jinan, Shandong, China liuzhenjiao@inspur.com 
+
+# Liang Zou 
+
+China University of Mining and Technology Xuzhou, Jiangsu, China liangzou@cumt.edu.cn 
+
+# Lin Yuanbo Wu 
+
+The University of Warwick Coventry, West Midlands, United Kingdom Yuanbo.Lin@warwick.ac.uk 
+
+# Yu Shao 
+
+Dalian University of Technology Dalian, Liaoning, China python@mail.dlut.edu.cn 
+
+## Abstract 
+
+In recent years, multi-view clustering has attracted widespread research interest. However, due to limitations in data collection devices, data across different views often suffer from misalignment, leading to the partial view alignment problem (PVAP). To mitigate the impact of view asymmetry and irrelevant samples, this paper proposes a framework for partial multi-view clustering via dual alignment and structure enhancement (DAS-PMVC), which lever-ages view structure consistency and semantic relevance. Specifi-cally, DAS-PMVC includes three parts: anchor graph structure alignment , where sample joint embedding representations with consistent latent space are derived from anchor point relationships for initial view alignment; structure-enhanced feature learning ,where the model learns view structure information through pre-training and combines multi-view graph convolutional networks to further extract deep latent features from the aligned graph struc-ture to improve the discriminative power of representations; and adual alignment strategy , where initial alignment is performed through the anchor graph in the pretraining phase, and contrastive learning loss and the Hungarian algorithm are introduced in the training phase to further optimize the alignment of latent features. Experimental results on various datasets demonstrate that the DAS-PMVC framework outperforms existing state-of-the-art methods in clustering performance, showcasing its effectiveness and superi-ority. 
+
+## CCS Concepts 
+
+• Computing methodologies → Cluster analysis .
+
+## Keywords 
+
+Alignment, Cluster, Anchor Graph  
+
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> MM ’26, Rio de Janeiro, Brazil
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2213-4/2026/11 https://doi.org/10.1145/3767308.3835163
+
+ACM Reference Format: 
+
+Shubin Ma, Liang Zhao, Chuanye He, Zhenjiao Liu, Liang Zou, Lin Yuanbo Wu, and Yu Shao. 2026. DAS-PMVC: A Framework for Partial Multi-View Clustering via Dual Alignment and Structure Enhancement. In Proceedings of the 34th ACM International Conference on Multimedia (MM ’26), November 10–14, 2026, Rio de Janeiro, Brazil. ACM, New York, NY, USA, 8 pages. https://doi.org/10.1145/3767308.3835163 
+
+## 1 Introduction 
+
+In multi-view clustering [ 11 , 14 , 41 ], it is commonly assumed that there exists a complete correspondence between each view [ 25 , 40 ]; however, this assumption is often difficult to achieve in practical scenarios [ 29 , 43 ]. Hardware failures or noise during data collection can result in the loss of correspondence between different views of the same sample. Furthermore, multi-view data may be collected by different devices, and their processing and storage could be indepen-dent [ 35 ]. As a result, ensuring complete alignment of multi-view data is nearly impossible, leading to the PVAP. Although converting partially aligned view samples into incomplete data by discarding misaligned data [ 6] can be used for clustering analysis, this so-lution is not optimal. This is because transforming the data into incomplete multi-view data [ 9, 18 ] means that many samples only retain one available view, which significantly increases processing complexity when the number of views is large. Therefore, effec-tively handling such misaligned multi-view data presents a major challenge. Instead of treating it as incomplete multi-view data, it would be more prudent to find a more reasonable data realignment method. Figure 1 illustrates the scenarios of incomplete views and partial view alignment in multi-view data. For the more challenging problem of partially view-aligned multi-view clustering, several methods have been explored in recent years to address this issue. For instance, maximum covariance analysis (MCA) [ 1] can be performed on aligned data [ 20 , 34 ], followed by progressively obtaining correspondence on the optimal cost matrix using the Hungarian algorithm [ 21 ]. Alternatively, clustering each view based on non-negative matrix factorization (NMF) [ 16 , 22 ] and then using the clustering results and partial alignment information to establish correspondence for misaligned data has been proposed. These methods have major limitations. Firstly, these methods are shallow models; secondly, they establish view correspondence in arXiv:2607.27761v1 [cs.LG] 30 Jul 2026 MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Ma et al. view  
+
+> 1
+> view
+> 1
+> view
+> 2
+> view
+> 2
+> view
+> 1
+> view
+> 2
+> (a) (c) (b)
+
+Figure 1: Example of multi-view data in different scenarios. Taking two views as an example, (a) indicates that the two views have a complete correspondence (alignment between samples and no missing samples). The dashed lines in (b) rep-resent the missing samples in each view. The solid lines in (c) represent aligned samples, while the dashed lines represent samples that are not aligned. 
+
+separate steps. It is highly desirable to jointly perform view align-ment and downstream tasks to leverage the representational power of neural networks. Specifically, some methods aim to cluster [ 7 , 17 ] on unmapped data. Yu et al. proposed a novel framework based on NMF, which uti-lizes the consistency of view geometry to establish correspondence between views [ 35 ]. Zhang et al. used known mapping relation-ships to form constraints and proposed a constrained multi-view clustering algorithm for unmapped data [ 37 ]. For partially aligned view clustering, Huang et al. proposed an insertable alignment module that can be used in neural networks [ 10 ]. During training, the neural network can gradually learn to align misaligned data. Yang et al. adopted a contrastive learning scheme where paired view data of aligned samples constitute positive samples and other misaligned data randomly form negative samples [ 34 , 38 ]. Addi-tionally, a new noise-resistant contrastive loss was designed to mitigate the negative impact of incorrect negative samples. Fu et al. address the view-misaligned problem by introducing a reorder ma-trix and propose a reordered k-means method based on this matrix, relaxing the constraints of traditional k-means to significantly im-prove clustering performance on view-misaligned datasets [ 4]. Gao et al. introduce a triple-consistency-driven representation fusion method, optimizing view alignment and clustering fusion by sepa-rately extracting graph structure consistency, semantic consistency, and cluster consistency, thereby improving clustering performance under partially view-aligned conditions [ 5]. However, the above methods: 1) fail to effectively leverage the structural information of the views, overlooking the structural consistency between views, and 2) perform alignment only once using the trained samples, resulting in substantial alignment errors. To address the limitations of existing methods, this paper pro-poses a framework for partial multi-view clustering via dual align-ment and structure enhancement(DAS-PMVC). DAS-PMVC em-ploys a dual alignment strategy to recover the correspondences between different views, while leveraging structural information and feature propagation techniques from graph learning to improve clustering accuracy. Specifically, to achieve initial alignment be-tween views and overcome alignment challenges caused by spatial heterogeneity, DAS-PMVC identifies anchor points within multi-view data and constructs anchor graphs for each view. To fully utilize the graph structure of multi-view data, the framework incor-porates a pre-training strategy to extract deep latent features from the aligned graph structure, enhancing the discriminative power of the representations. Additionally, to reduce errors introduced by initial alignment and ensure structural consistency and semantic invariance across views, DAS-PMVC implements dual structural guidance throughout the process, performing secondary alignment on the samples. Moreover, contrastive learning is introduced to accelerate the alignment between aligned and misaligned samples, generating more discriminative features. The main contributions of this work can be summarized as follows, (1) Anchor Graph Structure Alignment: The anchor point relationships are used to derive joint embedding representa-tions of samples with consistent latent space, constructing anchor graphs. Structural filtering is then applied to the anchor graph to effectively reduce the impact of irrelevant samples, achieving initial alignment across views. (2) Structure-Enhanced Feature Learning: The model learns view structure information through pre-training and utilizes multi-view graph convolutional networks to extract deep latent features from the aligned graph structure. Dual struc-tural guidance is implemented to enhance the discriminative power of the learned representations. (3) Dual Alignment Strategy: The initial alignment is achieved through anchor graphs during the pre-training phase to en-hance cross-view consistency. In the training phase, con-trastive learning loss and the Hungarian algorithm are intro-duced to further optimize the alignment of latent features, reducing the errors from the initial alignment. 
+
+## 2 Related Work 2.1 Graph Representation Learning 
+
+Graph Representation Learning is a crucial methodology in machine learning, focusing on the extraction of valuable information from graph-structured data to derive low-dimensional, dense, and mean-ingful vector representations of nodes, edges, and entire graphs. These representations effectively capture the structural features and inter-node relationships within the graph, facilitating a range of downstream tasks such as clustering, community detection, and graph classification. Common graph construction techniques in-clude K-Nearest Neighbors(KNN) and anchor graphs. 
+
+2.1.1 K-nearest neighbor graph. KNN [ 8, 32 ] graph construction is a widely used technique in graph learning and data mining. The core idea of this method is to identify the K nearest neighbors [ 39 ]for each data point, thereby defining the connectivity between data points. This means that the original dataset is transformed into a graph where nodes represent data points, and edges between nodes denote the proximity of data points. Let X = {𝑥 1, . . . , 𝑥 𝑛 }𝑇 ∈ 𝑅 𝑛 ×𝑑 represent the data matrix, where 
+
+n is the number of data points, and d is the dimensionality of the DAS-PMVC: A Framework for Partial Multi-View Clustering via Dual Alignment and Structure Enhancement MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 𝐀 (𝐀 )    
+
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> swap
+> 𝐀 (𝐀 )𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )𝐀 (𝐀 )
+> 𝐀 (𝐀 )𝐀 (𝐀 )
+> Structure Enhancement
+> swap
+> 𝐀 𝐀 ,𝐀
+> Alig
+> n 𝐀 (𝐀 )𝐀 𝐀 ,𝐀
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 )
+> 𝐀
+
+Figure 2: The anchor graph structure alignment: The green and blue represent the misaligned samples. The upper part of the figure shows the anchor points of the samples and the structural filtering of the samples, while the lower part illustrates the preliminary alignment of the original samples guided by the joint embedding representation W. 
+
+features. Each data point 𝑥 𝑖 ∈ 𝑅 𝑑 belongs to one of K classes, 
+
+C = {𝑐 1, . . . , 𝑐 𝑘 }. Given the entire dataset X, each data point is treated as a node in a graph, with each edge representing the affinity or relationship between pairs of nodes. If 𝑥 𝑖 and 𝑥 𝑗 have at least one in the other’s k nearest neighbours, they are considered connected. The edge weight between 𝑥 𝑖 and 𝑥 𝑗 is defined as, 
+
+𝑤 𝑖 𝑗 =
+
+(
+
+exp 
+
+
+
+− ∥𝑥 𝑖 −𝑥 𝑗 ∥
+
+> 2𝜎 2
+
+
+
+, if 𝑥 𝑖 and 𝑥 𝑗 are connected 
+
+0, otherwise (1) where 𝜎 is the bandwidth parameter. The selection of the K value is crucial when constructing a graph structure based on the KNN algorithm. A small K value may fail to capture potential relationships between data points due to insuf-ficient neighborhood samples, compromising the accuracy of the graph structure. Conversely, a large K value leads to redundant and complex graph structures, increasing computational costs, reducing sparsity, and ultimately impairing the efficiency and effectiveness of graph processing algorithms. 
+
+2.1.2 Anchor graph. The anchor graph is an effective technique for processing large-scale graph data, particularly in graph learn-ing tasks such as spectral clustering, graph embedding, and semi-supervised learning. The core of this technique lies in selecting a set of representative points from the entire dataset, known as anchors, which serve as the basis for simplifying the data structure. By doing so, anchor graphs can capture the global structure of the data at a relatively low computational cost, significantly reducing the resources required to handle complex graph data and thereby improving the efficiency of large-scale graph learning tasks. Anchor graph [ 19 , 23 , 27 ] techniques offer significant advan-tages in the field of graph-structured data processing, highlighted in several key areas. First, this method can efficiently construct graph structures with a relatively small number of edges, thereby reducing computational and storage costs while preserving the core structural information of the graph, making it suitable for large-scale data processing. Second, the construction method of anchor graphs is highly flexible. The flexibility arises from their ability to capture common features across different views through representative anchors, which is beneficial in addressing issues of incomplete and misaligned multi-view data, enabling effective information fusion in multi-view integration analysis. Lastly, the selection of representative anchors facilitates a more accurate reve-lation of the intrinsic relationships within the data and the central structure of the graph. This provides a solid foundation for subse-quent graph analysis tasks, such as clustering, classification, and graph embedding [ 2], allowing anchor graph-based methods to achieve better performance and higher efficiency in these tasks. 
+
+## 3 Method 
+
+Given a multi-view dataset X = {X(𝑣 ) }𝑉 𝑣 =1, where 𝑉 is the num-ber of views. X(𝑣 ) =
+
+h
+
+𝑥 (𝑣 ) 
+
+> 1
+
+, 𝑥 (𝑣 ) 
+
+> 2
+
+, . . . , 𝑥 (𝑣 )
+
+> 𝑛
+
+i
+
+∈ 𝑅 𝑛 ×𝑑 𝑣 , where 𝑛 is the number of samples and 𝑑 𝑣 is the dimension of the original view representation. Due to separation in storage and processing, only a small portion {X(𝑣 ) }𝑉 𝑣 =1 is aligned. Thus, for two different views 𝑢 and 𝑤 (𝑢 ≠ 𝑤 ), the original data can be reordered and divided into aligned data A(𝑢 ) , A(𝑤 ) with corresponding relation-ships and misaligned data U(𝑢 ) , U(𝑤 ) with no corresponding rela-tionships. For the aligned data, A(𝑢 ) =
+
+h
+
+𝑎 (𝑢 ) 
+
+> 1
+
+, 𝑎 (𝑢 ) 
+
+> 2
+
+, . . . , 𝑎 (𝑢 )
+
+> 𝑛 𝑎
+
+i
+
+and 
+
+A(𝑤 ) =
+
+h
+
+𝑎 (𝑤 ) 
+
+> 1
+
+, 𝑎 (𝑤 ) 
+
+> 2
+
+, . . . , 𝑎 (𝑤 )
+
+> 𝑛 𝑎
+
+i
+
+, where 𝑎 (𝑢 ) 
+
+> 𝑖
+
+and 𝑎 (𝑤 ) 
+
+> 𝑖
+
+are from dif-ferent views of the same sample. For the misaligned data, U(𝑢 ) =h
+
+𝑢 (𝑢 ) 
+
+> 1
+
+, 𝑢 (𝑢 ) 
+
+> 2
+
+, . . . , 𝑢 (𝑢 )
+
+> 𝑛 𝑢
+
+i
+
+and U(𝑤 ) =
+
+h
+
+𝑢 (𝑤 ) 
+
+> 1
+
+, 𝑢 (𝑤 ) 
+
+> 2
+
+, . . . , 𝑢 (𝑤 )
+
+> 𝑛 𝑢
+
+i
+
+, where 𝑢 (𝑢 )
+
+> 𝑖
+
+and 𝑢 (𝑤 ) 
+
+> 𝑖
+
+are from different samples. Taking view 𝑢 as an example, it is easy to derive a reordering matrix P𝑢,𝑤 ∈ 𝑅 𝑛 ×𝑛 that satisfies 
+
+X(𝑢 ) = P𝑢,𝑤 
+
+A(𝑢 ) , U(𝑢 ) , where each row and each column of P𝑢,𝑤 
+
+has exactly one entry equal to 1, and the rest are 0. In the paper, the term ’ 𝑣 ’ view refers to all views, while ’ 𝑢 ’ view and ’ 𝑤 ’ view specifically denote two of these views. 
+
+## 3.1 Anchor Graph Structure Alignment 
+
+Due to the sensitivity of KNN to the parameter 𝑘 in graph con-struction and its neglect of the global structure, we use anchor MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Ma et al. 
+
+graphs to construct the connections between the nodes within each view. Specifically, for view 𝑢 , an anchor set A(𝑢 ) is defined, including all aligned nodes in the view. Similarly, view 𝑤 has a corresponding anchor set A(𝑤 ) . Importantly, since A(𝑢 ) and A(𝑤 )
+
+provide direct contact points between different views, the anchor graph method can effectively synchronize information across dif-ferent views through these anchors, achieving stable clustering and analysis results even in the presence of data inconsistencies. The structural graph of the Anchor-graph-based View Alignment is illustrated in Figure 2. After the anchors are determined, a bipartite graph construction method is used to measure and compute the similarity between misaligned data U(𝑣 ) and anchors A(𝑣 ) . The rows of the bipartite graph contain the misaligned data, while the columns contain the selected anchors as references. In this framework, the similarity between a misaligned sample 𝑢 𝑖 and an anchor 𝑎 𝑗 is defined as follows, 
+
+W(𝑣 ) 
+
+> 𝑖 𝑗
+
+= 𝑒𝑥𝑝 (− 𝐷 2 (𝑢 (𝑣 ) 
+
+> 𝑖
+
+, 𝑎 (𝑣 ) 
+
+> 𝑗
+
+)/ 𝜎 2)
+
+Í𝑛 𝑢 
+
+> 𝑗 =1
+
+Í𝑛 𝑎  
+
+> 𝑖 =1
+
+𝑒𝑥𝑝 (− 𝐷 2 (𝑢 (𝑣 ) 
+
+> 𝑖
+
+, 𝑎 (𝑣 ) 
+
+> 𝑗
+
+)/ 𝜎 2) (2) where W(𝑣 ) represents the re-representation of the misaligned data in the 𝑣 th view; 𝜎 denotes the standard deviation of the Gauss-ian similarity, which is typically set to 1, and 𝐷 2 (·) represents the squared cosine distance. This method accurately identifies the an-chor index set ⟨𝑢 𝑗 ⟩𝑣 most similar or closest to a given sample in a specific view 𝑣 , establishing effective connections between samples and their nearest anchors, thus supporting analysis and processing. To strengthen the association between similar samples and reduce the influence of dissimilar samples, we apply a structural filtering process to the samples W(𝑣 ) 
+
+> 𝑖 𝑗
+
+in W, namely, 
+
+W(𝑣 ) 
+
+> 𝑖 𝑗
+
+=
+
+(
+
+W(𝑣 ) 
+
+> 𝑖 𝑗
+
+, ∀𝑖 ∈ ⟨ 𝑢 𝑗 ⟩𝑣 
+
+0, otherwise (3) By using structural filtering, the edge weights between dissimilar samples are set to zero, reducing the impact of irrelevant samples. After calculating the similarity between the anchor set A(𝑣 )
+
+and the misaligned samples U(𝑣 ) , matrices W(𝑢 ) and W(𝑤 ) can be obtained. The re-representation of the misaligned matrices W(𝑢 )
+
+and W(𝑤 ) links the global and local information of the graph, en-abling the mapping of sample data from multiple views into a common dimensional space, thereby effectively leveraging the se-mantic information of samples from known classes. Subsequently, the two views W(𝑢 ) and W(𝑤 ) are aligned based on the similarity graph S. The similarity matrix S is represented as follows, where 
+
+𝐷 2 (W(𝑢 ) 
+
+> 𝑖
+
+, W(𝑤 ) 
+
+> 𝑗
+
+) also uses the cosine distance, 
+
+S(𝑤𝑢 ) 
+
+> 𝑖 𝑗
+
+=
+
+                
+
+> exp
+> 
+> −𝐷 2(𝑤 (𝑤 )
+> 𝑖 ,𝑤 (𝑢 )
+> 𝑗 )/ 𝜎 2Í𝑖 ∈⟨ 𝑤 𝑗 ⟩𝑢 exp
+> 
+> −𝐷 2(𝑤 (𝑤 )
+> 𝑖 ,𝑤 (𝑢 )
+> 𝑗 )/ 𝜎 2
+
+, 𝑖 ∈ ⟨ 𝑤 𝑗 ⟩𝑢 
+
+0 , otherwise (4) where ⟨𝑤 𝑗 ⟩𝑢 represents the index set of the 𝑛 nearest samples to 
+
+𝑤 (𝑢 ) 
+
+> 𝑗
+
+. Based on S(𝑤𝑢 ) , the best match for each column in matrix 
+
+W(𝑢 ) is found in matrix W(𝑤 ) through the Hungarian algorithm, resulting in the permutation matrix P𝑢,𝑤 , which reorders the mis-aligned samples and the overall samples in the multi-view data as follows, 
+
+bU(𝑤 ) = P𝑤,𝑢 U(𝑤 ) , bX(𝑤 ) = [A(𝑤 ) , bU(𝑤 ) ] (5) To obtain the aligned similarity matrix, we further reorder W(𝑤 )
+
+using the permutation matrix P𝑤,𝑢 ,
+
+bW(𝑤 ) = P𝑤,𝑢 W(𝑤 ) (6) Since view 𝑢 is taken as the reference, 
+
+bX(𝑢 ) = X(𝑢 ) , X(𝑢 ) = [A(𝑢 ) , U(𝑢 ) ] (7) For the subsequent training of the graph convolutional network, the preliminarily aligned data in each view is used to construct a similarity graph G(𝑣 ) using the KNN method. 
+
+G(𝑣 ) 
+
+> 𝑖 𝑗
+
+=
+
+                   
+
+> 𝑒𝑥𝑝 (− 𝐷 2(b𝑥 (𝑣 )
+> 𝑖 ,b𝑥 (𝑣 )
+> 𝑗 )/ 𝜎 2)
+> Í𝑖 ∈ ( 𝑔 𝑗 )𝑣 𝑒𝑥𝑝 (− 𝐷 2(b𝑥 (𝑣 )
+> 𝑖 ,b𝑥 (𝑣 )
+> 𝑗 )/ 𝜎 2)
+
+, ∀𝑖 ∈ ⟨ 𝑔 𝑗 ⟩𝑣 
+
+0 , otherwise (8) Here ⟨𝑔 𝑗 ⟩𝑣 represents the index set of the 𝑘 nearest samples to 𝑥 (𝑣 ) 
+
+> 𝑗
+
+.
+
+## 3.2 Structure-Enhanced Feature Learning 
+
+Structure-Enhanced Feature Learning consists of three components: structural filtering in Eq. 3, which reduces the impact of irrele-vant samples; the structural alignment loss L2 during pre-training, which guides structural learning; and the adjacency matrix in GCN learning, which guides feature learning along with the structural reconstruction loss L3. To better capture the semantic features of the samples and the structural information between them, we pretrain the model with the training loss function, which includes the reconstruction loss 𝐿 1 and the structural alignment loss 𝐿 2, as shown below, 
+
+L1 =
+
+> 𝑉
+
+∑︁ 
+
+> 𝑣 =1
+> 𝑛 𝑎
+
+∑︁ 
+
+> 𝑘 =1
+
+
+
+𝑎 (𝑣 ) 
+
+> 𝑘
+
+− 𝑑 𝑣 
+
+
+
+𝑓 𝑣 (𝑎 (𝑣 ) 
+
+> 𝑘
+
+)
+
+ 2
+
+! 12
+
+(9) 
+
+L2 = ¯P𝑎 − P𝑎 𝐹 ,
+
+(
+
+𝑓 𝑢 ( ¯A(𝑢 ) 
+
+> 𝑏
+
+) = 𝑓 𝑢 (A(𝑢 ) 
+
+> 𝑏
+
+)
+
+𝑓 𝑤 ( ¯A(𝑤 ) 
+
+> 𝑏
+
+) = ¯P𝑎 · 𝑓 𝑤 (A(𝑤 ) 
+
+> 𝑏
+
+) (10) Here, 𝑓 𝑣 (·) denotes the encoder of the 𝑣 th view, and 𝑑 𝑣 (·) represents the decoder of the 𝑣 th view. 𝑃 𝑎 is the permutation matrix used to shuffle A(𝑤 ) 
+
+> 𝑏
+
+during initialization, and ¯𝑃 𝑎 is the permutation matrix obtained through Hungarian alignment after learning the latent fea-tures of A(𝑢 ) 
+
+> 𝑏
+
+and A(𝑤 ) 
+
+> 𝑏
+
+. A(𝑣 ) 
+
+> 𝑏
+
+is extracted from a small portion of the aligned data A(𝑣 ) . Through the reconstruction loss and structural alignment loss, the model learns more accurate semantic represen-tations, optimizing the relationship modeling between samples and better capturing the inherent structural features of the data. After capturing the graph structure of multi-view data and com-pleting pretraining and pre-alignment, a graph convolutional en-coder is used to jointly learn samples and relational graphs to leverage graph relationships and capture the feature space of each view [ 31 ]. In the GCN network, after processing through 𝐿 layers of the graph convolutional encoder, to reconstruct the original in-formation from these graph embeddings, decoder layers with the DAS-PMVC: A Framework for Partial Multi-View Clustering via Dual Alignment and Structure Enhancement MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 𝐀 
+
+𝐀 𝐀 
+
+Structural Pretraining 
+
+𝐀 𝐀 + 𝐀 𝐀 
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 ) 𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+𝐀 (𝐀 )
+
+++
+
+++++
+
+--
+
+- --
+
+-  
+
+> 𝐀 =𝐀
+
+-
+
+++
+
+++
+
+++
+
+-
+
+- -
+
+-
+
+-    
+
+> 𝐀 =𝐀 𝐀 =𝐀 /3
+> ×
+> ×
+> ×
+
+# + +
+
+𝐀 𝐀 + 𝐀 𝐀 
+
+## pretrain train 
+
+Figure 3: Two-step training loss function: The loss in the pre-training stage consists of the sample reconstruction loss and the structural alignment loss, whereas the loss in the training stage consists of the sample reconstruction loss, structural reconstruction loss, and contrastive loss. 
+
+same number of layers as the encoder are employed. The purpose of these decoder layers is to correspondingly reverse the operations of the encoder layers, represented as follows, 
+
+ˆH(𝑣 )  
+
+> 𝑙 −1
+
+= 𝜎 
+
+
+
+D(𝑣 ) − 12 G(𝑣 )′
+
+D(𝑣 ) − 12 ˆH(𝑣 ) 
+
+> 𝑙
+
+ˆW(𝑣 )
+
+> 𝑙
+
+
+
+(11) After passing through 𝐿 layers of the decoder, the reconstructed node attribute matrix ˆX(𝑣 ) = ˆH(𝑣 ) 
+
+> 0
+
+is obtained. The reconstructed graph structure ¯G(𝑣 ) 
+
+> 𝑖 𝑗
+
+is represented by the pairwise similarity be-tween the node embeddings ℎ(𝑣 ) 
+
+> 𝑖
+
+and ℎ(𝑣 ) 
+
+> 𝑗
+
+from the graph embed-ding H(𝑣 ) , calculated as follows, 
+
+¯G(𝑣 ) 
+
+> 𝑖 𝑗
+
+=
+
+                
+
+> exp (− D 2(ℎ(𝑣 )
+> 𝑖 ,ℎ (𝑣 )
+> 𝑗 )/ 𝜎 2)
+> Í𝑖 ∈⟨ ℎ 𝑗 ⟩𝑣 exp (− D 2(ℎ(𝑣 )
+> 𝑖 ,ℎ (𝑣 )
+> 𝑗 )/ 𝜎 2)
+
+, ∀𝑖 ∈ ⟨ ℎ𝑗 ⟩𝑣 
+
+0 , otherwise (12) where, ⟨ℎ𝑗 ⟩𝑣 denotes the index set of the n nearest samples to ℎ(𝑣 ) 
+
+> 𝑗
+
+.The loss function of the multi-view graph convolutional network is as follows, 
+
+L3 =
+
+> 𝑉
+
+∑︁ 
+
+> 𝑣 =1
+
+bX(𝑣 ) − ¯X(𝑣 ) 2 
+
+> 𝐹
+
++ 𝜆 1
+
+> 𝑉
+
+∑︁ 
+
+> 𝑣 =1
+
+G(𝑣 ) − ¯G(𝑣 ) 2 
+
+> 𝐹
+
+(13) where, ¯X(𝑣 ) and ¯G(𝑣 ) represent the reconstructed sample matrix 
+
+bX(𝑣 ) and the reconstructed similarity graph G(𝑣 ) , respectively, while 
+
+𝜆 1 is the regularization parameter. To further obtain accurate view correspondences, contrastive learning is introduced to guide the graph convolutional network in generating more discriminative features[ 34 ]. Node alignment between views resolves the positive and negative pair selection. Aligned nodes are considered positive pairs, while aligned and mis-aligned nodes form negative pairs. The distance between negative pairs is increased, while that between positive pairs is reduced, 
+
+L4 = 12𝑁 
+
+> 𝑁
+
+∑︁ 
+
+> 𝑖 =1
+
+ 𝑌 L𝑝 𝑖 + ( 1 − 𝑌 )L 𝑛 𝑖 
+
+ (14) Among them, 𝑁 represents the number of contrastive pairs, 𝑌 = 1/0
+
+marks positive/negative pairs, where Lpos  
+
+> 𝑖
+
+represents the distance of positive pairs, and Lneg  
+
+> 𝑖
+
+represents the distance of negative pairs, defined as follows, 
+
+L𝑝 = 𝑑 2 
+
+ℎ(𝑢 ) 
+
+> 𝑖
+
+, ℎ (𝑤 )
+
+> 𝑗
+
+
+
++ max 
+
+
+
+𝑚 − 𝑑 
+
+
+
+ℎ(𝑢 ) 
+
+> 𝑖
+
+, ℎ (𝑤 )
+
+> 𝑗
+
+
+
+, 0
+
+2
+
+(15) 
+
+L𝑛 = 1
+
+𝑚 max 
+
+
+
+𝑚𝑑 12
+
+
+
+ℎ(𝑢 ) 
+
+> 𝑖
+
+, ℎ (𝑤 )
+
+> 𝑗
+
+
+
+− 𝑑 32
+
+
+
+ℎ(𝑢 ) 
+
+> 𝑖
+
+, ℎ (𝑤 )
+
+> 𝑗
+
+
+
+, 0
+
+2
+
+(16) 
+
+ℎ𝑖 is the graph embedding obtained through the graph convolu-tional network, 𝑑 2
+
+
+
+ℎ(𝑢 ) 
+
+> 𝑖
+
+, ℎ (𝑤 )
+
+> 𝑗
+
+
+
+is the distance metric function such as 𝑙 2 distance, and 𝑚 is used to control the appropriate distance, calculated as follows, 
+
+𝑚 = 1
+
+𝑁 𝑝 ∑︁ 𝑑 
+
+
+
+ℎ(𝑢 ) 
+
+> 𝑖
+
+, ℎ (𝑤 )
+
+> 𝑖
+
+
+
++ 1
+
+𝑁 𝑛 ∑︁ 𝑑 
+
+
+
+ℎ(𝑢 ) 
+
+> 𝑖
+
+, ℎ (𝑤 )
+
+> 𝑗
+
+
+
+(17) Subsequently, contrastive learning is introduced as a constraint in the feature learning process of the graph convolutional network, guiding the view alignment. By fully utilizing the aligned infor-mation, it increases the distinction between positive and negative samples, resulting in more accurate aligned features. Combining the graph convolutional network and contrastive learning, the final objective function of DAS-PMVC is as follows, 
+
+L = L3 + L 4 (18) 
+
+## 3.3 Dual Alignment Strategy 
+
+The Dual Alignment Strategy includes anchor graph construction: as shown in the left part of Figure 2, where different views of the samples are mapped into the same-dimensional representation space through the construction of an anchor graph, resulting in sample joint embedding representations. The two-step alignment: as shown in the right part of Figure 2, the anchor graph alignment guides the first alignment of the samples, and Eq. 19 aligns the latent features H(𝑣 ) a second time through Q𝑤,𝑢 .MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Ma et al. 
+
+Table 1: A description of the datasets. 
+
+Dataset Samples Views Classes Dimensions Caltech20 2386 2 20 48/40 BDGP 2500 2 5 1750/79 Scene-15 4485 2 15 20/59 Aloi 10000 2 100 77/64 3Sources 169 2 6 3560/3631 BBCsports 282 2 5 2582/2544 After learning H(𝑣 ) through the multi-view graph convolutional encoder, the Hungarian algorithm is used in the feature space to obtain the optimal graph matching of the bipartite graph ¯G con-structed from the feature space. This results in the alignment matrix 
+
+Q𝑤,𝑢 used to reorder the features H(𝑣 ) , represented as follows, 
+
+bH(𝑣 ) = Q𝑤,𝑢 H(𝑣 ) (19) Finally, spectral clustering is used on the aligned bH(𝑣 ) to obtain the clustering results. 
+
+## 4 Experiments 4.1 Experimental Setup 
+
+Six multi-view datasets(Caltech20 [ 15 ], BDGP [ 28 ], Scene-15 [ 3], Aloi [ 24 ], 3Sources [ 13 ], BBCsports [ 30 ]) were used to validate the clustering performance of DAS-PMVC. Detailed information on the datasets is presented in Table 1. Meanwhile, eight advanced multi-view clustering algorithms were selected for comparison with DAS-PMVC, including PVC [ 10 ], MvCLN [ 33 ], EGPVC [ 42 ], and ProImp [ 12 ], TCLPVC [ 5], and EAGCP [ 19 ], which are leading partially multi-view algorithms. Since AE2-Nets [ 36 ] and Cmib-Nets [ 26 ]do not handle partially aligned view data, an autoencoder was pre-trained to project the original data into the latent space, and the Hungarian algorithm was applied to establish their correspondence. The view alignment rate of all datasets was set to 0.5, with the remaining samples randomly shuffled. ACC, NMI, and ARI were selected as the three metrics to evaluate the quality of the model’s clustering results. Higher scores indicate better performance. 
+
+## 4.2 Result Analysis 
+
+The experimental results are shown in Tables 2 and 3. In the table, the best results are indicated in bold, and the second-best results are underlined. Experiments such as complexity analysis are provided in the appendix. Experimental results show that the DAS-PMVC algorithm out-performs most comparative algorithms in clustering performance on multi-view datasets. Specifically, on the 3Sources dataset, the clustering ACC of DAS-PMVC exceeds that of the second-best algo-rithm by 5.79%, and by 5.97% on the Caltech20 dataset. Except for BDGP, DAS-PMVC achieves the best ACC on the remaining five datasets, demonstrating its exceptional clustering capability. This success is largely attributed to the algorithm’s well-designed dual-alignment and structure enhancement strategies, which effectively leverage the semantic information from aligned data and structural information from different views. Caltech20 Scene-15 3Sources    
+
+> 0.8
+> 0.6
+> 0.4
+> 0.2
+> 0.9 0.7 0.5 0.3 0.1 0.9 0.7 0.5 0.3 0.1 0.9 0.7 0.5 0.3 0.1
+> 0.0
+> 1.0
+> Anchor
+> Attribute Anchor
+> Attribute
+> Anchor
+> Attribute
+> 0.8
+> 0.6
+> 0.4
+> 0.2
+> 0.0
+> 1.0
+> 0.8
+> 0.6
+> 0.4
+> 0.2
+> 0.0
+> 1.0
+
+Figure 4: Comparison of two alignment methods on the Cal-tech20, 3source, and Scene-15 datasets under different view alignment rates. 
+
+On Aloi datasets, while DAS-PMVC maintains a leading position in clustering accuracy, its performance in NMI and ARI is somewhat lacking, not surpassing the comparative algorithms. This phenom-enon might be due to the excessive number of categories in the Aloi datasets, which can cause an imbalance between categories and significantly affect NMI and ARI scores. This indicates that in cases with numerous categories, DAS-PMVC might have issues with clustering distribution balance. The poor performance of DAS-PMVC on the BDGP dataset is attributed to the unsuitability of GCN for extracting latent fea-tures from the BDGP data. Both EAGCP and DAS-PMVC, based on GCN networks, perform poorly on BDGP. From a dataset per-spective, BDGP contains visual and textual features extracted from Drosophila embryo images, which exhibit relatively weak and im-plicit local structural relationships. GCNs struggle to capture latent relationships in such data, as they inherently lack graph structure. Moreover, gene expression is similar within the same class of fruit flies, and the limited edges in the graph may exclude similar samples, hindering effective feature extraction. Specifically, DAS-PMVC’s innovative dual anchor-based align-ment strategy, combined with Structure-Enhanced Feature Learn-ing and contrastive learning, ensures precise alignment of high-confidence nodes while demonstrating robustness in handling marg-inally misaligned nodes. It evidences the significant advancements DAS-PMVC has made in enhancing clustering accuracy. Overall, DAS-PMVC leads the comparative algorithms on average across three metrics on six datasets, especially achieving a breakthrough position in clustering accuracy. This demonstrates the effectiveness of our method on partially multi-view datasets and its advantages in multi-view data alignment. 
+
+## 4.3 Ablation Experiment 
+
+To thoroughly validate the effectiveness and superiority of our approach, a series of ablation experiments were designed and con-ducted. These experiments aimed to compare the performance differences between the anchor graph alignment strategy and tra-ditional attribute-based alignment methods under different view alignment rates. In these experiments, particular attention was paid to the variation in alignment rate (ar), and the experiments were repeated ten times for each scenario, with the average taken to ensure the stability and reliability of the results. The corresponding experimental results are detailed in Table 4. DAS-PMVC: A Framework for Partial Multi-View Clustering via Dual Alignment and Structure Enhancement MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+Table 2: Comparison of clustering performance on Scene-15, BBCsports, 3Sources and Aloi datasets under 50% view alignment rate. 
+
+Datasets Scene-15 BBCsports 3Sources Aloi Method ACC NMI ARI ACC NMI ARI ACC NMI ARI ACC NMI ARI AE2-Nets 0.2625 0.2404 0.1203 0.3018 0.0235 0.0048 0.2998 0.0659 0.0022 0.0376 0.0996 0.0043 PVC 0.3585 0.3943 0.1983 0.3582 0.0530 0.0214 0.3219 0.1146 0.0060 0.4235 0.6716 0.3049 Cmib-Nets 0.1515 0.0813 0.0406 0.2649 0.0202 0.0040 0.2655 0.0522 0.0016 0.0604 0.1788 0.0101 MvCLN 0.3817 0.3929 0.2447 0.3957 0.0819 0.0609 0.3467 0.1239 0.0604 0.4440 0.6407 0.3431 EGPVC 0.3730 0.3882 0.1921 0.3759 0.1326 0.0435 0.4201 0.1931 0.1547 0.4128 0.6588 0.2895 ProImp 0.2267 0.2098 0.0955 0.3192 0.0483 0.0055 0.3018 0.2736 0.0921 0.2126 0.4711 0.1193 TCLPVC 0.3623 0.4010 0.2092 0.3440 0.0332 0.0314 0.3254 0.0112 0.0048 0.4988 0.7406 0.4176 
+
+EAGCP 0.2841 0.3031 0.1358 0.4468 0.2746 0.1251 0.4762 0.3855 0.1916 0.2248 0.5044 0.1102 Ours 0.3991 0.3951 0.2468 0.4536 0.2337 0.1723 0.5341 0.4010 0.2168 0.5045 0.6721 0.3769 
+
+Table 3: Comparison of clustering performance on BDGP and Caltech20 datasets under 50% view alignment rate. 
+
+Datasets BDGP Caltech20 Method ACC NMI ARI ACC NMI ARI AE2-Nets 0.4830 0.1603 0.1348 0.2157 0.0841 0.0390 PVC 0.7740 0.5330 0.5129 0.4723 0.6211 0.3502 Cmib-Nets 0.5466 0.1921 0.1851 0.4734 0.6188 0.3814 MvCLN 0.6514 0.4501 0.4382 0.4715 0.5500 0.3943 EGPVC 0.7524 0.5695 0.5126 0.5134 0.6525 0.4163 ProImp 0.4014 0.1232 0.1008 0.2362 0.2754 0.0981 TCLPVC 0.9192 0.7787 0.8094 0.5080 0.5750 0.5277 
+
+EAGCP 0.3000 0.1363 0.0414 0.3210 0.3573 0.1818 Ours 0.7796 0.5812 0.4177 0.5731 0.5931 0.4482 
+
+Table 4: Comparison of two alignment methods on the Cal-tech20, 3source, and Scene-15 datasets under different view alignment rates. 
+
+Datasets Caltech20 3source Scene-15 ar/Method Attribute Anchor Attribute Anchor Attribute Anchor 0.1 0.19 0.59 0.33 0.67 0.06 0.23 
+
+0.3 0.18 0.58 0.35 0.81 0.06 0.23 
+
+0.5 0.18 0.57 0.34 0.85 0.06 0.23 
+
+0.7 0.19 0.58 0.38 0.91 0.06 0.22 
+
+0.9 0.22 0.58 0.33 0.91 0.07 0.27 
+
+The experimental results indicate that DAS-PMVC significantly outperforms attribute-based direct alignment methods in view alignment performance, with the maximum improvement exceed-ing 50 percentage points. Notably, increasing the proportion of initially aligned samples improves the alignment rate on 3Sources, while performance on Caltech20 and Scene-15 remains relatively stable across different alignment rates. This result not only high-lights the unique advantages of our proposed method in handling 
+
+Table 5: Comparison of clustering results between DAS-PMVC and PMGCN on BDGP and Caltech20 datasets. 
+
+Datasets BDGP Caltech20 Method ACC NMI ARI ACC NMI ARI PMGCN 0.5376 0.4655 0.3117 0.3502 0.3245 0.2637 DAS-PMVC 0.7926 0.6084 0.4212 0.5682 0.5500 0.4209 
+
+view alignment issues but also demonstrates DAS-PMVC’s strong adaptability and efficiency under various conditions. Furthermore, to demonstrate the effectiveness of initial anchor-based view alignment for the clustering results of the model, the anchor graph alignment part was removed from DAS-PMVC, retain-ing only the graph convolutional contrastive learning network and the two-step alignment part, forming a comparative model called PMGCN. Experiments were conducted with both DAS-PMVC and PMGCN on the BDGP and Caltech20 datasets, with results shown in Table 5. The experimental results clearly indicate the impact of the anchor-based alignment module on improving DAS-PMVC’s clustering accuracy, validating the effectiveness of the anchor-based view alignment method. 
+
+## 5 Conclusion 
+
+This paper presents a framework for partial multi-view clustering via dual alignment and structure enhancement aimed at addressing the challenge of partial view alignment in multi-view clustering tasks. The dual-alignment strategy reduces errors from single-step alignment, while structure enhancement and structure-guided fea-ture extraction mitigate the influence of irrelevant samples. Experi-mental results on multiple datasets demonstrate that DAS-PMVC significantly outperforms existing mainstream methods in handling partial view alignment. However, there is still the challenge of insuf-ficiently utilizing structure for feature learning when the structural correlation between samples is weak. Future work will focus on exploring the applicability of GCNs. MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Ma et al. 
+
+## Acknowledgments 
+
+This work is supported by the National Natural Science Foundation of China (62572095), the Science and Technology Project of Liaoning Province (2024JH2/102600027), the Science and Technology Project of Dalian City (2024JJ12GX025, 2023JJ12SN029, and 2023JJ11CG005), and the Fundamental Research Funds for the Central Universities (DUT25YG246 and DUTZD25216). 
+
+## References 
+
+[1] Theodore P Beauchaine and Robert J Beauchaine III. 2002. A comparison of maximum covariance and K-means cluster analysis in classifying cases into known taxon groups. Psychological Methods 7, 2 (2002), 245. [2] Hongyun Cai, Vincent W Zheng, and Kevin Chen-Chuan Chang. 2018. A com-prehensive survey of graph embedding: Problems, techniques, and applications. 
+
+IEEE transactions on knowledge and data engineering 30, 9 (2018), 1616–1637. [3] Li Fei-Fei and Pietro Perona. 2005. A bayesian hierarchical model for learning natural scene categories. In 2005 IEEE computer society conference on computer vision and pattern recognition (CVPR’05) , Vol. 2. IEEE, 524–531. [4] Zhiqiang Fu, Yao Zhao, Dongxia Chang, Yiming Wang, and Jie Wen. 2025. Re-ordered 𝑘 -Means: A New Baseline for View-Unaligned Multi-View Clustering. 
+
+IEEE Transactions on Multimedia 27 (2025), 1962–1972. [5] Hang Gao, Cheng Liu, Zuosong Cai, Hongming Sun, Gaoyang Li, Ying Li, and Wei Du. 2025. A Novel Approach for Effective Partially View-Aligned Clustering With Triple-Consistency. IEEE Transactions on Circuits and Systems for Video Technology 35, 10 (2025), 10250–10263. [6] Fengjiao Gong, Yuzhou Nie, and Hongteng Xu. 2022. Gromov-Wasserstein multi-modal alignment and clustering. In Proceedings of the 31st ACM International Conference on Information & Knowledge Management . 603–613. [7] Renxiang Guan, Junhong Li, Siwei Wang, Wenxuan Tu, Miaomiao Li, En Zhu, Xinwang Liu, and Ping Chen. 2025. Multi-view Graph Clustering with Dual Relation Optimization for Remote Sensing Data. In Proceedings of the 33rd ACM International Conference on Multimedia (Dublin, Ireland) (MM ’25) . 7346–7355. [8] Gongde Guo, Hui Wang, David Bell, Yaxin Bi, and Kieran Greer. 2003. KNN model-based approach in classification. In On The Move to Meaningful Internet Systems 2003: CoopIS, DOA, and ODBASE: OTM Confederated International Confer-ences, CoopIS, DOA, and ODBASE 2003, Catania, Sicily, Italy, November 3-7, 2003. Proceedings . Springer, 986–996. [9] Menglei Hu and Songcan Chen. 2018. Doubly Aligned Incomplete Multi-view Clustering. In Proceedings of the Twenty-Seventh International Joint Conference on Artificial Intelligence, IJCAI-18 . 2262–2268. [10] Zhenyu Huang, Peng Hu, Joey Tianyi Zhou, Jiancheng Lv, and Xi Peng. 2020. Partially view-aligned clustering. Advances in Neural Information Processing Systems 33 (2020), 2892–2902. [11] Abhishek Kumar and Hal Daumé. 2011. A co-training approach for multi-view spectral clustering. In Proceedings of the 28th international conference on machine learning (ICML-11) . 393–400. [12] Haobin Li, Yunfan Li, Mouxing Yang, Peng Hu, Dezhong Peng, and Xi Peng. 2023. Incomplete Multi-view Clustering via Prototype-based Imputation. In Proceedings of the Thirty-Second International Joint Conference on Artificial Intelligence, IJCAI-23 . 3911–3919. Main Track. [13] Lusi Li, Zhiqiang Wan, and Haibo He. 2021. Incomplete multi-view clustering with joint partition and graph learning. IEEE Transactions on Knowledge and Data Engineering 35, 1 (2021), 589–602. [14] Zhenglai Li, Chang Tang, Xiao Zheng, Xinwang Liu, Wei Zhang, and En Zhu. 2022. High-order correlation preserved incomplete multi-view subspace clustering. 
+
+IEEE Transactions on Image Processing 31 (2022), 2067–2080. [15] Yijie Lin, Yuanbiao Gou, Zitao Liu, Boyun Li, Jiancheng Lv, and Xi Peng. 2021. Completer: Incomplete multi-view clustering via contrastive prediction. In Pro-ceedings of the IEEE/CVF conference on computer vision and pattern recognition .11174–11183. [16] Yunxia Lin, Haoyu Hu, Bentian Li, Shuchang Zhao, and Hengchang Jing. 2025. Representation Auto-fused NMF based Hierarchical Clustering. Expert Systems with Applications 283 (2025), 127560. [17] Meng Liu, Yuzhe Li, Zhikui Chen, and Yilong Lin. 2026. Information-Driven Complementarity and Consistency Mining for Multi-View Clustering. IEEE Signal Processing Letters 33 (2026), 216–220. [18] Xinwang Liu, Xinzhong Zhu, Miaomiao Li, Lei Wang, Chang Tang, Jianping Yin, Dinggang Shen, Huaimin Wang, and Wen Gao. 2018. Late fusion incomplete multi-view clustering. IEEE transactions on pattern analysis and machine intelligence 41, 10 (2018), 2410–2423. [19] Shubin Ma, Zhikui Chen, Lin Yuanbo Wu, and Liang Zhao. 2026. Multi-View Aligned Clustering Via Sample-Bundled Optimization: Anchor Graph Enhance-ment and Contrastive Propagation. IEEE Transactions on Multimedia (2026), 1–12. [20] Shubin Ma, Liang Zhao, Mingdong Lu, Yifan Guo, and Bo Xu. 2025. Consistency-Aware Padding for Incomplete Multi-Modal Alignment Clustering Based on Self-Repellent Greedy Anchor Search. In Proceedings of the Thirty-Fourth International Joint Conference on Artificial Intelligence, IJCAI-25 . 5923–5931. Main Track. [21] D Priya and G Ramesh. 2019. The Hungarian method for the assignment problem, with generalized interval arithmetic and its applications. In Journal of Physics: Conference Series , Vol. 1377. IOP Publishing, 012046. [22] Bin Qian, Xiaobo Shen, Yanyang Gu, Zhenmin Tang, and Yuhua Ding. 2016. Double constrained NMF for partial multi-view clustering. In 2016 International Conference on Digital Image Computing: Techniques and Applications (DICTA) .IEEE, 1–7. [23] Yalan Qin, Chuan Qin, Xinpeng Zhang, and Guorui Feng. 2024. Dual Consensus Anchor Learning for Fast Multi-View Clustering. IEEE Transactions on Image Processing 33 (2024), 5298–5311. [24] E Schubert and A Zimek. 2010. ELKI multi-view clustering data sets based on the Amsterdam library of object images (ALOI). Zenodo (2010). [25] Hong Tao, Chenping Hou, Dongyun Yi, and Jubo Zhu. 2018. Multiview classifi-cation with cohesion and diversity. IEEE transactions on cybernetics 50, 5 (2018), 2124–2137. [26] Zhibin Wan, Changqing Zhang, Pengfei Zhu, and Qinghua Hu. 2021. Multi-view information-bottleneck representation learning. In Proceedings of the AAAI conference on artificial intelligence , Vol. 35. 10085–10092. [27] Jingyu Wang, Zhenyu Ma, Feiping Nie, and Xuelong Li. 2021. Fast self-supervised clustering with anchor graph. IEEE Transactions on Neural Networks and Learning Systems 33, 9 (2021), 4199–4212. [28] Qianqian Wang, Zhengming Ding, Zhiqiang Tao, Quanxue Gao, and Yun Fu. 2018. Partial multi-view clustering via consistent GAN. In 2018 IEEE International Conference on Data Mining (ICDM) . IEEE, 1290–1295. [29] Qianqian Wang, Huanhuan Lian, Gan Sun, Quanxue Gao, and Licheng Jiao. 2020. iCmSC: Incomplete cross-modal subspace clustering. IEEE Transactions on Image Processing 30 (2020), 305–317. [30] Jie Wen, Yong Xu, and Hong Liu. 2018. Incomplete multiview spectral clustering with adaptive graph learning. IEEE transactions on cybernetics 50, 4 (2018), 1418– 1429. [31] Wei Xia, Qianqian Wang, Quanxue Gao, Xiangdong Zhang, and Xinbo Gao. 2021. Self-supervised graph convolutional network for multi-view clustering. IEEE Transactions on Multimedia 24 (2021), 3182–3192. [32] Jiang Xie, Xuexin Xiang, Shuyin Xia, Lian Jiang, Guoyin Wang, and Xinbo Gao. 2024. Mgnr: A multi-granularity neighbor relationship and its application in knn classification and clustering methods. IEEE transactions on pattern analysis and machine intelligence 46, 12 (2024), 7956–7972. [33] Mouxing Yang, Yunfan Li, Peng Hu, Jinfeng Bai, Jiancheng Lv, and Xi Peng. 2022. Robust multi-view clustering with incomplete information. IEEE Transactions on Pattern Analysis and Machine Intelligence 45, 1 (2022), 1055–1069. [34] Mouxing Yang, Yunfan Li, Zhenyu Huang, Zitao Liu, Peng Hu, and Xi Peng. 2021. Partially view-aligned representation learning with noise-robust contrastive loss. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition . 1134–1143. [35] Hong Yu, Jia Tang, Guoyin Wang, and Xinbo Gao. 2021. A novel multi-view clus-tering method for unknown mapping relationships between cross-view samples. In Proceedings of the 27th ACM SIGKDD conference on knowledge discovery & data mining . 2075–2083. [36] Changqing Zhang, Yeqing Liu, and Huazhu Fu. 2019. Ae2-nets: Autoencoder in autoencoder networks. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition . 2577–2585. [37] Xianchao Zhang, Linlin Zong, Xinyue Liu, and Hong Yu. 2015. Constrained NMF-based multi-view clustering on unmapped data. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 29. [38] Zhongzhou Zhang and Lei Zhang. 2020. Hard Negative Samples Emphasis Tracker without Anchors. In Proceedings of the 28th ACM International Conference on Multimedia (Seattle, WA, USA) (MM ’20) . 4299–4308. [39] Dongdong Zhao, Xiaoyi Hu, Shengwu Xiong, Jing Tian, Jianwen Xiang, Jing Zhou, and Huanhuan Li. 2021. K-means clustering and kNN classification based on negative databases. Applied soft computing 110 (2021), 107732. [40] Liang Zhao, Shubin Ma, Bo Xu, and Qingchen Zhang. 2025. Dual-Learning based Penalized Multi-Align Clustering for Multi-View Incomplete and Disorderly Data. In Proceedings of the 33rd ACM International Conference on Multimedia .1318–1326. [41] Liang Zhao, Qiongjie Xie, Zhengtao Li, Songtao Wu, and Yi Yang. 2025. Dynamic Graph Guided Progressive Partial View-Aligned Clustering. IEEE Transactions on Neural Networks and Learning Systems 36, 5 (2025), 9370–9382. [42] Liang Zhao, Qiongjie Xie, Sontao Wu, and Shubin Ma. 2023. An end-to-end framework for partial view-aligned clustering with graph structure. In ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) . IEEE, 1–5. [43] Linlin Zong, Xianchao Zhang, and Xinyue Liu. 2018. Multi-view clustering on unmapped data via constrained non-negative matrix factorization. Neural Networks 108 (2018), 155–171.
