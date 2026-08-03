@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-04</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-04 05:31 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦脑科学与AI安全，精读了两篇高分论文，速览了脑电情感识别与脑机接口最新研究。</p>
-<p>最值得关注的是自适应图神经网络助力阿尔茨海默病分型，以及多视角结构学习如何让深度伪造检测更可靠。</p>
-<p>建议对脑疾病诊断感兴趣的朋友，留意图网络在个体化分析中的应用；关心内容真相的读者，可跟进不确定性感知的鉴别技术。</p>
+      <p>今日精读两篇9分研究，速览脑电情绪识别与BCI预处理工具，聚焦脑科学与AI安全交叉。</p>
+<p>MPP-GNN实现个体自适应fMRI脑社区检测，助力阿尔茨海默病分类；多视图结构学习为深度伪造检测引入不确定性估计。</p>
+<p>建议读者关注图神经网络在医学影像上的落地，也可尝试将不确定度量融入其他安全检测任务。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/04/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -87,3 +86,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
