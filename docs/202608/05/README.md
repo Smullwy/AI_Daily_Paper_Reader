@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-05</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-05 05:41 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读两篇高分论文，聚焦脑信号（EEG/MEG）解码与检索，探索从神经活动重建感知内容。</p>
-<p>最值得关注的方向是：通过融合互补视觉教师模型提升脑-图像检索，以及用可解释方法揭示大脑皮层如何驱动语音感知解码。</p>
-<p>建议读者从这两项工作切入，思考跨模态对齐与可解释性在脑机接口中的实际应用潜力。</p>
+      <p>今日重点评估了10篇脑机接口与多模态检索论文，精读两篇高分工作。</p>
+<p>最值得关注的是，《CORTIVA》通过融合互补视觉教师模型实现脑信号到图像的检索，以及《Interpretable MEG Decoding》揭示了驱动语音检索的皮层源与刺激特征。</p>
+<p>对普通读者而言，下一步可留意《EEG-JEPA》这类用结构化潜在预测构建脑电图基础模型的思路，这可能成为通用解码的基石。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/05/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -114,3 +113,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
