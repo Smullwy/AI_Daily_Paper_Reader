@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-06</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-06 05:59 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日解码5篇脑机接口论文，精读两篇8分佳作，聚焦听觉注意力切换与想象书写等解码任务的鲁棒性提升。</p>
-<p>最值得关注的是状态引导自适应框架提升听觉解码鲁棒性，以及频率解相关时间集成改善多模态想象书写识别。</p>
-<p>建议读者深入这两篇高分文章，掌握模块化自适应策略与跨模态去相关技巧，优化你的脑机接口系统设计。</p>
+      <p>今日共生成 5 篇推荐（精读 2 篇，速读 3 篇）</p>
+<p>精读：《SGAD: A State-Guided Adaptive Decision Framework for Robust EEG-Based Auditory Attention Switch Decoding》（8.0/10）, 《Frequency-Decorrelated Temporal Ensembles for EEG--fNIRS Imagined-Handwriting Decoding》（8.0/10）</p>
+<p>速读：《Blind Source Separation Can Distort Behavior and Connectivity Analyses of Calcium Transients》（7.0/10）, 《A 2-Block Architecture for Real-Time EEG Gait Decoding: A Pilot Study》（7.0/10）, 《Understanding and Correcting Low-Frequency Bias in EEG Foundation Model》（6.0/10）</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/06/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -69,3 +68,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
