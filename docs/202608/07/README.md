@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-07</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-07 10:03 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,9 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>解码大脑信号正成为LLM的新战场：今日精读两篇顶会高分论文，聚焦脑电图理解基准与行为表示预训练。最值得关注的是，大型语言模型在脑电图解码和神经解码规模化上展现出显著潜力。若想入门，不妨从对比这两项工作如何将神经信号转化为行为预测入手。</p>
+      <p>今日精读两篇高分论文，聚焦大脑解码的规模化突破与脑电图理解的基准评测。</p>
+<p>用预训练行为表征放大神经信号，《NeuroPB》让解码性能随数据规模增长；《BrainBench》则首次看透大模型对脑电的全面理解力。</p>
+<p>建议读者从《NeuroPB》的缩放实验入手，重新审视自家脑机接口任务的可扩展性空间。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/07/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -76,3 +77,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
