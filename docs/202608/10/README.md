@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-10</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-10 04:28 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日速读三篇前沿论文，聚焦AI的公平性校正与自适应学习新思路。</p>
-<p>CARGO-VL用反事实仲裁优化视觉语言模型的群体偏见，Layered Surprise Cascades则探索从局部学习到全局预测的层级机制。</p>
-<p>建议关注模型公平性评估的量化方法，动手试试风险约束优化对实际应用偏差的修正效果。</p>
+      <p>今日速读视觉语言模型公平性、分层级联预测及脑电无源适应三项进展。</p>
+<p>CARGO-VL 通过反事实仲裁与风险约束群优化缓解偏见，分层惊奇级联则用局部学习实现高精度全局预测。</p>
+<p>建议从业者追踪视觉语言模型的群体公平评估，并对局部到全局的预测框架保持关注。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/10/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -79,3 +78,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
