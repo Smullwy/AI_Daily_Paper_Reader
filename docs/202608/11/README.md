@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-11</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-11 04:35 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日精读联邦学习在脑影像的站点效应校正与基础模型用于儿童头痛分类，速览了文本向量变换、跨模态行人重识别等5篇工作。</p>
-<p>最值得关注的是FedDOSE框架如何分解多中心效应来建模动态脑功能连接，以及利用基础模型提升儿科疑难头痛的鉴别。</p>
-<p>建议持续跟踪联邦学习在医学影像中的去偏落地，并尝试将跨模态一致性约束引入临床小样本分类场景。</p>
+      <p>今日聚焦医学影像联邦学习与基础模型，速览嵌入模型迁移、跨模态行人重识别与说话人表征优化。</p>
+<p>精读亮点：FedDOSE 通过分解站点效应精准建模脑动态功能连接，基础模型框架实现儿童头痛的静息态 fMRI 分类。</p>
+<p>建议读者优先阅读 FedDOSE，了解如何去除多中心数据偏见以提升脑连接分析的可靠性。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/11/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -87,3 +86,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
