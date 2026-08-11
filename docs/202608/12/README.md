@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-12</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-12 05:00 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日聚焦脑信号到音频的忠实重建与2D到3D的视角一致生成，精读两篇高影响力论文。</p>
-<p>RAG-Audio通过检索增强解决脑-音频重建的“幻觉”问题，View-Adaptive Renderer让单图转3D不再视角错乱。</p>
-<p>建议关注这两个方向的普通读者优先阅读9.0分的《RAG-Audio》和8.0分的《View-Adaptive Renderer》，它们代表了脑机接口与三维生成的最新突破。</p>
+      <p>今日精读聚焦脑信号到音频的高保真重建与视角一致的2D转3D生成，速读涵盖多模态聚类、双曲持续学习及认知扭曲检测等前沿方向。</p>
+<p>最值得关注的是RAG-Audio用检索增强实现忠实“读脑”生成语音，以及View-Adaptive Renderer确保不同视角下3D生成结果的一致性。</p>
+<p>推荐普通读者先看RAG-Audio感受AI如何直接解码大脑活动还原声音，从事创作的朋友可关注视角一致生成方法以提升3D内容质量。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/12/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -87,3 +86,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

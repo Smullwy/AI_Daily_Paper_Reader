@@ -1,0 +1,461 @@
+Title: Multi-Perspective Triad Interaction Graph Neural Network for Cognitive Distortion Detection
+
+URL Source: https://arxiv.org/pdf/2608.06785v1
+
+Published Time: Mon, 10 Aug 2026 00:25:48 GMT
+
+Number of Pages: 20
+
+Markdown Content:
+# Multi-Perspective Triad Interaction Graph Neural Network for Cognitive Distortion Detection 
+
+Jun Seo Kim 1 Hye Hyeon Kim 2
+
+> 1
+
+Department of Computer Engineering, Gachon University 
+
+> 2
+
+Department of Biomedical Systems Informatics, Yonsei University 
+
+kma80kjs@gachon.ac.kr hye_hyeon@yonsei.ac.kr 
+
+Abstract 
+
+Cognitive distortion detection is a key task in computational mental health, yet existing approaches often overlook the psychological structure of distorted thoughts. We propose MTI-GNN (Multi-Perspective Triad Interac-tion Graph Neural Network), which models Beck’s cognitive triad—negative views of the self, world, and future—as complementary per-spectives for classification. An LLM decom-poses each utterance into the three perspec-tives, from which perspective-specific similar-ity graphs are constructed and encoded by a Multi-Perspective GNN. A Triad Interaction module models cross-perspective dependen-cies through sequential source-conditioned up-dates and feature-wise gating, while Prototype-Guided Perspective Fusion performs label-conditioned aggregation. Label-expanded su-pervision incorporates all available distortion annotations during training. We evaluate MTI-GNN on 9,764 samples from four Korean, En-glish, and Chinese datasets spanning ten distor-tion categories. MTI-GNN significantly outper-forms all supervised variants and exceeds eight prompted generative models under zero-shot and few-shot settings. Leave-one-perspective-out ablations show that all three perspectives contribute significantly, while human expert evaluation provides preliminary evidence of their alignment with the intended cognitive di-mensions. 
+
+1 Introduction 
+
+Mental disorders have become a global public health challenge, affecting more than one billion in-dividuals worldwide, or approximately one in eight people (World Health Organization, 2022, 2025). Cognitive distortions—systematic biases that neg-atively skew the interpretation of situations—play a central role in the development and persistence of psychological distress (Beck, 1979; Dozois and Beck, 2008). In cognitive behavioral therapy 
+
+Figure 1: Illustration of Beck’s cognitive triad, compris-ing negative views of the self, the world, and the future. 
+
+(CBT), identifying such distortions is a fundamen-tal step toward restructuring maladaptive thought patterns, making automatic cognitive distortion de-tection important for scalable mental health support (Beck, 1964, 2020; Hofmann et al., 2012). Recent advances in large language models (LLMs) have enabled increasingly sophisticated natural language reasoning (Wei et al., 2022; Ko-jima et al., 2022; Yang et al., 2023), leading to growing interest in cognitive distortion detection (Chen et al., 2023; Nazarova, 2023; Lim et al., 2024; Lee et al., 2024; Singh et al., 2024; Kim et al., 2026). However, many existing approaches still represent distorted thoughts primarily as un-structured text and rely heavily on surface-level linguistic patterns (Sage et al., 2025). Such rep-resentations provide limited access to the psycho-logical structure underlying distorted thoughts and may overlook how multiple cognitive perspectives jointly characterize an utterance. This limitation is important because cognitive distortion theory is inherently structured. Beck’s cognitive triad characterizes distorted thinking through negative views of the self, the world, and the future, which can interact and reinforce one 1arXiv:2608.06785v1 [cs.CL] 7 Aug 2026 another (Beck, 1979; Beck and Alford, 2014). Fig-ure 1 illustrates this theoretical framework. Never-theless, these perspectives are rarely modeled as explicit and interacting representations in cognitive distortion detection systems. To address this gap, we propose MTI-GNN (Multi-Perspective Triad Interaction Graph Neural Network). A zero-shot LLM decomposes each ut-terance into self, world, and future perspectives, af-ter which perspective-specific similarity graphs are constructed for the original text and the extracted triad representations. A Multi-Perspective GNN encodes these graphs, the Triad Interaction mod-ule models cross-perspective dependencies through sequential cross-attention, and Prototype-Guided Perspective Fusion performs label-conditioned ag-gregation. We further adopt label-expanded super-vision so that all available distortion annotations contribute to training. We evaluate MTI-GNN on a multilingual bench-mark comprising 9,764 samples from four datasets in Korean, English, and Chinese across ten dis-tortion categories. MTI-GNN significantly outper-forms all supervised baselines and exceeds eight generative models evaluated under zero-shot and few-shot prompting. Perspective-removal ablations show that the self, world, and future views each contribute significantly, while evaluation by two licensed psychologists provides preliminary evi-dence that the extracted representations align with their intended cognitive dimensions. Our contributions are summarized as follows: 1. We introduce a cognitively grounded frame-work that represents distorted thoughts through the complementary self, world, and future perspectives of Beck’s cognitive triad. 2. We propose MTI-GNN, which combines perspective-specific graph learning, se-quential cross-perspective interaction, label-conditioned fusion, and label-expanded supervision. 3. We conduct a multilingual evaluation against supervised and generative baselines, sup-ported by perspective and interaction-order ablations and human expert validation. 
+
+2 Related Work 
+
+2.1 Cognitive Distortion Detection 
+
+Early work on cognitive distortion detection relied on rule-based systems using handcrafted linguis-tic patterns (Wiemer-Hastings et al., 2004; Bathina et al., 2021). To improve scalability and generaliza-tion, later studies combined engineered representa-tions, including TF-IDF and LIWC features, with classifiers such as logistic regression and SVMs (Simms et al., 2017; Shickel et al., 2020; Shreevas-tava and Foltz, 2021). However, these approaches remained dependent on manual feature design. The introduction of distributed word represen-tations enabled neural models to capture richer semantic patterns. Early approaches combined Word2Vec and GloVe embeddings with CNNs and LSTMs (Xing et al., 2017; Rojas-Barahona et al., 2018; Mostafa et al., 2021), while transformer-based models such as BERT further improved per-formance through contextualized representations and task-specific fine-tuning (Devlin et al., 2019; Lybarger et al., 2022; Ding et al., 2022; Ji et al., 2022). More recently, large language models (LLMs) have enabled cognitive distortion detection through zero-shot and chain-of-thought prompting (Chen et al., 2023; Lim et al., 2024). Subsequent work has addressed cross-dataset generalization through multi-task learning (Qi et al., 2025a) and explored psychologically grounded decomposition of dis-torted thoughts through multi-view modeling (Kim et al., 2026). Despite these advances, most existing ap-proaches encode each utterance primarily as a sin-gle textual sequence, with limited exploration of psychologically structured and interacting repre-sentations. This gap motivates the development of representational frameworks that explicitly incor-porate the cognitive structure underlying distorted thoughts. 
+
+2.2 Graph-Based Text Classification 
+
+Graph neural networks (GNNs) have been widely applied to text classification by modeling rela-tional structures among documents, words, and labels (Kipf and Welling, 2017; Veliˇ ckovi´ c et al., 2018). Early studies such as TextGCN and Bert-GCN showed that corpus-level graph structures can improve classification by jointly capturing se-mantic and structural information through graph propagation (Yao et al., 2019; Lin et al., 2021). Subsequent research extended graph-based frameworks to multi-label classification by in-corporating label semantics and dependencies through label-conditioned graph learning, label co-occurrence structures, token–label interactions, and 2correlation-aware graph decomposition (Ma et al., 2021; Li et al., 2022; Vu et al., 2023; Bei et al., 2025). More recently, integrating large language mod-els with graph neural networks has emerged as a promising direction, combining contextual seman-tic representations with the structural inductive bias of graph learning for complex reasoning and classi-fication tasks (Chen et al., 2024b). Motivated by these advances, our approach con-structs perspective-specific graphs from the orig-inal text and cognitive triad representations. Un-like conventional text graphs organized primar-ily around documents, words, or labels, MTI-GNN separately encodes similarity graphs con-structed from the original text and from each of the self, world, and future perspectives. It then models dependencies among these perspectives through sequential cross-attention and performs label-conditioned fusion, thereby incorporating psychologically grounded structure beyond flat tex-tual representations. 
+
+3 Datasets 
+
+3.1 Dataset Overview 
+
+We evaluate our framework on four publicly avail-able cognitive distortion datasets spanning Korean, English, and Chinese: TherapistQA (Shreevastava and Foltz, 2021), SocialCD-3K (Qi et al., 2025b), KoACD (Kim and Kim, 2025), and the Cogni-tive Reframing Dataset (Sharma et al., 2023). The datasets cover patient–therapist interactions, social media posts, synthetic counseling utterances, and situation–negative thought pairs, and include both single-label and multi-label annotation settings. Ta-ble 1 summarizes their languages, annotation set-tings, and sample statistics. Detailed descriptions of the individual datasets are provided in Appendix D. 
+
+3.2 Label Standardization 
+
+Although the four datasets are broadly grounded in CBT, they adopt partially different cognitive dis-tortion taxonomies. To enable unified training and evaluation, we standardize their annotations into ten categories based on Beck’s cognitive therapy framework (Beck, 1979) and Burns’s cognitive dis-tortion typology (Burns, 1981). Semantically over-lapping labels are merged according to their the-oretical definitions. For example, Mind Reading and Fortune Telling are unified as Jumping to Con-clusions, while Catastrophizing is mapped to Mag-                    
+
+> Dataset Lang Setting Samples Labels
+> TherapistQA English Mixed 1,597 1,999 SocialCD-3K Chinese Mixed 3,387 3,962 KoACD Korean Single 4,510 4,510 Cognitive Reframing English Mixed 270 491
+> Table 1: Statistics of the four datasets used in this study after preprocessing and label standardization.
+
+nification. Labels that cannot be reliably aligned with the unified taxonomy, have insufficient sam-ples, or provide limited cross-dataset comparability are excluded. The complete taxonomy, category definitions, mapping rules, and original label distri-butions are provided in Appendix D. 
+
+4 Method 
+
+4.1 Cognitive Triad Extraction 
+
+In cognitive behavioral therapy (CBT), distorted thinking is often characterized by negative beliefs about the self, the world, and the future, collectively known as the cognitive triad (Beck, 1979; Beck and Alford, 2014). Motivated by this framework, we decompose each utterance into three perspectives: self, world, and future. The self perspective reflects beliefs about oneself, the world perspective cap-tures interpretations of external situations or others, and the future perspective represents expectations about future outcomes. Together with the original utterance, they form four complementary views: text, self, world, and future. We extract the triad perspectives using GPT-4o-mini (OpenAI, 2024). Given an utterance, the model generates structured self, world, and future representations and returns an empty value when a perspective is not supported by the input, re-ducing unsupported inference. Generation settings are provided in Appendix A.2, and the extraction prompt is reported in Appendix E. Because these representations form the basis of the perspective-specific graphs, we evaluate their quality through embedding-based analysis, an independent LLM-based assessment, and human expert validation in Section 5.3. 
+
+4.2 Multi-Perspective Embedding and Graph Construction 
+
+We encode the extracted self, world, and future perspectives using BGE-M3, which provides mul-tilingual representations for Korean, English, and 3Figure 2: Overall architecture of MTI-GNN, consisting of perspective-specific graph encoding, sequential Triad Interaction, and Prototype-Guided Perspective Fusion. 
+
+Chinese text (Chen et al., 2024a). For each per-spective, we compute pairwise cosine similarities between the corresponding utterance representa-tions and construct a directed K-nearest-neighbor graph, where each utterance is represented as a node with outgoing edges to its K most similar neighbors. The value of K is selected through ho-mophily analysis and validation-based ablation, as detailed in Appendix B. For the text view, we reuse the self-view graph topology while replacing its node features with representations from the fine-tuned text encoder described in Section 4.3. This design propagates contextual text information through neighborhoods defined by self-related cognitive similarity, while keeping the text and self representations distinct. We also define fixed semantic prototypes for the ten standardized distortion categories using BGE-M3 embeddings of their canonical definitions. These prototypes do not participate in graph mes-sage passing and instead serve as semantic queries in the Prototype-Guided Perspective Fusion layer. 
+
+4.3 Triad-Augmented Text Encoding 
+
+To incorporate cognitive triad information into the contextual text representation, we concatenate the original utterance with its extracted self, world, and future perspectives using a structured template with special delimiter tokens. Perspectives returned as empty are omitted from the sequence. We fine-tune XLM-RoBERTa-base (Conneau et al., 2020) on the augmented inputs using the label-expanded supervision described below. For an utterance with multiple distortion labels, the same input contributes one supervision pair per an-notated label, allowing all available annotations to train the encoder without creating additional graph nodes. The final hidden state of the sequence-initial to-ken is used as the text-view embedding. Unlike the independently encoded triad perspectives, this rep-resentation jointly captures the original linguistic context and the extracted cognitive perspectives. 
+
+4.4 MTI-GNN 
+
+MTI-GNN consists of three components: perspective-specific graph encoders, a Triad Interaction (TI) module, and Prototype-Guided Perspective Fusion (PGPF). Figure 2 illustrates the overall architecture. For utterance i, we denote the text, self, world, and future representations by gti ,
+
+gsi , gwi , and gfi , respectively. 
+
+Multi-Perspective Graph Encoding. For each view v ∈ { t, s, w, f }, we apply an independent Graph Attention Network (GAT) (Veliˇ ckovi´ c et al., 2018). The self, world, and future encoders use their corresponding similarity graphs, whereas the text encoder reuses the self-view graph topology with text-view node features, as described in Sec-tion 4.2. Each encoder consists of a linear projec-tion followed by residual GAT blocks with GELU 4activation and layer normalization, producing the node representation gvi . Separate encoders allow the model to capture relational patterns specific to each cognitive perspective. 
+
+Triad Interaction. The graph encoders initially process the four views independently, although Beck’s cognitive triad suggests that the self, world, and future perspectives can interact and reinforce one another (Beck, 1979). TI therefore updates the triad perspectives sequentially in the self–world– future order using learned source projections and feature-wise gating, followed by triad-to-text cross-attention. The self view first receives a learned text-derived update, followed by a residual connection and layer normalization, without an additional gating parameter. The world view then receives sepa-rate learned projections of the text view and the updated self view, producing source-specific up-dates ∆ti,w and ∆si,w . These outputs are combined by the feature-wise complementary gate γi,w =
+
+σ(Ww[∆ ti,w ; ∆ si,w ] + bw), yielding γi,w ⊙ ∆ti,w +(1 − γi,w ) ⊙ ∆si,w .Finally, the future view receives projected rep-resentations from the text and the updated self and world views. For each source j ∈ { t, s, w },TI computes a projected source representation 
+
+∆ji,f = ϕf,j (hji ) and a target-conditioned feature-wise gate aji,f = σ(Wf,j [gfi ; ∆ ji,f ] + bf,j ). The gates are normalized across sources and used to update the future view: 
+
+λji,f = aji,f 
+
+P 
+
+> r∈{ t,s,w }
+
+ari,f + ϵ ,gf ′ 
+
+> i
+
+= LN 
+
+gfi + X
+
+> j∈{ t,s,w }
+
+λji,f ⊙ ∆ji,f 
+
+ .
+
+(1) Here, hti = gti , hsi = gs′ 
+
+> i
+
+, and hwi = gw′ 
+
+> i
+
+, while ϕf,j 
+
+denotes the learned value and output projections for source j.After the triad perspectives are updated, they are concatenated along the sequence dimension, and the original text representation attends over the re-sulting three-element triad sequence. The resulting triad-conditioned update is added to the text view through a residual connection and layer normaliza-tion. Cognitive triad theory does not prescribe a fixed causal or computational order (Beck, 1979; Beck and Alford, 2014); therefore, self–world– future is treated as an architectural inductive bias rather than a causal claim. Each triad perspective is updated once, and later perspectives do not revise earlier ones. The final triad-to-text attention serves as terminal aggregation rather than reverse revision among the triad perspectives. We evaluate all six forward orderings in Section 5.2. 
+
+Prototype-Guided Perspective Fusion. For each standardized distortion category c, we define a fixed prototype pc by encoding its canonical def-inition with BGE-M3. Each prototype serves as a semantic query over the updated views ˜gvi ∈{gt′ 
+
+> i
+
+, g s′ 
+
+> i
+
+, g w′ 
+
+> i
+
+, g f ′ 
+
+> i
+
+}. The query is computed as qc =
+
+Wq(Wppc), while each attention key is obtained by applying Wk to the ℓ2-normalized view representa-tion. The original, unnormalized views are retained as values without a separate value projection: 
+
+αvi,c = softmax v
+
+ q⊤ 
+
+> c
+
+Wk(˜ gvi /∥˜gvi ∥2)
+
+√d
+
+
+
+,zi,c = X
+
+> v
+
+αvi,c ˜gvi .
+
+(2) A separate two-layer MLP with GELU activation and dropout maps each label-specific representa-tion zi,c to its corresponding logit. 
+
+Training Objective. To use all available distor-tion annotations, we construct a label-expanded supervision set. Let Dtrain be the original training set and Yi the set of labels assigned to utterance i:
+
+D+train = {(i, c ) | i ∈ D train , c ∈ Yi} . (3) A single-label utterance contributes one super-vision pair, whereas a multi-label utterance con-tributes one pair per annotated label. The same ut-terance and graph node representations are reused across these pairs, so label expansion does not create additional graph nodes. We optimize the model using class-weighted cross-entropy over the expanded pairs: 
+
+L = − 1
+
+|D +train |
+
+X
+
+> (i,c )∈D +train
+
+wc log Pθ(c | i), (4) where wc denotes the class weight for distortion category c.
+
+5 Experiments 
+
+5.1 Experimental Setup Data Split and Training Labels. After label standardization, each dataset is stratified by its pri-mary distortion label and split into training, vali-dation, and test sets at an 8:1:1 ratio, after which 5Split Count (%)     
+
+> Train 7,804 (79.9%) Validation 978 (10.0%) Test 982 (10.1%)
+> Total 9,764 (100.0%)
+> Table 2: Dataset split statistics after label standardiza-tion.
+
+the corresponding splits are aggregated. During training, each multi-label utterance contributes one supervision pair per annotation while remaining a single graph node; validation and test instances use their primary labels as targets. Table 2 summarizes the resulting split. 
+
+Supervised Variants and Component Analy-sis. We compare MTI-GNN with three incremen-tal supervised variants: Text-only MLP uses the original utterance, Text+Triad MLP adds the ex-tracted triad perspectives, and MP-GNN further introduces multi-perspective graph encoding with-out TI. These variants isolate the contributions of triad augmentation, graph learning, and cross-perspective interaction under identical data splits and label-expanded supervision. 
+
+Generative Model Evaluation. To provide a strong reference point against recent genera-tive models for unified cognitive distortion clas-sification, we evaluate GPT-4o-mini (OpenAI, 2024), GPT-5.4-mini (OpenAI, 2026), Claude Son-net 5 (Anthropic, 2026), Qwen3.5-9B (Qwen Team, 2026a), Qwen3.6-27B (Qwen Team, 2026b), Gemma-4-31B (Gemma Team, 2026), and two GLM variants, GLM-4-9B and GLM-4-32B (Team GLM et al., 2024). Each model is tested under text-only and text+triad inputs in both zero-shot and few-shot settings. All models predict one cate-gory from the unified ten-label taxonomy. Prompts, demonstrations, decoding settings, and output nor-malization are provided in Appendix E. 
+
+Implementation and Evaluation. Supervised models use XLM-RoBERTa-base as the text en-coder and BGE-M3 for triad and prototype embed-dings. They are optimized with AdamW and early stopping on validation Weighted-F1. We report test-set Weighted-F1, averaging supervised results over 10 matched random seeds with standard deviations, and assess significance using paired two-tailed t-tests. Hyperparameters and graph neighborhood                              
+
+> Model / Dataset Weighted-F1
+> Supervised model comparison
+> Text-only MLP 0.5161 ±0.0042
+> Text+Triad MLP 0.5387 ±0.0047
+> MP-GNN 0.5429 ±0.0024
+> MTI-GNN 0.5555 ±0.0015
+> MTI-GNN by dataset
+> TherapistQA 0.4726 ±0.0118
+> KoACD 0.5344 ±0.0054
+> Cognitive Reframing 0.4579 ±0.0211
+> SocialCD-3K 0.6574 ±0.0091
+> Table 3: Supervised model comparison and dataset-level performance of MTI-GNN under label-expanded train-ing. Values are mean ±standard deviation over 10 runs. MTI-GNN significantly outperforms each supervised variant ( p < 0.001 , paired two-tailed t-test).
+
+selection are detailed in Appendices A and B. 
+
+Triad Extraction Validation. We validate the extracted perspectives using Gemini 2.5 Flash (Co-manici et al., 2025) and two licensed clinical psy-chologists. Gemini scores the self, world, and fu-ture representations, including none outputs, on a five-point scale. The experts apply the same criteria to a stratified sample of 150 utterances, resolving disagreements through discussion. This validation is independent of model training and evaluation. Results and protocols are provided in Section 5.3 and Appendices E and F. 
+
+Architectural Analyses. To examine the archi-tectural role of interaction order and the contribu-tion of each cognitive perspective, we conduct two additional analyses. First, we evaluate all six per-mutations of the self, world, and future interaction order while keeping the triad-to-text refinement unchanged. Second, we remove each triad perspec-tive individually from the triad-augmented text in-put, graph encoding, TI, and PGPF. All variants use matched splits, training settings, and random seeds, and are compared with the full model using paired two-tailed t-tests. Results are presented in Section 5.2. 
+
+5.2 Main Results and Ablation Studies Supervised Performance. As shown in Table 3, MTI-GNN achieves the strongest overall perfor-mance and significantly outperforms all supervised variants. The stepwise improvements support the contributions of triad augmentation, perspective-specific graph encoding, and cross-perspective in-6Model Text Zero-Shot Text Few-Shot Text+Triad Zero-Shot Text+Triad Few-Shot                                 
+
+> GPT-4o-mini 0.3814 0.3809 0.3875 0.3872 GPT-5.4-mini 0.4202 0.4194 0.4190 0.4232 Claude Sonnet 5 0.4078 0.4126 0.4180 0.4288 Qwen3.5-9B 0.3719 0.3822 0.3797 0.3787 Qwen3.6-27B 0.4118 0.4110 0.4359 0.4348 Gemma-4-31B 0.4223 0.4256 0.4206 0.4341 GLM-4-9B 0.3770 0.3665 0.3532 0.3841 GLM-4-32B 0.4009 0.4238 0.3981 0.3973
+
+Table 4: Weighted-F1 of eight generative models under text-only and triad-augmented zero-shot and few-shot prompting. Bold indicates the best generative-model result.                   
+
+> Removed View Weighted-F1 p-value
+> None (Full Model) 0.5555 ±0.0015 –Self 0.5460 ±0.0042 0.000081
+> World 0.5404 ±0.0102 0.001376
+> Future 0.5402 ±0.0080 0.000341
+
+Table 5: Leave-one-perspective-out ablation of MTI-GNN. The p-values compare each variant with the full model using paired two-tailed t-tests over matched ran-dom seeds. 
+
+teraction. Dataset-level results vary substantially, consistent with previously reported cross-dataset heterogeneity in cognitive distortion detection (Qi et al., 2025a). Differences in language, source do-main, annotation practices, and test-set size may contribute to this variation. 
+
+Comparison with Generative Models. Table 4 shows that MTI-GNN exceeds all eight genera-tive models across the evaluated prompting set-tings. Larger variants consistently outperform their smaller counterparts within the evaluated Qwen and GLM model families, whereas few-shot demonstrations and triad-augmented prompting do not yield consistent improvements across models. Nevertheless, all prompted generative models re-main below the task-specific supervised MTI-GNN on this benchmark. This comparison is limited to prompted zero-shot and few-shot settings. 
+
+Perspective Contributions. Table 5 shows that removing any perspective significantly reduces per-formance, confirming that the self, world, and fu-ture views provide complementary information. The larger reductions after removing the world or future views indicate that these perspectives con-tribute more strongly under the proposed interac-tion architecture.                                            
+
+> Interaction Order Weighted-F1
+> Self →World →Future 0.5555 ±0.0015
+> World →Future →Self 0.5501 ±0.0060
+> Future →World →Self 0.5479 ±0.0045
+> Future →Self →World 0.5478 ±0.0056
+> World →Self →Future 0.5476 ±0.0077
+> Self →Future →World 0.5471 ±0.0063
+
+Table 6: Weighted-F1 across triad interaction orders. Text conditioning and triad-to-text refinement are fixed across variants. Values are mean ± standard deviation over matched random seeds. 
+
+Interaction Order. Table 6 shows that the adopted self–world–future ordering achieves the strongest performance and significantly outper-forms all alternatives ( p < 0.05 ). The differences across permutations indicate that MTI-GNN is sensitive to the direction of sequential interac-tion, rather than merely to the presence of cross-perspective connections. This supports the selected sequence as an empirical architectural inductive bias rather than a causal processing order. 
+
+5.3 Representation and Model Analysis 
+
+We assess the extracted cognitive representations through embedding similarity, LLM evaluation, and human expert validation, and analyze how MTI-GNN uses the resulting perspectives. 
+
+Cognitive Triad Representation Validation. 
+
+We evaluate the extracted cognitive triad represen-tations using three complementary measures: se-mantic similarity to assess grounding in the original utterances, and evaluations by both an independent LLM and two licensed clinical psychologists to assess alignment with the self, world, and future dimensions. Table 7 presents the validation results. Similarity is measured against the original utterance, while 7Evaluation Self World Future Comb.                     
+
+> Similarity mean 0.669 0.693 0.661 0.764 Similarity std. 0.093 0.111 0.097 0.095 None rate (%) 13.4 27.3 36.4 0.8 LLM score 4.256 4.051 3.874 –Human score
+> (Consensus) 3.93 4.19 4.04 4.05
+
+Table 7: Validation of extracted cognitive triad repre-sentations. Similarity is measured against the original utterance, and LLM and consensus human scores use five-point scales.                           
+
+> View MP-GNN MTI-GNN
+> Text 0.386 ±0.078 0.257 ±0.005
+> Self 0.222 ±0.013 0.252 ±0.003
+> World 0.200 ±0.030 0.249 ±0.003
+> Future 0.192 ±0.038 0.243 ±0.004
+
+Table 8: View-attention weights of MP-GNN and MTI-GNN, as mean ± standard deviation over 10 runs. 
+
+the LLM and human consensus scores use five-point scales. Overall, the extracted perspectives remain semantically grounded in the original utter-ances and jointly capture complementary informa-tion. The higher none rates for the world and future perspectives indicate that these dimensions are less explicitly expressed in many utterances, reflecting the sparsity of certain cognitive triad components rather than extraction failure. To evaluate expert alignment, two licensed clin-ical psychologists rated 150 representative utter-ances stratified across datasets and distortion cate-gories. Initial quadratic weighted Cohen’s κ values were .339, .276, and .322 for the self, world, and fu-ture dimensions, respectively, and were attenuated by differences in rater severity (Feinstein and Cic-chetti, 1990). Joint review of major discrepancies, defined as score differences of at least two points, yielded final consensus scores with an overall mean of 4.05 out of 5.0 (Table 7), supporting alignment with the intended cognitive dimensions. 
+
+View Attention Analysis. Table 8 shows that MTI-GNN produces a more balanced attention dis-tribution across the text and cognitive triad perspec-tives than MP-GNN. MP-GNN places the greatest weight on the text view, whereas MTI-GNN as-signs similar weights to all four views, suggesting that TI promotes more even use of the structured cognitive perspectives. However, attention magni-tude should not be interpreted as a direct measure                                
+
+> Label F1
+> All-or-Nothing Thinking 0.4279 ±0.0111
+> Discounting the Positive 0.7808 ±0.0122
+> Emotional Reasoning 0.3147 ±0.0132
+> Jumping to Conclusions 0.5859 ±0.0066
+> Labeling 0.7430 ±0.0082
+> Magnification 0.3603 ±0.0183
+> Mental Filter 0.3720 ±0.0142
+> Overgeneralization 0.3764 ±0.0090
+> Personalization 0.5830 ±0.0132
+> Should Statements 0.7745 ±0.0147
+
+Table 9: Label-wise F1 of MTI-GNN, reported as mean 
+
+± standard deviation over 10 runs. 
+
+of functional contribution, as the leave-one-out re-sults show larger performance reductions for the world and future views despite their similar atten-tion weights. 
+
+Label-Wise Performance Analysis. Table 9 shows that MTI-GNN achieves the highest label-wise F1 on Discounting the Positive, Should State-ments, and Labeling, whose linguistic realizations are comparatively explicit. Emotional Reasoning remains the most difficult category, while Magnifi-cation, Mental Filter, and Overgeneralization also show lower performance, reflecting their implicit or semantically overlapping expressions. 
+
+6 Conclusion and Future Work 
+
+We proposed MTI-GNN, a cognitive distortion detection framework grounded in Beck’s cogni-tive triad. It represents utterances through text, self, world, and future views, encodes perspective-specific graphs, models cross-perspective depen-dencies through Triad Interaction, and performs label-conditioned fusion. Across four Korean, English, and Chinese datasets, MTI-GNN significantly outperforms all supervised variants and exceeds eight generative models under zero-shot and few-shot prompting. LLM and human expert evaluations provide pre-liminary evidence that the extracted perspectives align with the intended cognitive dimensions. Ab-lations confirm the contributions of triad augmenta-tion, graph learning, cross-perspective interaction, and all three views, while interaction-order analy-sis supports self–world–future as an architectural rather than causal order. Future work will explore dataset-aware adaptation, label co-occurrence mod-eling, stronger generative baselines, and bidirec-tional perspective interaction. 8Limitations 
+
+Despite the improvements achieved by MTI-GNN, several limitations remain. 
+
+Dataset Heterogeneity. Performance varies across the four source datasets despite label standardization. Differences in language, domain, annotation practices, and linguistic realization therefore remain important sources of variation, consistent with prior findings (Qi et al., 2025a). The aggregate results should not be interpreted as uniform cross-domain generalization. Dataset-aware training and domain adaptation remain important directions for future work. 
+
+Labeling Scope. Label-expanded supervision al-lows all annotated distortions to contribute to train-ing, but treats each label as an independent tar-get and does not explicitly model co-occurrence dependencies. Validation and test sets also retain primary-label evaluation, so the current results do not establish comprehensive multi-label prediction. Moreover, labels with insufficient samples or lim-ited cross-dataset comparability were excluded dur-ing standardization, reducing taxonomy coverage. Larger multi-label datasets and label-dependency-aware objectives are needed to address these limi-tations. 
+
+Triad Extraction Quality. Triad perspectives are extracted by a zero-shot LLM, and expert val-idation covers a 150-utterance subsample rather than the full corpus. The extracted representations should therefore be understood as computational approximations of the cognitive triad rather than clinically verified constructs, and larger-scale ex-pert annotation would strengthen this grounding. 
+
+Inter-Rater Reliability in Expert Validation. 
+
+One limitation concerns the inter-rater reliability of the expert validation. Although joint consensus review reconciled major discrepancies, the initial quadratic weighted Cohen’s κ values ranged from .276 to .339. This modest agreement reflects the interpretive subjectivity involved in assigning cog-nitive perspectives to natural-language utterances. Future work will involve a larger expert pool and more granular rating guidelines to improve the ro-bustness of cross-rater validation. 
+
+Scope of Generative Model Comparison. Our generative-model comparison is limited to zero-shot and few-shot prompting and does not include parameter-efficient or full fine-tuning. The results therefore establish an advantage over prompted generative models under the evaluated settings, rather than over all possible training regimes. Fu-ture comparisons should use matched supervision, evaluation protocols, and computational budgets. 
+
+Interpretability and Interaction Structure. 
+
+MTI-GNN provides partial interpretability through label-conditioned attention and perspective abla-tions, but does not generate instance-level reason-ing traces. Attention weights should not be inter-preted as direct measures of functional contribu-tion. In addition, TI uses an asymmetric single-pass structure in which earlier perspectives are not re-vised using later ones. Future work should explore explicit explanations and bidirectional or iterative interactions without excessive computational over-head. 
+
+Ethical Considerations 
+
+All datasets used in this study are publicly avail-able and were obtained from previously published sources. No additional personal data were collected from the individuals represented in the datasets. Al-though the original datasets were released under their own data-handling and privacy procedures, we additionally reviewed the data to identify po-tentially sensitive or personally identifying content before use. No directly identifiable personal infor-mation was intentionally retained or introduced dur-ing preprocessing or experimentation. The datasets were used solely for research purposes in accor-dance with their respective terms of use. To validate the extracted representations, two licensed clinical psychologists evaluated an anonymized subsample of 150 utterances. Both ex-perts participated voluntarily after receiving a full explanation of the study purpose and procedures. Each expert received 45,000 KRW for evaluating 150 items, calculated proportionally from a stan-dard professional rate of 300,000 KRW per 1,000 items. No personally identifiable information was collected beyond records required for compensa-tion. All evaluation materials were anonymized be-fore review. The consensus procedure was used solely to establish final validation scores and did not affect the extracted representations or down-stream experiments. The study analyzed only anonymized secondary text data and involved no direct interaction with data subjects, clinical diag-9nosis, or therapeutic intervention. The proposed cognitive distortion detection framework is intended solely for research purposes and should not be considered a substitute for clini-cal diagnosis, psychological assessment, or thera-peutic intervention. Model predictions may be in-accurate or biased, particularly because the frame-work relies in part on LLM-generated cognitive triad representations. Consequently, model outputs should not be used for clinical decision-making without supervision from qualified mental health professionals. Cognitive distortion detection inherently in-volves sensitive mental health-related content, and incorrect predictions or inappropriate deployment may negatively affect vulnerable individuals. Al-though the extracted perspectives were assessed by licensed clinical psychologists on a representative subsample, they remain computational representa-tions designed for classification rather than com-prehensive clinical assessments. Any real-world de-ployment of such systems therefore requires careful ethical review, broader clinical validation, rigorous performance assessment, privacy safeguards, and appropriate professional oversight to ensure safe and responsible use. To facilitate manuscript preparation, AI-based assistants were used in a limited capacity for lan-guage polishing, readability improvement, and wording refinement. AI assistance was also used to support the translation and interpretation of non-English source materials during dataset understand-ing. All scientific claims, experimental procedures, analyses, and final manuscript content were re-viewed and approved by the authors. 
+
+References 
+
+Anthropic. 2026. Introducing Claude Sonnet 5. Krishna C. Bathina, Marijn ten Thij, Lorenzo Lorenzo-Luaces, Lauren A. Rutter, and Johan Bollen. 2021. Individuals with depression express more distorted thinking on social media. Nature Human Behaviour ,5(4):458–466. Aaron T. Beck. 1964. Thinking and depression: Ii. the-ory and therapy. Archives of General Psychiatry ,10(6):561–571. Aaron T. Beck. 1979. Cognitive therapy and the emo-tional disorders . Penguin. Aaron T. Beck and Brad A. Alford. 2014. Depression: Causes and treatment . University of Pennsylvania Press. Judith S. Beck. 2020. Cognitive behavior therapy: Ba-sics and beyond . Guilford Publications. Yuanchen Bei, Weizhi Chen, Hao Chen, Sheng Zhou, Carl Yang, Jiapei Fan, Longtao Huang, and Jiajun Bu. 2025. Correlation-aware graph convolutional networks for multi-label node classification. In Pro-ceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining, Volume 1 ,pages 37–48. Association for Computing Machinery. David D. Burns. 1981. Feeling Good , volume 4. Signet Book, New York, NY, USA. Jianlyu Chen, Shitao Xiao, Peitian Zhang, Kun Luo, Defu Lian, and Zheng Liu. 2024a. M3-embedding: Multi-linguality, multi-functionality, multi-granularity text embeddings through self-knowledge distillation. In Findings of the Associa-tion for Computational Linguistics: ACL 2024 , pages 2318–2335. Zhikai Chen, Haifeng Mao, Hang Li, Wei Jin, Hengrui Wen, Xiaotian Wei, and Jiliang Tang. 2024b. Ex-ploring the potential of large language models (llms) in learning on graphs. ACM SIGKDD Explorations Newsletter , 25(2):42–61. Zhiyu Chen, Yujie Lu, and William Wang. 2023. Em-powering psychotherapy with large language mod-els: Cognitive distortion detection through diagnosis of thought prompting. In Findings of the Associa-tion for Computational Linguistics: EMNLP 2023 ,pages 4295–4304, Singapore. Association for Com-putational Linguistics. Gheorghe Comanici, Eric Bieber, Mike Schaekermann, Ice Pasupat, Noveen Sachdeva, Inderjit Dhillon, Mar-cel Blistein, Ori Ram, Dan Zhang, Evan Rosen, Luke Marris, Sam Petulla, Colin Gaffney, Asaf Aharoni, Nathan Lintz, Tiago Cardal Pais, Henrik Jacobs-son, Idan Szpektor, Nan-Jiang Jiang, and 3405 oth-ers. 2025. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities. Preprint ,arXiv:2507.06261. Alexis Conneau, Kartikay Khandelwal, Naman Goyal, Vishrav Chaudhary, Guillaume Wenzek, Francisco Guzmán, Edouard Grave, Myle Ott, Luke Zettle-moyer, and Veselin Stoyanov. 2020. Unsupervised cross-lingual representation learning at scale. In Pro-ceedings of the 58th Annual Meeting of the Asso-ciation for Computational Linguistics , pages 8440– 8451. Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. Bert: Pre-training of deep bidirectional transformers for language understand-ing. In Proceedings of the 2019 Conference of the North American Chapter of the Association for Com-putational Linguistics: Human Language Technolo-gies, Volume 1 (Long and Short Papers) , pages 4171– 4186. 
+
+10 Xiruo Ding, Kevin Lybarger, Justin Tauscher, and Trevor Cohen. 2022. Improving classification of infrequent cognitive distortions: Domain-specific model vs. data augmentation. In Proceedings of the 2022 Confer-ence of the North American Chapter of the Associ-ation for Computational Linguistics: Human Lan-guage Technologies: Student Research Workshop ,pages 68–75, Hybrid: Seattle, Washington + Online. Association for Computational Linguistics. David J. A. Dozois and Aaron T. Beck. 2008. Cognitive schemas, beliefs and assumptions. In Keith S. Dob-son and David J. A. Dozois, editors, Risk Factors in Depression , pages 119–143. Elsevier, San Diego. Alvan R. Feinstein and Domenic V. Cicchetti. 1990. High agreement but low kappa: I. the problems of two paradoxes. Journal of Clinical Epidemiology ,43(6):543–549. Gemma Team. 2026. Gemma 4 technical report. 
+
+Preprint , arXiv:2607.02770. Stefan G. Hofmann, Anu Asnaani, Imke J. J. Vonk, Al-ice T. Sawyer, and Angela Fang. 2012. The effi-cacy of cognitive behavioral therapy: A review of meta-analyses. Cognitive Therapy and Research ,36(5):427–440. Shaoxiong Ji, Tianlin Zhang, Luna Ansari, Jie Fu, Prayag Tiwari, and Erik Cambria. 2022. Mental-BERT: Publicly available pretrained language models for mental healthcare. In Proceedings of the Thir-teenth Language Resources and Evaluation Confer-ence , pages 7184–7190, Marseille, France. European Language Resources Association. Jun Seo Kim and Hye Hyeon Kim. 2025. Koacd: The first korean adolescent dataset for cognitive distor-tion analysis via role-switching multi-llm negotiation. In Findings of the Association for Computational Linguistics: EMNLP 2025 , pages 22050–22078. Jun Seo Kim, Hyemi Kim, Woo Joo OH, Hongjin Cho, Hochul Lee, and Hye Hyeon Kim. 2026. Multi-view attention multiple-instance learning enhanced by LLM reasoning for cognitive distortion detection. In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 36505–36525, San Diego, Cali-fornia, United States. Association for Computational Linguistics. Thomas N. Kipf and Max Welling. 2017. Semi-supervised classification with graph convolutional networks. In Proceedings of the 5th International Conference on Learning Representations . OpenRe-view.net. Takeshi Kojima, Shixiang Shane Gu, Machel Reid, Yu-taka Matsuo, and Yusuke Iwasawa. 2022. Large lan-guage models are zero-shot reasoners. In Advances in Neural Information Processing Systems , volume 35, pages 22199–22213. Suyeon Lee, Jieun Kang, Harim Kim, Kyoung-Mee Chung, Dongha Lee, and Jinyoung Yeo. 2024. CO-COA: CBT-based conversational counseling agent using memory specialized in cognitive distortions and dynamic prompt. Preprint , arXiv:2402.17546. Irene Li, Aosong Feng, Hao Wu, Tianxiao Li, Toyotaro Suzumura, and Ruihai Dong. 2022. LiGCN: Label-interpretable graph convolutional networks for multi-label text classification. In Proceedings of the 2nd Workshop on Deep Learning on Graphs for Natu-ral Language Processing (DLG4NLP 2022) , pages 60–70, Seattle, Washington. Association for Compu-tational Linguistics. Sehee Lim, Yejin Kim, Chi-Hyun Choi, Jy-yong Sohn, and Byung-Hoon Kim. 2024. Erd: A framework for improving llm reasoning for cognitive distortion classification. In Proceedings of the 6th Clinical Natural Language Processing Workshop , pages 292– 300. Yuxiao Lin, Yuxian Meng, Xiaofei Sun, Qinghong Han, Kun Kuang, Jiwei Li, and Fei Wu. 2021. BertGCN: Transductive text classification by combining GNN and BERT. In Findings of the Association for Compu-tational Linguistics: ACL-IJCNLP 2021 , pages 1456– 1462, Online. Association for Computational Linguis-tics. Kevin Lybarger, Justin Tauscher, Xiruo Ding, Dror Ben-zeev, and Trevor Cohen. 2022. Identifying distorted thinking in patient-therapist text message exchanges by leveraging dynamic multi-turn context. In Pro-ceedings of the Eighth Workshop on Computational Linguistics and Clinical Psychology , pages 126–136, Seattle, USA. Association for Computational Lin-guistics. Qianwen Ma, Chunyuan Yuan, Wei Zhou, and Songlin Hu. 2021. Label-specific dual graph neural network for multi-label text classification. In Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers) , pages 3855–3864. Mai Mostafa, Alia El Bolock, and Slim Abdennadher. 2021. Automatic detection and classification of cog-nitive distortions in journaling text. In Proceedings of the 17th International Conference on Web Infor-mation Systems and Technologies (WEBIST) , pages 444–452. SciTePress. Deniz Nazarova. 2023. Application of artificial intelli-gence in mental healthcare: Generative pre-trained transformer 3 (GPT-3) and cognitive distortions. In Proceedings of the Future Technologies Confer-ence (FTC) 2023, Volume 1 , pages 204–219, Cham. Springer Nature Switzerland. OpenAI. 2024. Gpt-4o mini: advancing cost-efficient intelligence. OpenAI. 2026. Introducing GPT-5.4 mini and nano. 
+
+11 Hongzhi Qi, Nan Bai, Jianqiang Li, Wei Zhai, Qing Zhao, Qi Gao, Bing Xiang Yang, and Guanghui Fu. 2025a. Generalizable cross-lingual cognitive distortion detection with standardized annotations and multi-task learning. In Findings of the Associa-tion for Computational Linguistics: ACL 2025 , pages 16041–16051, Vienna, Austria. Association for Com-putational Linguistics. Hongzhi Qi, Guangsheng Fu, Jie Li, Cheng Song, Wen-jie Zhai, Dong Luo, and Qing Zhao. 2025b. Super-vised learning and large language model benchmarks on mental health datasets: Cognitive distortions and suicidal risks in chinese social media. Bioengineer-ing , 12(8):882. Qwen Team. 2026a. Qwen3.5: Towards native multi-modal agents. Qwen Team. 2026b. Qwen3.6-27B: Flagship-level cod-ing in a 27B dense model. Lina M. Rojas-Barahona, Bo-Hsiang Tseng, Yinpei Dai, Clare Mansfield, Osman Ramadan, Stefan Ultes, Michael Crawford, and Milica Gaši´ c. 2018. Deep learning for language understanding of mental health concepts derived from cognitive behavioural ther-apy. In Proceedings of the Ninth International Work-shop on Health Text Mining and Information Analy-sis , pages 44–54, Brussels, Belgium. Association for Computational Linguistics. Archie Sage, Jeroen Keppens, and Helen Yan-nakoudakis. 2025. A survey of cognitive distortion detection and classification in NLP. In Findings of the Association for Computational Linguistics: EMNLP 2025 , pages 14884–14899. Ashish Sharma, Kevin Rushton, Inna Lin, David Wad-den, Khendra Lucas, Adam Miner, Theresa Nguyen, and Tim Althoff. 2023. Cognitive reframing of nega-tive thoughts through human-language model inter-action. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Vol-ume 1: Long Papers) , pages 9977–10000, Toronto, Canada. Association for Computational Linguistics. Benjamin Shickel, Scott Siegel, Martin Heesacker, Sherry Benton, and Parisa Rashidi. 2020. Automatic detection and classification of cognitive distortions in mental health text. In 2020 IEEE 20th International Conference on Bioinformatics and Bioengineering (BIBE) , pages 275–280. IEEE. Sagarika Shreevastava and Peter Foltz. 2021. Detecting cognitive distortions from patient-therapist interac-tions. In Proceedings of the Seventh Workshop on Computational Linguistics and Clinical Psychology: Improving Access , pages 151–158. Taetem Simms, Clayton Ramstedt, Megan Rich, Michael Richards, Tony R. Martinez, and Christophe G. Giraud-Carrier. 2017. Detect-ing cognitive distortions through machine learning text analytics. In 2017 IEEE International Con-ference on Healthcare Informatics (ICHI) , pages 508–512. Gopendra Vikram Singh, Sai Vardhan Vemulapalli, Mauajama Firdaus, and Asif Ekbal. 2024. Deci-phering cognitive distortions in patient-doctor mental health conversations: A multimodal LLM-based de-tection and reasoning framework. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , pages 22546–22570, Miami, Florida, USA. Association for Computational Linguistics. Team GLM, Aohan Zeng, Bin Xu, Bowen Wang, Chen-hui Zhang, Da Yin, Dan Zhang, Diego Rojas, Guanyu Feng, Hanlin Zhao, Hanyu Lai, Hao Yu, Hongn-ing Wang, Jiadai Sun, Jiajie Zhang, Jiale Cheng, Jiayi Gui, Jie Tang, Jing Zhang, and 39 others. 2024. ChatGLM: A family of large language mod-els from GLM-130B to GLM-4 all tools. Preprint ,arXiv:2406.12793. Petar Veliˇ ckovi´ c, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Liò, and Yoshua Ben-gio. 2018. Graph attention networks. Preprint ,arXiv:1710.10903. Huy-The Vu, Minh-Tri Nguyen, Van-Cuong Nguyen, Minh-Hieu Pham, Van-Quang Nguyen, and Van-Hieu Nguyen. 2023. Label-representative graph convo-lutional network for multi-label text classification. 
+
+Applied Intelligence , 53(12):14759–14774. Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Brian Ichter, Fei Xia, Ed Chi, Quoc V. Le, and Denny Zhou. 2022. Chain-of-thought prompt-ing elicits reasoning in large language models. In 
+
+Advances in Neural Information Processing Systems ,volume 35, pages 24824–24837. Katja Wiemer-Hastings, Adrian S. Janit, Peter M. Wiemer-Hastings, Steve Cromer, and Jennifer Kinser. 2004. Automatic classification of dysfunctional thoughts: A feasibility test. Behavior Research Meth-ods, Instruments, & Computers , 36(2):203–212. World Health Organization. 2022. World mental health report: Transforming mental health for all. World Health Organization. 2025. World mental health today: latest data. License: CC BY-NC-SA 3.0 IGO. Zhenchang Xing, Xuejiao Zhao, and Chunyan Miao. 2017. Identifying cognitive distortion by convolu-tional neural network based text classification. Inter-national Journal of Information Technology , 23(1):1– 12. Kailai Yang, Shaoxiong Ji, Tianlin Zhang, Qianqian Xie, Ziyan Kuang, and Sophia Ananiadou. 2023. To-wards interpretable mental health analysis with large language models. In Proceedings of the 2023 Con-ference on Empirical Methods in Natural Language Processing , pages 6056–6077, Singapore. Associa-tion for Computational Linguistics. Liang Yao, Chengsheng Mao, and Yuan Luo. 2019. Graph convolutional networks for text classification. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 33, pages 7370–7377. 
+
+12 Hyperparameter Value                 
+
+> Hidden dimension 128 GAT layers 1GAT attention heads 4TI attention heads 8Graph neighborhood size K10 Dropout 0.2 Learning rate 1×10 −3
+> Optimizer AdamW Weight decay 1×10 −4
+> Early stopping patience 30 Maximum epochs 100
+
+Table 10: Final hyperparameter settings for MTI-GNN. 
+
+A Implementation and Hyperparameter Details 
+
+A.1 Supervised Model Settings 
+
+Supervised experiments were conducted on a ma-chine equipped with an AMD Ryzen 9 7900X pro-cessor and an NVIDIA GeForce RTX 4080 SUPER GPU. The implementation uses PyTorch 2.6.0 with CUDA 12.6 and PyTorch Geometric 2.7.0. Table 10 summarizes the final MTI-GNN config-uration selected based on validation Weighted-F1. The graph neighborhood size was set to K = 10 
+
+following the homophily and validation analyses described in Appendix B. The selected configura-tion was fixed across all random seeds, supervised baselines, and ablation experiments. 
+
+A.2 LLM Generation Settings 
+
+Closed-source models, including GPT-4o-mini, GPT-5.4-mini, and Claude Sonnet 5, were accessed through their respective APIs. Open-weight models, including Qwen3.5-9B, Qwen3.6-27B, Gemma-4-31B, GLM-4-9B, and GLM-4-32B, were evaluated locally on NVIDIA H200 GPUs using the Trans-formers library. Table 11 summarizes the temperature settings used for cognitive triad extraction, prompting-based generative-model evaluation, and LLM-based extraction assessment. A temperature of 0.7 is used for triad extraction to allow flexible refor-mulation of cognitively relevant information while instructing the model to return none when a per-spective is unsupported by the utterance. Tempera-ture is set to 0.0 for zero-shot and few-shot classi-fication to minimize decoding variance, and to 0.1 for stable extraction-quality scoring. The extracted cognitive triad representations were cached and reused across all supervised and     
+
+> Task Temperature
+> Cognitive triad extraction 0.7 Zero-/few-shot classification 0.0 Triad extraction evaluation 0.1
+
+Table 11: Temperature settings for LLM-based extrac-tion, classification, and evaluation.                                 
+
+> KSelf World Future Average
+> 50.3016 0.2139 0.1906 0.2353 70.2965 0.2119 0.1852 0.2312 10 0.2911 0.2078 0.1824 0.2271 15 0.2846 0.2012 0.1789 0.2216 20 0.2799 0.1978 0.1760 0.2179 30 0.2716 0.1917 0.1732 0.2122 50 0.2623 0.1849 0.1680 0.2051
+
+Table 12: Edge homophily across candidate neighbor-hood sizes K.
+
+prompting-based experiments to ensure consistent inputs across model comparisons. Detailed extrac-tion, classification, and evaluation prompts are pro-vided in Appendix E. 
+
+B Neighborhood Size Selection for Graph Construction 
+
+We select the graph neighborhood size K
+
+through homophily analysis followed by validation-based evaluation. For each candidate 
+
+K ∈ { 5, 7, 10 , 15 , 20 , 30 , 50 }, we construct the perspective-specific graphs on the training set and compute edge homophily, defined as the proportion of directed edges whose endpoints share the same primary distortion label. As shown in Table 12, homophily decreases monotonically as K increases across all three cog-nitive perspectives. Although smaller values yield more label-consistent neighborhoods, they also pro-duce sparser connectivity and restrict information propagation. We therefore retain K ∈ { 5, 7, 10 }
+
+as validation candidates and select K = 10 , which achieves the highest validation Weighted-F1 among them. 
+
+C Cognitive Distortion Co-occurrence Analysis 
+
+To examine how distortion categories appear to-gether, we compute a co-occurrence matrix from the 1,073 multi-label samples in the aggregated dataset. For each sample, all annotated labels are 13 Figure 3: Co-occurrence matrix of cognitive distortion labels in the multi-label portion of the aggregated dataset. Darker cells indicate higher co-occurrence frequency. 
+
+considered, and pairwise counts are accumulated across samples. Figure 3 shows several notable co-occurrence patterns, particularly among Jumping to Con-clusions, Labeling, Magnification, Mental Fil-ter, and Overgeneralization. Frequent pairs in-clude Jumping to Conclusions–Labeling, Labeling– Magnification, and Jumping to Conclusions– Overgeneralization, suggesting that these distor-tions often appear together within the same utter-ance. By contrast, Discounting the Positive and Should Statements show relatively limited co-occurrence with other categories, indicating that they more of-ten appear in isolation. Overall, this analysis high-lights the structured nature of multi-label cognitive distortion data and motivates future modeling ap-proaches that explicitly account for co-occurring distortions. 
+
+D Dataset Details and Label Taxonomy 
+
+D.1 Source Dataset Descriptions TherapistQA. TherapistQA contains patient– therapist question–answer interactions distributed through Kaggle. Under the original annotation pro-tocol, each utterance receives one primary distor-tion label and, when applicable, one additional la-bel (Shreevastava and Foltz, 2021). 
+
+SocialCD-3K. SocialCD-3K contains Chinese social media posts collected from Sina Weibo and manually annotated according to Burns’s cogni-tive distortion framework. Multiple labels may be assigned to a single post (Qi et al., 2025b). 
+
+KoACD. The Korean Adolescent Cognitive Dis-tortion (KoACD) dataset contains synthetic coun-seling utterances reconstructed from adolescent counseling posts on NAVER Knowledge iN. Labels were generated and validated through a multi-LLM 14 negotiation framework, with one distortion label assigned to each utterance (Kim and Kim, 2025). 
+
+Cognitive Reframing Dataset. The Cognitive Reframing Dataset contains situation–negative thought pairs derived from the Thought Records Dataset and the Mental Health America platform, together with reframing responses written by do-main experts. We map its distortion annotations to the unified taxonomy described in Section 3.2. Most instances contain multiple labels (Sharma et al., 2023). 
+
+D.2 Standardized Cognitive Distortion Taxonomy 
+
+Table 13 presents the ten cognitive distortion cate-gories used in this study, together with concise def-initions and illustrative examples. The taxonomy is grounded in established cognitive behavioral ther-apy frameworks (Beck, 1979; Burns, 1981). Se-mantically overlapping source labels are mapped to common categories according to their theoretical definitions, as described in Section 3.2. 
+
+D.3 Original Label Distributions 
+
+Table 14 summarizes the original label distributions of the four source datasets before standardization. Labels that could not be reliably aligned with the unified taxonomy or provided insufficient cross-dataset comparability were excluded from the final experiments, as described in Section 3.2. 
+
+E Prompt Templates 
+
+Table 15 presents the prompt used for cognitive triad extraction. Given an input utterance, GPT-4o-mini is instructed to extract the self, world, and future perspectives according to Beck’s cognitive triad framework and return the result in a struc-tured JSON format. If a particular dimension is not present in the text, the model is instructed to return “none” rather than inferring unsupported content. Table 16 presents the prompt used to evaluate the quality of triad extraction. Gemini 2.5 Flash is em-ployed as an independent judge to assess whether each extracted perspective accurately reflects the corresponding cognitive triad dimension. Each di-mension is rated on a 1–5 scale, and the appropriate-ness of None assignments is evaluated separately. Tables 17 and 18 present the zero-shot and few-shot prompts used for the generative-model classi-fication baselines, respectively. Both prompts pro-vide the model with definitions of all ten cognitive distortion categories. The few-shot prompt addi-tionally includes representative examples for each category to guide classification. In both settings, only the original utterance is provided as input, without any cognitive triad information. 15 Label Definition Illustrative Example 
+
+All-or-Nothing Thinking Viewing situations in absolute, binary terms without recognizing intermediate possibilities. “I missed one question, so I completely failed the exam.” Overgeneralization Drawing a broad conclusion from a single event and expecting the same pattern to recur. “I struggled in one presentation, so I will always fail in public.” Mental Filter Focusing selectively on negative details while disregarding positive evidence. “Everyone praised my work, but I can think only about one minor criticism.” Discounting the Positive Dismissing positive experiences or achievements as insignificant, accidental, or undeserved. “The promotion was just luck; it does not mean I did well.” Jumping to Conclusions Drawing negative conclusions without sufficient evidence, including mind reading and fortune telling. “My manager was quiet, so they must be angry with me.” Magnification Exaggerating the importance or consequences of problems, mistakes, or weaknesses. “One typo will ruin everyone’s trust in me.” Emotional Reasoning Treating an emotional state as evidence that a belief or prediction is true. “I feel anxious, so I know I will fail.” Should Statements Imposing rigid expectations about how oneself, others, or the world must behave. “I should never feel nervous.” Labeling Defining oneself or others globally based on an isolated behavior or mistake. “I missed a deadline, so I am a failure.” Personalization Assuming excessive responsibility for events that are not fully under one’s control. “My child had a conflict at school, so it must be entirely my fault.” 
+
+Table 13: Standardized cognitive distortion categories with concise definitions and author-written illustrative examples. 
+
+Original Label TherapistQA SocialCD-3K KoACD CR Dataset Total 
+
+All-or-Nothing Thinking 100 77 464 99 740 Overgeneralization 239 141 452 107 939 Mental Filter (Negative Filtering) 122 378 470 – 970 Discounting the Positive (Disqualifying the Positive) – 27 451 40 518 Jumping to Conclusions 382 773 431 149 1,735 Magnification (Magnification and Minimization) 195 321 432 83 1,031 Emotional Reasoning 134 16 458 43 651 Should Statements 107 84 415 22 628 Labeling (Labeling and Mislabeling) 165 1,961 478 102 2,706 Personalization (Personalizing) 153 215 459 98 925 No Distortion (None) 933 – – 19 952 Negative Feeling or Emotion – – – 151 151 Blaming Oneself – 188 – – 188 Blaming Others – 27 – – 27 Blaming – – – 34 34 Comparing and Despairing – – – 12 12 
+
+Total 2,530 3,993 4,510 959 11,992 
+
+Table 14: Original Label Distribution Across Datasets 
+
+16 Cognitive Triad Extraction 
+
+You are a clinical psychology expert specializing in Cognitive Behavioral Therapy (CBT). Your task is to extract Beck’s Cognitive Triad elements from a distorted thought statement. Beck’s Cognitive Triad consists of three components: 1. Self: Negative views about oneself. This includes feeling inadequate, incompetent, unworthy, unlovable, or blaming oneself. Also includes doubting one’s own abilities or feeling like a burden. Even mild self-criticism or self-doubt counts. 2. World: Negative views about the world, others, or one’s environment. This includes perceiving others as judgmental, unsupportive, unfair, hostile, or indifferent. Also includes feeling misunderstood, excluded, or that relationships are difficult. Any negative reference to other people or social situations counts. 3. Future: Negative views about the future or what will happen. This includes expecting bad outcomes, anticipating failure, worrying that things won’t improve, fearing consequences, or feeling hopeless. Even short-term negative predictions count (e.g., "I will fail this exam", "They will judge me"). Output format (strict JSON only, no markdown, no explanation): "self": "extracted expression or none", "world": "extracted expression or none", "future": "extracted expression or none" 
+
+Table 15: Prompt for Cognitive Triad Extraction. 
+
+Cognitive Triad Extraction Quality Evaluation 
+
+You are an expert in Cognitive Behavioral Therapy (CBT) and Beck’s cognitive triad theory. Your task is to evaluate whether the extracted cognitive triad elements correctly represent the cognitive triad dimensions from the original text. Beck’s cognitive triad consists of: Self: Negative beliefs or perceptions about oneself (e.g., "I am worthless", "I am a failure") World: Negative interpretations of ongoing experiences and the environment (e.g., "The world is unfair", "Nobody cares about me") Future: Negative expectations about the future (e.g., "Things will never get better", "I have no hope") Evaluate the cognitive triad extraction for the following text. Original text: {original} Extracted cognitive triad: - Self: {self} - World: {world} - Future: {future} Rate each dimension on a scale of 1–5: 1: Completely wrong or irrelevant 2: Mostly incorrect 3: Partially correct 4: Mostly correct 5: Perfectly correct Also rate none_appropriateness (1–5): whether None values are appropriately assigned when the dimension is not present in the text. 1: None is wrongly assigned when content exists 5: None is appropriately assigned only when truly absent Respond with ONLY this JSON format. Do not include any other text, explanation, or markdown: {"self_score": <1-5>, "world_score": <1-5>, "future_score": <1-5>, "none_appropriateness": <1-5>, "overall_score": <1-5>, "reasoning": "<one sentence explanation>" }
+
+Table 16: Prompt for Cognitive Triad Extraction Quality Evaluation. 
+
+17 Cognitive Distortion Classification (Zero-shot) 
+
+You are a clinical psychologist expert in CBT. Classify the given statement into exactly ONE of these 10 cognitive distortion categories. 1. All-or-Nothing Thinking: A black-and-white style of thinking where situations are viewed as either completely perfect or total failures, with no middle ground. 2. Discounting the Positive: Brushing off genuine achievements or good experiences as meaningless or accidental, as though they don’t truly count. 3. Emotional Reasoning: Treating your emotional state as direct evidence of reality, assuming that what you feel must be an accurate reflection of the facts. 4. Jumping to Conclusions: Forming a negative interpretation of a situation without any concrete evidence, either by assuming what others are thinking or by predicting a bad outcome in advance. 5. Labeling: Attaching a fixed, sweeping negative identity to yourself or others based on a single action or mistake, rather than addressing the specific behavior. 6. Magnification: Blowing your flaws and mistakes out of proportion while simultaneously downplaying your strengths and accomplishments. 7. Mental Filter: Zeroing in on a single negative detail while filtering out all positive aspects, which distorts your overall perception of a situation. 8. Overgeneralization: Drawing a broad, sweeping conclusion from a single negative event, assuming it will repeat endlessly in the future. 9. Personalization: Taking excessive personal responsibility for events outside your control, or conversely, deflecting your own role in a problem onto others or external circumstances. 10. Should Statements: Holding rigid internal rules about how you, others, or the world must behave, and feeling guilt or frustration whenever reality falls short of those standards. Respond with ONLY the exact category name. No explanation. Statement: {cognitive_distortion} Cognitive Distortion: 
+
+Table 17: Zero-shot Prompt for Cognitive Distortion Classification 
+
+18 Cognitive Distortion Classification (Few-shot) 
+
+You are a clinical psychologist expert in CBT. Classify the given statement into exactly ONE of these 10 cognitive distortion categories. 1. All-or-Nothing Thinking: A black-and-white style of thinking where situations are viewed as either completely perfect or total failures, with no middle ground. 2. Discounting the Positive: Brushing off genuine achievements or good experiences as meaningless or accidental, as though they don’t truly count. 3. Emotional Reasoning: Treating your emotional state as direct evidence of reality, assuming that what you feel must be an accurate reflection of the facts. 4. Jumping to Conclusions: Forming a negative interpretation of a situation without any concrete evidence, either by assuming what others are thinking or by predicting a bad outcome in advance. 5. Labeling: Attaching a fixed, sweeping negative identity to yourself or others based on a single action or mistake, rather than addressing the specific behavior. 6. Magnification: Blowing your flaws and mistakes out of proportion while simultaneously downplaying your strengths and accomplishments. 7. Mental Filter: Zeroing in on a single negative detail while filtering out all positive aspects, which distorts your overall perception of a situation. 8. Overgeneralization: Drawing a broad, sweeping conclusion from a single negative event, assuming it will repeat endlessly in the future. 9. Personalization: Taking excessive personal responsibility for events outside your control, or conversely, deflecting your own role in a problem onto others or external circumstances. 10. Should Statements: Holding rigid internal rules about how you, others, or the world must behave, and feeling guilt or frustration whenever reality falls short of those standards. Examples: [All-or-Nothing Thinking] - After missing one question on an exam, you think "I completely bombed this — the whole test is ruined" [Discounting the Positive] - After earning a promotion, you think "It was just luck — anyone in my position would have gotten the same result" [Emotional Reasoning] - "I feel so anxious just thinking about the presentation — that must mean I’m going to fail completely" [Jumping to Conclusions] - Your manager stays quiet during a meeting, and you immediately conclude "They must be furious with me" — without any confirmation [Labeling] - After forgetting a deadline, you tell yourself "I’m a complete failure" - After a colleague makes an error, you write them off as "totally incompetent" [Magnification] - A single typo in a report leads you to think "This is a catastrophic mistake — everyone will lose trust in me," while months of solid work go unacknowledged in your mind [Mental Filter] - Your colleagues broadly praise your work, but one person raises a minor critique — and that one comment is all you can think about for days [Overgeneralization] - After stumbling through one presentation, you tell yourself "I always mess up in front of people — I’ll never be able to do this right" [Personalization] - When your child gets into a conflict at school, you immediately think "This is entirely my fault — I must be a bad parent," without considering other contributing factors [Should Statements] - "I should never get nervous." - "She ought to know better than to treat me that way" — leading to self-blame or resentment when expectations aren’t met Respond with ONLY the exact category name. No explanation. Statement: {cognitive_distortion} Cognitive Distortion: 
+
+Table 18: Few-shot Prompt for Cognitive Distortion Classification 
+
+19 F Human Expert Evaluation Form 
+
+Expert Evaluation Form for Cognitive Triad Extraction 
+
+Hello. Thank you very much for participating in this study. This task evaluates whether the self, world, and future perspectives automatically extracted from each utterance accurately reflect Beck’s cognitive triad. The evaluation file contains the original utterance and the corresponding extracted perspectives. 
+
+Cognitive Triad Dimensions Self: Negative beliefs or perceptions about oneself, such as “I am worthless.” 
+
+World: Negative interpretations of other people, experiences, or the surrounding environment, such as “Nobody cares about me.” 
+
+Future: Negative expectations about future outcomes, such as “Things will never get better.” 
+
+Evaluation Criteria 
+
+For each utterance, assign a score from 1 to 5 to the extracted self, world, and future perspectives. When a perspective is marked as none , evaluate whether that dimension is genuinely absent from the original utterance. 5 points: Completely accurate, or the none assignment is fully appropriate. 4 points: Mostly accurate, with only minor omissions or imprecision. 3 points: Partially accurate, but some important information is missing or ambiguous. 2 points: Mostly inaccurate or confused with another cognitive dimension. 1 point: Completely inaccurate or irrelevant, or the none assignment clearly omits an expressed dimension. 
+
+Additional Guidance 
+
+Evaluate semantic meaning rather than exact wording. Do not penalize an extraction when the original wording is changed but the underlying negative cognition is accurately preserved. Some utterances may overlap across multiple dimensions; in such cases, do not penalize a reasonable assignment to the dimension carrying the primary meaning. Some utterances may contain references to suicidal ideation, self-harm, or other emotionally sensitive experiences. If you experience discomfort or emotional distress, you may take a break, stop the evaluation, or request a schedule adjustment at any time. 
+
+Response Fields 
+
+For each utterance, record only three integer scores: self_score , world_score , and future_score , each ranging from 1 to 5. If you have any questions about the criteria or evaluation materials, please contact the research team. Thank you. 
+
+Table 19: Human expert evaluation form for cognitive triad extraction. 
+
+20
