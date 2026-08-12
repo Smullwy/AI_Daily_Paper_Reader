@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-13</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-13 04:56 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -15,7 +15,6 @@
 <p>精读：《Recurrent Neural Networks Beyond Time: Learning from Multiple Ordered Projections》（8.0/10）</p>
 <p>速读：《Sheaf-Based Federated Representation Learning》（7.0/10）, 《More Accurate, Less Human: Gestalt Grouping in Vision Models》（7.0/10）, 《ProtoGIB-Workload: Learning Workload-Specific Neural Topology Prototypes across Subjects》（7.0/10）</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/13/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -114,3 +113,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>

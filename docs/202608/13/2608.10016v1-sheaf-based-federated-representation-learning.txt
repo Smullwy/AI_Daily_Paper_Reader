@@ -1,0 +1,2011 @@
+Title: Sheaf-Based Federated Representation Learning
+
+URL Source: https://arxiv.org/pdf/2608.10016v1
+
+Published Time: Wed, 12 Aug 2026 00:03:50 GMT
+
+Number of Pages: 31
+
+Markdown Content:
+# SHEAF -B ASED FEDERATED REPRESENTATION 
+
+# LEARNING 
+
+Gabriele D’Acunto ∗ Enrico Grimaldi ∗ Valeria Avino Mario Edoardo Pandolfo Leonardo Di Nino Sergio Barbarossa Paolo Di Lorenzo 
+
+# ABSTRACT 
+
+Heterogeneous federated systems require agents to learn and exchange informa-tive representations despite differences in data distributions, sensing modalities, model architectures, latent dimensionalities, and local learning objectives. To address this challenge, we propose Sheaf-based Federated Representation Learn-ing (SFRL), a general framework that jointly optimizes local objectives with a manifold-constrained geometric alignment regularizer based on learnable sheaf re-striction maps. Unlike most existing approaches, SFRL does not assume a shared global latent space. Instead, global consistency emerges from the alignment of neighboring latent representations through orthogonal transformations and iso-metric embeddings. This alignment is enforced by a quadratic gluing regularizer induced by the sheaf Laplacian, whose learnable restriction maps adapt the ge-ometry to the observed data. The penalty is evaluated on a small set of shared pilot samples, ensuring scalability and communication efficiency. We develop a decentralized algorithm for solving SFRL, termed Sheaf-FRL, which alternates be-tween gradient updates of the local models and closed-form Procrustes updates of the edge-wise restriction maps. We further establish convergence of Sheaf-FRL to first-order stationary points in both deterministic and stochastic settings. As an ap-plication, we consider a cooperative classification task in the context of semantic communication, under model and data heterogeneity. Our results show that Sheaf-FRL outperforms baseline approaches in terms of local and post-communication classification accuracy across different levels of local distribution shift and ex-hibits greater robustness to latent-space dimensionality compression. 
+
+# 1 INTRODUCTION 
+
+Modern machine learning systems increasingly operate in decentralized and heterogeneous environ-ments, where data, models, sensing modalities, and computational resources are distributed across multiple agents, devices, or institutions. In this context, we adopt the term agent to denote any physical or artificial entity performing a task in an environment. Privacy constraints, regulatory requirements, and communication limitations often prevent centralized data aggregation, motivat-ing federated learning (FL), where agents optimize local models on private data while exchanging limited information rather than raw samples (Kairouz et al., 2021). A central challenge in such systems is that agents may learn representations that are useful locally but incompatible across the network. Existing FL methods commonly rely on parameter averaging, global regularization, or shared encoders, and therefore implicitly assume that features learned by different agents are directly comparable (McMahan et al., 2017; Scardapane & Di Lorenzo, 2017; Li et al., 2020b; Karimireddy et al., 2020; Collins et al., 2021; Li et al., 2021; Dong & Voiculescu, 2021). This assumption can fail when agents differ in their data distributions, sensing modalities, architectures, latent dimensions, or local objectives. Independently trained encoders may produce 
+
+> *
+
+These authors contributed equally. All authors are with Sapienza University of Rome, Italy. Correspon-dence to: gabriele.dacunto@uniroma1.it and enrico.grimaldi@uniroma1.it .
+
+1arXiv:2608.10016v1 [cs.LG] 8 Aug 2026 representations that encode equivalent task-relevant information while differing by rotations, reflec-tions, or more general isometric embeddings. Such ambiguity reflects the inherent gauge freedom of representation learning objectives, whereby equivalent solutions may differ by transformations that preserve geometric structure (Wang & Isola, 2020). Consequently, forcing all agents into a single shared latent space can be unnecessarily restrictive and may degrade local representation quality or hinder knowledge transfer. These observations motivate semantic alignment : rather than requiring agents to adopt identical latent coordinates, one should learn how their local representation spaces are related. This per-spective is supported by recent work on relative representations, which shows that independently learned latent spaces can support zero-shot communication when their relational structure is pre-served (Moschella et al., 2023). Semantic alignment can support heterogeneous federated represen-tation learning across supervised, semi-supervised, and self-supervised settings, as well as coopera-tive tasks in which agents exploit representations received from their neighbors. For example, it is relevant to multimodal sensing, collaborative robotics, distributed channel charting, transfer across heterogeneous models, and task-aware semantic communication, where latent information generated by one agent must remain useful to another despite differences in their internal representations. A natural mathematical framework for these settings is a cellular sheaf on graph, hereafter referred to as a network sheaf (Curry, 2014). A network sheaf associates a local vector space with each node and linear restriction maps with graph edges, thereby encoding how information in neighboring spaces should be compared or transported. Recent work in graph signal processing and graph neural networks has shown that sheaf-based models can represent vector-valued data coupled through local consistency constraints (Hansen & Ghrist, 2019; Di Nino et al., 2024; 2026; Bodnar et al., 2022; Barbero et al., 2022). This provides a natural abstraction for federated representation learning: each agent maintains its own latent space, while learnable edge-wise maps encode the geometric relations required to align representations across neighboring agents. Global consistency then emerges from local compatibility relations, rather than from a shared latent space. 
+
+Contributions. We propose a sheaf-based framework for federated representation learning that enables semantic alignment across heterogeneous agents without requiring a shared latent space. Specifically, (i) we formulate federated representation learning over a learnable network sheaf, where agent-specific latent spaces are related through edge-wise geometric transport maps; (ii) we introduce a quadratic gluing penalty induced by a learnable sheaf Laplacian, evaluated on a small set of reference representations, hereinafter pilots , to promote alignment while limiting commu-nication; (iii) we employ orthogonal and Stiefel restriction maps to capture rotations, reflections, and isometric embeddings across latent spaces of possibly different dimensions; (iv) we develop a fully decentralized alternating algorithm, termed Sheaf-FRL, that combines local gradient updates with closed-form Procrustes updates of the transport maps, and establish convergence to first-order stationary points in deterministic and stochastic settings; and (v) we demonstrate that Sheaf-FRL improves over baseline approaches in learning and representation transfer for collaborative super-vised classification in semantic communication, under model and data heterogeneity. The code implementing the proposed method and reproducing all the experiments is publicly available. 1
+
+# 2 RELATED WORK 
+
+In this section, we review the most relevant literature on federated learning, representation learning, and geometric alignment, and position our work with respect to these directions. 
+
+Federated learning under heterogeneity. Federated learning (FL) trains a shared model through repeated local stochastic gradient updates followed by either server-side aggregation (McMahan et al., 2017) or neighbor-based combination over a communication graph (Scardapane & Di Lorenzo, 2017). A large body of work studies the impact of statistical and system heterogeneity, which can lead to client drift and unstable convergence, and proposes stabilizing mechanisms such as proximal regularization (FedProx) (Li et al., 2020b) and control variates (SCAFFOLD) (Karimireddy et al., 2020). More broadly, these approaches aim to improve optimization stability while maintaining a 
+
+single global model . In contrast, we focus on settings where enforcing a shared latent representation is inherently restrictive. 
+
+> 1https://github.com/SPAICOM/sheaf-based-federated-representation-learning.git
+
+2Federated multi-task learning. Federated multi-task learning (FMTL) extends FL by training client-specific models while exploiting relationships across tasks or clients (Smith et al., 2017). Early formulations build upon regularized multi-task learning objectives, where task relationships are captured through shared covariance or relational structures (Evgeniou & Pontil, 2004; Evgeniou et al., 2005; Jacob et al., 2008; Zhang & Yeung, 2010; Zhang & Yang, 2017). In the federated setting, this leads to approaches that jointly optimize local models and their coupling structure via alternat-ing or primal-dual procedures (Smith et al., 2017; Jaggi et al., 2014; Ma et al., 2015). A prominent class of methods leverages graph-based regularization, where a predefined or learned graph encodes similarities among clients and enforces smoothness of model parameters across the network. In particular, Laplacian-based approaches penalize discrepancies between neighboring models through total variation terms (Dinh et al., 2022; Issaid et al., 2025). While these methods capture task re-latedness, they operate in the parameter space and typically assume homogeneous representations. In contrast, our approach operates in the representation space and models relationships between clients up to learnable transformations, enabling alignment across heterogeneous latent spaces and accommodating different architectures or dimensions. 
+
+Multimodal Federated Learning. Multimodal Federated Learning (MFL) (Che et al., 2023) ex-tends classical FL to settings where clients possess data from multiple modalities (e.g., text, images, signals), enabling richer representations while preserving privacy. Existing MFL approaches are typ-ically categorized based on data heterogeneity into congruent (shared modalities and feature spaces) and incongruent settings, the latter including vertical, transfer, and hybrid scenarios with partially overlapping or distinct modalities. In general, MFL optimizes a global objective by aggregating client-specific multimodal losses, often defined as weighted combinations of modality-wise contri-butions. However, most methods assume a shared latent space and rely on centralized or weakly decentralized protocols. Recent graph-based approaches such as CoMFed (Badi et al., 2026) ad-dress heterogeneity by aligning compressed latent prototypes across clients, but still require a prede-fined common embedding space and enforce similarity via projections. In contrast, our sheaf-based framework does not assume a global latent space; instead, it enables decentralized learning in which each client maintains its own representation, and cross-client consistency is enforced through edge-dependent geometric alignments without information loss, naturally accommodating multimodal and heterogeneous settings. 
+
+Federated Representation Learning. Our problem formulation is closely related Federated Rep-resentation Learning (FRL), which aims to learn transferable representations across clients. In the supervised setting, existing approaches either enforce consistency via auxiliary losses on latent em-beddings (Li et al., 2021), typically assuming a shared global model, or adopt a split architecture with a common encoder and client-specific heads (Collins et al., 2021; McLaughlin & Su, 2024), still requiring a shared latent dimensionality. More recent methods based on prototype alignment (Tan et al., 2022; Tran et al., 2024) partially address heterogeneity but continue to rely on a common embedding space and often centralized training. In contrast, our framework allows each client to learn its own latent space and enforces consistency in a decentralized manner through structured transport maps, so that classical FRL methods can be interpreted as a special case in which all la-tent spaces share the same dimensionality and are constrained to coincide via identity alignments. Beyond supervised settings, unsupervised and self-supervised approaches operating on unlabeled data aim to improve representation transferability across clients, often leveraging contrastive learn-ing frameworks (Zhuang et al., 2021; Han et al., 2022; Zhang et al., 2023; Miao & Koyuncu, 2024; Ghalkha et al., 2026). Our proposed framework is not limited to any specific local loss or model architecture; thus, it is also amenable to the latter settings. 
+
+Representation alignment, synchronization, and manifold methods. Alignment up to orthogonal transformations arises naturally when representations are identifiable only up to rotations or reflec-tions, with the orthogonal Procrustes problem providing a classical closed-form solution (Sch¨ one-mann, 1966). We leverage this solution in a federated and decentralized setting, both under ho-mogeneous latent spaces (cf. App. D) and under stringent privacy constraints (cf. App. F). Related ideas arise in group synchronization and connection-Laplacian methods (Singer, 2011; Singer & Wu, 2012; Bandeira et al., 2013; Thunberg et al., 2017), which enforce consistency across pairwise trans-formations; unlike these approaches, where node signals and edge relations are given or observed, possibly with noise, we jointly learn latent representations at the nodes and alignment maps on the edges. To accommodate heterogeneous latent dimensions, we further consider semi-orthogonal maps on the Stiefel manifold, enabling isometric embeddings across representation spaces. This con-3Communication occurs among latent/abstract representations 
+
+> Local data
+> Output space
+> Local head
+> Local encoder
+> The gluing term penalizes the misalignment between latent representations:
+
+Network sheaf  
+
+> Rotation and
+> reflection Isometric
+> embedding
+> A single global representation is not assumed
+> Global representation may only emerge from the alignment of local representations over the network sheaf
+
+Figure 1: An illustration of our sheaf-based representation learning framework. In this example, we consider a supervised setting and equip local agents with task-specific heads. nects our formulation to optimization on matrix manifolds (Absil et al., 2008; Edelman et al., 1998) and federated optimization under manifold constraints (Li & Ma, 2022); however, these works fo-cus on optimizing model parameters subject to geometric constraints, rather than learning alignment maps as a component of representation learning. 
+
+Positioning of this paper. Overall, our framework generalizes across all paradigms discussed above, which differ mainly in what is assumed to be shared among agents—a single global model, a cou-pled set of parameters, a common multimodal embedding, or a shared latent space—rather than in the underlying goal of exploiting relatedness across agents. Indeed, methods introduced within one paradigm, such as prototype alignment in FRL or graph-based regularization in FMTL, are often applicable to the others as well. Rather than enforcing any of these forms of sharing, we learn edge-wise geometric transport maps that relate neighboring latent spaces and promote their semantic compatibility. In the homogeneous setting, our formulation recovers the single global model of classical FL as a limiting case, together with orthogonal alignment, synchronization, and connection-Laplacian models. More generally, it extends graph-based FMTL and Laplacian regu-larization through a learnable sheaf Laplacian acting on latent representations rather than model parameters. Additionally, it relaxes the shared, predefined embedding space assumed by MFL ap-proaches such as CoMFed, and recovers FRL methods as the special case in which all latent spaces coincide via identity alignments. Finally, pilot-restricted gluing enables communication-efficient alignment, while manifold-constrained transport maps admit decentralized optimization through lo-cal model updates and closed-form edge-wise Procrustes steps. 
+
+# 3 OUR SHEAF -BASED REPRESENTATION LEARNING FRAMEWORK 
+
+Fig. 1 illustrates the proposed sheaf-based representation learning framework. Let G = ( N , E)
+
+denote a finite undirected graph, where |N | = N is the number of nodes. Each node corresponds to an agent, while edges encode structural relationships among agents. For example, an edge (i, j ) ∈E may capture similarities in tasks, data distributions, modalities, or model architectures, thereby enabling beneficial cooperation between agents i and j through a physical communication channel. 
+
+Local agents. Each agent i ∈ N observes a local dataset Ti comprising Mi samples in Rpi , drawn from an underlying distribution Pi, as illustrated in Fig. 1. We denote the n-th sample by xni , with 
+
+n ∈ [Mi]. Depending on the local learning paradigm, Ti may additionally include labels, side information, paired observations, or locally generated views of the samples. Each agent learns a 4local representation model comprising a neural encoder 
+
+fφi : Rpi → F (i) , (1) where φi is the set of learnable parameters, and F(i) ∼= Rdi is the latent representation space of agent i. When required by the local task, the encoder is followed by a personalized head parametrized by ψi, i.e., 
+
+hψi : F(i) → Y i , (2) where Yi is an agent-dependent output space. We let θi denote the collection of local trainable parameters, including φi and, when present, ψi. Each agent i ∈ N aims at minimizing an arbitrary local learning objective Li(θi) based on the dataset Ti. For example, in the supervised setting, 
+
+Li(θi) = 1
+
+MiMiX
+
+> n=1
+
+ℓi(hψi ◦ fφi (xni )) . (3) Other choices naturally accommodate semi-supervised, unsupervised, or self-supervised learning. 
+
+Communication over the learnable latent network sheaf. To formalize the relationships, and thus the communication, among the latent representation spaces F(i) introduced above, we adopt the framework of network sheaves (Bredon, 1997; Curry, 2014). Intuitively, those F(i) spaces will be structured so as to encode consistency relations between the latent representations of neighboring agents. Specifically, a network sheaf F on G, valued in the category of finite-dimensional real vector spaces and linear maps, consists of the following assignments. To each node i ∈ N , it associates a 
+
+di-dimensional real vector space F(i), being the learnable latent representation space of agent i and referred to as node stalk . In this work we consider the general case where node stalks F(i), i ∈ N ,have different dimensionality di. For instance, in Fig. 1, the vector space F(i) is three-dimensional, while the vector space F(j) is two-dimensional. For each node stalk, the valuation corresponds to a latent embedding, e.g., those vectors zi = fφi (xi) and zj = fφj (xj ) in Fig. 1. The collection of latent representations across the network, viz. z = {zi}i∈N , forms a 0-cochain. Accordingly, the 0-cochain space is C0(G, F) = L 
+
+> i∈N
+
+F(i). Similarly, to each edge eij = ( i, j ) ∈ E , the network sheaf F assigns a dij -dimensional real vector space F(eij ), representing a shared space encoding pairwise compatibility between agents i and j. The latter space is called edge stalk . The 
+
+1-cochain is a collection y = {yeij }eij ∈E with yeij ∈ F (eij ), and the corresponding 1-cochain space is C1(G, F) = L  
+
+> eij ∈E
+
+F(eij ). Additionally, for each incidence relation i → eij , where i is a vertex of eij , F specifies a linear restriction map 
+
+Fi→eij : F(i) → F (eij ) ,
+
+which relates the local latent representation at node i to the corresponding edge space and enables the communication among latent spaces. In this work, we focus on learnable restriction maps suitable for dealing with the well-known geometric-invariance of latent representations (Moschella et al., 2023), and that preserve distances and angles. These maps are orthogonal transformations and Stiefel matrices, where the orthogonal and Stiefel manifolds are 
+
+O( d) := {O ∈ Rd×d | O⊤ = O−1} , and St( d, k ) := {V ∈ Rd×k | V⊤V = Ik, k < d } . (4) As we consider structured restriction maps that preserve the information but do not increase latent perturbations, for each edge eij = ( i, j ) ∈ E with di > d j , we set F(eij ) = F(i) ∼= Rdi , as illustrated in Fig. 1. This implies Fi→eij = Oji ∈ O( di) and Fj→eij = Vij ∈ St( di, d j ). Further discussion on the benefits of choosing the edge stalk dimensionality dij = max( di, d j ), as opposed to compressing, is provided in App. A. 
+
+Heterogeneous latent space geometry. In this setting, the encoders fφi are trained independently, on different data, and possibly with different architectures. Then, it is reasonable to expect the in-duced latent spaces F(i) to exhibit heterogeneous geometry, in the sense of different scales and anisotropies (Pandolfo et al., 2026; Svendsen et al., 2026). This may occur even when dimensional-ities di coincide. However, the above geometric restriction maps are effective for measuring incon-sistency only when the latent representations zi and zj adhere to a common geometric reference on the edge stalk. Thus, to make representations from distinct node stalks comparable once transported, each encoder is assumed to include a final whitening layer (Zhang et al., 2021) that approximately 5normalizes the latent representations to zero mean and identity covariance. This normalization re-duces the node-specific geometry to a common Euclidean reference. However, the geometry of F(i)
+
+is key to minimizing the local learning objective Li(θi). Hence, to let the local head exploit the local geometry, we equip the latter with an initial coloring layer that is assumed to perform the left inverse map of the normalization applied by the whitening layer of the encoder. 
+
+Centralized formulation under global alignment. The sheaf induces a coboundary operator ∆ :
+
+C0(G; F) → C1(G; F) defined edgewise as 
+
+(∆z )eij = Oji zi − Vij zj , eij = ( i, j ) ∈ E . (5) Equipping C0 and C1 with canonical Euclidean inner products ⟨z, z′⟩ = P 
+
+> i∈N
+
+z⊤ 
+
+> i
+
+z′ 
+
+> i
+
+and ⟨y, y′⟩ =
+
+P  
+
+> eij ∈E
+
+y⊤ 
+
+> eij
+
+y′ 
+
+> eij
+
+, the adjoint ∆⊤ is well defined. The associated network sheaf Laplacian is 
+
+LF = ∆⊤∆ , (6) which is symmetric positive semidefinite. A valuation z⋆ ∈ C0(G; F) belonging to ker( LF ) is said 
+
+global section and it can be thought of as an assignment of latent representations to the node stalks that does not break local rules. Indeed, from Eq. (6) it is clear that ∆z ⋆ = 0 which implies 
+
+Oji z⋆i = Vij z⋆j for each eij ∈ E ; (7) where z⋆i ∈ Rdi and z⋆j ∈ Rdj are the components of z⋆ at node i and j, respectively. Thus, a plausible strategy would be to constrain the learned latent representations across the network to be globally consistent with respect to the learned network sheaf F. For simplicity, assume the existence of a set of shared sample indices across agents, and let M ≤ min i∈N Mi be the number of such comparable samples. Then, according to the previous rationale we can pose the following centralized problem formulation 
+
+min     
+
+> {θi=( φi,ψi)}i∈N
+> {Oji ∈O( di),Vij ∈St( di,d j)}eij ∈E
+
+X
+
+> i∈N
+
+Li(θi)
+
+s.t. zn = {fφi (xni )}i∈N ∈ ker( LF ), ∀n ∈ [M ] ; 
+
+(8) where the network sheaf F is learned through its restriction maps under a known communication topology. However, the constraints in Prob. (8) might be too restrictive in practice. Enforcing exact compatibility across heterogeneous agents is generally unrealistic, and, moreover, satisfying the constraint for all samples would in principle require a centralized solution, as it couples all node representations simultaneously. This limitation motivates the need for a more flexible and decentralized formulation that can accommodate inconsistencies while still promoting coherence across agents. 
+
+# 4 TOWARDS A SCALABLE AND DECENTRALIZED FORMULATION 
+
+The discussed limitations of Prob. (8) in realistic settings motivate the introduction of a relaxed, distributed formulation. To obtain a tractable formulation suitable for distributed implementation, we replace the hard constraints in Prob. (8) with a soft penalty based on the sheaf total variation, which promotes geometric consistency across agents without enforcing exact agreement: 
+
+T V (z) := ∥∆z ∥22 = z⊤LF z = X 
+
+> eij ∈E
+
+∥Oji zi − Vij zj ∥22 . (9) From Eq. (7), it is easy to see that constraining the learned z to be a global section is equivalent to zeroing Eq. (9). Additional discussion on the geometric consistency promoted by the action of the restriction maps, as well as the use of the total variation penalty, is provided in App. A. 
+
+Semantic embedding and orientation. We can recast the local terms in Eq. (9) as 
+
+∥Oji zi − Vij zj ∥22(a)
+
+= ∥zi − Vij zj ∥22 ; (10) where in (a) we exploit the transitive action of the orthogonal group on the Stiefel manifold, thus re-parameterizing accordingly Vij = O⊤
+
+> ji
+
+Vij . Eq. (10) highlights that perfect alignment, and thus null 6total variation, corresponds to the case in which the higher-dimensional latent space is an isometric embedding of a lower-dimensional latent space. While in general this condition does not always hold (see the discussion in App. A on geometric consistency), the restriction maps in our work adheres to the semantic embedding principle (D’Acunto et al., 2025; 2026): informally, from a probabilistic perspective, the semantics of the lower-dimensional node stalk F(j) is preserved when embedded into the higher-dimensional F(i).Another distinguishing feature of our framework is that the restriction map reparameterization in Eq. (10) induces a natural orientation for G which we exploit in the sequel to reduce the communi-cation cost. Specifically, as exemplified in Fig. 1, we endow G with the embedding orientation , that is, from nodes with lower-dimensional latent spaces to those with higher-dimensional ones, accord-ingly to the direction in which semantics is preserved. Further details on the special case of latent representation spaces with homogeneous dimensionality are provided in App. A. 
+
+Incoming and outgoing embedding maps. By using Eq. (10), the total variation in Eq. (9) can be rewritten as 
+
+T V (z) = X 
+
+> eij ∈E
+
+∥zi − Vij zj ∥22 ; (11) where for the edge eij = ( i, j ), node i is the head and j the tail, in accordance with the relation 
+
+di > d j . Ties occurring when di = dj = d are instead broken arbitrarily: since in this case Vij =
+
+V⊤ 
+
+> ji
+
+∈ O( d), the edge contribution in Eq. (11) is invariant to the chosen orientation. Throughout, we therefore adopt the convention that for eij , the first index i is always the head. Now, exploiting the orientation fixed above, for each i ∈ N , we can distinguish between two sets of neighbors. Specifically, N (i)− collects the neighbors j for which i is the head, and N (i)+ those for which i is the tail, so that dj ≤ di on N (i)− and dj ≥ di on N (i)+, with equality holding only on tied edges. The overall neighborhood is thus N (i) = N (i)− ∪ N (i)+. Taking advantage of this distinction, starting from Eq. (11), we have 
+
+T V (z) = X
+
+> i∈N
+
+X 
+
+> j∈N (i)−
+
+∥zi − Vij zj ∥22
+
+= 12
+
+X
+
+> i∈N
+
+ X 
+
+> j∈N (i)−
+
+∥zi − Vij zj ∥22 + X 
+
+> j∈N (i)+
+
+∥zj − Vji zi∥22
+
+ ;
+
+(12) which highlights that the contribution of node i to the total variation is made of two terms with different geometric meanings: 
+
+T V (z)|i = 12
+
+X 
+
+> j∈N (i)−
+
+∥zi − Vij zj ∥22
+
+| {z }
+
+> Incoming Embedding
+
++ 12
+
+X 
+
+> j∈N (i)+
+
+∥zj − Vji zi∥22
+
+| {z }
+
+> Outgoing Embedding
+
+. (13) Leveraging Eq. (13), for each node i, the matrices Vij in the first term are referred to as the in-coming embedding maps, while the matrices Vji in the second term are referred to as the outgoing 
+
+embedding maps. As detailed in the sequel, the expression in Eq. (13) is useful for computing local updates and reducing the communication cost in our proposed decentralized algorithm. 
+
+Scalable gluing penalty and decentralized problem. For scalability and computational aspects, to enforce geometric consistency via the sheaf total variation, we only use a subset of reference samples chosen among those zni (pilots), for each i ∈ N . Let 
+
+A ⊂ { 1, . . . , M min }, |A| = K ≪ Mmin ,
+
+denote fixed pilot indices, where Mmin = min i Mi. For the sake of exposition, we assume the datasets {T i} are aligned. For each agent i, define the pilot feature matrix 
+
+Ai(φi) = 
+
+h
+
+fφi
+
+ xki
+
+ i
+
+> k∈A
+
+= zki
+
+ 
+
+> k∈A
+
+∈ Rdi×K . (14) Different strategies can be used to select the pilot set A, trading off semantic reliability, geometric coverage, and communication efficiency; we discuss several of such strategies in App. B. The usage 7of pilots also highlights that we enforce a weaker notion of alignment among latent spaces. In other words, while a global agreement may occur on these pilots, the local latent representations for the remaining samples may not, in principle, be perfectly alignable via the learned restriction maps. This is consistent with the discussion above, particularly with the fact that we neither assume nor aim for a single global latent representation. Now, exploiting Eq. (12) and introducing a penalty hyperparamer λ > 0, our considered gluing penalty decouples as 
+
+RA({φi}, {Vij }, {Vji }) = 
+
+> N
+
+X
+
+> i=1
+
+RA|i(φi, {Vij }, {Vji }) ; (15) where 
+
+RA|i(φi, {Vij }, {Vji }) = λi
+
+2K
+
+" X 
+
+> j∈N (i)−
+
+∥Ai(φi) − Vij Aj (φj )∥2F
+
++ X 
+
+> j∈N (i)+
+
+∥Aj (φj ) − Vji Ai(φi)∥2F
+
+#
+
+;
+
+(16) with λi = λ/d i and λ > 0. At this point, we are ready to pose the sheaf-based federated representa-tion learning problem. 
+
+Problem 1 (Sheaf-based Federated Representation Learning) . Given (i) an undirected graph G =(N , E) endowed with an orientation induced by semantic embeddings, (ii) a collection of N local training datasets {T i}i∈N drawn from unknown distributions Pi, and (iii) a set of reference pilot indices A, the goal of sheaf-based federated representation learning (SFRL) is to learn, for each node i, a local model θi = ( φi, ψi) together with incoming and outgoing embeddings {Vij ∈
+
+St( di, d j )}(i,j )∈E and {Vji ∈ St( dj , d i)}(j,i )∈E , respectively. These embedding matrices align the local latent space F(i), using reference pilots indexed by A, with those of the neighbors in N (i).This is achieved by solving in a decentralized manner 
+
+min    
+
+> {θi=( φi,ψi)}{Vij ∈St( di,d j)}{Vji ∈St( dj,d i)}
+
+X
+
+> i∈N
+
+Li(θi) + RA(φi, {Vij }, {Vji }) ; (SFRL) 
+
+while preserving agents’ privacy and reducing communication costs over the network. 
+
+Prob. (SFRL) is a regularized nonconvex optimization problem, which couples smooth local neu-ral parameters optimization with manifold-constrained edge transports. It can be interpreted as a scalable decentralized relaxation of the centralized Prob. (8). 
+
+# 5 THE SHEAF -FRL A LGORITHM 
+
+We solve Prob. (SFRL) in a decentralized manner, by adopting an alternating minimization strategy. The latter consists of the following two updates. 5.1 STEP 1: I SOMETRIC EMBEDDING UPDATE 
+
+Recall that N (i) ⊆ N \ { i} denotes the set of neighbors of node i, which splits into N (i)− and 
+
+N (i)+, collecting the neighbors j for which i is the head and the tail, respectively. Given the neural parameters {θti = ( φti, ψti )} updated at communication round t, each node i ∈ N updates its alignment map with its neighbors j ∈ N (i). Let 
+
+Ati = Ai
+
+ φti
+
+ =
+
+h
+
+fφti
+
+ xki
+
+ i
+
+> k∈A
+
+denote the pilot feature matrix at communication round t. Since the local gluing penalty in Eq. (16) separates over the oriented edges, each node i can update its alignment maps by solving local prob-lems involving only its neighbors j ∈ N (i). In particular, for each eij ∈ E , where i is the head 8and j the tail, node i optimizes the corresponding incoming and outgoing embedding maps associ-ated with its neighborhood. This leads to two symmetric alignment problems corresponding to the incoming and outgoing embedding terms. Specifically, we consider 
+
+Vtij = arg min   
+
+> Vij ∈St( di,d j)
+
+Ati − Vij Atj 
+
+> 2F
+
+, ∀ j ∈ N (i)− , (P2a) 
+
+Vtji = arg min  
+
+> Vji ∈St( dj,d i)
+
+Atj − Vji Ati 
+
+> 2F
+
+, ∀ j ∈ N (i)+ . (P2b) The objective of Prob. (P2a) (and analogously of (P2b)) can be recast as: 
+
+Ati − Vij Atj 
+
+> 2F
+
+= tr 
+
+n
+
+AtiAt⊤
+
+> i
+
+o
+
++ tr 
+
+n
+
+Atj At⊤
+
+> j
+
+o
+
+− 2 tr 
+
+n
+
+AtiAt⊤ 
+
+> j
+
+V⊤
+
+> ij
+
+o
+
+. (17) Minimizing Eq. (17) thus corresponds to maximizing the third term. Denoting by UΣW ⊤ the thin SVD of the cross-covariance term AtiAt⊤ 
+
+> j
+
+, the solution to (P2a) is given by 
+
+Vtij = UW ⊤ , where U ∈ St( di, d j ) and W ∈ O( dj ) . (18) Similarly, the solution to (P2b) is obtained from the thin SVD of Atj At⊤ 
+
+> i
+
+. For each node i ∈ N , the updates in Eq. (18) are computed locally once its neighbors j ∈ N (i) share their feature evaluations 
+
+{Atj }. Importantly, the orientation is exploited by i to distinguish the edges for which it acts as the head, in which case the incoming embedding map Vtij must be computed via (P2a), from those for which it acts as the tail, where the outgoing embedding map Vtji is updated via (P2b). 
+
+Remark 1. In the homogeneous case, as well as on tied edges of the heterogeneous setting, 
+
+St( di, d j ) coincides with O( d) and Probs. (P2a) –(P2b) reduce to canonical orthogonal Procrustes problems; accordingly, the thin SVD reduces to the full SVD, so that tied edges require no separate treatment. The solutions are attained in closed form by setting Otij = UW ⊤ and Otji = Ot⊤ 
+
+> ij
+
+,where the factors are obtained from the classical SVD of the cross-covariance matrix AtiAt⊤ 
+
+> j
+
+. Con-ditions ensuring identifiability of the transport maps, both in the homogeneous and heterogeneous settings, are discussed in App. C. 
+
+5.2 STEP 2: G RADIENT UPDATE OF NEURAL PARAMETERS 
+
+In Prob. (SFRL), each agent i updates its local parameters θi through a gradient step that mini-mizes the global objective with respect to θi, while keeping the neighboring parameters {θtj }j∈N (i)
+
+fixed at the current iteration. The regularization term, instead, depends exclusively on the encoder parameters φi. Therefore, starting from Eq. (16), for each agent i ∈ N we obtain 
+
+∇φi RA|i = λi
+
+K
+
+" X 
+
+> j∈N (i)−
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ 
+
+fφi
+
+ xki
+
+ − Vij fφj
+
+ xkj
+
+
+
+− X 
+
+> j∈N (i)+
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ V⊤
+
+> ji
+
+
+
+fφj
+
+ xkj
+
+ − Vji fφi
+
+ xki
+
+ #
+
+> (a)
+
+= λi
+
+K
+
+X 
+
+> j∈N (i)
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ 
+
+fφi
+
+ xki
+
+ − Vij fφj
+
+ xkj
+
+
+
+;
+
+(19) where ∇φi fφi (xki ) ∈ R|φi|× di denotes the Jacobian of the feature map fφi with respect to the parameter vector φi, evaluated at zki ; and in (a), for j ∈ N (i)+, we used that Vij = V⊤ 
+
+> ji
+
+and 
+
+Vij Vji = Idi , which follow from the orthonormality of the columns of Vji ∈ St( dj , d i). This shows that both incoming and outgoing contributions admit a unified expression. Furthermore, let 
+
+ri =
+
+∇φi RA|i
+
+0|ψi|
+
+
+
+(20) be the contribution of the sheaf-based regularization to the gradient of the local neural parameters 
+
+θi. Then, for each agent i ∈ N , the neural parameters are updated locally via 
+
+θt+1  
+
+> i
+
+= θti − ηθ
+
+ ∇θi Li(θi) + rti
+
+ , (21) 9where ηθ > 0 is the stepsize, and rti is the gradient term in (20) evaluated at time t.Gradient computations in (21) are fully decentralized. Specifically, each agent i can evaluate the gra-dient with respect to its local parameters θi using only locally available information together with the pilots’ latent representations {Atj }j∈N (i) received from its neighboring agents. Since these pilot representations are already exchanged during Step 1 to update the restriction maps, no additional communication is required to evaluate the regularization gradient in (19). The resulting decentral-ized algorithm, termed Sheaf-FRL , is summarized in Appendix D for both the heterogeneous and homogeneous settings. A detailed convergence analysis, covering both deterministic and stochas-tic settings, is presented in Appendix E. Finally, the proposed framework naturally accommodates accelerated first-order methods: momentum-based and adaptive schemes, such as Nesterov acceler-ation or Adam, can be directly incorporated into the local parameter updates (21) without affecting the decentralized structure of the algorithm. 
+
+Remark 2 (Communication cost) . At each iteration, every node i broadcasts its pilot feature matrix 
+
+Ati ∈ Rdi×K to its neighbors in N (i), transmitting O(diK) scalar values. Therefore, the overall communication volume per iteration scales as O P  
+
+> i∈N
+
+diK. Importantly, only pilot representa-tions are exchanged, while model parameters remain local. 
+
+Remark 3 (Privacy) . In some settings, sharing latent representations may raise privacy concerns, as they can be vulnerable to reconstruction and inference attacks, including model inversion (Fredrik-son et al., 2015), membership inference (Shokri et al., 2017), and attribute inference (Melis et al., 2019). This can be mitigated in our framework by exchanging only representations transformed via the restriction maps, thus avoiding direct exposure of local latent vectors. Nevertheless, the cost to pay to enforce strict privacy requirements is additional local computation and higher communica-tion cost. The trade-off between privacy, communication, and local computational cost is discussed in App. F. 
+
+Remark 4 (Local computational cost of restriction maps update) . In principle, the number of align-ment updates could be halved, since for each edge eij the isometric embedding is only required at the lower-dimensional node. However, this would require each node i to transmit its transformed embedded representations Vji Ati, whose dimension is at least di, in order to evaluate Eq. (19) .This would increase the communication cost. To preserve communication efficiency (cf. Prob. 1), we instead exchange the raw pilot features Ati and let both endpoints compute the corresponding restriction maps locally. This design shifts the burden from communication to computation, which is well aligned with the increasing computational capabilities of modern edge devices. In the homo-geneous case, where di = d for all i ∈ N , this trade-off can be further improved. In this setting, sharing transported representations Oji Ati does not increase communication, and the number of SVD computations can be halved, as detailed in App. D and Alg. 2. 
+
+# 6 COLLABORATIVE SUPERVISED CLASSIFICATION WITH SEMANTIC COMMUNICATION 
+
+As an application, we test our proposed Sheaf-FRL algorithm in a collaborative and decentralized classification task in the setting of semantic communication, where agents exchange compressed latent representations of data (G¨ und¨ uz et al., 2022; Barbarossa et al., 2023; Strinati et al., 2024; Pandolfo et al., 2025; Grimaldi et al., 2025). Each agent minimizes a local cross-entropy loss 
+
+Li(θi) := CE( θi), while the representation alignment across agents is promoted via the sheaf regu-larization term. At a high level, the goal for the agents is to improve their classification accuracy on both (i) their private local latent representations, and (ii) the latent representations received by their corresponding neighboring agents j ∈ N (i). Accordingly, as customary in this application setting, we monitor average private and average communication accuracies . Denote by T test  
+
+> i
+
+the test set for 10 agent i consisting of M test  
+
+> i
+
+pairs {(xtest ,n i , y test ,n i )}n∈M test  
+
+> i
+
+. Then, 
+
+Apriv  
+
+> i
+
+= 1
+
+M test  
+
+> iMtest
+> i
+
+X
+
+> n=1
+
+1[arg max  
+
+> c∈Y
+
+[hψi ◦ fφi (xtest ,n i )] c = ytest ,n i ]
+
+Acomm  
+
+> i
+
+= 1
+
+|N (i)|
+
+X 
+
+> j∈N (i)−
+
+1
+
+M test  
+
+> jMtest
+> j
+
+X
+
+> n=1
+
+1[arg max  
+
+> c∈Y
+
+[hψi ◦ Vij ◦ fφj (xtest ,n j )] c = ytest ,n j ]+ 
+
+X 
+
+> j∈N (i)+
+
+1
+
+M test  
+
+> jMtest
+> j
+
+X
+
+> n=1
+
+1[arg max  
+
+> c∈Y
+
+[hψi ◦ V⊤ 
+
+> ji
+
+◦ fφj (xtest ,n j )] c = ytest ,n j ]
+
+!
+
+.
+
+(22) 
+
+Model heterogeneity. We consider N = 15 agents, each consisting of (i) a CNN local encoder and 
+
+(ii) an MLP local decoder. This choice of qualitative architectural similarity is driven by the task homogeneity of the application setting. Heterogeneity across models is enforced by varying archi-tectural characteristics (encoder and decoder widths) and the dropout hyper-parameter (cf. Tab. 2). 
+
+Data heterogeneity. We use MNIST as a global dataset T with label space Y = {0, . . . , 9}. We first set aside a global pilot set A, a uniformly sampled 10% subset of T , held out before any agent-level partitioning; A is shared, unmodified, across all agents and used exclusively to align/communicate their representations. The remaining 90% is partitioned disjointly across the N agents to create heterogeneity: each agent i has a target class set Ci ⊂ Y , and its local label distribution is a convex combination of two uniform distributions, the first over its target classes and the second over all classes, viz. 
+
+Pi(y) := s Unif {C i} + (1 − s) Unif {Y} , ∀i ∈ [N ] ; (23) where s ∈ [0 , 1] is the distribution-shift strength. Samples of each class are split across agents in proportion to {Pi(y)}Ni=1 . Each agent’s local pool is then split 80% /10% /10% into train/val/test, preserving its label skew across all three splits. 
+
+Network topology. Agents communicate over an undirected, unweighted graph G := ( N , E), with density level 40% , built to be connected and to reflect the degree of class overlap across agents, as described below. Each agent i ∈ [N ] is assigned to a distinct node, so that |N | = N . The edge set E is constructed from the target-class sets {C i}i∈[N ] as follows. For every pair (i, j ), let 
+
+wij := |C i ∩ C j | denote the number of target classes shared by agents i and j, collected into the weight vector w. These weights define the fully-connected, weighted graph eG := ( N , eE, w), with 
+
+eE := {(i, j ) ∈ [N ] × [N ] | i̸ = j}. We then extract the maximum-weight spanning tree ˆG := (N , ˆE, ˆw) from eG, and initialize E with the (unweighted) edges of ˆE, which guarantees connectivity. We next add edges from eE \ ˆE, in decreasing order of weight, until the target 40% density is reached. Finally, each edge is assigned an orientation, consistent with the orientation rule in Sec. 4. 
+
+Baselines. This heterogeneous setup precludes direct comparison with classical federated methods based on model or submodel averaging (Scardapane & Di Lorenzo, 2017; Diao et al., 2021; Li et al., 2020a), or shared representations (Tan et al., 2022; Setayesh et al., 2026; Collins et al., 2021; Liang et al., 2020). Indeed, these methods assume homogeneous architectures or shared latent spaces. We therefore compare against methods explicitly designed for heterogeneous settings, namely ComFed 
+
+(Badi et al., 2026) and Sheaf-FMTL (Issaid et al., 2025). We also consider a non-cooperative baseline in which models are trained independently and their latent spaces are aligned only after training, providing a natural lower bound. All baselines use the same communication network topology as Sheaf-FRL. Except for ComFed, which learns alignment maps during training, all baselines require post-hoc alignment to enable semantic communication. Specifically, for each edge (i, j ) we solve (P2a) and (P2b) in closed-form via Eq. (18), fitting isometric maps between whitened latent spaces using the same pilot sets as in Sheaf-FRL. In our experiments, the whitening for these baselines is pursued through classical zero-phase component analysis (Kessy et al., 2018) fitted on the latent representations from the private training set, independently for each agent. 
+
+Results. Fig. 2 shows the metrics in Eq. (22) against the distribution-shift parameter s, which controls the level of data heterogeneity according to Eq. (23). Overall, Sheaf-FRL consistently 11 0.5 0.6 0.7 0.8 0.9    
+
+> Distribution shift strength
+> 0.960 0.965 0.970 0.975
+> Avg. private accuracy
+> Method
+> Non-cooperative ComFed Sheaf-FMTL Sheaf-FRL
+> 0.50.60.70.80.9
+> Distribution shift strength
+> 0.20.40.60.81.0
+> Avg. communication accuracy
+
+Figure 2: Average private accuracy (left) and average communication accuracy (right) against the distribution-shift strength s, for the collaborative supervised classification task with 15 agents. Mark-ers denote the simple average across agents for the private accuracy, and the degree-weighted average for the communication accuracy, to account for the imbalance in the agents’ degree distribution. outperforms all baselines on both metrics. Looking at the average communication accuracy, the performance gap widens as s increases, suggesting that our framework is more effective at learning latent spaces that are (i) well aligned across agents, thus enhancing transferability, and (ii) more rel-evant to the downstream task, thus being semantically meaningful. Point (ii) is further supported by the average private accuracy, where Sheaf-FRL still compares favorably with the baselines, although the margin is less pronounced. Among the baselines, ComFed performs poorly in terms of average communication accuracy, while being comparable to the others in private accuracy. This suggests that the joint learning of general, unstructured alignment maps and compressed representations of a single shared latent space is not well suited for transferability. Sheaf-FMTL, in turn, shows no consistent improvement in communication accuracy over the non-cooperative baseline. This stems from a limitation in how it parameterizes the restriction maps: since Sheaf-FMTL connects parame-ter spaces rather than latent representation spaces, it inherits their much higher dimensionality. The resulting memory overhead requires applying a high compression factor to the edge stalks, which negatively affects the diffusion of information across the network (Appendix G for further details). 6.1 ROBUSTNESS TO SEMANTIC COMPRESSION 
+
+An important feature in semantic communication is robustness to latent-space compression (G¨ und¨ uz et al., 2022; Barbarossa et al., 2023). This can be understood as the ability of methods to extract semantically meaningful information to be communicated. To investigate this aspect, we restrict our focus to two agents, say i and j, connected by an edge (i, j ), and set the level of distribution shift to s = 0 .7. Then, we monitor the two metrics in Eq. (22) across different bottleneck dimensions. Specifically, although the overall architectures of i and j are different (Appendix G for further de-tails), they share the same latent space dimensionality, d = di = dj . Consequently, in this case, we can include among the baselines those methods suitable for heterogeneous architectures sharing the same latent space dimensionality. Specifically, we consider the FedProto (Tan et al., 2022) and 
+
+FedMuscle (Setayesh et al., 2026) methods, although their communication protocols are centralized and therefore not directly applicable to a decentralized setting. 
+
+Results. Fig. 3 shows the results for all the considered methods. Overall, Sheaf-FRL achieves a bet-ter trade-off between average classification accuracy (private and communication) and bottleneck dimensionality than the baselines, with the performance gap increasing as the bottleneck dimension decreases, i.e., in the high-compression regime. As expected, all methods suffer as the compres-sion increases; however, the performance of Sheaf-FRL degrades much more gracefully. Notably, it preserves high accuracy even at a bottleneck dimension of 16 , where we approach the minimum number of dimensions required by the network to discriminate the 10 MNIST classes. With respect to the baselines, their performance is comparable to that of the non-cooperative method, occasionally showing even lower communication accuracy despite employing the same post-training alignment strategy. The results confirm the poor transferability of the representations learned under these col-12 16 32 64 128 256 512 
+
+> Bottleneck dimension
+> 0.70 0.75 0.80 0.85 0.90 0.95 1.00
+> Avg. private accuracy
+> Method
+> Non-cooperative ComFed Sheaf-FMTL Sheaf-FRL FedProto FedMuscle
+> 16 32 64 128 256 512
+> Bottleneck dimension
+> 0.00.20.40.60.81.0
+> Avg. communication accuracy
+
+Figure 3: Average private accuracy (left) and average communication accuracy (right) against the bottleneck dimension at distribution-shift strength s = 0 .7, for the robustness-to-compression case study. Markers denote the simple average across the two agents. laboration schemes: an agent’s latent space is not readily reusable by another, regardless of whether a post-training alignment pipeline is applied. Moreover, in terms of average communication accu-racy, ComFed achieves the lowest performance among the considered methods despite its learnable alignment maps, consistent with the results in Fig. 2. 
+
+# 7 CONCLUSIONS AND FUTURE WORK 
+
+We introduced Sheaf-based Federated Representation Learning , a framework that enables semantic alignment among heterogeneous agents without imposing a shared global latent space. By model-ing agent-specific representations as sections of a learnable network sheaf and enforcing consistency through a quadratic gluing penalty induced by the sheaf Laplacian, SFRL accommodates differences in data distributions, sensing modalities, architectures, and latent dimensionalities, while remaining compatible with supervised, semi-supervised, and self-supervised learning paradigms. We devel-oped Sheaf-FRL, a fully decentralized alternating algorithm that couples local gradient updates with closed-form Procrustes updates of the edge-wise restriction maps, and established its convergence to first-order stationary points in both deterministic and stochastic settings. Applied to a coopera-tive classification task in semantic communication under model and data heterogeneity, Sheaf-FRL outperformed existing baselines in terms of local and post-communication classification accuracy across different levels of distribution shift. Additionally, it proved to be more robust to latent-space compression. Notably, this is achieved while evaluating the gluing penalty on only a small set of shared pilots, keeping communication overhead low. These results support the sheaf-theoretic perspective as a principled and flexible foundation for representation alignment in heterogeneous federated systems. Future work includes extending the application of SFRL to multi-modal, semi-supervised, and self-supervised settings, as well as improving the efficiency of Sheaf-FRL from both an algorithmic and a communication-strategy perspective—for instance by replacing full pilot representations with prototype pilots—to further reduce communication cost. ACKNOWLEDGMENTS 
+
+The work was supported by the SNS JU project 6G-GOALS (Strinati et al., 2024) under the EU’s Horizon program Grant Agreement No 101139232, and by Huawei Technology France SASU under Grant N. Tg20250616041. 
+
+# REFERENCES 
+
+P.-A. Absil, Robert Mahony, and Rodolphe Sepulchre. Optimization Algorithms on Matrix Mani-folds . Princeton University Press, 2008. 13 Mohamed Badi, Chaouki Ben Issaid, and Mehdi Bennis. Communication-efficient and robust multi-modal federated learning via latent-space consensus. IEEE Wireless Communications Letters , pp. 1–1, 2026. doi: 10.1109/LWC.2026.3676885. Afonso S. Bandeira, Amit Singer, and Daniel A. Spielman. A Cheeger inequality for the graph connection Laplacian. SIAM Journal on Matrix Analysis and Applications , 34(4):1611–1630, 2013. doi: 10.1137/120875338. Sergio Barbarossa, Danilo Comminiello, Eleonora Grassucci, Francesco Pezone, Stefania Sardel-litti, and Paolo Di Lorenzo. Semantic communications based on adaptive generative models and information bottleneck. IEEE Communications Magazine , 61(11):36–41, 2023. Federico Barbero, Cristian Bodnar, Haitz S´ aez de Oc´ ariz Borde, Michael Bronstein, Petar Veliˇ ckovi´ c, and Pietro Li` o. Sheaf neural networks with connection Laplacians. In Topological, Algebraic and Geometric Learning Workshops 2022 , pp. 28–36. PMLR, 2022. Amir Beck. First-order methods in optimization . SIAM, 2017. Cristian Bodnar, Francesco Di Giovanni, Benjamin Paul Chamberlain, Pietro Li` o, and Michael M. Bronstein. Neural sheaf diffusion: A topological perspective on heterophily and oversmoothing in GNNs. In Advances in Neural Information Processing Systems (NeurIPS) , 2022. URL https: //dblp.org/rec/conf/nips/BodnarGCLB22 .Glen E Bredon. Sheaf theory , volume 170. Springer Science & Business Media, 1997. Liwei Che, Jiaqi Wang, Yao Zhou, and Fenglong Ma. Multimodal federated learning: A survey. 
+
+Sensors , 23(15):6986, 2023. Fan Chung, Wenbo Zhao, and Mark Kempton. Ranking and sparsifying a connection graph. Internet Mathematics , 10(1-2):87–115, 2014. Liam Collins, Hamed Hassani, Aryan Mokhtari, and Sanjay Shakkottai. Exploiting shared represen-tations for personalized federated learning. In Proceedings of the 38th International Conference on Machine Learning (ICML) , volume 139 of PMLR , 2021. Justin Michael Curry. Sheaves, cosheaves and applications . PhD thesis, University of Pennsylvania, 2014. Gabriele D’Acunto, Fabio Massimo Zennaro, Yorgos Felekis, and Paolo Di Lorenzo. Causal ab-straction learning based on the semantic embedding principle. In Forty-second International Conference on Machine Learning , 2025. URL https://openreview.net/forum?id= J16AIOkjjY .Gabriele D’Acunto, Paolo Di Lorenzo, and Sergio Barbarossa. Networks of causal abstractions: A sheaf-theoretic framework. arXiv preprint arXiv:2509.25236 , 2026. Leonardo Di Nino, Sergio Barbarossa, and Paolo Di Lorenzo. Learning sheaf Laplacian optimizing restriction maps. In 2024 58th Asilomar Conference on Signals, Systems, and Computers , pp. 59–63. IEEE, 2024. Leonardo Di Nino, Gabriele D’Acunto, Sergio Barbarossa, and Paolo Di Lorenzo. Learning the structure of connection graphs. In ICASSP 2026-2026 IEEE International Conference on Acous-tics, Speech and Signal Processing (ICASSP) , pp. 76–80. IEEE, 2026. Enmao Diao, Jie Ding, and Vahid Tarokh. HeteroFL: Computation and communication efficient federated learning for heterogeneous clients. In International Conference on Learning Represen-tations (ICLR) , 2021. Canh T Dinh, Tung T Vu, Nguyen H Tran, Minh N Dao, and Hongyu Zhang. A new look and con-vergence rate of federated multitask learning with Laplacian regularization. IEEE Transactions on Neural Networks and Learning Systems , 35(6):8075–8085, 2022. Nanqing Dong and Irina Voiculescu. Federated contrastive learning for decentralized unlabeled med-ical images. In International Conference on Medical Image Computing and Computer-Assisted Intervention , pp. 378–387. Springer, 2021. 14 Alan Edelman, Tom´ as A. Arias, and Steven T. Smith. The geometry of algorithms with orthogonality constraints. SIAM Journal on Matrix Analysis and Applications , 20(2):303–353, 1998. doi: 10. 1137/S0895479895290954. Theodoros Evgeniou and Massimiliano Pontil. Regularized multi–task learning. In Proceedings of the Tenth ACM SIGKDD International Conference on Knowledge Discovery and Data Mining ,pp. 109–117, 2004. Theodoros Evgeniou, Charles A Micchelli, Massimiliano Pontil, and John Shawe-Taylor. Learning multiple tasks with kernel methods. Journal of Machine Learning Research , 6(4), 2005. Simone Fiorellino, Claudio Battiloro, Emilio Calvanese Strinati, and Paolo Di Lorenzo. Dynamic relative representations for goal-oriented semantic communications. In Proc. IEEE EUSIPCO ,pp. 2107–2111, 2024. Simone Fiorellino, Claudio Battiloro, Emilio Calvanese Strinati, and Paolo Di Lorenzo. Frame-based zero-shot semantic channel equalization for AI-native communications. IEEE Transactions on Cognitive Communications and Networking , 2026. Matt Fredrikson, Somesh Jha, and Thomas Ristenpart. Model inversion attacks that exploit confi-dence information and basic countermeasures. In Proceedings of the 22nd ACM SIGSAC Confer-ence on Computer and Communications Security (CCS) , pp. 1322–1333, 2015. Abdulmomen Ghalkha, Zhuojun Tian, Chaouki Ben Issaid, and Mehdi Bennis. SheafAlign: A sheaf-theoretic framework for decentralized multimodal alignment. IEEE Communications Let-ters , 2026. Enrico Grimaldi, Mario Edoardo Pandolfo, Gabriele D’Acunto, Sergio Barbarossa, and Paolo Di Lorenzo. Learning network sheaves for AI-native semantic communication. In 2025 59th Asilomar Conference on Signals, Systems, and Computers , pp. 1692–1696. IEEE, 2025. Deniz G¨ und¨ uz, Zhijin Qin, Inaki Estella Aguerri, Harpreet S Dhillon, Zhaohui Yang, Aylin Yener, Kai Kit Wong, and Chan-Byoung Chae. Beyond transmitting bits: Context, semantics, and task-oriented communications. IEEE Journal on Selected Areas in Communications , 41(1):5–41, 2022. Sungwon Han, Sungwon Park, Fangzhao Wu, Sundong Kim, Chuhan Wu, Xing Xie, and Meeyoung Cha. Fedx: Unsupervised federated learning with cross knowledge distillation. In European Conference on Computer Vision , pp. 691–707. Springer, 2022. Jakob Hansen and Robert Ghrist. Toward a spectral theory of cellular sheaves. Journal of Applied and Computational Topology , 3(4):315–358, 2019. Tom´ as H¨ uttebr¨ aucker, Simone Fiorellino, Mohamed Sana, Paolo Di Lorenzo, and Emilio Cal-vanese Strinati. Relative representations of latent spaces enable efficient semantic channel equal-ization. In Proc. IEEE GLOBECOM , 2024. Chaouki Ben Issaid, Praneeth Vepakomma, and Mehdi Bennis. Tackling feature and sample het-erogeneity in decentralized multi-task learning: A sheaf-theoretic approach. Transactions on Machine Learning Research , 2025. ISSN 2835-8856. URL https://openreview.net/ forum?id=JlPq0LmApB .Laurent Jacob, Jean-Philippe Vert, and Francis Bach. Clustered multi-task learning: A convex formulation. Advances in Neural Information Processing Systems , 21, 2008. Martin Jaggi, Virginia Smith, Martin Tak´ aˇ c, Jonathan Terhorst, Sanjay Krishnan, Thomas Hofmann, and Michael I Jordan. Communication-efficient distributed dual coordinate ascent. Advances in Neural Information Processing Systems , 27, 2014. Peter Kairouz, Brendan H. Mcmahan, et al. Advances and Open Problems in Federated Learning ,volume 14 of Foundations and Trends® in Machine Learning . 2021. doi: 10.1561/2200000083. URL https://inria.hal.science/hal-02406503 .15 Sai Praneeth Karimireddy, Satyen Kale, Mehryar Mohri, Sashank Reddi, Sebastian Stich, and Ananda Theertha Suresh. SCAFFOLD: Stochastic controlled averaging for federated learning. In 
+
+Proceedings of the 37th International Conference on Machine Learning , PMLR, pp. 5132–5143, 2020. Agnan Kessy, Alex Lewin, and Korbinian Strimmer. Optimal whitening and decorrelation. The American Statistician , 72(4):309–314, 2018. Ang Li, Jingwei Sun, Binghui Wang, Lin Duan, Sicheng Li, Yiran Chen, and Hai Li. LotteryFL: Personalized and communication-efficient federated learning with lottery ticket hypothesis on non-iid datasets. arXiv preprint arXiv:2008.03371 , 2020a. Jiaxiang Li and Shiqian Ma. Federated learning on Riemannian manifolds. arXiv preprint arXiv:2206.05668 , 2022. Qinbin Li, Bingsheng He, and Dawn Song. Model-contrastive federated learning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2021. Tian Li, Anit Kumar Sahu, Manzil Zaheer, Maziar Sanjabi, Ameet Talwalkar, and Virginia Smith. Federated optimization in heterogeneous networks. In Proceedings of the Third Conference on Machine Learning and Systems (MLSys) , 2020b. Paul Pu Liang, Terrance Liu, Liu Ziyin, Nicholas B Allen, Randy P Auerbach, David Brent, Ruslan Salakhutdinov, and Louis-Philippe Morency. Think locally, act globally: Federated learning with local and global representations. arXiv preprint arXiv:2001.01523 , 2020. Chenxin Ma, Virginia Smith, Martin Jaggi, Michael Jordan, Peter Richt´ arik, and Martin Tak´ ac. Adding vs. averaging in distributed primal-dual optimization. In International Conference on Machine Learning , pp. 1973–1982. PMLR, 2015. Connor J McLaughlin and Lili Su. Personalized federated learning via feature distribution adapta-tion. Advances in Neural Information Processing Systems , 37:77038–77059, 2024. Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson, and Blaise Ag¨ uera y Arcas. Communication-efficient learning of deep networks from decentralized data. In Proceedings of the 20th International Conference on Artificial Intelligence and Statistics (AISTATS) , volume 54, pp. 1273–1282. PMLR, 2017. Luca Melis, Congzheng Song, Emiliano De Cristofaro, and Vitaly Shmatikov. Exploiting unintended feature leakage in collaborative learning. In IEEE Symposium on Security and Privacy (S&P) ,2019. Runxuan Miao and Erdem Koyuncu. Contrastive and non-contrastive strategies for federated self-supervised representation learning and deep clustering. IEEE Journal of Selected Topics in Signal Processing , 18(6):1070–1084, 2024. Luca Moschella, Valentino Maiorca, Marco Fumero, Antonio Norelli, Francesco Locatello, and Emanuele Rodol` a. Relative representations enable zero-shot latent space communication. In 
+
+The Eleventh International Conference on Learning Representations , 2023. URL https:// openreview.net/forum?id=SrC-nwieGJ .Yurii Nesterov. Introductory Lectures on Convex Optimization: A Basic Course , volume 87 of 
+
+Applied Optimization . Springer, 2004. Mario Edoardo Pandolfo, Simone Fiorellino, Emilio Calvanese Strinati, and Paolo Di Lorenzo. La-tent space alignment for AI-native mimo semantic communications. In 2025 International Joint Conference on Neural Networks (IJCNN) , pp. 1–8. IEEE, 2025. Mario Edoardo Pandolfo, Enrico Grimaldi, Lorenzo Marinucci, Leonardo Di Nino, Simone Fiorellino, Sergio Barbarossa, and Paolo Di Lorenzo. SEMASIA: A large-scale dataset of se-mantically structured latent representations. arXiv preprint arXiv:2605.09485 , 2026. Herbert Robbins and David Siegmund. A convergence theorem for non negative almost supermartin-gales and some applications. pp. 233–257. Academic Press, 1971. 16 Simone Scardapane and Paolo Di Lorenzo. A framework for parallel and distributed training of neural networks. Neural Networks , 91:42–54, 2017. Peter H. Sch¨ onemann. A generalized solution of the orthogonal Procrustes problem. Psychometrika ,31(1):1–10, 1966. Mehdi Setayesh, Mahdi Beitollahi, Yasser H. Khalil, and Hongliang Li. Toward enhancing rep-resentation learning in federated multi-task settings. In The Fourteenth International Confer-ence on Learning Representations , 2026. URL https://openreview.net/forum?id= nIOIfHHYzk .Reza Shokri, Marco Stronati, Congzheng Song, and Vitaly Shmatikov. Membership inference at-tacks against machine learning models. In IEEE Symposium on Security and Privacy (S&P) , pp. 3–18. IEEE, 2017. Amit Singer. Angular synchronization by eigenvectors and semidefinite programming. Applied and Computational Harmonic Analysis , 30(1):20–36, 2011. Amit Singer and H-T Wu. Vector diffusion maps and the connection Laplacian. Communications on Pure and Applied Mathematics , 65(8):1067–1144, 2012. Virginia Smith, Chao-Kai Chiang, Maziar Sanjabi, and Ameet S Talwalkar. Federated multi-task learning. Advances in Neural Information Processing Systems , 30, 2017. Emilio Calvanese Strinati, Paolo Di Lorenzo, et al. Goal-oriented and semantic communication in 6G AI-native networks: The 6G-GOALS approach. In Proceedings of EuCNC/6G Summit , pp. 1–6, 2024. doi: 10.1109/EuCNC/6GSummit60053.2024.10597087. Oscar Thorsted Svendsen, Nikolaj Holst Jakobsen, Fabian Mager, and Hiba Nassar. Improv-ing relative representations with learned anchors and whitened inner products. arXiv preprint arXiv:2605.30596 , 2026. Yue Tan, Guodong Long, Lu Liu, Tianyi Zhou, Qinghua Lu, Jing Jiang, and Chengqi Zhang. Fed-proto: Federated prototype learning across heterogeneous clients. In Proceedings of the AAAI Conference on Artificial Intelligence , 2022. Johan Thunberg, Florian Bernard, and Jorge Gonc ¸alves. Distributed methods for synchronization of orthogonal matrices over graphs. Automatica , 80:243–252, 2017. Trung-Kien Tran, Ha-Phuong Tran, Thi-Lan Le, and Thanh-Hai Tran. Fedntproto: A prototype-based approach for personalized federated learning. In 2024 International Conference on Multi-media Analysis and Pattern Recognition (MAPR) , pp. 1–6. IEEE, 2024. Tongzhou Wang and Phillip Isola. Understanding contrastive representation learning through align-ment and uniformity on the hypersphere. In International Conference on Machine Learning , pp. 9929–9939. PMLR, 2020. Fengda Zhang, Kun Kuang, Long Chen, Zhaoyang You, Tao Shen, Jun Xiao, Yin Zhang, Chao Wu, Fei Wu, Yueting Zhuang, and Xiaolin Li. Federated unsupervised representation learning. 
+
+Frontiers of Information Technology & Electronic Engineering , 24(8):1181–1193, 2023. Shengdong Zhang, Ehsan Nezhadarya, Homa Fashandi, Jiayi Liu, Darin Graham, and Mohak Shah. Stochastic whitening batch normalization. In Proceedings of the IEEE/CVF Conference on Com-puter Vision and Pattern Recognition , pp. 10978–10987, 2021. Yu Zhang and Qiang Yang. Learning sparse task relations in multi-task learning. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 31, 2017. Yu Zhang and Dit-Yan Yeung. A convex formulation for learning task relationships in multi-task learning. In Proceedings of the Twenty-Sixth Conference on Uncertainty in Artificial Intelligence ,pp. 733–742, 2010. Weiming Zhuang, Xin Gan, Yonggang Wen, Shuai Zhang, and Shuai Yi. Collaborative unsuper-vised visual representation learning from decentralized data. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pp. 4912–4921, 2021. 17 A ADDITIONAL DISCUSSION OF OUR FRAMEWORK 
+
+This section elaborates on two salient features of our proposed framework, namely the edge stalk dimensionality and the enforced geometric consistency. We also briefly discuss the homogeneous setting case where all node stalks have the same dimensionality. 
+
+Embedding vs. compression. Choosing the edge stalk dimensionality dij = max( di, d j ) avoids in-troducing an information bottleneck when aligning heterogeneous latent representations. In contrast, as done for instance in (Badi et al., 2026), enforcing dij ≤ min( di, d j ) would require projecting both representations onto a shared lower-dimensional subspace, implicitly assuming the existence of a common latent structure and potentially discarding node-specific information. Moreover, such a projection only enforces alignment on the retained subspace, leaving the remaining components un-constrained. As a result, the learned restriction maps capture consistency only up to an information loss, potentially leading to inconsistencies when transferring latent representations across models. Our choice instead pursues a geometric notion of consistency across representations, and preserves the semantics of local representations. Importantly, this also makes our framework well-suited for downstream transfer of latent representations among pre-trained models, where alignment based on compression may result in performance degradation on downstream local tasks. 
+
+On the geometric consistency. To better understand the action of the restriction maps as well as the role of the total variation penalty, let us consider F(i) → F (eij ) ← F (j) in Fig. 1. When transported to the edge stalk F(eij ) ⊆ R3, the latent representation zi ∈ F (i) is rotated and re-flected by the orthogonal map Oji . Instead, the latent representation zj is embedded via the Stiefel map Vij into the higher-dimensional edge stalk. Interestingly, the image Im ( Vij ) of Vij defines a two-dimensional subspace embedded in F(eij ). Thus, a perfect alignment between the latent rep-resentations zi and zj implies that zi is a rotated and reflected version of a vector yj→eij = Vij zj
+
+belonging to Im ( Vij ). When this occurs for all the latent representations in F(i), it means that the latter representations lie on a linear two-dimensional subspace of F(i), as depicted in Fig. 1. In Fig. 1, we notice that there is only a partial alignment between zi and zj when they are transported onto F(eij ). Indeed, even though the projection Proj( Oji (zi)) of Oji (zi) onto Im ( Vij ) exactly matches Vij zj , there is still an orthogonal component that makes non-null the Euclidean distance between the two transported vectors. The latter component can be better visualized in F(i), where we see that zi does not lie on the subspace individuated by the transport of yj→eij ∈ Im ( Vij ). Thus, the total variation term acts as a regularizer that, for all eij ∈ E , enforces the zeroing of components orthogonal to Im ( Vij ).Notably, the latter discussion highlights that within our proposed framework we do not assume or leverage the existence a single global latent representation, as instead pursued in recent works (Setayesh et al., 2026; Badi et al., 2026). Indeed, in our framework a global representation may eventually emerge from the alignment of local representations over the network sheaf. 
+
+Homogeneous setting. When F(i) = F(e) ∼= Rd for all i ∈ N and e ∈ E , the local total variation term in Eq. (10) reduces to 
+
+∥zi − Oij zj ∥22 , (24) where Oij ∈ O( d). In this case, alignment between neighboring representations is achieved up to an orthogonal transformation, i.e., rotations and reflections of the latent space. This setting connects Eq. (9) to the Dirichlet energy of the connection Laplacian (Chung et al., 2014), and more generally to synchronization problems over the orthogonal group (Singer & Wu, 2012). In particular, the transport maps satisfy Oji = O⊤ 
+
+> ij
+
+, and the two variation terms in Eq. (12) coincide. In contrast, in the heterogeneous setting we allow semi-orthogonal maps on the Stiefel manifold, which act as isometric embeddings and are only left-invertible. Finally, since all node stalks share the same dimension, the orientation of G does not affect the model and can be chosen arbitrarily. 
+
+# B PILOT SELECTION STRATEGIES 
+
+The alignment of latent spaces relies on a set of semantic pilots : inputs whose correspondence across agents is known a priori, so that fφi (xki ) and fφj (xkj ) can be treated as two latent representations of the same underlying sample. In practice, pilots arise from public datasets, calibration signals, 18 standardized inputs, or an overlapping portion of the local datasets, and we assume that a common index set {1, . . . , M } has been agreed upon. The choice of A ⊂ { 1, . . . , M }, with |A| = K ≪ M , governs the trade-off between communication cost, computational efficiency, geometric coverage, and alignment quality. In the sequel, we outline the most widely used practical selection criteria. Additionally, a normalization step, applied to the resulting pilot matrices for balancing directions in their corresponding latent spaces, is discussed at the end of the section. 
+
+Original pilots. Each agent transmits the embeddings fφi (xki ) of the shared inputs themselves, where k ∈ A . Taking A = {1, . . . , M } evaluates the penalty exactly and is the most reliable option, but scales linearly in M in both communication and Procrustes cost; subsampling to a budget 
+
+K ≪ M instead yields an unbiased Monte Carlo estimator of the full alignment energy. 
+
+Unsupervised selection: Pilots are drawn uniformly, which requires no side information but may under-represent low-density regions of the representation space and lead to ill-conditioned Ai. Clus-tering the representation space and drawing a fixed number of pilots per cluster recovers the same stratification that labels provide in the supervised case, at the cost of one clustering pass, and guar-antees that sparsely populated regions are represented. 
+
+Supervised selection: Labels are exploited since they induce a natural stratification, and a fixed number of pilots is drawn per class, guaranteeing balanced coverage even for small K.
+
+Prototype pilots. The shared set is partitioned into K groups and each pilot is defined as the group average (centroid), 
+
+¯fi,c = 1
+
+|S c|
+
+X
+
+> k∈S c
+
+fφi (xki ), c = 1 , . . . , K ;
+
+which preserves semantic structure while averaging out per-sample noise. When groups are large, the centroid need not be computed over all their members: averaging over a subset S′ 
+
+> c
+
+⊂ S c gives an unbiased estimate at a fraction of the local forward passes, trading estimation variance for com-putational cost. 
+
+Unsupervised partitioning: The partition is obtained by clustering the representation space (e.g., via 
+
+k-means), with the resulting index assignment broadcast once and reused thereafter (H¨ uttebr¨ aucker et al., 2024; Fiorellino et al., 2026). 
+
+Supervised partitioning: Class labels provide the partition directly, recovering prototype-based fed-erated schemes such as FedProto (Tan et al., 2022). 
+
+Ensuring correspondence and adaptive selection. To ensure that the transmitted quantities are in correspondence, both original and prototype pilots require the selection to be replicated across agents. Specifically: (i) the sampled indices in the first case, and (ii) the partition and the subsets used to estimate the centroids in the second. Furthermore, the selection can be made adaptive by prioritizing the samples that currently exhibit the largest cross-client mismatch, biasing which inputs are transmitted or which groups are refined so as to concentrate the alignment effort on geometrically inconsistent regions. 
+
+Dynamic selection. Any of the above criteria can be applied per iteration, letting At vary over time and turning the penalty into a stochastic approximation of the full alignment energy. A practical recipe combines a small persistent subset (for stability of the transport maps) with a periodically refreshed remainder (for coverage), which empirically improves generalization of the learned maps beyond the sampled pilots (Fiorellino et al., 2024). 
+
+Parseval normalization. Independently of how A is selected, the conditioning of the Procrustes step depends on the geometry of the pilot matrix Ai = fφi (xki ) 
+
+> k∈A
+
+∈ Rdi×K , with K < d i in the regime of interest. To mitigate degeneracy, we can normalize pilots via 
+
+eAi = Ai(A⊤ 
+
+> i
+
+Ai)−1/2 ,
+
+the orthogonal polar factor of Ai: this enforces eA⊤ 
+
+> i
+
+eAi = IK , i.e., a Parseval frame of the pilot sub-space (Fiorellino et al., 2026). This transformation balances directions in latent space and stabilizes the Procrustes updates. 19 C IDENTIFIABILITY OF THE TRANSPORT MAPS 
+
+The edge-wise transports are computed via (semi-)orthogonal Procrustes problems 
+
+Vij ∈ arg min 
+
+> V∈C ij
+
+∥Ai − VA j ∥2 
+
+> F
+
+, (25) where Cij = O( d) in the homogeneous case and Cij = St( di, d j ) for di > d j . We summarize conditions under which the minimizer is unique. 
+
+Homogeneous case ( di = dj = d). Let Mij := AiA⊤ 
+
+> j
+
+∈ Rd×d. An optimal solution is V⋆ij =
+
+UW ⊤, where Mij = UΣW ⊤ is an SVD (Sch¨ onemann, 1966). The solution is unique if Mij is full rank and has simple singular values. Non-uniqueness arises only when Mij is rank-deficient or has repeated singular values, which induce rotational ambiguity within singular subspaces. In particular, if rank( Ai) = rank( Aj ) = d (e.g., K ≥ d with non-degenerate pilots), then Mij is generically full rank and V⋆ij is uniquely defined up to measure-zero degeneracies. 
+
+Stiefel case ( di > d j ). Let Mij = AiA⊤ 
+
+> j
+
+∈ Rdi×dj and Mij = UΣW ⊤ a thin SVD, with 
+
+U ∈ Rdi×dj , W ∈ Rdj ×dj . A minimizer is 
+
+V⋆ij = UW ⊤ ∈ St( di, d j ) . (26) Uniqueness holds if rank( Mij ) = dj and its singular values are simple. Crucially, Vij is identifi-able only on the subspace spanned by Aj : if rank( Aj ) = r < d j , the solution is underdetermined on the orthogonal complement. Hence, identifiability requires rank( Aj ) = dj (typically ensured when K ≥ dj and pilots provide sufficient geometric coverage), in which case V⋆ij is generically unique up to measure-zero degeneracies. 
+
+# D PSEUDOCODE OF THE SHEAF -FRL A LGORITHM 
+
+In this section, we provide additional details on the proposed decentralized algorithm, reported in Alg. 1. The method follows an alternating minimization strategy, where each communication round consists of local feature extraction, decentralized alignment updates, and gradient-based optimiza-tion of the neural parameters. 
+
+Heterogeneous case. Alg. 1 implements a fully decentralized procedure in which agents itera-tively update both their local representations and the alignment maps across the network. At each iteration t, every agent i first computes its pilot feature matrix Ati using the current encoder (lines 3–5). These pilot representations provide a compact summary of the local latent space and constitute the only information exchanged across agents. The pilot features are then broadcast to neighboring nodes (line 6). Upon receiving {Atj }j∈N (i), each agent locally updates the alignment maps as-sociated with its incident edges (lines 7–17). In particular, for each neighbor j, agent i solves a small Procrustes problem based on the cross-covariance of the corresponding pilot features. The orientation of the graph determines whether the update corresponds to an incoming map Vtij or an outgoing map Vtji , ensuring consistency with the underlying sheaf structure. Finally, each agent performs a gradient-based update of its local parameters θi (lines 18–20), combining the gradient of the local loss with the contribution of the sheaf-based regularization. This step enforces alignment of neighboring representations while preserving local task objectives. Overall, the algorithm alternates between closed-form alignment updates and gradient-based parameter updates. All computations are carried out locally, and communication is limited to low-dimensional pilot features, resulting in an efficient and scalable decentralized learning procedure. 
+
+Homogeneous case. When the latent dimensions are homogeneous, i.e., di = d for all i ∈ N ,the alignment maps reduce to orthogonal transformations Oij ∈ O( d), for each (i, j ) ∈ E . In this setting, as discussed in Remark 4, the local computational cost of the alignment step can be reduced without increasing communication. Alg. 2 presents a simplified Sheaf-FRL protocol tailored to this scenario. For each agent i, we initialize to the identity the maps used to transport its pilot represen-tations toward its neighbors, i.e., O0 
+
+> ji
+
+= Id for all j ∈ N (i). At each iteration t, each agent first computes its pilot representations Ati and sends to each neighbor j ∈ N (i) the transported features 20 Algorithm 1 Sheaf-FRL 
+
+Require: Oriented G = ( N , E), pilots A, λ > 0, ηθ > 0, iterations T
+
+1: Initialize {θ0 
+
+> i
+
+= ( φ0 
+
+> i
+
+, ψ0 
+
+> i
+
+)}i∈N 
+
+2: for t = 0 , . . . , T − 1 do 
+
+3: for all i ∈ N in parallel do 
+
+4: Ati ← [fφti (xki )] k∈A 
+
+5: end for 
+
+6: Each node i broadcasts Ati to those j ∈ N (i)
+
+7: for all i ∈ N in parallel do 
+
+8: for j ∈ N (i) do 
+
+9: if j ∈ N (i)− then 
+
+10: [U, Σ, W⊤] ← thinSVD( AtiAt⊤ 
+
+> j
+
+)
+
+11: Vtij ← UW ⊤
+
+12: else 
+
+13: [U, Σ, W⊤] ← thinSVD( Atj At⊤ 
+
+> i
+
+)
+
+14: Vtji ← UW ⊤
+
+15: end if 
+
+16: end for 
+
+17: end for 
+
+18: for all i ∈ N in parallel do 
+
+19: θt+1  
+
+> i
+
+← θti − ηθ
+
+ ∇θi Li(θti) + rti
+
+
+
+20: end for 
+
+21: end for Algorithm 2 Sheaf-FRL (homogeneous case) 
+
+Require: Oriented G = ( N , E), pilots A, λ > 0, ηθ > 0, iterations T
+
+1: Initialize {θ0 
+
+> i
+
+= ( φ0 
+
+> i
+
+, ψ0 
+
+> i
+
+)}i∈N and {O0 
+
+> ji
+
+= Id}j∈N (i),i ∈N 
+
+2: for t = 0 , . . . , T − 1 do 
+
+3: for all i ∈ N in parallel do 
+
+4: Ati ← [fφti (xki )] k∈A 
+
+5: end for 
+
+6: Each node i exchanges Otji Ati with all j ∈ N (i)
+
+7: for all i ∈ N in parallel do 
+
+8: for all j ∈ N (i)+ do 
+
+9: [U, Σ, W⊤] ← SVD  Otij Atj At⊤
+
+> i
+
+
+
+10: Otji ← UW ⊤
+
+11: end for 
+
+12: end for 
+
+13: for all i ∈ N in parallel do 
+
+14: θt+1  
+
+> i
+
+← θti − ηθ
+
+ ∇θi Li(θti) + rti
+
+
+
+15: end for 
+
+16: end for 
+
+Otji Ati. Notably, since we exploit the reparameterization in Eq. (24), when j ∈ N −(i), we have 
+
+Otji = O0 
+
+> ji
+
+= Id for all t = 0 , . . . , T − 1, so that the transmitted features coincide with the orig-inal ones and no additional communication cost is incurred. From a local computation perspective, since transported pilot representations are communicated instead of raw ones, agent i does not need to solve the orthogonal Procrustes problem arising in (P2a) for evaluating the alignment and the gradient required for the local parameter update. As a consequence, only the SVDs for j ∈ N (i)+
+
+are required, effectively halving the computational cost of the alignment step, as specified in lines 8-10 of Alg. 2. Overall, this variant preserves the communication efficiency of the general algorithm while reducing the computational burden (cf. Tab. 1). 21 E CONVERGENCE ANALYSIS 
+
+In this section we establish convergence guarantees for the proposed Sheaf-FRL algorithm in both deterministic and stochastic settings. We first recall the classical descent result for smooth functions. 
+
+Lemma E.1 (Descent Lemma, Nesterov, 2004, Prop. 1.2.3,Beck, 2017, Sec. 2.1) . Let f be differen-tiable with L-Lipschitz gradient. Then for any x and any η > 0,
+
+f (x − η∇f (x)) ≤ f (x) − η
+
+
+
+1 − Lη 
+
+2
+
+
+
+∥∇ f (x)∥2.
+
+E.1 DETERMINISTIC SETTING 
+
+Let 
+
+J(θ, V) = X
+
+> i∈N
+
+Li(θi) + RA
+
+ {φi}i∈N , {Vij }(i,j )∈E , {Vji }(i,j )∈E 
+
+ (27) in (SFRL) where, with slight abuse of notation, θ = {θi}i∈N = {(φi, ψi)}i∈N , and V =
+
+{Vij }(i,j )∈E ∪ { Vji }(i,j )∈E . For each edge (i, j ) ∈ E, the matrices Vij ∈ St( di, d j ) and 
+
+Vji ∈ St( dj , d i), where St( di, d j ) denotes a Stiefel manifold as defined in Eq. (4). The feasible set is therefore V := 
+
+Q 
+
+> (i,j )∈E
+
+St( di, d j )
+
+
+
+×
+
+Q 
+
+> (i,j )∈E
+
+St( dj , d i)
+
+
+
+. The proposed method alternates between an exact minimization with respect to V and a gradient step with respect to θ, and can be compactly cast as: 
+
+Vt ∈ arg min  
+
+> V∈V
+
+J(θt, V), (28) 
+
+θt+1 = θt − η∇θ J(θt, Vt) (29) We introduce the following assumptions. 
+
+Assumption 1. The objective J(θ, V) is bounded from below, with lower bound 
+
+Jinf := inf  
+
+> θ,V
+
+J(θ, V) .
+
+Assumption 2. For every fixed V ∈ V , J(θ, V) is differentiable and its gradient is L-Lipschitz: 
+
+∥∇ θ J(θ1, V) − ∇ θ J(θ2, V)∥ ≤ L∥θ1 − θ2∥.
+
+Assumption 3. At each iteration, 
+
+Vt ∈ arg min  
+
+> V∈V
+
+J(θt, V),
+
+i.e., Vt is an exact minimizer of J given θt.
+
+Assumption 4. The feasible set V is compact. 
+
+Under 1-4, the following convergence result holds. 
+
+Theorem E.2. Suppose Assumptions 1–4 hold and choose 0 < η ≤ 1/L . Then: 1. Descent, Convergence, and Stationarity. The sequence {J(θt, Vt)} is monotonically de-creasing and therefore convergent. Moreover, lim t→∞ ∥∇ θ J(θt, Vt)∥ = 0 , and every accumulation point (θ⋆, V⋆) is a block-wise first-order stationary point. 2. Sublinear stationarity rate. For all T ≥ 0,
+
+min  
+
+> 0≤t≤T
+
+∥∇ θ J(θt, Vt)∥2 ≤ 2 J(θ0, V0) − Jinf 
+
+
+
+η(T + 1) . (30) 
+
+Proof. (i) Descent, Convergence, and Stationarity . Fix Vt and consider J(θ, Vt). By Assump-tion 2, J(θ, Vt) has L-Lipschitz gradient. Applying Lemma E.1 with η ≤ 1/L yields 
+
+J(θt+1 , Vt) ≤ J(θt, Vt) − η
+
+2 ∥∇ θ J(θt, Vt)∥2. (31) 22 By exact minimization of V at iteration t+1 (Assumption 3), J(θt+1 , Vt+1 ) ≤ J(θt+1 , Vt). Com-bining this inequality with the previous bound yields J(θt+1 , Vt+1 ) ≤ J(θt, Vt), which shows that the sequence {J(θt, Vt)} is monotonically decreasing. Since J is bounded below (Assumption 1), the sequence therefore converges. Summing (31) over t yields P∞ 
+
+> t=0
+
+∥∇ θ J(θt, Vt)∥2 < ∞, which implies 
+
+lim  
+
+> t→∞
+
+∥∇ θ J(θt, Vt)∥ = 0 .
+
+Let (θtk , Vtk ) be a convergent subsequence. By continuity of ∇θ J, it holds ∇θ J(θ⋆, V⋆) = 0 .
+
+Moreover, since Vt minimizes J(θt, ·) over the compact set V, passing to the limit gives 
+
+V⋆ ∈ arg min  
+
+> V∈V
+
+J(θ⋆, V).
+
+Thus every accumulation point is block-wise first-order stationary. 
+
+(ii) Sublinear Stationarity Rate. From the descent inequality (31), summing from t = 0 to T and telescoping yields 
+
+η
+
+2
+
+> T
+
+X
+
+> t=0
+
+∥∇ θ J(θt, Vt)∥2 ≤ J(θ0, V0) − J(θT +1 , VT ).
+
+Since J(θT +1 , VT ) ≥ Jinf (Assumption 1), 
+
+> T
+
+X
+
+> t=0
+
+∥∇ θ J(θt, Vt)∥2 ≤ 2 J(θ0, V0) − Jinf 
+
+
+
+η .
+
+Finally, using min 0≤t≤T at ≤ 1 
+
+> T+1
+
+PTt=0 at with at = ∥∇ θ J(θt, Vt)∥2, we obtain 
+
+min  
+
+> 0≤t≤T
+
+∥∇ θ J(θt, Vt)∥2 ≤ 2 J(θ0, V0) − Jinf 
+
+
+
+η(T + 1) ,
+
+which proves (30). E.2 STOCHASTIC SETTING 
+
+We consider the same deterministic objective J(θ, V) in (27), and extend the θ-update to the stochas-tic (mini-batch) setting while keeping the V-block exactly minimized with respect to the full objec-tive. Let {Φt}t≥0 be the natural filtration generated by the iterates and the sampling randomness up to time t. At iteration t, we first update the alignment variables by exact minimization, 
+
+Vt ∈ arg min  
+
+> V∈V
+
+J(θt, V), (32) and then form a mini-batch stochastic gradient estimator gt ≡ g(θt, Vt; ξt), where ξt denotes the mini-batch sampling randomness. The stochastic update of the neural parameters is 
+
+θt+1 = θt − ηt gt. (33) To analyze the convergence behavior of the stochastic scheme, we impose the following assumptions on the stochastic gradient estimator. 
+
+Assumption 5 (Unbiased stochastic gradient) . For all t ≥ 0,
+
+E[gt | Φt] = ∇θ J(θt, Vt).
+
+Assumption 6 (Bounded conditional variance) . There exists σ2 < ∞ such that for all t ≥ 0,
+
+E
+
+h
+
+gt − ∇ θ J(θt, Vt) 2 Φt
+
+i
+
+≤ σ2.
+
+Under these assumptions, we establish convergence guarantees for the stochastic variant of the pro-posed method in the following sections. 23 E.2.1 CONVERGENCE GUARANTEE WITH OPTIMIZED STEP SIZE 
+
+Theorem E.3 (Stochastic convergence rate) . Assume Assumptions 1 to 4, and the stochastic gradient conditions in Assumptions 5 and 6. Let {(θt, Vt)}t≥0 be generated by (32) –(33) . Define ∆0 := 
+
+J(θ0, V0) − Jinf , where Jinf := inf θ,V J(θ, V). Then, for any horizon T ≥ 0, choosing the constant step size 
+
+ηt ≡ η := min 
+
+(
+
+1
+
+L ,
+
+s
+
+2∆ 0
+
+Lσ 2(T + 1) 
+
+)
+
+yields the bound 
+
+min  
+
+> 0≤t≤T
+
+E
+
+h
+
+∇θ J(θt, Vt) 2i
+
+≤ 2
+
+r 2Lσ 2 ∆0
+
+T + 1 + 2L∆0
+
+T + 1 .
+
+In particular, the method attains the stochastic convergence rate 
+
+min  
+
+> 0≤t≤T
+
+E
+
+h
+
+∇θ J(θt, Vt) 2i
+
+= O
+
+ 1
+
+√T
+
+
+
+.
+
+Proof. For brevity, define 
+
+Jt := J(θt, Vt), ∇t := ∇θ J(θt, Vt), gt := g(θt, Vt; ξt).
+
+Fix t ≥ 0. By Assumption 2, for the L-smooth map θ 7 → J(θ, Vt), we have for any vector u,
+
+J(θt + u, Vt) ≤ J(θt, Vt) + ∇⊤ 
+
+> t
+
+u + L
+
+2 ∥u∥2.
+
+Applying this with u = −η gt yields 
+
+J(θt+1 , Vt) ≤ J(θt, Vt) − η ∇⊤ 
+
+> t
+
+gt + Lη 2
+
+2 ∥gt∥2. (34) By exact minimization in V (Assumption 3), 
+
+J(θt+1 , Vt+1 ) ≤ J(θt+1 , Vt). (35) Combining (34)–(35) gives 
+
+Jt+1 ≤ Jt − η ∇⊤ 
+
+> t
+
+gt + Lη 2
+
+2 ∥gt∥2. (36) Taking conditional expectation w.r.t. Φt and using unbiasedness (Assumption 5) gives 
+
+E∇⊤ 
+
+> t
+
+gt | Φt
+
+ = ∇⊤ 
+
+> t
+
+E[gt | Φt] = ∥∇ t∥2.
+
+Moreover, expanding the second moment and using the bounded conditional variance (Assump-tion 6) yields 
+
+E∥gt∥2 | Φt
+
+ = E∥gt − ∇ t + ∇t∥2 | Φt
+
+
+
+= ∥∇ t∥2 + E∥gt − ∇ t∥2 | Φt
+
+ + 2 ∇⊤ 
+
+> t
+
+E[gt − ∇ t | Φt]
+
+≤ ∥∇ t∥2 + σ2,
+
+since E[gt − ∇ t | Φt] = 0 by Assumption 5. Substituting these two identities into the conditional expectation of (36) yields 
+
+E[Jt+1 | Φt] ≤ Jt − η
+
+
+
+1 − Lη 
+
+2
+
+
+
+∥∇ t∥2 + Lη 2
+
+2 σ2. (37) Assuming 0 < η ≤ 1/L implies 1 − Lη  
+
+> 2
+
+≥ 12 , hence 
+
+E[Jt+1 | Φt] ≤ Jt − η
+
+2 ∥∇ t∥2 + Lη 2
+
+2 σ2. (38) 24 Taking total expectation in (38) and summing from t = 0 to T gives 
+
+E[JT +1 ] ≤ J0 − η
+
+2
+
+> T
+
+X
+
+> t=0
+
+E∥∇ t∥2 + Lη 2
+
+2 σ2(T + 1) .
+
+Rearranging and using the lower bound E[JT +1 ] ≥ Jinf (Assumption 1) yields 
+
+η
+
+2
+
+> T
+
+X
+
+> t=0
+
+E∥∇ t∥2 ≤ ∆0 + Lη 2
+
+2 σ2(T + 1) , ∆0 := J0 − Jinf . (39) Dividing by η(T + 1) and using min 0≤t≤T at ≤ 1 
+
+> T+1
+
+PTt=0 at gives 
+
+min  
+
+> 0≤t≤T
+
+E∥∇ t∥2 ≤ 2∆ 0
+
+η(T + 1) + Lη σ 2. (40) We now optimize the right-hand side in η under the constraint η ≤ 1/L . Let 
+
+η⋆ := 
+
+s
+
+2∆ 0
+
+Lσ 2(T + 1) .
+
+If η⋆ ≤ 1/L , choosing η = η⋆ in (40) yields 
+
+min  
+
+> 0≤t≤T
+
+E∥∇ t∥2 ≤ 2
+
+r 2Lσ 2∆0
+
+T + 1 .
+
+If instead η⋆ > 1/L , we choose η = 1 /L in (40) to obtain 
+
+min  
+
+> 0≤t≤T
+
+E∥∇ t∥2 ≤ 2L∆0
+
+T + 1 + σ2.
+
+Both cases are covered by the choice 
+
+η = min 
+
+(
+
+1
+
+L ,
+
+s
+
+2∆ 0
+
+Lσ 2(T + 1) 
+
+)
+
+.
+
+Moreover, with this choice we have the unified bound 
+
+min  
+
+> 0≤t≤T
+
+E∥∇ t∥2 ≤ 2
+
+r 2Lσ 2∆0
+
+T + 1 + 2L∆0
+
+T + 1 ,
+
+where the second term is redundant when η = η⋆ but remains valid. This proves Theorem E.3. E.2.2 ALMOST -SURE CONVERGENCE WITH DIMINISHING STEP SIZES 
+
+We establish an almost-sure convergence guarantee under a Robbins–Monro step-size schedule. Throughout, let {Φt}t≥0 denote the natural filtration and let the iterates be generated by (32)–(33). 
+
+Assumption 7 (Robbins–Monro step sizes) . The step sizes satisfy 0 < η t ≤ 1/L for all t ≥ 0, and 
+
+> ∞
+
+X
+
+> t=0
+
+ηt = ∞,
+
+> ∞
+
+X
+
+> t=0
+
+η2 
+
+> t
+
+< ∞.
+
+Theorem E.4 (Almost-sure convergence) . Assume Assumptions 1 to 4, and Assumptions 5 and 6 and Assumption 7. Let {(θt, Vt)}t≥0 be generated by (32) –(33) . Then: 1. The sequence {J(θt, Vt)} converges almost surely to a finite random variable. 2. Moreover, ∞X
+
+> t=0
+
+ηt ∇θ J(θt, Vt) 2 < ∞ almost surely .
+
+25 3. Consequently, 
+
+lim inf  
+
+> t→∞
+
+∇θ J(θt, Vt) = 0 almost surely .
+
+Proof. We begin by recalling the Robbins–Siegmund lemma, which provides a standard conver-gence result for quasi-supermartingale sequences. 
+
+Lemma E.5 (Robbins–Siegmund, Robbins & Siegmund, 1971) . Let {Xt}t≥0 be a nonnega-tive adapted sequence with respect to a filtration {Φt}t≥0. Assume there exist nonnegative Φt-measurable sequences {at}t≥0 and {bt}t≥0 such that 
+
+E[Xt+1 | Φt] ≤ Xt − at + bt a.s. for all t, 
+
+and P∞ 
+
+> t=0
+
+bt < ∞ almost surely. Then Xt converges almost surely to a finite random variable and P∞ 
+
+> t=0
+
+at < ∞ almost surely. 
+
+We now show that the sequence generated by the algorithm satisfies the conditions of this lemma. Define 
+
+Jt := J(θt, Vt), ∇t := ∇θ J(θt, Vt), Xt := Jt − Jinf ≥ 0.
+
+From the one-step bound (cf. (38)), for all t ≥ 0,
+
+E[Jt+1 | Φt] ≤ Jt − ηt
+
+2 ∥∇ t∥2 + Lη 2
+
+> t
+
+2 σ2.
+
+Subtracting Jinf from both sides yields 
+
+E[Xt+1 | Φt] ≤ Xt − at + bt, at := ηt
+
+2 ∥∇ t∥2, bt := Lη 2
+
+> t
+
+2 σ2.
+
+By Assumption 7 we have P∞ 
+
+> t=0
+
+η2 
+
+> t
+
+< ∞, hence P∞ 
+
+> t=0
+
+bt < ∞. Therefore all the conditions of Lemma E.5 are satisfied. Applying the lemma implies that Xt converges almost surely to a finite random variable, and ∞X
+
+> t=0
+
+ηt∥∇ t∥2 < ∞ a.s. Finally, since P∞ 
+
+> t=0
+
+ηt = ∞ (Assumption 7), the above summability implies 
+
+lim inf  
+
+> t→∞
+
+∥∇ t∥ = 0 a.s. This proves Theorem E.4. 
+
+# F TRADE -OFF BETWEEN PRIVACY , C OMMUNICATION , AND LOCAL 
+
+# COMPUTATION 
+
+Our proposed algorithmic solution in Sec. 5 leverages sharing of raw latent representations to lower the communication cost, according to the objective in Prob. 1. This is compatible with standard regulatory constraints on privacy, for instance when latent representations do not allow direct identi-fication of individuals or when appropriate safeguards such as aggregation, anonymization, or secure communication protocols are in place, as commonly assumed in federated learning systems (Kairouz et al., 2021; McMahan et al., 2017). However, as highlighted in Remark 3, in some circumstances more stringent regulatory constraints on privacy impair the sharing of raw latent representations. For example, this occurs when latent representations may still encode sensitive or identifiable in-formation and are therefore susceptible to reconstruction or inference attacks, such as model in-version (Fredrikson et al., 2015), membership inference (Shokri et al., 2017), or attribute infer-ence (Melis et al., 2019), making their direct exchange incompatible with strict privacy requirements. Our proposed approach naturally extends to this more stringent setting. Instead of sharing raw latent representations, agents exchange their transported counterparts, i.e., latent features mapped through the restriction maps associated with the edges. This limits the direct exposure of local features. How-ever, this enhanced privacy comes at a cost: it requires additional local computation and increases the communication overhead, as detailed below. 26 Concerning the local computational cost, each agent i ∈ N needs to encode its latent represen-tations toward both sets of neighbors N (i)− and N (i)+. To this end, we adopt the formulation in Eq. (10) before reparameterization , where both orthogonal and Stiefel maps explicitly appear, allowing consistent encoding across heterogeneous neighbors. Specifically, i must communicate 
+
+Vtji Ati ∈ Rdj ×K to neighbors j ∈ N (i)+, where Vtji ∈ St( dj , d i) is the outgoing embedding matrix, and Otji Ati ∈ Rdi×K to neighbors j ∈ N (i)−, where Otji ∈ O( di) is an orthogonal trans-formation. Hence, in this setting we cannot exploit the reparameterized form in Eq. (10), which avoids the explicit use of orthogonal maps. In detail, after receiving the encoded latent representa-tions from its neighbors, namely 
+
+Vtij Atj from j ∈ N (i)− and Otij Atj from j ∈ N (i)+ ; (41) under stringent privacy constraints, agent i must solve the following problems to update its restric-tion maps: 
+
+Otji = arg min 
+
+> Oji ∈O( di)
+
+Oji Ati − Vtij Atj
+
+> 2F
+
+, , ∀, j ∈ N (i)− , (P2c) 
+
+Vtji = arg min  
+
+> Vji ∈St( dj,d i)
+
+Otij Atj − Vji Ati
+
+> 2F
+
+, , ∀, j ∈ N (i)+ . (P2d) Unlike the case of standard privacy constraints, where for j ∈ N (i)− we can only update the incoming restriction map Vij and solve Prob. (P2a) via a thin SVD at a computational cost of 
+
+O(did2 
+
+> j
+
+) with dj ≤ di, Prob. (P2c) is a canonical orthogonal Procrustes problem. Its solution is obtained via a classical SVD of Vtij Atj At⊤ 
+
+> i
+
+at a cost of O(d3 
+
+> i
+
+), thus leading to an increase in the local computational burden. Conversely, similarly to Problem (P2b), for j ∈ N (i)+ the update of the outgoing restriction map Vji can be computed via a thin SVD of Otij Atj At⊤ 
+
+> i
+
+at a cost of 
+
+O(dj d2 
+
+> i
+
+), where in this case dj ≥ di.Please notice that, more stringent privacy constraints affect only the update of the restriction maps. Indeed, the local gradient computation in Eq. (19) remains unchanged: 
+
+∇φi RA|i = λi
+
+K
+
+" X 
+
+> j∈N (i)−
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ O⊤
+
+> ji
+
+
+
+Oji fφi
+
+ xki
+
+ − Vij fφj
+
+ xkj
+
+
+
+− X 
+
+> j∈N (i)+
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ V⊤
+
+> ji
+
+
+
+Oij fφj
+
+ xkj
+
+ − Vji fφi
+
+ xki
+
+ #
+
+= λi
+
+K
+
+" X 
+
+> j∈N (i)−
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ 
+
+fφi
+
+ xki
+
+ − O⊤
+
+> ji
+
+Vij fφj
+
+ xkj
+
+
+
+− X 
+
+> j∈N (i)+
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ 
+
+V⊤
+
+> ji
+
+Oij fφj
+
+ xkj
+
+ − fφi
+
+ xki
+
+ #
+
+> (a)
+
+= λi
+
+K
+
+X 
+
+> j∈N (i)
+
+X
+
+> k∈A
+
+ ∇φi fφi (xki )⊤ 
+
+fφi
+
+ xki
+
+ − O⊤
+
+> ji
+
+Vij fφj
+
+ xkj
+
+
+
+;
+
+(42) where in (a), for those j ∈ N (i)+ we used that for a network sheaf V⊤
+
+> ji
+
+Oij = O⊤
+
+> ji
+
+Vij . Impor-tantly, O⊤
+
+> ji
+
+Vij is exactly the reparameterization exploited in Eq. (10), thus showing the equivalence between Eq. (19) and Eq. (42). Regarding the communication cost, sharing transported latent representations increases the com-munication overhead toward neighbors j ∈ N (i)+. Under standard privacy constraints, agent i
+
+transmits Ati ∈ Rdi×K , whereas in the more stringent setting it must send Vji Ati ∈ Rdj ×K , with 
+
+dj ≥ di. Thus, the communicated payload scales with dj , and strictly increases whenever dj > d i.Our modified Sheaf-FRL protocols under stringent privacy regulatory constraints for both the het-erogeneous and homogeneous cases are given in Algs. 3 and 4, respectively. Additionally, Tab. 1 details the privacy vs. communication and computational costs trade-off. 27 Table 1: Trade-off between privacy and communication and local computation cost per agent. The local computation refers to the update of the restriction maps, i.e., the part influenced by more stringent privacy constraints. To aid comparison, for the heterogeneous case we highlight in blue the larger of di and dj (either one when di = dj ) when considering either j ∈ N (i)− or j ∈ N (i)+.In red, we instead highlight we instead highlight the (potential) increase in cost implied by more stringent privacy constraints.                                   
+
+> Standard Privacy Strict Privacy Heterogeneous Communication O(|N (i)|diK)O |N (i)−|diK+KP
+> j∈N (i)+dj
+> 
+> Local computation O di
+> P
+> j∈N (i)−d2
+> j+d2
+> i
+> P
+> j∈N (i)+dj
+> O |N (i)−|d3
+> i+d2
+> i
+> P
+> j∈N (i)+dj
+> 
+> Homogeneous Communication O(|N (i)|dK )O(|N (i)|dK )
+> Local computation O(|N (i)+|d3)O(|N (i)−∪ N (i)+|d3)
+
+Non-identifiability and privacy guarantees. Tab. 1 highlights a clear trade-off. Under stricter privacy requirements, the proposed protocol incurs higher communication and local computational costs, since agents exchange transported latent representations and must explicitly update the corre-sponding restriction maps. The benefit, however, is a stronger form of privacy: the communicated messages no longer reveal the latent pilots in their original coordinates. More precisely, when only transported pilots are shared, an observer that does not know the underlying restriction maps cannot uniquely reconstruct the original latent representations, but can only recover geometric information that is invariant under isometries, as formalized in the following proposition. 
+
+Proposition F.1 (Non-identifiability of latent pilots under unknown maps) . Let A ∈ Rd×K be a matrix of latent pilot representations, and let Y = TA , where T is an unknown restriction map satisfying T⊤T = Id. This includes both the homogeneous case T ∈ O( d) and the heterogeneous case T ∈ St( D, d ) with D ≥ d. Then the latent pilots A are not uniquely identifiable from Y
+
+without knowledge of T. In particular, A is determined only up to an orthogonal transformation. Proof. Let Q ∈ O( d) and A′ = QA . Then Y = TA = TQ ⊤A′, and (TQ ⊤)⊤(TQ ⊤) = Id.Thus TQ ⊤ is a valid map, implying that A is identifiable only up to orthogonal transformations. 
+
+# G SUPERVISED CLASSIFICATION EXPERIMENTAL DETAILS 
+
+All experiments run on MNIST with the label-shift-induced data heterogeneity of Eq. (23). Every agent trains with stochastic gradient descent (learning rate 10 −2, momentum 0.9, weight decay 
+
+5 · 10 −4) and batch size 64 ; the fifteen-agent runs additionally clip gradient norms at 1.0. A held-out shared pilot set ( 10% of the training pool, restricted to the classes observed by every agent so that no encoder is asked to embed out-of-distribution samples) serves two purposes: it provides the pilots exchanged during sheaf-based training, and it is the data on which whitening layers of Sheaf-FRL are trained, and (post-training) alignment maps are fitted. Reported accuracies are computed on the private test sets, different from both training and pilot data. 
+
+Two-agent heterogeneous pair (Fig. 3). The two agents are drawn from a parametric CNN family indexed by the bottleneck dimension d ∈ { 16 , 32 , 64 , 128 , 256 , 512 }, matched so that the last block of both encoders outputs the same d (Tab. 3). Each convolutional block consists of a convolution, batch normalization, ReLU, and max-pooling; the final feature map is globally pooled, so the latent dimension equals the width of the last block. Agent 0 uses a dropout of 0.3 while agent 1 uses a dropout of 0.1. Agent 0’s target classes are {4, . . . , 9} and agent 1’s are {0, . . . , 5}, at a fixed shift strength s = 0 .7; the graph has two nodes corresponding to the agents and a single edge connecting them. Training lasts 20 epochs with the common optimizer above. 28 Algorithm 3 Sheaf-FRL under stringent privacy regulatory constraints 
+
+Require: Oriented G = ( N , E), pilots A, λ > 0, ηθ > 0, iterations T
+
+1: Initialize {θ0 
+
+> i
+
+= ( φ0 
+
+> i
+
+, ψ0 
+
+> i
+
+)}i∈N , {O0 
+
+> ji
+
+∈ O( di)}j∈N (i)−, i ∈N , {V0 
+
+> ji
+
+∈ St( dj , d i)}j∈N (i)+, i ∈N 
+
+2: for t = 0 , . . . , T − 1 do 
+
+3: for all i ∈ N in parallel do 
+
+4: Ati ← [fφti (xki )] k∈A 
+
+5: end for 
+
+6: Each node i broadcasts Otji Ati to those j ∈ N (i)− and Vtji Ati to j ∈ N (i)+
+
+7: for all i ∈ N in parallel do 
+
+8: for j ∈ N (i) do 
+
+9: if j ∈ N (i)− then 
+
+10: [U, Σ, W⊤] ← SVD( Vtij Atj At⊤ 
+
+> i
+
+)
+
+11: Otji ← UW ⊤
+
+12: else 
+
+13: [U, Σ, W⊤] ← thinSVD( Otij Atj At⊤ 
+
+> i
+
+)
+
+14: Vtji ← UW ⊤
+
+15: end if 
+
+16: end for 
+
+17: end for 
+
+18: for all i ∈ N in parallel do 
+
+19: θt+1  
+
+> i
+
+← θti − ηθ
+
+ ∇θi Li(θti) + rti
+
+
+
+20: end for 
+
+21: end for Algorithm 4 Sheaf-FRL under stringent privacy regulatory constraints (homogeneous case) 
+
+Require: Oriented G = ( N , E), pilots A, λ > 0, ηθ > 0, iterations T
+
+1: Initialize {θ0 
+
+> i
+
+= ( φ0 
+
+> i
+
+, ψ0 
+
+> i
+
+)}i∈N , {O0 
+
+> ji
+
+∈ O( d)}j∈N (i),i ∈N 
+
+2: for t = 0 , . . . , T − 1 do 
+
+3: for all i ∈ N in parallel do 
+
+4: Ati ← [fφti (xki )] k∈A 
+
+5: end for 
+
+6: Each node i exchanges Otji Ati with all j ∈ N (i)
+
+7: for all i ∈ N in parallel do 
+
+8: for all j ∈ N (i) do 
+
+9: [U, Σ, W⊤] ← SVD  Otij Atj At⊤
+
+> i
+
+
+
+10: Otji ← UW ⊤
+
+11: end for 
+
+12: end for 
+
+13: for all i ∈ N in parallel do 
+
+14: θt+1  
+
+> i
+
+← θti − ηθ
+
+ ∇θi Li(θti) + rti
+
+
+
+15: end for 
+
+16: end for Fifteen-agent network (Fig. 2). Tab. 2 lists the fifteen architectures and the target classes assigned to each agent. All encoders use batch normalization; the latent (stalk) dimension di equals the width of the last convolutional block. The proposed methods run for a total of 100 epochs. 
+
+Selection of the regularization coefficient. For Sheaf-FRL, as well as Sheaf-FMTL, ComFed, FedProto, and FedMuscle baselines, we need to find the best regularization coefficient. The applied strategy in each architecture configuration under consideration—either the bottleneck dimension in the two-agent sweep, or the distribution-shift strength in the fifteen-agent benchmark—is a grid search for the best λ value in the [10 −5, 1] interval. 
+
+Method-specific hyperparameters. Beyond the regularization coefficient, every baseline also car-ries its own additional, fixed hyperparameters that are untouched by the cross-validation above. 29 Table 2: The fifteen heterogeneous CNN agents of the multi-agent benchmark (Section 6). Encoder: output channels of each convolutional block; head: hidden widths of the MLP classifier; di: latent (stalk) dimension. Total: 3.41 M parameters.                                                                                                                                                                                               
+
+> Agent Encoder widths Head widths Dropout diTarget classes Ci
+> 0(32 ,64 ,128) (256 ,128 ,64) 0.30 128 {4,5,6,7,8}
+> 1(32 ,64 ,128 ,224) (120) 0.10 224 {0,1,2,3,4}
+> 2(16 ,32 ,64) (128) 0.20 64 {0,1,2,3,4,5}
+> 3(64 ,128 ,128) (256 ,128) 0.25 128 {4,5,6,7,8,9}
+> 4(32 ,48 ,96 ,192) (192 ,96) 0.30 192 {0,1,2,7,8,9}
+> 5(24 ,48 ,96) (96) 0.15 96 {2,3,4,5,6}
+> 6(32 ,64 ,128 ,256) (256) 0.40 256 {1,2,3,4,5,6}
+> 7(24 ,48 ,96 ,144) (64 ,32) 0.10 144 {3,4,5,6,7}
+> 8(48 ,96 ,160) (160 ,80) 0.20 160 {0,2,4,6,8}
+> 9(32 ,80) (100) 0.05 80 {5,6,7,8,9}
+> 10 (40 ,80 ,120) (120 ,60) 0.20 120 {1,2,3,4,5}
+> 11 (48 ,96 ,192 ,240) (256 ,128) 0.20 240 {0,1,2,8,9}
+> 12 (20 ,40 ,60 ,80) (80) 0.20 80 {3,4,5,6,7,8}
+> 13 (32 ,64 ,96) (192 ,96) 0.25 96 {1,4,6,8,9}
+> 14 (56 ,112 ,160) (128) 0.10 160 {0,1,2,3,7}
+
+Table 3: The shared two-agent architecture family used at every bottleneck dimension d in Fig. 3; both agents’ encoders are matched to end at width d. Encoder/head: output channels of each convo-lutional block / hidden widths of the MLP classifier. Dropout is 0.3 for agent 0 and 0.1 for agent 1.                                                             
+
+> dAgent Encoder widths Head widths 16 0(4 ,8,16) (8 ,4)
+> 1(8 ,16) (8)
+> 32 0(8 ,16 ,32) (16 ,8)
+> 1(16 ,32) (16)
+> 64 0(16 ,32 ,64) (32 ,16)
+> 1(32 ,64) (32)
+> 128 0(32 ,64 ,128) (64 ,32)
+> 1(64 ,128) (64)
+> 256 0(64 ,128 ,256) (128 ,64)
+> 1(128 ,256) (128)
+> 512 0(64 ,128 ,256 ,512) (128 ,64)
+> 1(64 ,256 ,512) (128 ,64)
+
+Sheaf-FMTL introduces two further constants, the local-regularization weight γ = 10 −3 and the personalization rate η = 10 −2, both held fixed across every shift strength and every bottleneck dimension. For further information to support the selection process of the Sheaf-FMTL hyperpa-rameter γ refer to the next paragraph. ComFed instead learns, for every agent i, an unconstrained linear projection matrix Pi ∈ Rr×di mapping that agent’s local di-dimensional latent space—the right, input-side dimension of Pi—into a shared space of dimension r, the left, output-side dimen-sion common to every agent, in which class prototypes from all agents are aligned. We fix r = 64 in the fifteen-agent benchmark. In the two-agent bottleneck sweep, where every configuration already forces both agents to share a common latent dimension d, we instead set proj dim = d at each bot-tleneck value, so that ComFed’s shared space coincides with the bottleneck dimension already under study, rather than further compressing or expanding it. FedProto maintains a single global prototype per class, updated as an exponential moving average of the agents’ local per-class embeddings with momentum 0.9. FedMuscle organizes training into repeating communication rounds, each consist-ing of four local epochs of ordinary task-loss training followed by one additional epoch in which a contrastive alignment loss, with temperature 0.1, pulls every agent’s representations toward the network average. 
+
+Memory footprint and choice of γ for Sheaf-FMTL. Let the number of parameters of agents i
+
+and j be respectively di and dj , then the restriction maps matrix of Sheaf-FMTL Pij acts directly in parameter space, and its size is dij × di with dij = max(1 , ⌊γ · min( di, d j )⌋). The aggregate storage 30 10 −5 10 −4 10 −3 10 −2 10 −1
+
+γ  
+
+> 10 −1
+> 10 0
+> 10 1
+> 10 2
+> 10 3
+> Memory (GB)
+> Theoretical Pi j storage (all edges) System RAM (31 GB) Measured peak RSS (completed) Measured at crash / self-kill
+
+Figure 4: Aggregate memory footprint of the Sheaf-FMTL restriction maps {Pij } as a function of γ,for the 15 -agent architecture and communication graph of Sec. 6 (log-log axes). Solid curve: exact storage in the half-precision format used at rest. Dashed line: available system memory. Markers: measured peak resident memory of an isolated, single-epoch Sheaf-FMTL run at each γ (crosses mark values at which the run was terminated for exceeding available memory). The operating point used throughout the paper ( γ = 10 −3) sits below the single-run ceiling, leaving headroom for the repeated model instantiations of the full evaluation protocol (hyperparameter search preceding each reported run). across all edges grows as O(γ P 
+
+> (i,j )∈E
+
+min( di, d j ) di), with the hyperparameter γ controlling how fast the memory usage scales with the architecture sizes. With the 15 -agent heterogeneous ensemble of models of Tab. 2 and the class-overlap graph of Sec. 6, this places a hard ceiling on the values of 
+
+γ that fit in the machine memory (GPU RAM), well before any accuracy trade-off becomes relevant. Fig. 4 reports a blue curve providing the theoretical storage occupied by the restriction maps Pij 
+
+and model parameters in the real 15 -agent setup, and the green markers then represent the empirical peak resident-memory measurements from isolated single-epoch instantiations of Sheaf-FMTL at escalating γ. We use γ = 10 −3 throughout the 15 -agent benchmark (Tab. 2)—a margin below the maximum available memory on the considered machine that accounts for the full evaluation protocol rather than a single run. 31
