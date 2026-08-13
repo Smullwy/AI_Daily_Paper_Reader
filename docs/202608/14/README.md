@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-14</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-14 05:25 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -11,11 +11,10 @@
     </div>
     <div class="dpr-daily-brief-card">
       <span>今日简报（AI）</span>
-      <p>今日共生成 8 篇推荐（精读 5 篇，速读 3 篇）</p>
-<p>精读：《Continuous-Latent Predictive Modeling with Semantic Alignment for EEG-Language Foundation Models》（9.0/10）, 《A Multi-Scale Temporal Framework with Dynamic Fusion for EEG-Based Emotion Recognition》（8.0/10）</p>
-<p>速读：《Multi-View Relational Distillation for Spatial Reasoning with Vision-Language Models》（7.0/10）, 《Personalized Federated Learning via Variance-Aware Nonparametric Empirical Bayes》（6.0/10）, 《More Accurate, Less Human: Gestalt Grouping in Vision Models》（6.0/10）</p>
+      <p>今日从8篇论文中精读5篇、速读3篇，重点关注脑电与语言、情绪的融合建模。</p>
+<p>最值得看的是9.0分的《Continuous-Latent Predictive Modeling with Semantic Alignment for EEG-Language Foundation Models》：用连续潜在预测与语义对齐打通脑电到语言，以及8.0分的多尺度动态融合提升EEG情绪识别。</p>
+<p>建议读者优先追踪脑电大模型与语义对齐方向，再关注视觉-语言空间推理中的多视图关系蒸馏。</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/14/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -96,3 +95,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
