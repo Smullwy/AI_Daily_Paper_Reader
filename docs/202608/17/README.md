@@ -1,7 +1,7 @@
 <section class="dpr-daily-report">
   <div class="dpr-daily-hero">
     <div class="dpr-daily-kicker">Daily Research Brief</div>
-    <h3>最新日报</h3>
+    <h1>日报 · 2026-08-17</h1>
     <div class="dpr-daily-stats" aria-label="日报运行概览">
       <div class="dpr-daily-stat"><span>生成时间</span><strong>26-08-17 04:03 北京时间</strong></div>
       <div class="dpr-daily-stat"><span>运行状态</span><strong>成功</strong></div>
@@ -15,7 +15,6 @@
 <p>精读：《EEG-PRIME: Prototype-Aligned Representation Learning with Multi-Level Conditioning for EEG Decoding》（9.0/10）, 《EEG Decoding Using CNN and LSTM Network》（9.0/10）</p>
 <p>速读：《Kernel Methods for Learning Operators with Multiple Inputs and Outputs》（6.0/10）, 《Testing the limits of past-adapted explanations by post-endpoint randomisation: anticipatory EEG as a worked case》（6.0/10）</p>
     </div>
-    <a class="dpr-daily-detail-link" href="#/202608/17/README">打开完整日报</a>
   </div>
   <section class="dpr-daily-paper-section is-deep">
     <h2>精读区</h2>
@@ -87,3 +86,6 @@
 </article></div>
   </section>
 </section>
+
+---
+<div class="dpr-daily-keyboard-tip"><span>快捷切换</span><strong>使用键盘方向键可在日报/论文之间快速切换。</strong></div>
